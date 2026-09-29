@@ -32,11 +32,10 @@
 
 void ItSuiteLosSignal(void)
 {
-#if (LOS_FEATURE_ADAPTED == 1)
     ItLosSignal001();
     ItLosSignal002();
     ItLosSignal003();
     ItLosSignal004();
     ItLosSignal005();
-#endif
+    ItLosSignal006(); /* SignalMask/SignalWait 防御分支 + 中断上下文拒绝 */
 }

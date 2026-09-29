@@ -155,6 +155,19 @@ config PLATFORM_HI3322
     help
         HiSilicon HI3322 wearable SoC (RISC-V LinxCore).
 
+config PLATFORM_RK3568
+    bool "rk3568"
+    select ARCH_CORTEX_A55
+    help
+        Rockchip RK3568 (4x Cortex-A55, AArch64, GICv3) in AMP mode:
+        CPU0-2 run Linux (MICA), CPU3 runs liteos_m at EL1.
+
+config PLATFORM_HI3516DV300
+    bool "hi3516dv300"
+    select ARCH_CORTEX_A7
+    help
+        HiSilicon Hi3516DV300 (HiSpark Taurus) dev board (ARM Cortex-A7, GICv2).
+
 endchoice
 
 choice
@@ -236,6 +249,20 @@ config NET_LWIP
 config NET_LWIP_SACK
     bool
     default n
+
+endmenu
+
+######################## config options of openamp #########################
+menu "OpenAMP"
+
+config COMPONENT_OPENAMP
+    bool "Enable OpenAMP/rpmsg (open-amp + libmetal + mica)"
+    default n
+    help
+      Build open-amp v1.3.1 (third_party/open-amp) + libmetal v1.3.0
+      (third_party/libmetal) + the MICA slave library libmica
+      (kernel/liteos_m/compat/mcs) into the kernel for remoteproc/rpmsg
+      communication with Linux (MICA).
 
 endmenu
 
@@ -406,8 +433,7 @@ config MPU_ENABLE
     default n
 endmenu
 
-######################## config options for testsuites #####################
-rsource "testsuites/Kconfig"
+orsource "testsuites/Kconfig"
 
 menu "Stack Smashing Protector (SSP) Compiler Feature"
 

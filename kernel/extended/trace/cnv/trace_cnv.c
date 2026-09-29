@@ -33,7 +33,9 @@
 #include "los_trace.h"
 #include "los_task_pri.h"
 #include "los_sem.h"
+#include "los_sem_pri.h"
 #include "los_mux.h"
+#include "los_mux_pri.h"
 #include "los_queue.h"
 #include "los_event.h"
 #include "los_swtmr_pri.h"
@@ -109,46 +111,46 @@ STATIC VOID LOS_TraceQueueDelete(const LosQueueCB *queueCB)
 
 STATIC VOID LOS_TraceSemCreate(const LosSemCB *semCB)
 {
-    LOS_TRACE(SEM_CREATE, semCB->semID, 0, semCB->semCount);
+    LOS_TRACE(SEM_CREATE, semCB->semId, 0, semCB->semCount);
 }
 
 STATIC VOID LOS_TraceSemPost(const LosSemCB *semCB, const LosTaskCB *resumedTask)
 {
     (VOID)resumedTask;
-    LOS_TRACE(SEM_POST, semCB->semID, 0, semCB->semCount);
+    LOS_TRACE(SEM_POST, semCB->semId, 0, semCB->semCount);
 }
 
 STATIC VOID LOS_TraceSemPend(const LosSemCB *semCB, const LosTaskCB *runningTask, UINT32 timeout)
 {
     (VOID)runningTask;
-    LOS_TRACE(SEM_PEND, semCB->semID, semCB->semCount, timeout);
+    LOS_TRACE(SEM_PEND, semCB->semId, semCB->semCount, timeout);
 }
 
 STATIC VOID LOS_TraceSemDelete(const LosSemCB *semCB)
 {
-    LOS_TRACE(SEM_DELETE, semCB->semID, LOS_OK);
+    LOS_TRACE(SEM_DELETE, semCB->semId, LOS_OK);
 }
 
 STATIC VOID LOS_TraceMuxCreate(const LosMuxCB *muxCB)
 {
-    LOS_TRACE(MUX_CREATE, muxCB->muxID);
+    LOS_TRACE(MUX_CREATE, muxCB->muxId);
 }
 
 STATIC VOID LOS_TraceMuxPost(const LosMuxCB *muxCB)
 {
-    LOS_TRACE(MUX_POST, muxCB->muxID, muxCB->muxCount,
+    LOS_TRACE(MUX_POST, muxCB->muxId, muxCB->muxCount,
                 (muxCB->owner == NULL) ? 0xffffffff : muxCB->owner->taskId);
 }
 
 STATIC VOID LOS_TraceMuxPend(const LosMuxCB *muxCB, UINT32 timeout)
 {
-    LOS_TRACE(MUX_PEND, muxCB->muxID, muxCB->muxCount,
+    LOS_TRACE(MUX_PEND, muxCB->muxId, muxCB->muxCount,
                 (muxCB->owner == NULL) ? 0xffffffff : muxCB->owner->taskId, timeout);
 }
 
 STATIC VOID LOS_TraceMuxDelete(const LosMuxCB *muxCB)
 {
-    LOS_TRACE(MUX_DELETE, muxCB->muxID, muxCB->muxStat, muxCB->muxCount,
+    LOS_TRACE(MUX_DELETE, muxCB->muxId, muxCB->muxStat, muxCB->muxCount,
                 (muxCB->owner == NULL) ? 0xffffffff : muxCB->owner->taskId);
 }
 

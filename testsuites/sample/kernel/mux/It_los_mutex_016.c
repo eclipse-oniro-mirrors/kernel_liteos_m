@@ -40,7 +40,7 @@ static VOID HwiF01(void)
     TestHwiClear(HWI_NUM_TEST);
 
     ret = LOS_MuxPost(g_mutexTest);
-    ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_ERRNO_MUX_IN_INTERR, ret);
+    ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_ERRNO_MUX_PEND_INTERR, ret);
 
     g_testCount++;
 }

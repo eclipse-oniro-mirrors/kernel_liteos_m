@@ -54,10 +54,19 @@
 
 #define CLIC_INTCTL_DEF      0xFFu
 
-/* mcause CSR layout: bit31 = interrupt (1) vs exception (0);
- * bits 30..0 = interrupt/exception code. */
+/*
+ * mcause CSR layout on CLIC parts: bit31 = interrupt (1) vs exception (0);
+ * bits 11:0 = interrupt/exception code (standard domain); the upper half is
+ * NOT free — CLIC folds previous-state bits there (mpp at 30:28, fpp at
+ * 13:12). Board log 2026-09-24 (source repo, D-route hard-float build):
+ * machine-timer IRQ arrived with mcause 0xB800302B (fpp=11), so the old
+ * 31-bit mask turned ID 43 into 12331 — tick misrouted and the whole system
+ * ran ~100x slow in wall time (fpu R9: LOS_TickCountGet frozen at 1,
+ * Pressure003 at ~250ms per 256B RAM write). Mask with the standard code
+ * field only.
+ */
 #define MCAUSE_INT_BIT       0x80000000u
-#define MCAUSE_INT_ID_MASK   0x7FFFFFFFu
+#define MCAUSE_INT_ID_MASK   0xFFFu
 
 #define CLIC_CFG_REGISTER_BITS_NUM 8U
 #define CLIC_CFG_INTERRUPT_OFFSET  1U
@@ -86,7 +95,7 @@ static inline uint8_t clic_r8(volatile UINT8 *reg)
 STATIC UINT32 HalIrqClear(UINT32 hwiNum)
 {
     if (hwiNum >= OS_HWI_MAX_NUM) {
-        return LOS_NOK;
+        return LOS_ERRNO_HWI_NUM_INVALID; /* 对齐 HalIrqSetPrio 的 errno 语义 */
     }
     clic_w8(&CLIC_REG->intCtrl[hwiNum].ip, 0);
     return LOS_OK;
@@ -95,7 +104,7 @@ STATIC UINT32 HalIrqClear(UINT32 hwiNum)
 STATIC UINT32 HalIrqTrigger(UINT32 hwiNum)
 {
     if (hwiNum >= OS_HWI_MAX_NUM) {
-        return LOS_NOK;
+        return LOS_ERRNO_HWI_NUM_INVALID;
     }
     clic_w8(&CLIC_REG->intCtrl[hwiNum].ip, 1);
     return LOS_OK;
@@ -104,7 +113,7 @@ STATIC UINT32 HalIrqTrigger(UINT32 hwiNum)
 STATIC UINT32 HalIrqUnmask(UINT32 hwiNum)
 {
     if (hwiNum >= OS_HWI_MAX_NUM) {
-        return LOS_NOK;
+        return LOS_ERRNO_HWI_NUM_INVALID;
     }
     clic_w8(&CLIC_REG->intCtrl[hwiNum].ie, 1);
     return LOS_OK;
@@ -113,7 +122,7 @@ STATIC UINT32 HalIrqUnmask(UINT32 hwiNum)
 STATIC UINT32 HalIrqMask(UINT32 hwiNum)
 {
     if (hwiNum >= OS_HWI_MAX_NUM) {
-        return LOS_NOK;
+        return LOS_ERRNO_HWI_NUM_INVALID;
     }
     clic_w8(&CLIC_REG->intCtrl[hwiNum].ie, 0);
     return LOS_OK;

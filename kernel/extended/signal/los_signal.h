@@ -32,6 +32,7 @@
 #define _LOS_SIGNAL_H
 
 #include <signal.h>
+#include "los_error.h"
 #include "los_list.h"
 
 #ifdef __cplusplus
@@ -104,7 +105,23 @@ extern "C" {
  * @ingroup los_signal
  * Maximum signal supported num.
  */
+#ifndef LOS_SIGNAL_SUPPORT_MAX
 #define LOS_SIGNAL_SUPPORT_MAX           31
+#endif
+
+/*
+ * LOS_SignalWait returns the pending signal number (1..LOS_SIGNAL_SUPPORT_MAX)
+ * on success, or a LOS_ERRNO_SIGNAL_* code on failure. Both the kernel and the
+ * posix layer discriminate the two by range check, so every signal error code
+ * must stay greater than LOS_SIGNAL_SUPPORT_MAX.
+ */
+_Static_assert((LOS_ERRNO_SIGNAL_INVALID > LOS_SIGNAL_SUPPORT_MAX) &&
+               (LOS_ERRNO_SIGNAL_NO_MEMORY > LOS_SIGNAL_SUPPORT_MAX) &&
+               (LOS_ERRNO_SIGNAL_NO_SET > LOS_SIGNAL_SUPPORT_MAX) &&
+               (LOS_ERRNO_SIGNAL_TIMEOUT > LOS_SIGNAL_SUPPORT_MAX) &&
+               (LOS_ERRNO_SIGNAL_CAN_NOT_CALL > LOS_SIGNAL_SUPPORT_MAX) &&
+               (LOS_ERRNO_SIGNAL_PEND_INTERR > LOS_SIGNAL_SUPPORT_MAX),
+               "LOS_ERRNO_SIGNAL_* codes must be greater than LOS_SIGNAL_SUPPORT_MAX");
 
 /**
  * @ingroup los_signal

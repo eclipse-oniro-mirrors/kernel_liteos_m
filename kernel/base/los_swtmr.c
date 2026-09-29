@@ -64,6 +64,10 @@ LITE_OS_SEC_BSS UINT8 g_swtmrPeak;
 LITE_OS_SEC_BSS LosSwtmrCB *g_osSwtmrCBArray = NULL;        /* First address in Timer memory space */
 #ifndef LOSCFG_BASE_CORE_SWTMR_IN_ISR
 LITE_OS_SEC_BSS UINT8 *g_osSwtmrTaskStack[LOSCFG_KERNEL_CORE_NUM];
+#if defined(LOSCFG_TASK_STACK_STATIC_ALLOCATION)
+LITE_OS_SEC_BSS STATIC UINT8 g_swtmrTaskStack[LOSCFG_KERNEL_CORE_NUM][LOSCFG_BASE_CORE_TSK_SWTMR_STACK_SIZE]
+    LITE_OS_ATTR_ALIGN(LOSCFG_STACK_POINT_ALIGN_SIZE);
+#endif
 #endif
 LITE_OS_SEC_BSS LOS_DL_LIST     g_swtmrFreeList;            /* Free list of Software Timer */
 
@@ -77,97 +81,78 @@ LITE_OS_SEC_BSS STATIC LOS_DL_LIST g_swtmrSortlink[OS_TSK_SORTLINK_LEN];
 #define SWTMR_MAX_RUNNING_TICKS 2
 #define OS_SWTMR_MAX_TIMERID    ((0xFFFFFFFF / LOSCFG_BASE_CORE_SWTMR_LIMIT) * LOSCFG_BASE_CORE_SWTMR_LIMIT)
 
-STATIC VOID OsSwtmrDelete(SWTMR_CTRL_S *swtmr);
-STATIC UINT32 OsSwtmrDeleteOption(UINT32 swtmrId, BOOL isSync);
-
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-STATIC INLINE UINT32 OsSwtmrCalcAlignWait(SWTMR_CTRL_S *swtmr, const SWTMR_CTRL_S *alignSwtmr)
+STATIC INLINE UINT32 OsSwtmrGetWaitTime(LosSwtmrCB *alignSwtmr)
 {
-    SortLinkAttribute *sortLinkHead = &OsPercpuGet()->swtmrSortLink;
-    UINT64 remainTime = OsSortLinkGetTargetExpireTime(sortLinkHead, &alignSwtmr->sortList);
+    UINT64 remainTime = OsSortLinkGetTargetExpireTime(&OsPercpuGet()->swtmrSortLink, &alignSwtmr->sortList);
     if (remainTime == 0) {
-        return swtmr->interval;
+        return alignSwtmr->interval;
     }
 
 #ifdef LOSCFG_KERNEL_TICKLESS_GLOBAL
     remainTime = OS_SYS_CYCLE_TO_TICK(remainTime);
 #endif
-
-    UINT32 waitTime = (UINT32)remainTime;
-    if (alignSwtmr->interval < swtmr->interval) {
-        UINT32 used = alignSwtmr->interval - waitTime;
-        return swtmr->interval - used;
-    } else if (alignSwtmr->interval > swtmr->interval) {
-        if (waitTime % swtmr->interval == 0) {
-            return swtmr->interval;
-        }
-        return waitTime % swtmr->interval;
-    }
-    return waitTime;
+    return (UINT32)remainTime;
 }
 
-STATIC UINT32 OsSwtmrFindAlignTime(SWTMR_CTRL_S *swtmr)
+STATIC UINT32 OsSwtmrFindAlignTime(LosSwtmrCB *alignSwtmr)
 {
-    SWTMR_CTRL_S *minInLarge = (SWTMR_CTRL_S *)NULL;
-    SWTMR_CTRL_S *maxInLittle = (SWTMR_CTRL_S *)NULL;
-    UINT32 minInLargeVal = OS_NULL_INT;
-    UINT32 maxInLittleVal = OS_NULL_INT;
+    UINT32 sortIndex;
+    SortLinkList *sortList = NULL;
+    LOS_DL_LIST *headObject = NULL;
+    LOS_DL_LIST *curNode = NULL;
+    LosSwtmrCB *swtmr = NULL;
+    AlignRecordInfo minInLarge = {NULL, 0, OS_NULL_INT};
+    AlignRecordInfo maxInLittle = {NULL, 0, OS_NULL_INT};
     SortLinkAttribute *sortLinkHead = &OsPercpuGet()->swtmrSortLink;
+
+    if ((alignSwtmr->alignEnable != TRUE) || (alignSwtmr->isAligned != FALSE)) {
+        return alignSwtmr->interval;
+    }
+    alignSwtmr->isAligned = TRUE;
 
     OsSchedSortLinkAdvance(sortLinkHead);
 
-    for (UINT32 bucket = 0; bucket < OS_TSK_SORTLINK_LEN; bucket++) {
-        LOS_DL_LIST *listHead = sortLinkHead->sortLink + bucket;
-        if (LOS_ListEmpty(listHead)) {
-            continue;
+    for (sortIndex = 0; sortIndex < OS_TSK_SORTLINK_LEN; sortIndex++) {
+        headObject = sortLinkHead->sortLink + sortIndex;
+        LOS_DL_LIST_FOR_EACH(curNode, headObject) {
+            sortList = LOS_DL_LIST_ENTRY(curNode, SortLinkList, sortLinkNode);
+            swtmr = LOS_DL_LIST_ENTRY(sortList, LosSwtmrCB, sortList);
+
+            if (swtmr->alignEnable == FALSE) {
+                continue;
+            }
+
+            /* find same interval timer, direct return waiting time. */
+            if (swtmr->interval == alignSwtmr->interval) {
+                return OsSwtmrGetWaitTime(swtmr);
+            }
+
+            /* obtaining integer multiples swtmr */
+            if ((alignSwtmr->interval < swtmr->interval) && ((swtmr->interval % alignSwtmr->interval) == 0) &&
+               (minInLarge.repeateFreq > (swtmr->interval / alignSwtmr->interval))) {
+                minInLarge.swtmr = swtmr;
+                minInLarge.wakeTime = OsSwtmrGetWaitTime(swtmr);
+                minInLarge.repeateFreq = (swtmr->interval / alignSwtmr->interval);
+            } else if ((alignSwtmr->interval > swtmr->interval) && ((alignSwtmr->interval % swtmr->interval) == 0) &&
+                      (maxInLittle.repeateFreq > (UINT32)(alignSwtmr->interval / swtmr->interval))) {
+                maxInLittle.swtmr = swtmr;
+                maxInLittle.repeateFreq = (alignSwtmr->interval / swtmr->interval);
+                maxInLittle.wakeTime = OsSwtmrGetWaitTime(swtmr);
+            }
         }
-
-        LOS_DL_LIST *listObject = listHead->pstNext;
-        do {
-            SortLinkList *sortList = LOS_DL_LIST_ENTRY(listObject, SortLinkList, sortLinkNode);
-            SWTMR_CTRL_S *swtmrListNode = LOS_DL_LIST_ENTRY(sortList, SWTMR_CTRL_S, sortList);
-
-            if ((swtmrListNode->isAligned == 0) || (swtmrListNode->alignEnable == 0)) {
-                goto CONTINUE_NEXT_NODE;
-            }
-
-            if (swtmrListNode->interval == swtmr->interval) {
-                return OsSwtmrCalcAlignWait(swtmr, swtmrListNode);
-            }
-
-            if ((swtmr->canMultiple != 1) || (swtmrListNode->times == 0)) {
-                goto CONTINUE_NEXT_NODE;
-            }
-
-            if (swtmr->times == 0) {
-                goto RETURN_PERIOD;
-            }
-
-            if ((swtmrListNode->times >= swtmr->times) && ((swtmrListNode->times % swtmr->times) == 0)) {
-                if (minInLargeVal > (swtmrListNode->times / swtmr->times)) {
-                    minInLargeVal = swtmrListNode->times / swtmr->times;
-                    minInLarge = swtmrListNode;
-                }
-            } else if ((swtmrListNode->times < swtmr->times) && ((swtmr->times % swtmrListNode->times) == 0)) {
-                if (maxInLittleVal > (swtmr->times / swtmrListNode->times)) {
-                    maxInLittleVal = swtmr->times / swtmrListNode->times;
-                    maxInLittle = swtmrListNode;
-                }
-            }
-
-CONTINUE_NEXT_NODE:
-            listObject = listObject->pstNext;
-        } while (listObject != listHead);
     }
 
-    if (minInLarge != NULL) {
-        return OsSwtmrCalcAlignWait(swtmr, minInLarge);
-    } else if (maxInLittle != NULL) {
-        return OsSwtmrCalcAlignWait(swtmr, maxInLittle);
+    /* interval - useTime */
+    if (minInLarge.swtmr != NULL) {
+        /* if the number of cycles is exactly divided, set the number of alignSwtmr cycles directly. */
+        return (minInLarge.wakeTime % alignSwtmr->interval == 0) ?
+                alignSwtmr->interval : minInLarge.wakeTime % alignSwtmr->interval;
+    } else if (maxInLittle.swtmr != NULL) {
+        return alignSwtmr->interval - (maxInLittle.swtmr->interval - maxInLittle.wakeTime);
+    } else {
+        return alignSwtmr->interval;
     }
-
-RETURN_PERIOD:
-    return swtmr->interval;
 }
 #endif
 
@@ -177,18 +162,25 @@ RETURN_PERIOD:
  */
 LITE_OS_SEC_TEXT VOID OsSwtmrStart(LosSwtmrCB *swtmr)
 {
-    swtmr->state = OS_SWTMR_STATUS_TICKING;
+    UINT32 waitTicks;
 
-    UINT32 waitTicks = swtmr->interval;
+    if ((swtmr->overrun == 0) && ((swtmr->mode == LOS_SWTMR_MODE_ONCE) ||
+        (swtmr->mode == LOS_SWTMR_MODE_OPP) ||
+        (swtmr->mode == LOS_SWTMR_MODE_NO_SELFDELETE))) {
+        waitTicks = swtmr->expiry;
+    } else {
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    if ((swtmr->alignEnable == 1) && (swtmr->isAligned == 0)) {
-        swtmr->isAligned = 1;
         waitTicks = OsSwtmrFindAlignTime(swtmr);
-    }
+#else
+        waitTicks = swtmr->interval;
 #endif
+    }
+
     SortLinkAttribute *swtmrSortLink = &OsPercpuGet()->swtmrSortLink;
     OsSchedAddSortLink(swtmrSortLink, &swtmr->sortList, waitTicks);
     OsSchedUpdateExpireTime();
+
+    swtmr->state = OS_SWTMR_STATUS_TICKING;
 
 #ifdef LOSCFG_KERNEL_SMP
     swtmr->cpuid = ArchCurrCpuid();
@@ -218,8 +210,6 @@ STATIC INLINE VOID OsSwtmrDelete(LosSwtmrCB *swtmr)
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
     swtmr->alignEnable = FALSE;
     swtmr->isAligned = FALSE;
-    swtmr->canMultiple = 0;
-    swtmr->times = 0;
 #endif
 }
 
@@ -261,7 +251,7 @@ LITE_OS_SEC_TEXT VOID OsSwtmrTask(VOID)
     for (;;) {
         OsSysTaskSuspend(OsCurrTaskGet());
         while (OsPercpuGet()->expiryList.free != LOSCFG_BASE_CORE_SWTMR_LIMIT) {
-            swtmr = (SWTMR_CTRL_S *)OsPercpuGet()->expiryList.buf[OsPercpuGet()->expiryList.head];
+            swtmr = (LosSwtmrCB *)OsPercpuGet()->expiryList.buf[OsPercpuGet()->expiryList.head];
             LOS_IntRestore(intSave);
 
             if (swtmr->handler != NULL) {
@@ -299,7 +289,7 @@ LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsSwtmrTaskCreate(VOID)
 {
     UINT32 ret, swtmrTaskId;
     TSK_INIT_PARAM_S swtmrTask = {0};
-	UINT32 cpuid = ArchCurrCpuid();
+    UINT32 cpuid = ArchCurrCpuid();
 
     swtmrTask.pfnTaskEntry    = (TSK_ENTRY_FUNC)OsSwtmrTask;
     swtmrTask.uwStackSize     = LOSCFG_BASE_CORE_TSK_SWTMR_STACK_SIZE;
@@ -310,6 +300,7 @@ LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsSwtmrTaskCreate(VOID)
 #endif
 
 #ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
+    g_osSwtmrTaskStack[cpuid] = g_swtmrTaskStack[cpuid];
     ret = LOS_TaskCreateStatic(&swtmrTaskId, &swtmrTask, g_osSwtmrTaskStack[cpuid]);
 #else
     ret = LOS_TaskCreate(&swtmrTaskId, &swtmrTask);
@@ -329,8 +320,8 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsSwtmrInit(VOID)
     UINT16 index;
     UINT32 ret;
 
-    size = sizeof(SWTMR_CTRL_S) * LOSCFG_BASE_CORE_SWTMR_LIMIT;
-    SWTMR_CTRL_S *swtmr = (SWTMR_CTRL_S *)LOS_MemAlloc(m_aucSysMem0, size);
+    size = sizeof(LosSwtmrCB) * LOSCFG_BASE_CORE_SWTMR_LIMIT;
+    LosSwtmrCB *swtmr = (LosSwtmrCB *)LOS_MemAlloc(m_aucSysMem0, size);
     if (swtmr == NULL) {
         return LOS_ERRNO_SWTMR_NO_MEMORY;
     }
@@ -380,7 +371,7 @@ LITE_OS_SEC_TEXT BOOL OsSwtmrScan(VOID)
     LosSwtmrCB *swtmr = NULL;
     LOS_DL_LIST *listObject = NULL;
     SortLinkAttribute *swtmrSortLink = &OsPercpuGet()->swtmrSortLink;
-	BOOL needSchedule = FALSE;
+    BOOL needSchedule = FALSE;
 
     /*
      * it needs to be carefully coped with, since the swtmr is in specific sortlink
@@ -498,7 +489,7 @@ LITE_OS_SEC_TEXT STATIC VOID OsSwtmrStop(LosSwtmrCB *swtmr)
 LITE_OS_SEC_TEXT STATIC UINT32 OsSwtmrTimeGet(const LosSwtmrCB *swtmr)
 {
     SortLinkAttribute *sortLinkHeader = NULL;
-	UINT64 time;
+    UINT64 time;
 
 #ifdef LOSCFG_KERNEL_SMP
     /*
@@ -568,10 +559,6 @@ STATIC LITE_OS_SEC_TEXT_INIT UINT32 OsSwtmrCreate(UINT32 interval,
     (VOID)rouses;
     if ((sensitive == OS_SWTMR_ALIGN_INSENSITIVE) && (mode == LOS_SWTMR_MODE_PERIOD)) {
         swtmr->alignEnable = TRUE;
-        if ((swtmr->interval % LOS_COMMON_DIVISOR) == 0) {
-            swtmr->canMultiple = 1;
-            swtmr->times = swtmr->interval / LOS_COMMON_DIVISOR;
-        }
     }
     swtmr->isAligned = FALSE;
 #endif
@@ -644,9 +631,9 @@ LosSwtmrCB *OsSwtmrIdVerify(UINT32 swtmrId)
 }
 #endif
 
-STATIC INLINE VOID OsSwtmrSetTimerParms(SWTMR_CTRL_S *swtmr, UINT32 interval, UINT32 expiry)
+STATIC INLINE VOID OsSwtmrSetTimerParms(LosSwtmrCB *swtmr, UINT32 interval, UINT32 expiry)
 {
-#ifdef LOSCFG_COMPAT_POSIX
+#ifdef LOSCFG_POSIX_API
     if (expiry > 0) {
         swtmr->expiry = expiry;
         swtmr->interval = interval;
@@ -658,7 +645,7 @@ STATIC INLINE VOID OsSwtmrSetTimerParms(SWTMR_CTRL_S *swtmr, UINT32 interval, UI
         return;
     }
 #endif
-#ifdef LOSCFG_COMPAT_CMSIS
+#ifdef LOSCFG_KAL_CMSIS
     if (interval > 0) {
         swtmr->interval = interval;
         swtmr->expiry = interval;
@@ -873,7 +860,7 @@ LITE_OS_SEC_TEXT VOID OsSwtmrResponseTimeReset(VOID)
 
         while (listNext != listHead) {
             SortLinkList *sortList = LOS_DL_LIST_ENTRY(listNext, SortLinkList, sortLinkNode);
-            SWTMR_CTRL_S *swtmr = LOS_DL_LIST_ENTRY(sortList, SWTMR_CTRL_S, sortList);
+            LosSwtmrCB *swtmr = LOS_DL_LIST_ENTRY(sortList, LosSwtmrCB, sortList);
             OsDeleteNodeSortLink(sortList);
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
             swtmr->isAligned = FALSE;

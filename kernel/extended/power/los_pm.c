@@ -774,10 +774,8 @@ UINT32 OsPmInit(VOID)
     LOS_ListInit(&pm->lockList);
     (VOID)LOS_EventInit(&g_pmEvent);
 
-    ret = OsPmEnterHandlerSet(OsPmNormalSleep);
-    if (ret != LOS_OK) {
-        return ret;
-    }
+    LOS_LowpowerHookReg(OsPmNormalSleep);
+    ret = LOS_OK;
 
     OsPmSysctrlInit();
     pm->sysctrl = &g_sysctrl;

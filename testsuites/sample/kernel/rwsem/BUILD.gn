@@ -77,6 +77,7 @@ static_library("test_rwsem") {
     "It_los_rwsem_014.c",
     "It_los_rwsem_015.c",
     "It_los_rwsem_016.c",
+    "It_los_rwsem_017.c",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

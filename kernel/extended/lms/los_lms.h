@@ -48,6 +48,9 @@ VOID LOS_LmsDelCheckPool(const VOID *pool);
 VOID LOS_LmsAddrProtect(UINTPTR addrStart, UINTPTR addrEnd);
 VOID LOS_LmsAddrDisableProtect(UINTPTR addrStart, UINTPTR addrEnd);
 
+#define LOS_LmsCheckPoolAdd LOS_LmsAddCheckPool
+#define LOS_LmsCheckPoolDel LOS_LmsDelCheckPool
+
 #endif /* LOSCFG_KERNEL_LMS */
 
 #ifdef __cplusplus

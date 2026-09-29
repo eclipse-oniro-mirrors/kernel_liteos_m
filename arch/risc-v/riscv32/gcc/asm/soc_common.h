@@ -40,19 +40,29 @@
 #define INT_SIZE_ON_STACK  (32 * REGBYTES)
 
 /* ---- FPU support (enabled when LOSCFG_ARCH_FPU_DISABLE is not defined) ----
- * The ws63 chip (rv32imfc) has the single-precision F extension. FPU register
- * state (f0-f31 + fcsr) is saved/restored on top of the 32 integer slots in
- * the task/interrupt stack frame so all existing integer-reg offsets stay
- * unchanged.
+ * FPU register state (f0-f31 + fcsr) is saved/restored on top of the 32
+ * integer slots in the task/interrupt stack frame so all existing integer-reg
+ * offsets stay unchanged.
+ * With LOSCFG_ARCH_FPU_DOUBLE (D extension, FLEN=64, e.g. hi3322 rv32imfdc
+ * ilp32d) each FP register occupies a 64-bit slot saved via fld/fsd;
+ * otherwise (single-precision F extension, e.g. ws63 rv32imfc) it is a
+ * 32-bit slot saved via flw/fsw.
  * Stack layout (sp-relative, growing down):  slots 0..31 = integer regs,
  * slots 32..51 = FPU caller regs (ft0-ft11, fa0-fa7),
  * slots 52..63 = FPU callee regs (fs0-fs11),
  * slots 64..67 = fcsr + 3 reserved.
  */
 #ifndef LOSCFG_ARCH_FPU_DISABLE
+#ifdef LOSCFG_ARCH_FPU_DOUBLE
+/* D extension: FLEN=64, one 64-bit slot per FP register (RV32D). */
+#define FLREG                   fld
+#define FSREG                   fsd
+#define FPUREGBYTES             8
+#else
 #define FPUREGBYTES             4
 #define FSREG                   fsw
 #define FLREG                   flw
+#endif
 #define FPU_CALLER_REG_NUM      20  /* ft0-ft11, fa0-fa7 */
 #define FPU_CALLEE_REG_NUM      12  /* fs0-fs11 */
 #define FPU_STATUS_REG_NUM      4   /* fcsr, res[3] */

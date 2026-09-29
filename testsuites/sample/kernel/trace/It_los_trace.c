@@ -41,6 +41,7 @@ VOID ItSuiteLosTrace(VOID)
     ItLosTrace005();
     ItLosTrace008();
     ItLosTrace009();
+    ItLosTrace010();
     ItLosTrace006();
     ItLosTrace007();
 }

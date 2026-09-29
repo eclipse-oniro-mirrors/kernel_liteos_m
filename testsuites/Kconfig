@@ -37,10 +37,29 @@ config TEST
     bool
     default n
 
+# Single choice: a build has EITHER the normal test suites OR the fuzz-only
+# image, never both (Kconfig enforces the mutual exclusion).  Optional so a
+# product may also select neither (no test code at all).
+choice
+    prompt "Test suite mode"
+    optional
+    default KERNEL_TEST
+
 config KERNEL_TEST
     bool "Enable Kernel Test"
-    default n
     select TEST
+
+config KERNEL_FUZZ
+    bool "Enable Kernel Fuzz Test (fuzz-only image)"
+    select TEST
+    help
+      Fuzz-only build: the normal test suites are NOT compiled and the
+      image boots straight into the API fuzz suite (auto-runs at boot,
+      see the fuzz-only branch in osTest.c TestTaskEntry).  The suite/case
+      call paths follow the same single-choice rule (LOSCFG_KERNEL_TEST
+      vs LOSCFG_KERNEL_FUZZ).
+
+endchoice
 
 config KERNEL_TEST_FULL
     bool "Full Kernel Test"
@@ -55,7 +74,7 @@ config KERNEL_TEST_MANUAL
 config TEST_KERNEL_COVERAGE
     bool "Enable code coverage instrumentation (gcov)"
     default n
-    depends on KERNEL_TEST
+    depends on KERNEL_TEST || KERNEL_FUZZ
     depends on COMPILER_GCC
     help
       Requires KERNEL_TEST=y and a GCC toolchain. Answer Y to compile

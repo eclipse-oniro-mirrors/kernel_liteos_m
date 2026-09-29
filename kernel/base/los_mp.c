@@ -75,7 +75,7 @@ VOID OsMpCollectTasks(VOID)
 
     /* recursive checking all the available task */
     for (; taskId < g_taskMaxNum; taskId++) {
-        taskCB = &g_taskCBArray[taskId];
+        taskCB = &g_osTaskCBArray[taskId];
 
         if ((taskCB->taskStatus & OS_TASK_STATUS_ZOMBIE) ||
             (taskCB->taskStatus & OS_TASK_STATUS_RUNNING)) {

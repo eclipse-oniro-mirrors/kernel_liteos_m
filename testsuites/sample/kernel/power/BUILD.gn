@@ -34,6 +34,9 @@ static_library("test_pm") {
     "It_los_pm_001.c",
     "It_los_pm_002.c",
     "It_los_pm_003.c",
+    "It_los_pm_004.c",
+    "It_los_pm_005.c",
+    "It_los_pm_006.c",
   ]
 
   include_dirs = [ "$LITEOSTOPDIR/components/power" ]

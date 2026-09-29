@@ -35,8 +35,10 @@
 #include "los_debug.h"
 #include "los_memory_pri.h"
 #include "los_mux.h"
+#include "los_mux_pri.h"
 #include "los_queue.h"
 #include "los_sem.h"
+#include "los_sem_pri.h"
 #include "los_rwsem_pri.h"
 #include "los_init.h"
 #include "los_printf_pri.h"
@@ -128,7 +130,9 @@ LITE_OS_SEC_TEXT_INIT VOID LOS_Panic(const CHAR *fmt, ...)
     va_start(ap, fmt);
 #if (LOSCFG_KERNEL_PRINTF == 1)
     UartVprintf(fmt, ap);
-#elif (LOSCFG_KERNEL_PRINTF > 1)
+#elif (LOSCFG_KERNEL_PRINTF == 2)
+    vprintf(fmt, ap);
+#elif (LOSCFG_KERNEL_PRINTF > 2)
     {
         CHAR buf[256];
         va_list apCopy;

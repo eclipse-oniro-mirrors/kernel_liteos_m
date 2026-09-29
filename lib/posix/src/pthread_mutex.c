@@ -35,6 +35,7 @@
 #include <securec.h>
 #include "los_compiler.h"
 #include "los_mux.h"
+#include "los_mux_pri.h"
 #include "errno.h"
 #include "los_debug.h"
 #include "los_hook.h"
@@ -55,7 +56,7 @@ static inline int MapError(UINT32 err)
     switch (err) {
         case LOS_OK:
             return 0;
-        case LOS_ERRNO_MUX_IN_INTERR:
+        case LOS_ERRNO_MUX_PEND_INTERR:
             return EPERM;
         case LOS_ERRNO_MUX_PEND_IN_LOCK:
             return EDEADLK;
@@ -299,7 +300,7 @@ STATIC UINT32 CheckMutexAttr(const pthread_mutexattr_t *attr)
 STATIC UINT32 OsMuxPreCheck(const pthread_mutex_t *mutex, const LosTaskCB *runTask)
 {
     if ((mutex == NULL) || (mutex->magic != _MUX_MAGIC) ||
-        ((mutex->handle != _MUX_INVALID_HANDLE) && (mutex->handle >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT))) {
+        ((mutex->handle != _MUX_INVALID_HANDLE) && (GET_MUX_INDEX(mutex->handle) >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT))) {
         return EINVAL;
     }
 
@@ -330,7 +331,7 @@ STATIC UINT32 OsMuxPendForPosix(pthread_mutex_t *mutex, UINT32 timeout)
     muxPended = GET_MUX(muxHandle);
     intSave = LOS_IntLock();
 
-    if (muxPended->muxStat == OS_MUX_UNUSED) {
+    if (muxPended->muxStat == LOS_UNUSED) {
         LOS_IntRestore(intSave);
         OS_RETURN_ERROR(LOS_ERRNO_MUX_INVALID);
     }
@@ -402,7 +403,7 @@ STATIC UINT32 OsMuxPostForPosix(pthread_mutex_t *mutex)
     muxPosted = GET_MUX(muxHandle);
     intSave = LOS_IntLock();
 
-    if (muxPosted->muxStat == OS_MUX_UNUSED) {
+    if (muxPosted->muxStat == LOS_UNUSED) {
         LOS_IntRestore(intSave);
         OS_RETURN_ERROR(LOS_ERRNO_MUX_INVALID);
     }
@@ -436,11 +437,11 @@ STATIC UINT32 OsMuxPostForPosix(pthread_mutex_t *mutex)
                 LOS_BitmapClr(&runningTask->priBitMap, resumedTask->priority);
             }
         } else if (runningTask->priBitMap != 0) {
-            OsMuxPostOpSub(runningTask, muxPosted);
+            OsMuxPostOpSub(runningTask, (MuxBaseCB *)muxPosted);
         }
 #else
         if (runningTask->priBitMap != 0) {
-            OsMuxPostOpSub(runningTask, muxPosted);
+            OsMuxPostOpSub(runningTask, (MuxBaseCB *)muxPosted);
         }
 #endif
 

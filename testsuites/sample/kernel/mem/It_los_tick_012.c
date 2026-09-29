@@ -142,7 +142,7 @@ static UINT32 TestCase(VOID)
 
     /* F-Inv: timer=NULL 且 handler 非空 → 同样被 IS_RUNNING 拒绝(los_tick.c:243-245),
        handler 设置路径(:247-254)不可达,真实 tickHandler 不受影响 */
-    ret = LOS_TickTimerRegister(NULL, ItTickDummyHandler);
+    ret = LOS_TickTimerRegister(NULL, (HWI_PROC_FUNC)ItTickDummyHandler);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_SYS_TIMER_IS_RUNNING, ret);
 
     /* F-Inv: handler 返回当前频率(同值) → LOS_ERRNO_SYS_CLOCK_INVALID

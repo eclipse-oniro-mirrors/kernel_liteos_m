@@ -3,7 +3,7 @@
  * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided that the following conditions are met:
+ * are permitted under the following conditions are met:
  *
  * 1. Redistributions of source code must retain the above copyright notice, this list of
  *    conditions and the following disclaimer.
@@ -24,7 +24,7 @@
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
  * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * WHETHER IN CONTRACT, STRICT LIABILITY, TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
@@ -40,10 +40,20 @@
 #include "los_task.h"
 
 #ifdef __cplusplus
-#if __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-#endif /* __cplusplus */
+
+/**
+ * @ingroup los_sem
+ * Semaphore control block.
+ */
+typedef struct LosSemCB LosSemCB;
+
+/**
+ * @ingroup los_sem
+ * Max count of counting semaphores
+ */
+#define LOS_SEM_COUNT_MAX  0xFFFE
 
 /**
  * @ingroup los_sem
@@ -86,34 +96,33 @@ extern "C" {
 #define LOS_ERRNO_SEM_ALL_BUSY     LOS_ERRNO_OS_ERROR(LOS_MOD_SEM, 0x03)
 
 /**
-* @ingroup los_sem
-* Semaphore error code: Invalid parameter that specifies the timeout interval.
-*
-* Value: 0x02000704
-*
-*
-* Solution: Change the passed-in parameter value to a valid nonzero value.
-*/
+ * @ingroup los_sem
+ * Semaphore error code: Invalid parameter that specifies the timeout interval.
+ *
+ * Value: 0x02000704
+ *
+ * Solution: Change the passed-in parameter value to a valid nonzero value.
+ */
 #define LOS_ERRNO_SEM_UNAVAILABLE  LOS_ERRNO_OS_ERROR(LOS_MOD_SEM, 0x04)
 
 /**
-* @ingroup los_sem
-* Semaphore error code: The API is called during an interrupt, which is forbidden.
-*
-* Value: 0x02000705
-*
-* Solution: Do not call the API during an interrupt.
-*/
+ * @ingroup los_sem
+ * Semaphore error code: The API is called during an interrupt, which is forbidden.
+ *
+ * Value: 0x02000705
+ *
+ * Solution: Do not call the API during an interrupt.
+ */
 #define LOS_ERRNO_SEM_PEND_INTERR  LOS_ERRNO_OS_ERROR(LOS_MOD_SEM, 0x05)
 
 /**
-* @ingroup los_sem
-* Semaphore error code: The task is unable to request a semaphore because task scheduling is locked.
-*
-* Value: 0x02000706
-*
-* Solution: Do not call LOS_SemPend when task scheduling is locked.
-*/
+ * @ingroup los_sem
+ * Semaphore error code: The task is unable to request a semaphore because task scheduling is locked.
+ *
+ * Value: 0x02000706
+ *
+ * Solution: Do not call LOS_SemPend when task scheduling is locked.
+ */
 #define LOS_ERRNO_SEM_PEND_IN_LOCK LOS_ERRNO_OS_ERROR(LOS_MOD_SEM, 0x06)
 
 /**
@@ -177,12 +186,10 @@ extern "C" {
  * <li>None.</li>
  * </ul>
  *
- * @param count       [IN]  Initial number of available semaphores. The value range is [0, OS_SEM_COUNTING_MAX_COUNT).
+ * @param count       [IN]  Initial number of available semaphores. The value range is [0, LOS_SEM_COUNT_MAX).
  * @param semHandle   [OUT] ID of the semaphore control structure that is initialized.
  *
  * @retval #LOS_ERRNO_SEM_PTR_NULL     The passed-in semHandle value is NULL.
- * @retval #LOS_ERRNO_SEM_OVERFLOW     The passed-in count value is greater than the maximum number of available
- * semaphores.
  * @retval #LOS_ERRNO_SEM_ALL_BUSY     No semaphore control structure is available.
  * @retval #LOS_OK   The semaphore is successfully created.
  * @par Dependency:
@@ -263,7 +270,7 @@ extern UINT32 LOS_SemDelete(UINT32 semHandle);
  * @retval #LOS_ERRNO_SEM_UNAVAILABLE      There is no available semaphore resource.
  * @retval #LOS_ERRNO_SEM_PEND_INTERR      The API is called during an interrupt, which is forbidden.
  * @retval #LOS_ERRNO_SEM_PEND_IN_LOCK     The task is unable to request a semaphore because task scheduling is locked.
- * @retval #LOS_ERRNO_SEM_TIMEOUT	 The request for the semaphore times out.
+ * @retval #LOS_ERRNO_SEM_TIMEOUT          The request for the semaphore times out.
  * @retval #LOS_OK   The semaphore request succeeds.
  * @par Dependency:
  * <ul><li>los_sem.h: the header file that contains the API declaration.</li></ul>
@@ -296,96 +303,8 @@ extern UINT32 LOS_SemPost(UINT32 semHandle);
 
 extern UINT32 LOS_SemGetValue(UINT32 semHandle, INT32 *currVal);
 
-/**
- * @ingroup los_sem
- * Semaphore control structure.
- */
-typedef struct {
-    UINT16 semStat;      /**< Semaphore state */
-    UINT16 semCount;     /**< Number of available semaphores */
-    UINT16 maxSemCount;  /**< Max number of available semaphores */
-    UINT16 semID;        /**< Semaphore control structure ID */
-    LOS_DL_LIST semList; /**< Queue of tasks that are waiting on a semaphore */
-} LosSemCB;
-
-/**
- * @ingroup los_config
- * Max count of binary semaphores.
- */
-#define OS_SEM_BINARY_MAX_COUNT     1
-
-/**
- * @ingroup los_sem
- * The semaphore is not in use.
- */
-#define OS_SEM_UNUSED               0
-
-/**
- * @ingroup los_sem
- * The semaphore is used.
- */
-#define OS_SEM_USED                 1
-
-/**
- * @ingroup los_sem
- * Obtain the head node in a semaphore doubly linked list.
- */
-#define GET_SEM_LIST(ptr) LOS_DL_LIST_ENTRY(ptr, LosSemCB, semList)
-
-extern LosSemCB *g_allSem;
-/**
- * @ingroup los_sem
- * Obtain a semaphore ID.
- *
- */
-#define GET_SEM(semid) (((LosSemCB *)g_allSem) + (semid))
-
-/**
- * @ingroup los_sem
- * @brief Initialize the  Semaphore doubly linked list.
- *
- * @par Description:
- * This API is used to initialize the  Semaphore doubly linked list.
- * @attention
- * <ul>
- * <li>None.</li>
- * </ul>
- *
- * @param None.
- *
- * @retval UINT32   Initialization result.
- * @par Dependency:
- * <ul><li>los_sem.h: the header file that contains the API declaration.</li></ul>
- * @see None.
- */
-extern UINT32 OsSemInit(VOID);
-
-/**
- * @ingroup los_sem
- * @brief Create Semaphore.
- *
- * @par Description:
- * This API is used to create Semaphore.
- * @attention
- * <ul>
- * <li>None.</li>
- * </ul>
- *
- * @param  count      [IN]Type  #UINT16 Semaphore count.
- * @param  maxCount   [IN]Type  #UINT16 Max semaphore count.
- * @param  semHandle  [OUT]Type #UINT32 * Index of semaphore.
- *
- * @retval UINT32   Create result.
- * @par Dependency:
- * <ul><li>los_sem.h: the header file that contains the API declaration.</li></ul>
- * @see None.
- */
-UINT32 OsSemCreate(UINT16 count, UINT16 maxCount, UINT32 *semHandle);
-
 #ifdef __cplusplus
-#if __cplusplus
 }
-#endif /* __cplusplus */
 #endif /* __cplusplus */
 
 #endif /* _LOS_SEM_H */

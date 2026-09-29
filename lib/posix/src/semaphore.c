@@ -32,6 +32,7 @@
 #include <stdint.h>
 #include <semaphore.h>
 #include <errno.h>
+#include <limits.h>
 #include "los_sem.h"
 #include "time_internal.h"
 
@@ -71,7 +72,7 @@ int sem_init(sem_t *sem, int shared, unsigned int value)
     UINT32 ret;
 
     (VOID)shared;
-    if ((sem == NULL) || (value >= OS_SEM_COUNTING_MAX_COUNT)) {
+    if ((sem == NULL) || (value > LOS_SEM_COUNT_MAX)) {
         errno = EINVAL;
         return -1;
     }

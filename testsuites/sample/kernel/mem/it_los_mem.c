@@ -198,16 +198,30 @@ VOID ItSuiteLosMem(void)
     ItLosTick011();
     ItLosTick012();
     ItLosTick013();
+#if defined(FUZZ_BUG_S06_OSEVFLAG_DBLDEL) && FUZZ_BUG_S06_OSEVFLAG_DBLDEL == 1
+    /* BUG 宏见 bug_isolate.h: 修复前隔离(不注册不执行), 修复后置 1 恢复 */
+    ItLosTick014();
+#endif
+    ItLosTick015(); /* LOS_SleepTicksGet 安全版(规避问题13的延时态任务删除) */
+    ItLosTick016(); /* OsCpuTick2MS/OsCpuTick2US NULL 拒绝 + 换算契约 */
+    ItLosTick017(); /* LOS_TickTimerRegister 参数校验分支 */
     ItLosMem301();
     ItLosMem310(); /* LOS_Membox Alloc/Free lifecycle + StatisticsGet (membox) */
     ItLosMem311(); /* LOS_MemboxClr (membox) */
     ItLosMem312(); /* SLAB_MSK pool via LOS_MemPoolInit (slab extension) */
     ItLosMem313(); /* bestfit_little defensive behaviors (bestfit_little only) */
     ItLosMem314(); /* bestfit_little LOS_MemRealloc boundaries (bestfit_little only) */
+    ItLosMem316(); /* MemInit/PoolInit 校验分支 + Show/Debug 接口(tlsf/bestfit) */
+    ItLosMem317(); /* bestfit TaskIdGet/NodeSizeCheck/Mrealloc/Mfree 分支 */
+#endif
+#if (LOS_KERNEL_TEST_MANUAL == 1) && defined(LOSCFG_KERNEL_MEM_BESTFIT)
+    /* DESTRUCTIVE/NON-RETURNING: heap corruption dump chain, manual only */
+    ItLosMem315();
 #endif
 #ifdef LOSCFG_MEM_MUL_POOL_ALLOC
     ItLosMulPool001();
     ItLosMulPool002();
+    ItLosMulPool003(); /* LOS_MulPoolRealloc/LOS_MulPoolFree 分支 */
 #endif
     MemEnd();
 }

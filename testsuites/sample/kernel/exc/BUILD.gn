@@ -43,6 +43,7 @@ static_library("test_exc") {
     "It_los_exc_009.c",
     "It_los_exc_010.c",
     "It_los_exc_011.c",
+    "It_los_exc_012.c",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

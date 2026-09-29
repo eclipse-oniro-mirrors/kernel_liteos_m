@@ -143,7 +143,7 @@ UINT32 QueueUsedCountGet(VOID)
     return count;
 }
 
-extern LosTaskCB *g_taskCBArray;
+extern LosTaskCB *g_osTaskCBArray;
 UINT32 TaskUsedCountGet(VOID)
 {
     UINT32 intSave;
@@ -151,7 +151,7 @@ UINT32 TaskUsedCountGet(VOID)
 
     intSave = LOS_IntLock();
     for (UINT32 index = 0; index < LOSCFG_BASE_CORE_TSK_LIMIT; index++) {
-        LosTaskCB *taskCB = ((LosTaskCB *)g_taskCBArray) + index;
+        LosTaskCB *taskCB = ((LosTaskCB *)g_osTaskCBArray) + index;
         if (taskCB->taskStatus & OS_TASK_STATUS_UNUSED) {
             count++;
         }
@@ -181,7 +181,7 @@ void TestKernel(void)
 #if (LOS_KERNEL_IPC_SEM_TEST == 1)
     ItSuiteLosSem();
 #endif
-#if (LOSCFG_BASE_IPC_RWSEM == 1)
+#if (LOS_KERNEL_IPC_RWSEM_TEST == 1)
     ItSuiteLosRwsem();
 #endif
 #if (LOS_KERNEL_CORE_SWTMR_TEST == 1)
@@ -219,6 +219,10 @@ void TestKernel(void)
     ItSuiteLosMisc();
 #endif
 
+#if (LOS_KERNEL_CACHE_TEST == 1)
+    ItSuiteLosCache();
+#endif
+
 #if (LOS_KERNEL_TRACE_TEST == 1)
     ItSuiteLosTrace();
 #endif
@@ -229,6 +233,10 @@ void TestKernel(void)
 
 #if (LOS_KERNEL_SHELL_TEST == 1)
     ItSuiteLosShell();
+#endif
+
+#if (LOS_KERNEL_TCB_VERIFY_TEST == 1)
+    ItSuiteLosTcbVerify();
 #endif
 }
 
@@ -277,6 +285,20 @@ VOID TestTaskEntry(VOID)
 
     OsTestCalibrateBusyDelay();
 
+    /* Let the idle task finish reclaiming boot-time deferred resources
+     * (task stacks etc.) so the first case's ResLeak baseline is stable:
+     * without this the reclamation lands inside the first case and shows
+     * up as a bogus before/after memUsed delta. */
+    LOS_TaskDelay(5);
+
+    /* Test suites: the Kconfig choice compiles EITHER the fuzz-only suites
+     * (each case is a TEST_ADD_CASE'd function that mutates params via
+     * DT_SetGet* and calls the target API directly, see sample/fuzz/) OR
+     * the normal test suites, never both. */
+#ifdef LOSCFG_KERNEL_FUZZ
+    ItSuiteFuzzAll();
+#endif
+#ifdef LOSCFG_KERNEL_TEST
     TestKernel();
 
 #if (LOS_POSIX_TEST == 1)
@@ -290,11 +312,16 @@ VOID TestTaskEntry(VOID)
 #if(LOS_XTS_TEST == 1)
     XtsTestSuite();
 #endif
+#endif
 
     /* The log is used for testing entrance guard, please do not make any changes. */
     dprintf("\nfailed count:%d, success count:%d\n", g_failResult, g_passResult);
     dprintf("[Crash-Skip] count:%d\n", g_crashResult);
     dprintf("[ResLeak] total resource leak count: %u\n", OsResLeakGetTotalLeakCnt());
+#ifdef LOSCFG_KERNEL_FUZZ
+    extern UINT32 FuzzGuardRedirectCount(void);   /* fuzz_common.c */
+    dprintf("[FuzzGuard] redirected %u mutations away from live resources\n", FuzzGuardRedirectCount());
+#endif
     IcFilterReportNotFound();
     IcResumeReport();
     ICunitPrintFailLogs();
@@ -469,9 +496,7 @@ VOID TestHwiClear(UINT32 hwiNum)
 VOID TestHwiTrigger(UINT32 hwiNum)
 {
     (VOID)hwiNum;
-#if (LOS_FEATURE_ADAPTED == 1)
     HalIrqEnable(hwiNum);
-#endif
 }
 
 UINT32 TestHwiDelete(UINT32 hwiNum)

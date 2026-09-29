@@ -38,14 +38,13 @@ VOID ItSuiteLosCpup(VOID)
     ItLosCpup001();
     ItLosCpup002();
     ItLosCpup004();
-#if (LOS_FEATURE_ADAPTED == 1)
     ItLosCpup003();
     ItLosCpup005();
     ItLosCpup006();
-    ItLosCpup009(); /* 依赖 IRQ 统计(qemu 开 CPUP_INCLUDE_IRQ),同 005 仅 qemu */
-#endif
+    ItLosCpup009(); 
     ItLosCpup007();
     ItLosCpup008();
+    ItLosCpup010(); /* LOS_TaskInfoMonitor 任务级 CPUP 聚合 */
 }
 
 #endif

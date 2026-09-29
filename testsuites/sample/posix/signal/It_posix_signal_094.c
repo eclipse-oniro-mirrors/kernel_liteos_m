@@ -20,12 +20,13 @@
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
  * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
- * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
@@ -33,20 +34,25 @@
 #include <pthread.h>
 
 /*
- * BUG_08(20260912 实测定性, 暂隔离): posix sigwait 族唤醒 mask 位序错位 ——
- *  1) musl porting signal.h:206 sigaddset 置位 1U<<sig(SIGUSR2=12 -> 0x1000);
+ * BUG_08(20260912 实测定性, 20260923 已修复): posix sigwait 族唤醒 mask 位序错位 ——
+ *  1) musl porting liteos_m signal.h sigaddset 原置位 1U<<sig(SIGUSR2=12 -> 0x1000);
  *  2) 内核 los_signal.h:101 LOS_SIGNAL_MASK(sigNo)=1U<<(sigNo-1)(12 -> 0x800);
- *  3) 等待任务经 sigwaitinfo->sigtimedwait->LOS_SignalWait 将 posix 位序 set 灌入
- *     sigCB->sigWaitFlag(SignalTimedWait:347), 而 SignalSend 唤醒判断
- *     (los_signal.c:210) 用 LOS_SIGNAL_MASK 位序 -> 永不命中 -> 等待任务永睡;
- *  4) 实证: qemu 探针 "[094K] WAIT set but mask miss waitFlag=1000 sigNo=12"。
- * 影响面: sigwait/sigwaitinfo/sigtimedwait 的阻塞等待路径全部失效(等待者永睡);
- *         sigwait 的 timeout=0 假成功(signal.c:117)与 BUG_03 疑点疑与此同根因。
+ *  3) 位序不一致 -> LOS_SignalWait 灌入 sigCB->sigWaitFlag 的位(SignalTimedWait:
+ *     los_signal.c:350)与 SignalSend 唤醒判断(los_signal.c:210)所用
+ *     LOS_SIGNAL_MASK 位永不重合 -> 等待任务永睡;
+ *  4) qemu 内核探针实证 "[094K] WAIT set but mask miss waitFlag=1000 sigNo=12"。
+ *
+ * 修复方案(已落地, 位序统一为内核/POSIX 标准: sigset 位 = 信号号 - 1):
+ *  1) musl porting signal.h sigaddset/sigdelset/sigismember 改置 1U<<(sig-1),
+ *     posix 层 set 与内核 LOS_SIGNAL_MASK 位序一致(内核零改动, 含 los_signal.c:396
+ *     CLZ 信号号恢复逻辑);
+ *  2) lib signal.c sigtimedwait/sigwaitinfo 成功改返回信号号(原误判 -1/EINVAL,
+ *     机理见 Testcase094 断言注释; sigwait 改 LOS_WAIT_FOREVER 真阻塞, NULL/空 set
+ *     返回 -1/EINVAL);
+ * 影响面: sigwait/sigwaitinfo/sigtimedwait 阻塞等待路径(原先等待者永睡);
  * 不受影响: signal() 注册 handler 后 kill 的异步注入模式(090 已验证)。
- * 修复方向: 统一位序(posix 层 set 入内核前转换, 或内核判断按 1U<<sigNo)。
- * 修复后删除本隔离恢复 ItPosixSignal094 执行。
+ * 本用例已恢复执行, 作为回归看护用例常跑; BUG_03(091) 留待复测是否同根消解。
  */
-#ifndef PRODUCT_BUG_ISOLATE
 #include <errno.h>
 
 /* 跨任务同步方案: 参照 It_posix_signal_090.c(sender 子任务向主任务发信号)反向使用:
@@ -88,17 +94,13 @@ static VOID *WaiterTask094(VOID *arg)
      * -> SignalTimedWait 挂入 g_waitSignalList(los_signal.c:353) */
     ret = sigwaitinfo(&set, &info);
 
-    /* F-Pos: POSIX 契约——成功等到信号后 info 回填所等信号(当前实现正确) */
-    ICUNIT_GOTO_EQUAL(info.si_signo, SIGUSR2, info.si_signo, EXIT);
+    /* F-Pos: POSIX 契约——sigwaitinfo 成功返回所等信号号(位序统一 + 返回语义
+     * 修复后成立; 修复前 LOS_SignalWait 成功返回正数信号号, 而 sigtimedwait 以
+     * ret==LOS_OK(0) 判成功恒假 -> 误回 -1/EINVAL) */
+    ICUNIT_GOTO_EQUAL(ret, SIGUSR2, ret, EXIT);
 
-    /* 契约固化(当前错误行为, 内核修复后翻转本组断言):
-     * POSIX 期望 sigwaitinfo 成功返回信号号(此处应==SIGUSR2), 当前实现返回 -1, 机理链:
-     * 1) signal.c:136-137 sigtimedwait 以 ret==LOS_OK(0) 判成功;
-     * 2) LOS_SignalWait 成功时返回正数信号号(los_signal.c:411 return sigNo), 恒非 0;
-     * 3) 判成功永假 -> 走 else 分支 -> errno=EINVAL -> 返回 -1(info 已正确回填,
-     *    仅返回值符号语义错误; 修复方向: 成功分支改为返回信号号) */
-    ICUNIT_GOTO_EQUAL(ret, -1, ret, EXIT);
-    ICUNIT_GOTO_EQUAL(errno, EINVAL, errno, EXIT);
+    /* F-Pos: 成功等到信号后 info 回填所等信号 */
+    ICUNIT_GOTO_EQUAL(info.si_signo, SIGUSR2, info.si_signo, EXIT);
 
     g_sig094WaitDone = 1;
 
@@ -163,45 +165,39 @@ EXIT_ATTR:
  * @tc.name      sigwait invalid-parameter stub contract
  * @tc.desc      [C- SOFTWARE -0200]
  */
-/* 契约固化(项目先例 testIpcSem_Named001): sigwait 对非法入参当前假成功, 机理链:
- * 1) signal.c:117 sigwait 以 timeout=0 调 LOS_SignalWait(不等待);
- * 2) los_signal.c:340-343 SignalTimedWait 见 timeout==0 立即返回
- *    LOS_ERRNO_SIGNAL_INVALID(LOS_ERRNO_OS_FATAL 族 UINT32 大正数错误码);
- * 3) signal.c:118 以 ret<0 判失败——错误码为 UINT32 大正数, int 化后仍>0,
- *    判失败为假 -> 落入 *sig = info.si_signo(局部 {0} 初始化, 内核未回填, 恒 0)
- *    且返回 0(假成功);
- * POSIX 期望: sigwait 应阻塞等待信号到达; 对 NULL/空 set 应失败返回 -1 并置 EINVAL;
- * 修复方向: timeout 传 LOS_WAIT_FOREVER + 返回码判断改为错误码比较(而非 ret<0);
- * 内核修复后翻转本组断言 */
-/* 用例简要描述: sigwait 非法入参(NULL/空集)假成功契约固化 */
+/* 契约固化(修复前为"假成功"): 原 signal.c sigwait 以 timeout=0 调 LOS_SignalWait,
+ * SignalTimedWait 见 timeout==0 立即返回 LOS_ERRNO_SIGNAL_INVALID(LOS_ERRNO_OS_FATAL
+ * 族 UINT32 大正数), 原 ret<0 判失败恒假 -> 返回 0 且 *sig 恒 0(假成功);
+ * 修复后 sigwait 以 LOS_WAIT_FOREVER 真阻塞等待, 对 NULL/sigemptyset 空集在
+ * LOS_SignalWait:378 早返 INVALID -> 本层映射 errno=EINVAL 返回 -1 */
+/* 用例简要描述: sigwait 非法入参(NULL/空集) -> -1/EINVAL */
 VOID ItPosixSignal094(VOID)
 {
     TEST_ADD_CASE("ItPosixSignal094", Testcase094, TEST_LIB, TEST_POSIX, TEST_LEVEL2, TEST_FUNCTION);
 }
 
-#endif /* PRODUCT_BUG_ISOLATE */
 static UINT32 Testcase095(VOID)
 {
     sigset_t set;
     int sig;
     int ret;
 
-    /* F-Inv: set=NULL -> LOS_SignalWait:378 早返 INVALID -> 假成功: 返回 0 且 *sig 被填 0 */
-    sig = -1; /* 预置非 0, 观察内核是否真实回填信号号 */
+    /* F-Inv: set=NULL -> LOS_SignalWait:378 早返 INVALID -> 本层映射 -1/EINVAL
+       (修复前假成功: 返回 0 且 *sig 被填 0) */
+    sig = -1; /* 预置非 0, 观察内核是否真实回填信号号(应保持 -1, 未回填) */
     ret = sigwait(NULL, &sig);
-    ICUNIT_ASSERT_EQUAL(ret, 0, ret); /* 内核修复后翻转本断言(期望 -1/EINVAL 或阻塞语义) */
-    ICUNIT_ASSERT_EQUAL(sig, 0, sig); /* 内核修复后翻转本断言(期望真实信号号) */
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    ICUNIT_ASSERT_EQUAL(errno, EINVAL, errno);
 
-    /* F-Inv: 空 set(*set==0) -> LOS_SignalWait:378 早返 INVALID -> 同样假成功 */
+    /* F-Inv: 空 set(*set==0) -> LOS_SignalWait:378 早返 INVALID -> -1/EINVAL */
     (VOID)sigemptyset(&set);
     sig = -1;
     ret = sigwait(&set, &sig);
-    ICUNIT_ASSERT_EQUAL(ret, 0, ret); /* 内核修复后翻转本断言 */
-    ICUNIT_ASSERT_EQUAL(sig, 0, sig); /* 内核修复后翻转本断言 */
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    ICUNIT_ASSERT_EQUAL(errno, EINVAL, errno);
 
     return LOS_OK;
 }
-
 
 VOID ItPosixSignal095(VOID)
 {

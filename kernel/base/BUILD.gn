@@ -39,7 +39,7 @@ kernel_module(module_name) {
     "sched/sched_sq/los_priqueue.c",
     "los_sortlink.c",
     "los_swtmr.c",
-    "los_swtmr_debug.c",
+    "debug/los_swtmr_debug.c",
     "los_misc.c",
     "los_percpu.c",
     "los_task.c",
@@ -76,13 +76,16 @@ kernel_module(module_name) {
   }
 
   if (defined(LOSCFG_DEBUG_MUTEX)) {
-    sources += [ "los_mux_debug.c" ]
+    sources += [ "debug/los_mux_debug.c" ]
   }
   if (defined(LOSCFG_DEBUG_SEMAPHORE)) {
-    sources += [ "los_sem_debug.c" ]
+    sources += [ "debug/los_sem_debug.c" ]
   }
   if (defined(LOSCFG_DEBUG_QUEUE)) {
-    sources += [ "los_queue_debug.c" ]
+    sources += [ "debug/los_queue_debug.c" ]
+  }
+  if (defined(LOSCFG_DEBUG_SCHED_STATISTICS)) {
+    sources += [ "debug/los_sched_debug.c" ]
   }
   if (defined(LOSCFG_KERNEL_MEM_TLSF)) {
     sources += [ "mem/tlsf/los_memory.c" ]

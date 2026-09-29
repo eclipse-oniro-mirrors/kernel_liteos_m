@@ -64,9 +64,12 @@ static_library("posix_test_lib") {
     "src/stdlib/atoi_test.c",
     "src/stdlib/atol_test.c",
     "src/stdlib/atoll_test.c",
+    "src/stdlib/multibyte_func_test.c",
+    "src/stdlib/random_state_test.c",
     "src/stdlib/strtol_test.c",
     "src/stdlib/strtoul_test.c",
     "src/stdlib/strtoull_test.c",
+    "src/stdio/stdio_func_test.c",
     "src/string/memory_func_test.c",
     "src/string/strchr_test.c",
     "src/string/string_func_test_01.c",
@@ -158,5 +161,11 @@ group("posix_test") {
 
   if (defined(LOSCFG_SUPPORT_FATFS) || defined(LOSCFG_SUPPORT_LITTLEFS)) {
     deps += [ "src/fs" ]
+  }
+
+  if (defined(LOSCFG_SUPPORT_LITTLEFS)) {
+    # lfs_rambd 测试专用库(带覆盖率插桩), 组级挂依赖确保进入最终链接;
+    # 目标本身受 LOSCFG_SUPPORT_LITTLEFS 门控, 与此处条件保持一致
+    deps += [ "src/fs:lfs_rambd" ]
   }
 }

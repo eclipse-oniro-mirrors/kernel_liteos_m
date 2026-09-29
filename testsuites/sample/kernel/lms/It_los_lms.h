@@ -80,6 +80,22 @@ VOID ItLosLms028(void);
 VOID ItLosLms029(void);
 VOID ItLosLms030(void);
 VOID ItLosLms031(void);
+/* LMS pool-table/shadow/report edge coverage tests */
+VOID ItLosLms032(void);
+VOID ItLosLms033(void);
+VOID ItLosLms034(void);
+VOID ItLosLms035(void);
+VOID ItLosLms036(void);
+VOID ItLosLms037(void);
+VOID ItLosLms038(void);
+/* BUG_09 缺陷复现用例(默认隔离): 隔离点在 It_los_lms.c 聚合注册点,
+ * 宏 KERNEL_BUG_09_LMS_ERRINFO_NULL 统一定义在 bug_isolate.h,
+ * 见 It_los_lms_039.c 头注释 */
+VOID ItLosLms039(void);
+/* BUG_10 缺陷回归看护用例(默认隔离): 隔离点在 It_los_lms.c 聚合注册点,
+ * 宏 KERNEL_BUG_10_LMS_ADDPOOL_DEADNODE 统一定义在 bug_isolate.h,
+ * 见 It_los_lms_040.c 头注释 */
+VOID ItLosLms040(void);
 
 #if defined(LOSCFG_PLATFORM_WS63_M) && defined(LOSCFG_KERNEL_LMS)
 /* LMS 错误报告在关中断状态下打印 backtrace+mem dump(gcov 插桩下单份约 4s),
@@ -110,8 +126,15 @@ static inline UINT32 LmsTestRunInSandbox(LmsTestImplFn impl, UINT32 poolSize)
         poolSize = LMS_TEST_SANDBOX_SIZE;
     }
     if (!g_lmsSandboxFirstCall) {
-        (VOID)memset_s(g_lmsSandboxBuf, LMS_TEST_SANDBOX_SIZE, 0, LMS_TEST_SANDBOX_SIZE);
+        /* DeInit must run BEFORE the wipe: LOS_MemDeInit unregisters the pool
+         * from the LMS check list first, so the memset below is no longer
+         * LMS-checked. Wiping first would store into the still-registered
+         * pool's PAINT-marked header ([pool, firstNode)) and emit a spurious
+         * "UnKnown Error / Illegal WRITE" report at every sandbox re-init
+         * (11 reports on WS63, 14 on QEMU; each dumps backtrace+memory with
+         * interrupts locked for ~4s under gcov, risking watchdog reset). */
         (VOID)LOS_MemDeInit(g_lmsSandboxBuf);
+        (VOID)memset_s(g_lmsSandboxBuf, LMS_TEST_SANDBOX_SIZE, 0, LMS_TEST_SANDBOX_SIZE);
     }
     g_lmsSandboxFirstCall = FALSE;
 #ifdef LOSCFG_KERNEL_MEM_SLAB_EXTENTION

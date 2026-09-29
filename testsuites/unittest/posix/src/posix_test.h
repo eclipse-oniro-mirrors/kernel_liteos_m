@@ -104,6 +104,10 @@ extern void PosixStdlibAtollFuncTest(void);
 extern void PosixStdlibStrtolFuncTest(void);
 extern void PosixStdlibStrtoulFuncTest(void);
 extern void PosixStdlibStrtoullFuncTest(void);
+extern void PosixStdlibMultibyteFuncTest(void);
+extern void PosixStdlibRandomStateFuncTest(void);
+
+extern void PosixStdioFuncTest(void);
 
 extern void PosixStringMemTest03(void);
 extern void PosixStringStrchrTest(void);

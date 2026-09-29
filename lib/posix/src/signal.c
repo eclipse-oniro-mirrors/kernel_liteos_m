@@ -113,9 +113,22 @@ int sigaction(int sig, const struct sigaction *act, struct sigaction *oldact)
 int sigwait(const sigset_t *set, int *sig)
 {
     siginfo_t info = {0};
+    unsigned int ret;
 
-    int ret = LOS_SignalWait(set, &info, 0);
-    if (ret < 0) {
+    /* Layered defense: the LOS_WAIT_FOREVER wait below has no timeout, so invalid
+     * parameters must be rejected before entering the kernel.
+     */
+    if ((set == NULL) || (*set == 0) || (sig == NULL)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    /* LOS_SignalWait returns the signal number (1..LOS_SIGNAL_SUPPORT_MAX) on success,
+     * or a large positive error code of the LOS_ERRNO_ family on failure. A return
+     * value of 0 violates the contract and is also treated as failure.
+     */
+    ret = LOS_SignalWait(set, &info, LOS_WAIT_FOREVER);
+    if ((ret == 0) || (ret > LOS_SIGNAL_SUPPORT_MAX)) {
         errno = EINVAL;
         return -1;
     }
@@ -126,26 +139,43 @@ int sigwait(const sigset_t *set, int *sig)
 
 int sigtimedwait(const sigset_t *set, siginfo_t *info, const struct timespec *timeout)
 {
-    int tick = LOS_WAIT_FOREVER;
-    int ret;
+    unsigned int tick = LOS_WAIT_FOREVER;
+    unsigned int ret;
+
+    /* Layered defense: a NULL timeout (from sigwaitinfo) also maps to LOS_WAIT_FOREVER,
+     * so an invalid set must be rejected before entering the kernel.
+     */
+    if ((set == NULL) || (*set == 0)) {
+        errno = EINVAL;
+        return -1;
+    }
 
     if (timeout != NULL) {
+        /* Reject an invalid timespec up front (POSIX EINVAL): besides the errno
+         * semantics, a negative tv_sec would otherwise wrap into a huge tick
+         * count and block forever.
+         */
+        if ((timeout->tv_sec < 0) || (timeout->tv_nsec < 0) ||
+            (timeout->tv_nsec >= OS_SYS_NS_PER_SECOND)) {
+            errno = EINVAL;
+            return -1;
+        }
         tick = TimeSpec2Tick(timeout);
     }
 
     ret = LOS_SignalWait(set, info, tick);
-    if (ret == LOS_OK) {
-        return 0;
-    } else {
-        if (ret == LOS_ERRNO_SIGNAL_PEND_INTERR) {
-            errno = EINTR;
-        } else if (ret == LOS_ERRNO_SIGNAL_TIMEOUT) {
-            errno = EAGAIN;
-        } else {
-            errno = EINVAL;
-        }
-        return -1;
+    if ((ret > 0) && (ret <= LOS_SIGNAL_SUPPORT_MAX)) {
+        return (int)ret;
     }
+
+    if (ret == LOS_ERRNO_SIGNAL_PEND_INTERR) {
+        errno = EINTR;
+    } else if (ret == LOS_ERRNO_SIGNAL_TIMEOUT) {
+        errno = EAGAIN;
+    } else {
+        errno = EINVAL;
+    }
+    return -1;
 }
 
 int sigwaitinfo(const sigset_t *set, siginfo_t *info)
@@ -155,7 +185,7 @@ int sigwaitinfo(const sigset_t *set, siginfo_t *info)
 
 int pthread_kill(pthread_t pid, int sig)
 {
-    unsigned int ret = LOS_SignalSend((unsigned int)pid, sig);
+    unsigned int ret = LOS_SignalSend((unsigned int)(UINTPTR)pid, sig);
     if (ret != LOS_OK) {
         errno = EINVAL;
         return -1;
@@ -166,7 +196,7 @@ int pthread_kill(pthread_t pid, int sig)
 
 int kill(pid_t pid, int sig)
 {
-    unsigned int ret = LOS_SignalSend((unsigned int)pid, sig);
+    unsigned int ret = LOS_SignalSend((unsigned int)(UINTPTR)pid, sig);
     if (ret != LOS_OK) {
         errno = EINVAL;
         return -1;

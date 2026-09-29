@@ -68,6 +68,11 @@ void ItSuitePosix(void)
     PosixStdlibStrtolFuncTest();
     PosixStdlibStrtoulFuncTest();
     PosixStdlibStrtoullFuncTest();
+    PosixStdlibMultibyteFuncTest();
+    PosixStdlibRandomStateFuncTest();
+#if (LOSCFG_POSIX_FS_API == 1)
+    PosixStdioFuncTest();
+#endif
     PosixStringMemTest03();
     PosixStringStrchrTest();
     PosixStringFuncTest02();
@@ -81,4 +86,19 @@ void ItSuitePosix(void)
 #if (LOSCFG_SUPPORT_LITTLEFS == 1 || LOSCFG_SUPPORT_FATFS == 1)
     PosixFsFuncTest();
 #endif
+}
+
+/*
+ * 板级按需挂卷钩子的弱默认实现（声明见 kernel_test.h）：恒成功（返回 0），
+ * 语义为"TEST_ROOT 卷已由启动流程挂载"（qemu 产品的 LfsLowLevelInit 路径）。
+ * hi3322_testsuits 的 ram_lfs_backend.c 提供强符号覆盖（RAM 盘按套件挂/卸）。
+ */
+__attribute__((weak)) int TestFsVolumeEnsure(void)
+{
+    return 0;
+}
+
+__attribute__((weak)) int TestFsVolumeRelease(void)
+{
+    return 0;
 }

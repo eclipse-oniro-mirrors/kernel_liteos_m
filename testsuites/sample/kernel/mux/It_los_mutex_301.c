@@ -32,15 +32,14 @@
 #include "osTest.h"
 #include "It_los_mux.h"
 
-/* 用例简要描述: 互斥锁 ABA 行为暴露(id 复用断言+旧 ID 操作有效) */
+/* 用例简要描述: 互斥锁防 ABA 行为验证(id 不复用+旧 ID 操作失败) */
 static UINT32 Testcase(VOID)
 {
     UINT32 ret;
     UINT32 muxId1;
     UINT32 muxId2;
 
-    /* D3(ABA 暴露): mux Delete 头插 unused 链表(los_mux.c:162 LOS_ListAdd),
-       下一次 Create 取链表头 -> 立即复用同 index, 无 ID 分裂防 ABA 保护 */
+    /* Delete 尾插回收, Create 取链头, 不复用同 index */
     ret = LOS_MuxCreate(&muxId1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
@@ -50,23 +49,19 @@ static UINT32 Testcase(VOID)
     ret = LOS_MuxCreate(&muxId2);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    /* 复用断言: 新句柄 == 旧句柄 */
-    ICUNIT_GOTO_EQUAL(muxId2, muxId1, muxId2, EXIT);
+    /* 防复用断言: 新句柄 != 旧句柄 */
+    ICUNIT_GOTO_NOT_EQUAL(muxId2, muxId1, muxId2, EXIT);
 
-    /* 旧句柄(==新句柄) 操作完全有效 */
+    /* 旧句柄操作应失败(CB 已回收, stat=LOS_UNUSED) */
     ret = LOS_MuxPend(muxId1, LOS_WAIT_FOREVER);
-    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
+    ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_MUX_INVALID, ret, EXIT);
 
-    ret = LOS_MuxPost(muxId1);
-    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-
-    ret = LOS_MuxDelete(muxId1);
+    ret = LOS_MuxDelete(muxId2);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     return LOS_OK;
 
 EXIT:
-    /* muxId1==muxId2(ABA 复用),只删一次;删除失败也不重复删 */
     (VOID)LOS_MuxDelete(muxId2);
     return LOS_OK;
 }

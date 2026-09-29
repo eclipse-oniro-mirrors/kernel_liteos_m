@@ -29,17 +29,9 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
-#include "bug_isolate.h" /* BUG_02 等宏统一在此定义 */
-
-#ifndef PRODUCT_BUG_ISOLATE
 #include "It_posix_io.h"
-
-/* ws63(riscv) 上 poll-on-pipe 路径触发 hang(看门狗复位,qemu/arm 正常),
-   疑似 PipePoll(pipe.c:603,零覆盖内部函数)产品缺陷,ws63 暂旁路待开发定位 */
 #include <poll.h>
 
-/* 用例简要描述: poll on pipe 空超时/POLLIN 事件/读空无事件 */
 static UINT32 Testcase(VOID)
 {
     int fds[2]; /* 2, pipe fd pair */
@@ -89,6 +81,3 @@ VOID ItPosixPipe003(VOID)
 {
     TEST_ADD_CASE("ItPosixPipe003", Testcase, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
 }
-#else
-typedef int bug02_placeholder; /* 保非空翻译单元 */
-#endif /* PRODUCT_BUG_ISOLATE: pipe_003 */

@@ -32,15 +32,28 @@
 #include "osTest.h"
 #include "los_resleak_test.h"
 #include "los_mux.h"
+#include "los_mux_pri.h"
 #include "los_sem.h"
+#include "los_sem_pri.h"
 #include "los_queue.h"
 #include "los_swtmr.h"
 #include "los_task_pri.h"
+#include "los_task.h"
 #include "los_memory.h"
 #include "los_config.h"
+#if (LOSCFG_KERNEL_SIGNAL == 1)
+#include "los_signal.h"
+#include <signal.h>
+#endif
+#include <time.h>
+#include <stdio.h>
 #if (LOSCFG_POSIX_MQUEUE_API == 1)
 #include <mqueue.h>
 #include <fcntl.h>
+#endif
+
+#if (LOSCFG_SHELL == 1)
+extern UINT32 OsShellInit(VOID);
 #endif
 
 extern UINT32 QueueUsedCountGet(VOID);
@@ -88,11 +101,42 @@ STATIC VOID OsResLeakMqueuePreInit(VOID)
 }
 #endif
 
+/* 预热 libc/shell 的"首次使用才创建"的单例锁（内核 mux），避免首次使用恰好落在
+ * 某条用例的 ResLeak 检查窗口内而被误报为 mux/memory 泄漏：
+ *  - localtime()/tzset() : lib/posix tzdst.c 的 g_tzdstLock 与 musl porting
+ *                          __tz.c 的 locallock（strftime %Z/localtime 首用触发）
+ *  - fflush(NULL)        : stdout/stderr 的 FILE 锁 + musl 打开文件链表锁(ofl)
+ *                          （perror 首用 stderr、fopen 首用 ofl 时触发）
+ *  - OsShellInit()       : shell 命令表锁 cmdInfo.muxLock + 内置命令注册
+ * 这些对象是系统生命周期单例，按设计不释放，不是真实泄漏。 */
+STATIC VOID OsResLeakLazyLockPreInit(VOID)
+{
+    time_t now = 0;
+
+    (VOID)localtime(&now);
+    tzset();
+#if (LOSCFG_POSIX_FS_API == 1)
+    (VOID)fflush(NULL);
+#endif
+
+#if (LOSCFG_KERNEL_SIGNAL == 1)
+    /* 触发当前任务(测试主任务) OsSigCB 的懒分配(los_signal.c SignalCBInit),
+     * 避免首个信号用例(如 ItLosSignal001)被误报 +304B 内存泄漏。
+     * SIGHUP 无用例使用,设为 SIG_DFL 不改变任何用例可见行为 */
+    (VOID)LOS_SignalSet(SIGHUP, SIG_DFL);
+#endif
+
+#if (LOSCFG_SHELL == 1)
+    (VOID)OsShellInit();
+#endif
+}
+
 VOID OsResLeakInit(VOID)
 {
 #if (LOSCFG_POSIX_MQUEUE_API == 1)
     OsResLeakMqueuePreInit();
 #endif
+    OsResLeakLazyLockPreInit();
     OsResLeakForceReclaim();
 }
 
@@ -104,8 +148,8 @@ UINT32 OsResLeakMuxCountGet(VOID)
 
     intSave = LOS_IntLock();
     for (index = 0; index < LOSCFG_BASE_IPC_MUX_LIMIT; index++) {
-        LosMuxCB *muxNode = ((LosMuxCB *)g_allMux) + index;
-        if (muxNode->muxStat == OS_MUX_USED) {
+        LosMuxCB *muxNode = ((LosMuxCB *)g_osAllMux) + index;
+        if (muxNode->muxStat == LOS_USED) {
             count++;
         }
     }
@@ -121,8 +165,8 @@ UINT32 OsResLeakSemCountGet(VOID)
 
     intSave = LOS_IntLock();
     for (index = 0; index < LOSCFG_BASE_IPC_SEM_LIMIT; index++) {
-        LosSemCB *semNode = ((LosSemCB *)g_allSem) + index;
-        if (semNode->semStat == OS_SEM_USED) {
+        LosSemCB *semNode = ((LosSemCB *)g_osAllSem) + index;
+        if (semNode->semStat == LOS_USED) {
             count++;
         }
     }
@@ -130,8 +174,23 @@ UINT32 OsResLeakSemCountGet(VOID)
     return count;
 }
 
+/* 任务退出后其 TCB/栈由 idle 任务异步回收（g_taskRecycleList），检查点若紧跟
+ * 用例内任务退出执行，会看到"栈未释放"的瞬时假阳性（内存 ±栈大小振荡、task 计数
+ * 抖动）。检查窗口前先让出 1 个 tick，给 idle 任务机会完成回收，消除该竞态。
+ * 仅在回收列表非空时才让出，避免对无关用例引入额外调度时机。 */
+STATIC VOID OsResLeakDrainPendingRecycle(VOID)
+{
+    extern LOS_DL_LIST g_taskRecycleList;
+
+    if (LOS_ListEmpty(&g_taskRecycleList)) {
+        return;
+    }
+    (VOID)LOS_TaskDelay(1);
+}
+
 VOID OsResLeakCheckBegin(VOID)
 {
+    OsResLeakDrainPendingRecycle();
     OsResLeakForceReclaim();
     g_resLeakBeforeStat.muxCnt = OsResLeakMuxCountGet();
     g_resLeakBeforeStat.queueCnt = QueueUsedCountGet();
@@ -146,6 +205,7 @@ VOID OsResLeakCheckEnd(const CHAR *caseName)
     ResLeakStat after;
     UINT32 leakCnt = 0;
 
+    OsResLeakDrainPendingRecycle();
     OsResLeakForceReclaim();
     after.muxCnt = OsResLeakMuxCountGet();
     after.queueCnt = QueueUsedCountGet();

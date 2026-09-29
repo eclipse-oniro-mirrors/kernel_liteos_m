@@ -57,7 +57,7 @@ kernel_module(module_name) {
     # circular: the dumper instrumented by gcov trying to dump its own
     # counters). Same single-point exclusion config as the rest of
     # testsuites.
-    "//kernel/liteos_m/testsuites:no_test_coverage",
+    "$LITEOSTOPDIR/testsuites:no_test_coverage",
   ]
 }
 
@@ -65,6 +65,6 @@ config("public") {
   # test_gcov.h lives in testsuites/include (shared with osTest.c)
   include_dirs = [
     ".",
-    "//kernel/liteos_m/testsuites/include",
+    "$LITEOSTOPDIR/testsuites/include",
   ]
 }

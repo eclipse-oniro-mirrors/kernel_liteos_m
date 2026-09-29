@@ -41,6 +41,7 @@
 #include "los_atomic.h"
 #include "los_event.h"
 #include "los_mux.h"
+#include "los_mux_pri.h"
 
 #define INLINE inline
 

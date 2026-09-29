@@ -120,17 +120,13 @@ VOID ItSuitePosixMutex(void)
     ItPosixMux039();
     ItPosixMux040();
     ItPosixMux041();
-#if (LOS_FEATURE_ADAPTED == 1)
     ItPosixMux042();
-#endif
     ItPosixMux043();
     ItPosixMux044();
     ItPosixMux045();
     ItPosixMux046();
     ItPosixMux047();
-#if (LOS_FEATURE_ADAPTED == 1)
     ItPosixMux048();
-#endif
 #ifndef LOSCFG_KERNEL_SMP
 #if (LOS_FEATURE_ADAPTED == 1)
     ItPosixMux049();
@@ -139,15 +135,11 @@ VOID ItSuitePosixMutex(void)
     ItPosixMux050();
     ItPosixMux051();
     ItPosixMux052();
-#if (LOS_FEATURE_ADAPTED == 1)
     ItPosixMux053();
-#endif
     ItPosixMux054();
     ItPosixMux055();
     ItPosixMux056();
-#if (LOS_FEATURE_ADAPTED == 1)
     ItPosixMux057();
-#endif
     ItPosixMux058();
     ItPosixMux076();
     ItPosixMux077();

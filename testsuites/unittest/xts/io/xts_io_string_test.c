@@ -278,6 +278,7 @@ LITE_TEST_CASE(IoStringApiTestSuite, testStrdup, Function | MediumTest | Level1)
     char src[] = "hello world !";
     char *ret = strdup(src);
     ICUNIT_ASSERT_STRING_EQUAL(ret, src, ret);
+    free(ret);
 
     char srcS[] = "This is String1";
     ret = strdup(srcS);

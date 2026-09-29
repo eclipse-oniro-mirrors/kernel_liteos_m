@@ -63,6 +63,9 @@ extern VOID ItLosCompiler001(VOID);
 extern VOID ItLosErr001(VOID);
 extern VOID ItLosPrintf001(VOID);
 extern VOID ItLosPrintf002(VOID);
+extern VOID ItLosPrintf003(VOID);
+extern VOID ItLosHook001(VOID);
+extern VOID ItLosBacktrace001(VOID);
 extern VOID ItLosInit001(VOID);
 
 #ifdef __cplusplus

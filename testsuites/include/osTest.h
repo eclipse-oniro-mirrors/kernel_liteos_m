@@ -38,6 +38,7 @@
 #include <stdint.h>
 
 #include "iCunit.h"
+#include "bug_isolate.h" /* BUG 隔离宏顶层统一引入: 全部测试翻译单元可见, 勿在各文件散落引用 */
 
 #include "los_debug.h"
 #include "los_config.h"
@@ -88,11 +89,7 @@ extern "C" {
 #define LOS_KERNEL_IPC_QUEUE_TEST 1
 #define LOS_KERNEL_CORE_SWTMR_TEST 1
 #ifndef LOS_KERNEL_HWI_TEST
-#if defined(LOSCFG_PLATFORM_HI3322)
-#define LOS_KERNEL_HWI_TEST 0
-#else
 #define LOS_KERNEL_HWI_TEST 1
-#endif
 #endif
 #define LOS_KERNEL_FS_TEST 0
 #define LOS_KERNEL_MEM_TEST 1
@@ -115,9 +112,24 @@ extern "C" {
 #endif
 #define LOS_KERNEL_LMK_TEST 0
 #ifndef LOS_KERNEL_SIGNAL_TEST
+/* ArchSignalContextInit 仅 ARM 架构实现（cortex-m 各变体 + cortex_a_r/context.c）；
+ * riscv/csky/xtensa 无实现，kernel signal 组件在这些架构上链接即断（此前靠
+ * --gc-sections 裁剪掩盖），故 signal 测试套件默认仅 ARM 板注册执行；
+ * 板级可预定义 LOS_KERNEL_SIGNAL_TEST 覆盖默认值 */
+#ifdef LOSCFG_ARCH_ARM
 #define LOS_KERNEL_SIGNAL_TEST 1
+#else
+#define LOS_KERNEL_SIGNAL_TEST 0
+#endif
 #endif
 #define LOS_KERNEL_MISC_TEST 1
+#define LOS_KERNEL_TCB_VERIFY_TEST 1
+
+#if defined(LOSCFG_ARCH_CACHE)
+#define LOS_KERNEL_CACHE_TEST 1
+#else
+#define LOS_KERNEL_CACHE_TEST 0
+#endif
 
 #if (LOSCFG_KERNEL_TRACE == 1)
 #define LOS_KERNEL_TRACE_TEST 1
@@ -135,6 +147,12 @@ extern "C" {
 #define LOS_KERNEL_SHELL_TEST 1
 #else
 #define LOS_KERNEL_SHELL_TEST 0
+#endif
+
+#if (LOSCFG_BASE_IPC_RWSEM == 1)
+#define LOS_KERNEL_IPC_RWSEM_TEST 1
+#else
+#define LOS_KERNEL_IPC_RWSEM_TEST 0
 #endif
 
 #ifndef LOS_FEATURE_ADAPTED
@@ -164,6 +182,7 @@ extern "C" {
 #else
 #define LOS_XTS_TEST 0
 #endif
+
 #define LOS_CMSIS2_CORE_TASK_TEST 0
 #define LOS_CMSIS2_IPC_MUX_TEST 0
 #define LOS_CMSIS2_IPC_SEM_TEST 0
@@ -413,7 +432,7 @@ extern UINT32 TaskUsedCountGet(VOID);
 #ifndef dprintf
 #define dprintf PRINTK
 #endif
-#define IT_SEM_COUNT_MAX OS_SEM_COUNTING_MAX_COUNT
+#define IT_SEM_COUNT_MAX LOS_SEM_COUNT_MAX
 
 extern EVENT_CB_S g_pstEventCb01;
 extern EVENT_CB_S g_pstEventCb02;
@@ -456,8 +475,10 @@ extern VOID ItSuiteLosPm(void);
 extern VOID ItSuiteLosLmk(void);
 extern VOID ItSuiteLosSignal(void);
 extern VOID ItSuiteLosMisc(void);
+extern VOID ItSuiteLosCache(void);
 extern VOID ItSuiteLosExc(void);
 extern VOID ItSuiteLosShell(void);
+extern VOID ItSuiteLosTcbVerify(void);
 
 extern int PthreadFuncTestSuite(void);
 
@@ -496,7 +517,7 @@ extern UINT32 g_taskMaxNum;
 extern LITE_OS_SEC_BSS_INIT LOS_DL_LIST g_stUnusedSemList;
 
 extern VOID LOS_Schedule(VOID);
-extern LosTaskCB *g_taskCBArray;
+extern LosTaskCB *g_osTaskCBArray;
 
 extern VOID OsCpupStart(VOID);
 extern VOID OsCpupStop(VOID);
@@ -506,5 +527,11 @@ extern VOID OsCpupStop(VOID);
 }
 #endif /* __cplusplus */
 #endif /* __cplusplus */
+
+/* fuzz suite (KERNEL_FUZZ build): single entry aggregating every module
+ * suite -- see sample/fuzz/it_fuzz.c */
+#ifdef LOSCFG_KERNEL_FUZZ
+extern VOID ItSuiteFuzzAll(VOID);
+#endif
 
 #endif /* _OSTEST_H */

@@ -98,7 +98,12 @@ extern "C" {
  * Define the type of a task context control block.
  */
 #ifndef LOSCFG_ARCH_FPU_DISABLE
+#ifdef LOSCFG_ARCH_FPU_DOUBLE
+/* D extension: FP registers are 64-bit wide (RV32D, FLEN=64). */
+typedef UINT64 FLOATREG_TYPE;
+#else
 typedef UINT32 FLOATREG_TYPE;
+#endif
 #endif
 
 typedef struct {

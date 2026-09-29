@@ -195,7 +195,7 @@ typedef struct LosTaskCB {
                                              * invokes LOS_TaskJoin func to wait for cur task */
     struct LosTaskCB    *joined;            /* Point to the task waiting
                                              * By the cur task invoking LOS_TaskJoin func */
-    UINTPTR                     taskRetval;               /**< Return value of the end of the task, If the task does not exit by itself, the ID of the task that killed the task is recorded. */
+    VOID                        *taskRetval;               /**< Return value of the end of the task, If the task does not exit by itself, the ID of the task that killed the task is recorded. */
 #endif
 #ifdef LOSCFG_BASE_IPC_EVENT
     EVENT_CB_S                  event;
@@ -216,6 +216,9 @@ typedef struct LosTaskCB {
     volatile UINT16             lastCpu;                  /**< CPU core number this task last ran on */
     UINT32                      timerCpu;                 /**< CPU core number where this task is delayed or pended */
     UINT16                      cpuAffiMask;              /**< CPU affinity mask, support up to 16 cores */
+#ifdef LOSCFG_KERNEL_SMP_TASK_SYNC
+    UINT32                      syncSignal;               /**< Synchronization for signal handling */
+#endif
 #endif
 
 

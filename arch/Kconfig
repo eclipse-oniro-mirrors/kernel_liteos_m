@@ -3,6 +3,8 @@ config ARCH_ARM
 
 rsource "arm/Kconfig"
 
+rsource "arm64/Kconfig"
+
 config ARCH_CSKY
    bool
 
@@ -12,6 +14,19 @@ config ARCH_RISCV
 config ARCH_RISCV32
    bool
    select ARCH_RISCV
+
+config ARCH_CACHE
+    bool "Enable arch cache maintenance API (ArchICache*/ArchDCache*)"
+    depends on ARCH_RISCV
+    default n
+    help
+      Build in the RISC-V I/D-cache maintenance interface (arch/cache.h) and
+      link the platform-provided cache archive. Each board that turns this on
+      must supply its own cache implementation matching its ABI and core CSR
+      space (e.g. ws63 links liblos_cache.a for LinxCore131; DiTing/3322 needs
+      its own archive for Linx-M with ilp32d). Boards without a cache provider
+      must leave this off so the ArchICache*/ArchDCache* symbols are not
+      referenced.
 
 config ARCH_RISCV_HW_ATOMIC
     bool "RISC-V hardware Atomic (A) extension is available"
@@ -36,12 +51,27 @@ config ARCH_FPU_DISABLE
     help
       This option will bypass floating procedure in system.
 
+config ARCH_FPU_DOUBLE
+    bool "Enable Double Precision FPU (D extension)"
+    default n
+    depends on !ARCH_FPU_DISABLE
+    help
+      Save/restore FP registers as 64-bit slots (fld/fsd, FPUREGBYTES=8) and
+      build with the D extension under the hard-float ilp32d ABI. The board config.gni must
+      use -march with the d extension and -mabi=ilp32d when this is set.
+
 config ARCH_UNALIGNED_EXC
     bool "Enable Unaligned Exception"
     default y
     depends on ARCH_ARM
     help
      This option will enable unaligned exception.
+
+config EXC_SIMPLE_INFO
+    bool "Enable Exception Simple Info"
+    default n
+    help
+      This option is used to reduce exc output info.
 
 config ARCH_TIMER_VENDOR
     bool "Use vendor-provided timer instead of arch default"

@@ -38,6 +38,7 @@
 #include "securec.h"
 #include "los_mux.h"
 #include "los_memory.h"
+#include "los_sched_debug_pri.h"
 
 #if (LOSCFG_DEBUG_TOOLS == 1)
 #include "los_debugtools.h"
@@ -65,6 +66,11 @@ CmdItem g_shellcmdAll[] = {
 #endif
 #ifdef LOSCFG_DEBUG_QUEUE
     {CMD_TYPE_EX, "queue", 0, (CmdCallBackFunc)OsShellCmdQueueInfoGet},
+#endif
+#ifdef LOSCFG_DEBUG_SCHED_STATISTICS
+    {CMD_TYPE_EX, "schedstatstart", 0, (CmdCallBackFunc)OsShellCmdSchedStatStart},
+    {CMD_TYPE_EX, "schedstatstop", 0, (CmdCallBackFunc)OsShellCmdSchedStatStop},
+    {CMD_TYPE_EX, "schedstatinfo", 0, (CmdCallBackFunc)OsShellCmdSchedStatInfo},
 #endif
     {CMD_TYPE_EX, "free", XARGS, (CmdCallBackFunc)OsShellCmdFree},
 #if (LOSCFG_MEM_WATERLINE == 1)

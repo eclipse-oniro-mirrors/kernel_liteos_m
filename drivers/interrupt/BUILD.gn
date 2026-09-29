@@ -15,6 +15,9 @@ kernel_module(module_name) {
   if (defined(LOSCFG_CORTEX_M_NVIC)) {
     sources += [ "arm_nvic.c" ]
   }
+  if (defined(LOSCFG_ARM_GIC_V3)) {
+    sources += [ "gic-v3/interrupt.c" ]
+  }
   include_dirs = [ "include" ]
 }
 

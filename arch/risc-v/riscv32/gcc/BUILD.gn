@@ -47,5 +47,6 @@ config("public") {
   include_dirs = [
     ".",
     "asm",
+    "include",
   ]
 }

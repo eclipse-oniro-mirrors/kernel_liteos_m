@@ -115,8 +115,9 @@ extern "C" {
 /* ArchSignalContextInit 仅 ARM 架构实现（cortex-m 各变体 + cortex_a_r/context.c）；
  * riscv/csky/xtensa 无实现，kernel signal 组件在这些架构上链接即断（此前靠
  * --gc-sections 裁剪掩盖），故 signal 测试套件默认仅 ARM 板注册执行；
+ * 且内核 signal 组件关闭（LOSCFG_KERNEL_SIGNAL=n）时测试库不参与链接，注册必须同步关闭；
  * 板级可预定义 LOS_KERNEL_SIGNAL_TEST 覆盖默认值 */
-#ifdef LOSCFG_ARCH_ARM
+#if defined(LOSCFG_ARCH_ARM) && (LOSCFG_KERNEL_SIGNAL == 1)
 #define LOS_KERNEL_SIGNAL_TEST 1
 #else
 #define LOS_KERNEL_SIGNAL_TEST 0
@@ -444,6 +445,7 @@ extern UINT32 TestSemDelete(UINT32 semHandle);
 extern UINT32 TestHwiDelete(UINT32 hwiNum);
 extern VOID TEST_HwiDeleteAll(VOID);
 extern VOID TestHwiTrigger(UINT32 hwiNum);
+extern VOID TestHwiSync(VOID);
 extern VOID TestHwiClear(UINT32 hwiNum);
 #ifdef __RISC_V__
 extern UINT64 LosCpuCycleGet(VOID);

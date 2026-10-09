@@ -24,26 +24,38 @@ volatile UINT32 g_curIrqNum[LOSCFG_KERNEL_CORE_NUM] = {0};
 
 STATIC UINT32 HwiNumGet(VOID)
 {
-    return g_curIrqNum[ArchCurrCpuid()];
+    return OS_INT_ACTIVE ? g_curIrqNum[ArchCurrCpuid()] : 0;
 }
 
 STATIC UINT32 HwiUnmask(HWI_HANDLE_T hwiNum)
 {
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
     GICD->isenabler[hwiNum / INT_COUNTS_32_PER_REG] = (1U << (hwiNum % INT_COUNTS_32_PER_REG));
     return LOS_OK;
 }
 
 STATIC UINT32 HwiMask(HWI_HANDLE_T hwiNum)
 {
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
     GICD->icenabler[hwiNum / INT_COUNTS_32_PER_REG] = (1U << (hwiNum % INT_COUNTS_32_PER_REG));
     return LOS_OK;
 }
 
 STATIC UINT32 HwiSetPriority(HWI_HANDLE_T hwiNum, HWI_PRIOR_T priority)
 {
-    UINT32 offset = hwiNum / INT_COUNTS_4_PER_REG;
-    UINT32 shift = (hwiNum % INT_COUNTS_4_PER_REG) * 8;
+    UINT32 offset;
+    UINT32 shift;
     UINT32 val;
+
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
+    offset = hwiNum / INT_COUNTS_4_PER_REG;
+    shift = (hwiNum % INT_COUNTS_4_PER_REG) * 8;
 
     val = GICD->ipriorityr[offset];
     val &= ~(0xFFU << shift);
@@ -54,6 +66,9 @@ STATIC UINT32 HwiSetPriority(HWI_HANDLE_T hwiNum, HWI_PRIOR_T priority)
 
 STATIC UINT32 HwiPending(HWI_HANDLE_T hwiNum)
 {
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
     if (hwiNum < GIC_MIN_PPI_NUM) {
         /* SGI (0-15): use SGIR to soft-pend (target CPU 0, filter=0).
          * PPIs (16-31) must NOT take this path — SGIR can only generate
@@ -68,6 +83,9 @@ STATIC UINT32 HwiPending(HWI_HANDLE_T hwiNum)
 
 STATIC UINT32 HwiClear(HWI_HANDLE_T hwiNum)
 {
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
     GICD->icpendr[hwiNum / INT_COUNTS_32_PER_REG] = (1U << (hwiNum % INT_COUNTS_32_PER_REG));
     return LOS_OK;
 }

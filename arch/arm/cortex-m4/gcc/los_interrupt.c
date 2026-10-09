@@ -49,6 +49,15 @@
 #endif
 #include "los_hwi_pri.h"
 
+/* ArchIntLocked: read PRIMASK to report whether interrupts are masked.
+ * The NVIC interrupt controller driver (HwiControllerOps, HalInterrupt,
+ * HalHwiInit) moved to drivers/interrupt/arm_nvic.c. 
+ */
+UINT32 ArchIntLocked(VOID)
+{
+    return __get_PRIMASK() & 0x1;
+}
+
 #define FAULT_STATUS_REG_BIT            32
 
 ExcInfo g_excInfo = {0};

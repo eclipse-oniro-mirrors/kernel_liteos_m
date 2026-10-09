@@ -8,6 +8,7 @@ kernel_module(module_name) {
     "dispatch.S",
     "exception.S",
     "fault.c",
+    "los_interrupt.c",
     "mmu.c",
     "timer.c",
   ]

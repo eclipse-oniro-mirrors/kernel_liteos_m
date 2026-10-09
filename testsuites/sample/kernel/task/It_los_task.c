@@ -128,17 +128,25 @@ VOID ItSuiteLosTask()
     ItLosTask126();
     ItLosTask127();
     ItLosTask128();
+#ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
     ItLosTask129();
+#endif
+#ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
     ItLosTask130();
+#endif
     ItLosTask131();
     ItLosTask301();
     ItLosTask302();
+#ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
     ItLosTask303();
     ItLosTask304();
+#endif
     ItLosTask305();
     ItLosTask306();
     ItLosTask307();
     ItLosTask308();
+    ItLosTask309();
+    ItLosTask310();
 
 #if (LOS_KERNEL_TEST_FULL == 1)
     ItLosTask039();

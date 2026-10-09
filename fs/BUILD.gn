@@ -35,5 +35,6 @@ module_group(module_name) {
     "vfs",
     "littlefs",
     "fatfs",
+    "yaffs2",
   ]
 }

@@ -55,6 +55,7 @@ LITE_TEST_CASE(SysApiTestSuite, testStrerror, Function | MediumTest | Level1)
     ICUNIT_ASSERT_STRING_EQUAL(strerror(2), "No such file or directory", strerror(2)); /* 2, common data for test, no special meaning */
     ICUNIT_ASSERT_STRING_EQUAL(strerror(10), "No child process", strerror(10)); /* 10, common data for test, no special meaning */
     ICUNIT_ASSERT_STRING_EQUAL(strerror(65536), "No error information", strerror(65536)); /* 65536, common data for test, no special meaning */
+    return 0;
 }
 
 RUN_TEST_SUITE(SysApiTestSuite);

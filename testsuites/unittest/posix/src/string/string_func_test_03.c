@@ -138,6 +138,7 @@ LITE_TEST_CASE(PosixStringFuncTestSuite, testStrStrdup001, Function | MediumTest
     ICUNIT_ASSERT_NOT_EQUAL(dest, NULL, 0);
     dprintf("The Result Display :%s\r\n", dest);
     ICUNIT_ASSERT_SIZE_STRING_EQUAL(dest, source, sizeof(source) / sizeof(source[0]), 0);
+    free(dest);
 
     char src[] = "hello world !";
     char *ret = strdup(src);
@@ -166,6 +167,7 @@ LITE_TEST_CASE(PosixStringFuncTestSuite, testStrStrdup002, Function | MediumTest
     ICUNIT_ASSERT_NOT_EQUAL(dest, NULL, 0);
     dprintf("The Result Display :%s\r\n", dest);
     ICUNIT_ASSERT_SIZE_STRING_EQUAL(dest, source, sizeof(source) / sizeof(source[0]), 0);
+    free(dest);
     return 0;
 };
 

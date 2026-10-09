@@ -88,7 +88,7 @@ VOID ItSuiteLosLms(void)
     ItLosLms016();
     LMS_FEED_WDT();
     //ItLosLms017();
-    LMS_FEED_WDT();
+    //LMS_FEED_WDT();
     ItLosLms018();
     LMS_FEED_WDT();
     ItLosLms019();
@@ -99,16 +99,10 @@ VOID ItSuiteLosLms(void)
     LMS_FEED_WDT();
     ItLosLms022();
     LMS_FEED_WDT();
-#if !(defined(LOSCFG_PLATFORM_WS63_M) && defined(LOSCFG_KERNEL_LMS))
-    /* strcat_s/strcpy_s internally use memcpy via SECUREC_MEMCPY_WARP_OPT.
-     * On WS63, --wrap=memcpy redirects memcpy to __wrap_memcpy (byte-by-byte
-     * sram_put_byte), bypassing LMS __asan_store*_noabort checks, so the
-     * error hook is never called and these tests fail. */
     //ItLosLms023();
-    LMS_FEED_WDT();
+    //LMS_FEED_WDT();
     //ItLosLms024();
-    LMS_FEED_WDT();
-#endif
+    //LMS_FEED_WDT();
     ItLosLms025();
     LMS_FEED_WDT();
     ItLosLms026();
@@ -125,4 +119,28 @@ VOID ItSuiteLosLms(void)
     LMS_FEED_WDT();
     ItLosLms031();
     LMS_FEED_WDT();
+    ItLosLms032();
+    LMS_FEED_WDT();
+    ItLosLms033();
+    LMS_FEED_WDT();
+    ItLosLms034();
+    LMS_FEED_WDT();
+    ItLosLms035();
+    LMS_FEED_WDT();
+    ItLosLms036();
+    LMS_FEED_WDT();
+    ItLosLms037();
+    LMS_FEED_WDT();
+    ItLosLms038();
+    LMS_FEED_WDT();
+#if defined(KERNEL_BUG_09_LMS_ERRINFO_NULL) && KERNEL_BUG_09_LMS_ERRINFO_NULL == 1
+    /* BUG_09 宏见 bug_isolate.h: 修复前隔离(不注册不执行), 修复后置 1 恢复 */
+    ItLosLms039();
+    LMS_FEED_WDT();
+#endif
+#if defined(KERNEL_BUG_10_LMS_ADDPOOL_DEADNODE) && KERNEL_BUG_10_LMS_ADDPOOL_DEADNODE == 1
+    /* BUG_10 宏见 bug_isolate.h: 修复前隔离(不注册不执行), 修复后置 1 恢复 */
+    ItLosLms040();
+    LMS_FEED_WDT();
+#endif
 }

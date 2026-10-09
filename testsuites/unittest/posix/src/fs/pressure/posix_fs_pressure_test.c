@@ -33,7 +33,10 @@
 
 #define MAX_OPEN_FILE_NUM               16
 #define PRESSURE_RUN_TIMES              200
-#define PRESSURE_RUN_TIMES003           150
+/* testsuits 本地适配:上游为 150,但本平台 littlefs 元数据提交单次 ~15-30ms
+ * (源仓库同款栈板测同慢,XTS_FS_RAMDISK_PLAN.md 6.6),150 轮单用例 ~45min。
+ * 20 轮保留同路径覆盖,回归时间可用。 */
+#define PRESSURE_RUN_TIMES003           20
 #define READ_WRITE_BUF_SIZE             1024
 #define PATH_MAX_NAME_LEN               PATH_MAX
 #define MAX_OPEN_DIRS_NUM               LOSCFG_MAX_OPEN_DIRS
@@ -131,6 +134,8 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsPressure002, Function | MediumTest | 
         ICUNIT_GOTO_NOT_EQUAL(ret, POSIX_FS_IS_ERROR, ret, EXIT);
     }
 
+    free(writeBuf);
+    free(readBuf);
     return POSIX_FS_NO_ERROR;
 
 EXIT1:
@@ -139,6 +144,8 @@ EXIT1:
 EXIT:
     ret = unlink(tmpFileName);
     ICUNIT_ASSERT_NOT_EQUAL(ret, POSIX_FS_IS_ERROR, ret);
+    free(writeBuf);
+    free(readBuf);
     return POSIX_FS_NO_ERROR;
 }
 

@@ -26,6 +26,31 @@
 # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import("//kernel/liteos_m/liteos.gni")
+
+# lfs_rambd(RAM 块设备)测试专用库: 单独编译并纳入覆盖率插桩,
+# 宏定义与 fs/littlefs 内核模块保持一致(NDEBUG/LFS_NO_*, 使 LFS_ASSERT 编译排除)。
+# 仅在启用 littlefs 时存在: FATFS-only 等商用配置下该目标不存在且无人引用,
+# 不会把测试专用块设备带入产品镜像(rambd 依赖 lfs_util 的 lfs_malloc 符号)。
+if (defined(LOSCFG_SUPPORT_LITTLEFS)) {
+  static_library("lfs_rambd") {
+    sources = [ "//third_party/littlefs/bd/lfs_rambd.c" ]
+
+    include_dirs = [ "//third_party/littlefs" ]
+
+    defines = [
+      "NDEBUG",
+      "LFS_NO_DEBUG",
+      "LFS_NO_WARN",
+      "LFS_NO_ERROR",
+      "LFS_NO_TRACE",
+      "LFS_NO_ASSERT",
+    ]
+
+    configs += [ "$LITEOSTOPDIR/testsuites:kernel_test_coverage" ]
+  }
+}
+
 static_library("fs") {
   # fs 用例归属：layer=TEST_VFS, module=TEST_FS
   defines = [
@@ -41,20 +66,28 @@ static_library("fs") {
     "api/posix_fs_fstat_test.c",
     "api/posix_fs_fsync_test.c",
     "api/posix_fs_ftruncate_test.c",
+    "api/posix_fs_lfs_test.c",
+    "api/posix_fs_lfsdirect_test.c",
+    "api/posix_fs_lfsram_test.c",
     "api/posix_fs_lseek_test.c",
+    "api/posix_fs_lstat_test.c",
     "api/posix_fs_mkdir_test.c",
+    "api/posix_fs_mount_test.c",
     "api/posix_fs_open_test.c",
     "api/posix_fs_opendir_test.c",
     "api/posix_fs_pread_test.c",
     "api/posix_fs_pwrite_test.c",
     "api/posix_fs_read_test.c",
     "api/posix_fs_readdir_test.c",
+    "api/posix_fs_readv_test.c",
     "api/posix_fs_rename_test.c",
     "api/posix_fs_rmdir_test.c",
     "api/posix_fs_stat_test.c",
     "api/posix_fs_statfs_test.c",
     "api/posix_fs_unlink_test.c",
+    "api/posix_fs_vfs_test.c",
     "api/posix_fs_write_test.c",
+    "api/posix_fs_writev_test.c",
     "full/posix_fs_full_test.c",
     "posix_fs_func_test.c",
     "pressure/posix_fs_pressure_test.c",
@@ -65,5 +98,5 @@ static_library("fs") {
     "../",
     "../../../../include",
   ]
-  configs += [ "//kernel/liteos_m/testsuites:no_test_coverage" ]
+  configs += [ "$LITEOSTOPDIR/testsuites:no_test_coverage" ]
 }

@@ -110,14 +110,15 @@ STATIC VOID OutputControl(const CHAR *str, UINT32 len, OutputType type)
     return;
 }
 
+CHAR g_aBuf[SIZEBUF];
+
 STATIC VOID OsVprintf(const CHAR *fmt, va_list ap, OutputType type)
 {
     INT32 len = 0;
-    CHAR aBuf[SIZEBUF] = {0};
     CHAR *bBuf = NULL;
     UINT32 bufLen = SIZEBUF;
 
-    bBuf = aBuf;
+    bBuf = g_aBuf;
     len = vsnprintf_s(bBuf, bufLen, bufLen - 1, fmt, ap);
 #ifdef LOSCFG_KERNEL_PRINTF_SIZE_EXTEND
     if ((len == -1) && (*bBuf == '\0')) {
@@ -183,6 +184,16 @@ VOID LOS_Printf(LogModuleType type, INT32 level, const CHAR *fmt, ...)
     if (OsLogLevelCheck(level) != LOS_OK) {
         return;
     }
+    va_list ap;
+    va_start(ap, fmt);
+    OsVprintf(fmt, ap, CONSOLE_OUTPUT);
+    va_end(ap);
+}
+#endif
+
+#ifdef LOSCFG_LIB_LIBC
+__attribute__((noinline)) VOID dprintf(const CHAR *fmt, ...)
+{
     va_list ap;
     va_start(ap, fmt);
     OsVprintf(fmt, ap, CONSOLE_OUTPUT);

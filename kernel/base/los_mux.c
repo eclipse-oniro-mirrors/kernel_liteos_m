@@ -29,77 +29,65 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "los_mux.h"
+#include "los_mux_pri.h"
 #include "los_mux_debug_pri.h"
-#include "los_task_pri.h"
-#include "los_config.h"
-#include "los_debug.h"
-#include "los_hook.h"
+#include "los_bitmap.h"
+#include "los_exc.h"
+#include "los_spinlock.h"
 #include "los_interrupt.h"
-#include "los_memory.h"
-#include "los_sched.h"
 #include "los_sched_pri.h"
 #include "los_percpu_pri.h"
-#include "los_bitmap.h"
+#include "los_trace.h"
+#include "los_memory.h"
+#include "los_hook.h"
 
 #if (LOSCFG_BASE_IPC_MUX == 1)
 
-LITE_OS_SEC_BSS       LosMuxCB*   g_allMux = NULL;
-LITE_OS_SEC_DATA_INIT LOS_DL_LIST g_unusedMuxList;
+LITE_OS_SEC_BSS LosMuxCB *g_osAllMux = NULL;
+LITE_OS_SEC_BSS STATIC LOS_DL_LIST g_unusedMuxList;
 
-/*****************************************************************************
- Function      : OsMuxInit
- Description  : Initializes the mutex
- Input        : None
- Output       : None
- Return       : LOS_OK on success, or error code on failure
- *****************************************************************************/
-LITE_OS_SEC_TEXT_INIT UINT32 OsMuxInit(VOID)
+STATIC INLINE VOID OsMuxNodeRecycle(LosMuxCB *muxNode)
+{
+    muxNode->muxStat = LOS_UNUSED;
+    LOS_ListTailInsert(&g_unusedMuxList, &muxNode->muxList);
+}
+
+LITE_OS_SEC_TEXT UINT32 OsMuxInit(VOID)
 {
     LosMuxCB *muxNode = NULL;
     UINT32 index;
-
-    LOS_ListInit(&g_unusedMuxList);
 
     if (LOSCFG_BASE_IPC_MUX_LIMIT == 0) {
         return LOS_ERRNO_MUX_MAXNUM_ZERO;
     }
 
-    g_allMux = (LosMuxCB *)LOS_MemAlloc(m_aucSysMem0, (LOSCFG_BASE_IPC_MUX_LIMIT * sizeof(LosMuxCB)));
-    if (g_allMux == NULL) {
+    g_osAllMux = (LosMuxCB *)LOS_MemAlloc(m_aucSysMem0, (LOSCFG_BASE_IPC_MUX_LIMIT * sizeof(LosMuxCB)));
+    if (g_osAllMux == NULL) {
         return LOS_ERRNO_MUX_NO_MEMORY;
     }
 
+    LOS_ListInit(&g_unusedMuxList);
+
     for (index = 0; index < LOSCFG_BASE_IPC_MUX_LIMIT; index++) {
-        muxNode = ((LosMuxCB *)g_allMux) + index;
-        muxNode->muxID = index;
-        muxNode->owner = (LosTaskCB *)NULL;
-        muxNode->muxStat = OS_MUX_UNUSED;
-#if (LOSCFG_MUTEX_CREATE_TRACE == 1)
-        muxNode->createInfo = 0;
-#endif
-        LOS_ListTailInsert(&g_unusedMuxList, &muxNode->muxList);
+        muxNode = g_osAllMux + index;
+        muxNode->muxId = index;
+        OsMuxNodeRecycle(muxNode);
     }
+
     if (OsMuxDbgInitHook() != LOS_OK) {
         return LOS_ERRNO_MUX_NO_MEMORY;
     }
     return LOS_OK;
 }
 
-/*****************************************************************************
- Function     : LOS_MuxCreate
- Description  : Create a mutex
- Input        : None
- Output       : muxHandle ------ Mutex operation handle
- Return       : LOS_OK on success, or error code on failure
- *****************************************************************************/
-LITE_OS_SEC_TEXT_INIT UINT32 LOS_MuxCreate(UINT32 *muxHandle)
+LITE_OS_SEC_TEXT UINT32 LOS_MuxCreate(UINT32 *muxHandle)
 {
     UINT32 intSave;
     LosMuxCB *muxCreated = NULL;
     LOS_DL_LIST *unusedMux = NULL;
-    UINT32 errNo;
-    UINT32 errLine;
+#ifdef LOSCFG_BASE_IPC_MUX_CREATOR
+    UINTPTR creator = ArchGetLr();
+#endif
 
     if (muxHandle == NULL) {
         return LOS_ERRNO_MUX_PTR_NULL;
@@ -109,125 +97,151 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_MuxCreate(UINT32 *muxHandle)
     if (LOS_ListEmpty(&g_unusedMuxList)) {
         SCHEDULER_UNLOCK(intSave);
         OsMutexCheckHook();
-        OS_GOTO_ERR_HANDLER(LOS_ERRNO_MUX_ALL_BUSY);
+        return LOS_ERRNO_MUX_ALL_BUSY;
     }
 
-    unusedMux = LOS_DL_LIST_FIRST(&(g_unusedMuxList));
+    unusedMux = LOS_DL_LIST_FIRST(&g_unusedMuxList);
     LOS_ListDelete(unusedMux);
-    muxCreated = (GET_MUX_LIST(unusedMux));
+    muxCreated = LOS_DL_LIST_ENTRY(unusedMux, LosMuxCB, muxList);
     muxCreated->muxCount = 0;
-    muxCreated->muxStat = OS_MUX_USED;
+    muxCreated->muxStat = LOS_USED;
+    muxCreated->owner = NULL;
     muxCreated->priority = 0;
-    muxCreated->owner = (LosTaskCB *)NULL;
     LOS_ListInit(&muxCreated->muxList);
-    *muxHandle = (UINT32)muxCreated->muxID;
-    OsMuxDbgUpdateHook(muxCreated->muxID, OsCurrTaskGet()->taskEntry);
+    *muxHandle = muxCreated->muxId;
+
+    OsMuxDbgUpdateHook(muxCreated->muxId, OsCurrTaskGet()->taskEntry);
+#ifdef LOSCFG_BASE_IPC_MUX_CREATOR
+    OsMuxCreatorSet(muxCreated, creator);
+#endif
+
     SCHEDULER_UNLOCK(intSave);
+
+    LOS_TRACE(MUX_CREATE, muxCreated->muxId);
     OsHookCall(LOS_HOOK_TYPE_MUX_CREATE, muxCreated);
     return LOS_OK;
-ERR_HANDLER:
-    OS_RETURN_ERROR_P2(errLine, errNo);
 }
 
-/*****************************************************************************
- Function     : LOS_MuxDelete
- Description  : Delete a mutex
- Input        : muxHandle ------Mutex operation handle
- Output       : None
- Return       : LOS_OK on success, or error code on failure
- *****************************************************************************/
-LITE_OS_SEC_TEXT_INIT UINT32 LOS_MuxDelete(UINT32 muxHandle)
+#ifdef LOSCFG_BASE_CORE_SYS_RES_CHECK
+STATIC INLINE UINT32 OsMuxStateVerify(const LosMuxCB *muxCB, UINT32 muxHandle)
 {
-    UINT32 intSave;
-    LosMuxCB *muxDeleted = NULL;
-    UINT32 errNo;
-    UINT32 errLine;
-
-    if (muxHandle >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT) {
-        OS_GOTO_ERR_HANDLER(LOS_ERRNO_MUX_INVALID);
-    }
-
-    muxDeleted = GET_MUX(muxHandle);
-    SCHEDULER_LOCK(intSave);
-    if (muxDeleted->muxStat == OS_MUX_UNUSED) {
-        SCHEDULER_UNLOCK(intSave);
-        OS_GOTO_ERR_HANDLER(LOS_ERRNO_MUX_INVALID);
-    }
-
-    if ((!LOS_ListEmpty(&muxDeleted->muxList)) || muxDeleted->muxCount) {
-        SCHEDULER_UNLOCK(intSave);
-        OS_GOTO_ERR_HANDLER(LOS_ERRNO_MUX_PENDED);
-    }
-
-    LOS_ListAdd(&g_unusedMuxList, &muxDeleted->muxList);
-    muxDeleted->muxStat = OS_MUX_UNUSED;
-#if (LOSCFG_MUTEX_CREATE_TRACE == 1)
-    muxDeleted->createInfo = 0;
-#endif
-    SCHEDULER_UNLOCK(intSave);
-
-    OsMuxDbgUpdateHook(muxDeleted->muxID, NULL);
-    OsHookCall(LOS_HOOK_TYPE_MUX_DELETE, muxDeleted);
-    return LOS_OK;
-ERR_HANDLER:
-    OS_RETURN_ERROR_P2(errLine, errNo);
-}
-
-STATIC_INLINE UINT32 OsMuxValidCheck(LosMuxCB *muxPended)
-{
-    if (muxPended->muxStat == OS_MUX_UNUSED) {
+    if ((muxCB->muxId != muxHandle) || (muxCB->muxStat == LOS_UNUSED)) {
         return LOS_ERRNO_MUX_INVALID;
     }
 
-    if (OS_INT_ACTIVE) {
-        return LOS_ERRNO_MUX_IN_INTERR;
-    }
+    return LOS_OK;
+}
 
-    if (OsPercpuGet()->taskLockCnt) {
-        PRINT_ERR("!!!LOS_ERRNO_MUX_PEND_IN_LOCK!!!\n");
-        return LOS_ERRNO_MUX_PEND_IN_LOCK;
-    }
+STATIC INLINE VOID OsMuxIdUpdate(LosMuxCB *muxDeleted)
+{
+    muxDeleted->muxId = SET_MUX_ID(GET_MUX_COUNT(muxDeleted->muxId) + 1, GET_MUX_INDEX(muxDeleted->muxId));
+}
+#else
+STATIC INLINE UINT32 OsMuxStateVerify(const LosMuxCB *muxCB, UINT32 muxHandle)
+{
+    (VOID)muxHandle;
 
-    if (OsCurrTaskGet()->taskFlags & OS_TASK_FLAG_SYSTEM) {
-        return LOS_ERRNO_MUX_PEND_IN_SYSTEM_TASK;
+    if (muxCB->muxStat == LOS_UNUSED) {
+        return LOS_ERRNO_MUX_INVALID;
     }
 
     return LOS_OK;
 }
 
-STATIC VOID OsMuxBitmapSet(const LosTaskCB *runTask, const LosMuxCB *muxPended)
+STATIC INLINE VOID OsMuxIdUpdate(LosMuxCB *muxDeleted)
 {
-    LosTaskCB *owner = muxPended->owner;
-    if (owner->priority > runTask->priority) {
-        LOS_BitmapSet(&owner->priBitMap, owner->priority);
-        (VOID)OsSchedPrioModify(owner, runTask->priority);
+    (VOID)muxDeleted;
+}
+#endif
+
+LITE_OS_SEC_TEXT UINT32 LOS_MuxDelete(UINT32 muxHandle)
+{
+    UINT32 intSave;
+    LosMuxCB *muxDeleted = NULL;
+    UINT32 ret;
+
+    if (GET_MUX_INDEX(muxHandle) >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT) {
+        return LOS_ERRNO_MUX_INVALID;
+    }
+
+    muxDeleted = GET_MUX(muxHandle);
+
+    LOS_TRACE(MUX_DELETE, muxHandle, muxDeleted->muxStat, muxDeleted->muxCount,
+        ((muxDeleted->owner == NULL) ? 0xFFFFFFFF : muxDeleted->owner->taskId));
+
+    SCHEDULER_LOCK(intSave);
+
+    ret = OsMuxStateVerify(muxDeleted, muxHandle);
+    if (ret != LOS_OK) {
+        goto OUT;
+    }
+
+    if (!LOS_ListEmpty(&muxDeleted->muxList) || (muxDeleted->muxCount != 0)) {
+        ret = LOS_ERRNO_MUX_PENDED;
+        goto OUT;
+    }
+    OsMuxIdUpdate(muxDeleted);
+    OsMuxNodeRecycle(muxDeleted);
+
+#ifdef LOSCFG_BASE_IPC_MUX_CREATOR
+    OsMuxCreatorClear(muxDeleted);
+#endif
+    OsMuxDbgUpdateHook(muxDeleted->muxId, NULL);
+
+ OUT:
+    SCHEDULER_UNLOCK(intSave);
+    OsHookCall(LOS_HOOK_TYPE_MUX_DELETE, muxDeleted);
+    return ret;
+}
+
+LITE_OS_SEC_TEXT STATIC UINT32 OsMuxParaCheck(const LosMuxCB *muxCB, UINT32 muxHandle)
+{
+    UINT32 ret = OsMuxStateVerify(muxCB, muxHandle);
+    if (ret != LOS_OK) {
+        return ret;
+    }
+
+    OsMuxDbgTimeUpdateHook(muxCB->muxId);
+
+    if (OS_INT_ACTIVE) {
+        return LOS_ERRNO_MUX_PEND_INTERR;
+    }
+
+    return LOS_OK;
+}
+
+LITE_OS_SEC_TEXT STATIC VOID OsMuxBitmapSet(const LosTaskCB *runTask, const MuxBaseCB *muxPended)
+{
+    if (GET_MUX_OWNER(muxPended)->priority > runTask->priority) {
+        LOS_BitmapSet(&(GET_MUX_OWNER(muxPended)->priBitMap), GET_MUX_OWNER(muxPended)->priority);
+        OsSchedPrioModify(GET_MUX_OWNER(muxPended), runTask->priority);
     }
 }
 
-VOID OsMuxBitmapRestore(const LosTaskCB *runTask, LosTaskCB *owner)
+LITE_OS_SEC_TEXT VOID OsMuxBitmapRestore(const LosTaskCB *runTask, LosTaskCB *owner)
 {
     UINT16 bitMapPri;
 
     if (owner->priority >= runTask->priority) {
         bitMapPri = LOS_LowBitGet(owner->priBitMap);
         if (bitMapPri != LOS_INVALID_BIT_INDEX) {
-            LOS_BitmapClr(&owner->priBitMap, bitMapPri);
-            (VOID)OsSchedPrioModify(owner, bitMapPri);
+            LOS_BitmapClr(&(owner->priBitMap), bitMapPri);
+            OsSchedPrioModify(owner, bitMapPri);
         }
     } else {
         if (LOS_HighBitGet(owner->priBitMap) != runTask->priority) {
-            LOS_BitmapClr(&owner->priBitMap, runTask->priority);
+            LOS_BitmapClr(&(owner->priBitMap), runTask->priority);
         }
     }
 }
 
 #ifdef LOSCFG_MUTEX_WAITMODE_PRIO
-STATIC LOS_DL_LIST *OsMuxPendFindPosSub(const LosTaskCB *runTask, const LosMuxCB *muxPended)
+LITE_OS_SEC_TEXT STATIC LOS_DL_LIST *OsMuxPendFindPosSub(const LosTaskCB *runTask, const MuxBaseCB *muxPended)
 {
     LosTaskCB *pendedTask = NULL;
     LOS_DL_LIST *node = NULL;
 
-    LOS_DL_LIST_FOR_EACH_ENTRY(pendedTask, &muxPended->muxList, LosTaskCB, pendList) {
+    LOS_DL_LIST_FOR_EACH_ENTRY(pendedTask, &(muxPended->muxList), LosTaskCB, pendList) {
         if (pendedTask->priority < runTask->priority) {
             continue;
         } else if (pendedTask->priority > runTask->priority) {
@@ -238,10 +252,11 @@ STATIC LOS_DL_LIST *OsMuxPendFindPosSub(const LosTaskCB *runTask, const LosMuxCB
             break;
         }
     }
+
     return node;
 }
 
-STATIC LOS_DL_LIST *OsMuxPendFindPos(const LosTaskCB *runTask, LosMuxCB *muxPended)
+LITE_OS_SEC_TEXT STATIC LOS_DL_LIST *OsMuxPendFindPos(const LosTaskCB *runTask, MuxBaseCB *muxPended)
 {
     LOS_DL_LIST *node = NULL;
     LosTaskCB *pendedTask1 = NULL;
@@ -263,21 +278,111 @@ STATIC LOS_DL_LIST *OsMuxPendFindPos(const LosTaskCB *runTask, LosMuxCB *muxPend
     return node;
 }
 #else
-STATIC LOS_DL_LIST *OsMuxPendFindPos(const LosTaskCB *runTask, LosMuxCB *muxPended)
+LITE_OS_SEC_TEXT STATIC LOS_DL_LIST *OsMuxPendFindPos(const LosTaskCB *runTask, MuxBaseCB *muxPended)
 {
     (VOID)runTask;
-    return &muxPended->muxList;
+    LOS_DL_LIST *node = NULL;
+    node = &muxPended->muxList;
+    return node;
 }
 #endif
 
-VOID OsMuxPostOpSub(LosTaskCB *runTask, LosMuxCB *muxPosted)
+LITE_OS_SEC_TEXT UINT32 OsMuxPendOp(LosTaskCB *runTask, MuxBaseCB *muxPended, UINT32 timeout)
+{
+    LOS_DL_LIST *node = NULL;
+    UINT32 ret = LOS_OK;
+    LosTaskCB *owner = GET_MUX_OWNER(muxPended);
+
+    runTask->taskMux = (VOID *)muxPended;
+    node = OsMuxPendFindPos(runTask, muxPended);
+
+    OsSchedWait(runTask, node, timeout);
+
+    if (runTask->taskStatus & OS_TASK_STATUS_TIMEOUT) {
+        runTask->taskStatus &= ~OS_TASK_STATUS_TIMEOUT;
+        ret = LOS_ERRNO_MUX_TIMEOUT;
+    }
+
+    if (timeout != LOS_WAIT_FOREVER) {
+        OsMuxBitmapRestore(runTask, owner);
+    }
+
+    return ret;
+}
+
+LITE_OS_SEC_TEXT UINT32 LOS_MuxPend(UINT32 muxHandle, UINT32 timeout)
+{
+    UINT32 ret, intSave;
+    LosMuxCB *muxPended = NULL;
+    LosTaskCB *runTask = NULL;
+
+    if (GET_MUX_INDEX(muxHandle) >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT) {
+        return LOS_ERRNO_MUX_INVALID;
+    }
+
+    muxPended = GET_MUX(muxHandle);
+
+    LOS_TRACE(MUX_PEND, muxHandle, muxPended->muxCount,
+        ((muxPended->owner == NULL) ? 0xFFFFFFFF : GET_MUX_OWNER(muxPended)->taskId), timeout);
+
+    SCHEDULER_LOCK(intSave);
+
+    ret = OsMuxParaCheck(muxPended, muxHandle);
+    if (ret != LOS_OK) {
+        goto OUT_UNLOCK;
+    }
+
+    runTask = OsCurrTaskGet();
+    if (runTask->taskFlags & OS_TASK_FLAG_SYSTEM) {
+        PRINT_DEBUG("Warning: DO NOT recommend to use %s in system tasks.\n", __FUNCTION__);
+        ret = LOS_ERRNO_MUX_PEND_IN_SYSTEM_TASK;
+        goto OUT_UNLOCK;
+    }
+
+    if (!OsPreemptableInSched()) {
+        PRINT_ERR("!!!LOS_ERRNO_MUX_PEND_IN_LOCK!!!\n");
+        ret = LOS_ERRNO_MUX_PEND_IN_LOCK;
+        goto OUT_UNLOCK;
+    }
+
+    if (muxPended->owner == runTask) {
+        muxPended->muxCount++;
+        goto OUT_UNLOCK;
+    }
+
+    if (muxPended->muxCount == 0) {
+        muxPended->muxCount++;
+        muxPended->owner = runTask;
+        goto OUT_UNLOCK;
+    }
+
+    if (timeout == 0) {
+        ret = LOS_ERRNO_MUX_UNAVAILABLE;
+        goto OUT_UNLOCK;
+    }
+
+    OsMuxBitmapSet(runTask, (MuxBaseCB *)muxPended);
+    ret = OsMuxPendOp(runTask, (MuxBaseCB *)muxPended, timeout);
+    if (ret != LOS_OK) {
+        goto OUT_UNLOCK;
+    }
+
+OUT_UNLOCK:
+    SCHEDULER_UNLOCK(intSave);
+    if (ret == LOS_OK) {
+        OsHookCall(LOS_HOOK_TYPE_MUX_PEND, muxPended, timeout);
+    }
+    return ret;
+}
+
+LITE_OS_SEC_TEXT VOID OsMuxPostOpSub(LosTaskCB *runTask, MuxBaseCB *muxPosted)
 {
     LosTaskCB *pendedTask = NULL;
     UINT16 bitMapPri;
 
     if (!LOS_ListEmpty(&muxPosted->muxList)) {
         bitMapPri = LOS_HighBitGet(runTask->priBitMap);
-        LOS_DL_LIST_FOR_EACH_ENTRY(pendedTask, &muxPosted->muxList, LosTaskCB, pendList) {
+        LOS_DL_LIST_FOR_EACH_ENTRY(pendedTask, (&muxPosted->muxList), LosTaskCB, pendList) {
             if (bitMapPri != pendedTask->priority) {
                 LOS_BitmapClr(&runTask->priBitMap, pendedTask->priority);
             }
@@ -285,157 +390,98 @@ VOID OsMuxPostOpSub(LosTaskCB *runTask, LosMuxCB *muxPosted)
     }
     bitMapPri = LOS_LowBitGet(runTask->priBitMap);
     LOS_BitmapClr(&runTask->priBitMap, bitMapPri);
-    (VOID)OsSchedPrioModify(muxPosted->owner, bitMapPri);
+    OsSchedPrioModify(GET_MUX_OWNER(muxPosted), bitMapPri);
 }
 
-/*****************************************************************************
- Function     : LOS_MuxPend
- Description  : Specify the mutex P operation
- Input        : muxHandle ------ Mutex operation handleone
-              : timeOut   ------- waiting time
- Output       : None
- Return       : LOS_OK on success, or error code on failure
- *****************************************************************************/
-LITE_OS_SEC_TEXT UINT32 LOS_MuxPend(UINT32 muxHandle, UINT32 timeout)
+LITE_OS_SEC_TEXT UINT32 OsMuxPostOp(LosTaskCB *runTask, MuxBaseCB *muxPosted)
 {
-    UINT32 intSave;
-    LosMuxCB *muxPended = NULL;
-    UINT32 retErr;
-    LosTaskCB *runningTask = NULL;
-    LOS_DL_LIST *node = NULL;
-
-    if (muxHandle >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT) {
-        OS_RETURN_ERROR(LOS_ERRNO_MUX_INVALID);
-    }
-
-    muxPended = GET_MUX(muxHandle);
-    SCHEDULER_LOCK(intSave);
-    retErr = OsMuxValidCheck(muxPended);
-    if (retErr) {
-        goto ERROR_MUX_PEND;
-    }
-
-    OsMuxDbgTimeUpdateHook(muxHandle);
-    runningTask = OsCurrTaskGet();
-    if (muxPended->muxCount == 0) {
-        muxPended->muxCount++;
-        muxPended->owner = runningTask;
-        SCHEDULER_UNLOCK(intSave);
-        goto HOOK;
-    }
-
-    if (muxPended->owner == runningTask) {
-        muxPended->muxCount++;
-        SCHEDULER_UNLOCK(intSave);
-        goto HOOK;
-    }
-
-    if (!timeout) {
-        retErr = LOS_ERRNO_MUX_UNAVAILABLE;
-        goto ERROR_MUX_PEND;
-    }
-
-    runningTask->taskMux = (VOID *)muxPended;
-
-    OsMuxBitmapSet(runningTask, muxPended);
-
-    node = OsMuxPendFindPos(runningTask, muxPended);
-    OsHookCall(LOS_HOOK_TYPE_MUX_PEND, muxPended, timeout);
-
-    OsSchedWait(OsCurrTaskGet(), node, timeout);
-    SCHEDULER_UNLOCK(intSave);
-
-    SCHEDULER_LOCK(intSave);
-    if (runningTask->taskStatus & OS_TASK_STATUS_TIMEOUT) {
-        runningTask->taskStatus &= (~OS_TASK_STATUS_TIMEOUT);
-        OsMuxBitmapRestore(runningTask, muxPended->owner);
-        retErr = LOS_ERRNO_MUX_TIMEOUT;
-        goto ERROR_MUX_PEND;
-    }
-
-    SCHEDULER_UNLOCK(intSave);
-    return LOS_OK;
-
-HOOK:
-    OsHookCall(LOS_HOOK_TYPE_MUX_PEND, muxPended, timeout);
-    return LOS_OK;
-
-ERROR_MUX_PEND:
-    SCHEDULER_UNLOCK(intSave);
-    OS_RETURN_ERROR(retErr);
-}
-
-/*****************************************************************************
- Function     : LOS_MuxPost
- Description  : Specify the mutex V operation,
- Input        : muxHandle ------ Mutex operation handle
- Output       : None
- Return       : LOS_OK on success, or error code on failure
- *****************************************************************************/
-LITE_OS_SEC_TEXT UINT32 LOS_MuxPost(UINT32 muxHandle)
-{
-    UINT32 intSave;
-    LosMuxCB *muxPosted = GET_MUX(muxHandle);
     LosTaskCB *resumedTask = NULL;
-    LosTaskCB *runningTask = NULL;
 
-    SCHEDULER_LOCK(intSave);
-
-    if ((muxHandle >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT) ||
-        (muxPosted->muxStat == OS_MUX_UNUSED)) {
-        SCHEDULER_UNLOCK(intSave);
-        OS_RETURN_ERROR(LOS_ERRNO_MUX_INVALID);
+    if (LOS_ListEmpty(&muxPosted->muxList)) {
+        muxPosted->owner = NULL;
+        return MUX_NO_SCHEDULE;
     }
 
-    if (OS_INT_ACTIVE) {
-        SCHEDULER_UNLOCK(intSave);
-        OS_RETURN_ERROR(LOS_ERRNO_MUX_IN_INTERR);
-    }
-
-    runningTask = OsCurrTaskGet();
-    if ((muxPosted->muxCount == 0) || (muxPosted->owner != runningTask)) {
-        SCHEDULER_UNLOCK(intSave);
-        OS_RETURN_ERROR(LOS_ERRNO_MUX_INVALID);
-    }
-
-    if (--(muxPosted->muxCount) != 0) {
-        SCHEDULER_UNLOCK(intSave);
-        OsHookCall(LOS_HOOK_TYPE_MUX_POST, muxPosted);
-        return LOS_OK;
-    }
-
-    if (!LOS_ListEmpty(&muxPosted->muxList)) {
-        resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&(muxPosted->muxList)));
-
+    resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&(muxPosted->muxList)));
 #ifdef LOSCFG_MUTEX_WAITMODE_PRIO
-        if (resumedTask->priority > runningTask->priority) {
-            if (LOS_HighBitGet(runningTask->priBitMap) != resumedTask->priority) {
-                LOS_BitmapClr(&runningTask->priBitMap, resumedTask->priority);
-            }
-        } else if (runningTask->priBitMap != 0) {
-            OsMuxPostOpSub(runningTask, muxPosted);
+    if (resumedTask->priority > runTask->priority) {
+        if (LOS_HighBitGet(runTask->priBitMap) != resumedTask->priority) {
+            LOS_BitmapClr(&runTask->priBitMap, resumedTask->priority);
         }
+    } else if (runTask->priBitMap != 0) {
+        OsMuxPostOpSub(runTask, muxPosted);
+    }
 #else
-        if (runningTask->priBitMap != 0) {
-            OsMuxPostOpSub(runningTask, muxPosted);
-        }
+    if (runTask->priBitMap != 0) {
+        OsMuxPostOpSub(runTask, muxPosted);
+    }
 #endif
 
-        muxPosted->muxCount = 1;
-        muxPosted->owner = resumedTask;
-        resumedTask->taskMux = NULL;
+    muxPosted->muxCount = 1;
+    muxPosted->owner = resumedTask;
+    resumedTask->taskMux = NULL;
 
-        OsSchedWake(resumedTask);
+    OsSchedWake(resumedTask);
 
-        SCHEDULER_UNLOCK(intSave);
-        OsHookCall(LOS_HOOK_TYPE_MUX_POST, muxPosted);
-        LOS_Schedule();
-    } else {
-        muxPosted->owner = NULL;
-        SCHEDULER_UNLOCK(intSave);
+    return MUX_SCHEDULE;
+}
+
+LITE_OS_SEC_TEXT UINT32 LOS_MuxPost(UINT32 muxHandle)
+{
+    UINT32 ret;
+    LosTaskCB *runTask = NULL;
+    LosMuxCB *muxPosted = NULL;
+    UINT32 intSave;
+
+    if (GET_MUX_INDEX(muxHandle) >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT) {
+        return LOS_ERRNO_MUX_INVALID;
     }
 
+    muxPosted = GET_MUX(muxHandle);
+
+    LOS_TRACE(MUX_POST, muxHandle, muxPosted->muxCount,
+        ((muxPosted->owner == NULL) ? 0xFFFFFFFF : muxPosted->owner->taskId));
+
+    SCHEDULER_LOCK(intSave);
+
+    ret = OsMuxParaCheck(muxPosted, muxHandle);
+    if (ret != LOS_OK) {
+        goto OUT_UNLOCK;
+    }
+
+    runTask = OsCurrTaskGet();
+    if ((muxPosted->muxCount == 0) || (muxPosted->owner != runTask)) {
+        ret = LOS_ERRNO_MUX_INVALID;
+        goto OUT_UNLOCK;
+    }
+
+    if (--muxPosted->muxCount != 0) {
+        goto OUT_UNLOCK;
+    }
+
+    ret = OsMuxPostOp(runTask, (MuxBaseCB *)muxPosted);
+    SCHEDULER_UNLOCK(intSave);
+    if (ret == MUX_SCHEDULE) {
+        LOS_Schedule();
+    }
+    OsHookCall(LOS_HOOK_TYPE_MUX_POST, muxPosted);
     return LOS_OK;
+
+OUT_UNLOCK:
+    SCHEDULER_UNLOCK(intSave);
+    return ret;
 }
+
+#ifdef LOSCFG_BASE_IPC_MUX_CREATOR
+VOID OsMuxCreatorSet(LosMuxCB *mux, UINTPTR creator)
+{
+    mux->creator = creator;
+}
+
+VOID OsMuxCreatorClear(LosMuxCB *mux)
+{
+    mux->creator = 0;
+}
+#endif
 
 #endif /* (LOSCFG_BASE_IPC_MUX == 1) */

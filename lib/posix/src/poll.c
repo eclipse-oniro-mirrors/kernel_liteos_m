@@ -54,11 +54,17 @@ STATIC VOID DestroyPollWait(struct PollTable *table)
     UINT32 intSave;
     struct PollWaitNode *waitNode = table->node;
 
-    intSave = LOS_IntLock();
-    LOS_ListDelete(&waitNode->node);
-    LOS_IntRestore(intSave);
+    /* table->node is NULL when no wait node was ever queued (poll with
+     * timeout == 0, or the event was already ready at the first query),
+     * in which case only the semaphore needs to be destroyed.
+     */
+    if (waitNode != NULL) {
+        intSave = LOS_IntLock();
+        LOS_ListDelete(&waitNode->node);
+        LOS_IntRestore(intSave);
 
-    (VOID)LOS_MemFree(OS_SYS_MEM_ADDR, waitNode);
+        (VOID)LOS_MemFree(OS_SYS_MEM_ADDR, waitNode);
+    }
     if (LOS_SemDelete(table->sem) != LOS_OK) {
         PRINT_ERR("destroy poll sem failed!\n");
     }

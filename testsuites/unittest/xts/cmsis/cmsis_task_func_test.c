@@ -38,6 +38,7 @@ UINT16 g_threadCreateExit;
 UINT16 g_threadCreateExit1;
 UINT16 g_getNameExit;
 UINT16 g_getStackSpaceExit;
+UINT16 g_resumeThreadExit;
 osThreadId_t g_puwTaskID01;
 osThreadId_t g_puwTaskID02;
 osPriority_t g_threadPriority;
@@ -337,6 +338,7 @@ static void CmsisThreadResumeFunc002(void const *argument)
     ICUNIT_ASSERT_EQUAL_VOID(status, osOK, status);
     status = osDelay(DELAY_TICKS_5);
     ICUNIT_ASSERT_EQUAL_VOID(status, osOK, status);
+    g_resumeThreadExit = TESTCOUNT_NUM_1;
     osThreadExit();
 }
 
@@ -1198,10 +1200,14 @@ LITE_TEST_CASE(CmsisTaskFuncTestSuite, testOsThreadResume001, Function | MediumT
     attr.stack_size = TEST_TASK_STACK_SIZE;
     attr.priority = osPriorityAboveNormal;
     g_cmsisTestTaskCount = 0;
+    g_resumeThreadExit = 0;
     g_cmsisTestTaskCount++;
     id = osThreadNew((osThreadFunc_t)CmsisThreadResumeFunc001, NULL, &attr);
     ICUNIT_ASSERT_EQUAL(g_cmsisTestTaskCount, TESTCOUNT_NUM_3, g_cmsisTestTaskCount);
     ICUNIT_ASSERT_NOT_EQUAL(id, NULL, id);
+    /* 等待 Func002 收尾(osDelay(5)+osThreadExit)与 Func001 退出完成:
+     * 否则线程尾延迟会落到本用例结束后的 ResLeak 检查窗口,被误报为泄漏 */
+    TEST_DELAY(g_resumeThreadExit, TESTCOUNT_NUM_1, TEST_WAIT_TIMEOUT);
     return 0;
 };
 
@@ -2240,7 +2246,6 @@ void CmsisTaskFuncTest1(void)
 void CmsisTaskFuncTest(void)
 {
     RUN_ONE_TESTCASE(testOsThreadNew001);
-#if (LOS_FEATURE_ADAPTED == 1)
     RUN_ONE_TESTCASE(testOsThreadNew002);
     RUN_ONE_TESTCASE(testOsThreadNew003);
     RUN_ONE_TESTCASE(testOsThreadNew004);
@@ -2249,7 +2254,6 @@ void CmsisTaskFuncTest(void)
     RUN_ONE_TESTCASE(testOsThreadNew007);
     RUN_ONE_TESTCASE(testOsThreadNew008);
     RUN_ONE_TESTCASE(testOsThreadNew009);
-#endif
     RUN_ONE_TESTCASE(testOsThreadGetName001);
     RUN_ONE_TESTCASE(testOsThreadGetName002);
     RUN_ONE_TESTCASE(testOsThreadGetName003);
@@ -2279,9 +2283,7 @@ void CmsisTaskFuncTest(void)
     RUN_ONE_TESTCASE(testOsThreadYield003);
     RUN_ONE_TESTCASE(testOsThreadYield004);
     RUN_ONE_TESTCASE(testOsThreadYield005);
-#if (LOS_FEATURE_ADAPTED == 1)
     RUN_ONE_TESTCASE(testOsThreadYield006);
-#endif
     RUN_ONE_TESTCASE(testOsThreadYield007);
     RUN_ONE_TESTCASE(testOsThreadYield008);
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)

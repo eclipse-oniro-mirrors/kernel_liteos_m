@@ -161,6 +161,14 @@ LITE_TEST_CASE(PthreadBasicApiTestSuite, testPthreadExitFunction, Function | Med
     return 0;
 }
 
+/* detach 用例专用线程: 立即返回,不带 usleep 尾延迟。
+ * 不复用 ThreadPublic(内含 usleep),避免子线程退出晚于用例结束,
+ * 落到 ResLeak 检查窗口内被误报为 task/memory 泄漏。 */
+static void *ThreadDetachTarget(void *arg)
+{
+    return arg;
+}
+
 /**
  * @tc.number   SUB_KERNEL_PTHREAD_DETACH_0100
  * @tc.name     Use pthread_detach to detach child threads
@@ -170,7 +178,7 @@ LITE_TEST_CASE(PthreadBasicApiTestSuite, testPthreadDetach, Function | MediumTes
 {
     int ret;
     pthread_t tid;
-    ret = pthread_create(&tid, NULL, ThreadPublic, NULL);
+    ret = pthread_create(&tid, NULL, ThreadDetachTarget, NULL);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ret = pthread_detach(tid);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);

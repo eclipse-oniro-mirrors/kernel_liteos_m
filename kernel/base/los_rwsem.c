@@ -39,6 +39,7 @@
 #include "los_memory.h"
 #include "los_sched.h"
 #include "los_sched_pri.h"
+#include "los_exc.h"
 
 #if (LOSCFG_BASE_IPC_RWSEM == 1)
 
@@ -70,7 +71,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsRwsemInit(VOID)
     for (index = 0; index < LOSCFG_BASE_IPC_RWSEM_LIMIT; index++) {
         rwsemNode = g_osAllRwsem + index;
         rwsemNode->rwsemId = index;
-        rwsemNode->rwsemState = OS_RWSEM_UNUSED;
+        rwsemNode->rwsemState = LOS_UNUSED;
         LOS_ListTailInsert(&g_unusedRwsemList, &rwsemNode->waitList);
     }
 
@@ -97,7 +98,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_RwsemCreate(UINT32 *semHandle)
     LOS_ListDelete(unusedRwsem);
     rwsemCreated = GET_RWSEM_LIST(unusedRwsem);
     rwsemCreated->rwsemCount = RWSEM_INITIAL;
-    rwsemCreated->rwsemState = OS_RWSEM_USED;
+    rwsemCreated->rwsemState = LOS_USED;
     LOS_ListInit(&rwsemCreated->waitList);
     *semHandle = rwsemCreated->rwsemId;
 
@@ -105,11 +106,26 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_RwsemCreate(UINT32 *semHandle)
     return LOS_OK;
 }
 
+#ifdef LOSCFG_BASE_CORE_SYS_RES_CHECK
+STATIC INLINE UINT32 RwsemStateVerify(UINT32 rwsemId, const OsRwsemCB *rwsemNode)
+{
+    if ((rwsemNode->rwsemState == LOS_UNUSED) || (rwsemNode->rwsemId != rwsemId)) {
+        return LOS_ERRNO_RWSEM_INVALID;
+    }
+    return LOS_OK;
+}
+
+STATIC INLINE VOID RwsemIdUpdate(OsRwsemCB *rwsemDeleted)
+{
+    rwsemDeleted->rwsemId = SET_RWSEM_ID(GET_RWSEM_COUNT(rwsemDeleted->rwsemId) + 1,
+                                         GET_RWSEM_INDEX(rwsemDeleted->rwsemId));
+}
+#else
 STATIC INLINE UINT32 RwsemStateVerify(UINT32 rwsemId, const OsRwsemCB *rwsemNode)
 {
     (VOID)rwsemId;
 
-    if (rwsemNode->rwsemState == OS_RWSEM_UNUSED) {
+    if (rwsemNode->rwsemState == LOS_UNUSED) {
         return LOS_ERRNO_RWSEM_INVALID;
     }
     return LOS_OK;
@@ -119,6 +135,7 @@ STATIC INLINE VOID RwsemIdUpdate(OsRwsemCB *rwsemDeleted)
 {
     (VOID)rwsemDeleted;
 }
+#endif
 
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_RwsemDelete(UINT32 semHandle)
 {
@@ -144,7 +161,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_RwsemDelete(UINT32 semHandle)
     }
 
     RwsemIdUpdate(rwsemDeleted);
-    rwsemDeleted->rwsemState = OS_RWSEM_UNUSED;
+    rwsemDeleted->rwsemState = LOS_UNUSED;
     LOS_ListTailInsert(&g_unusedRwsemList, &rwsemDeleted->waitList);
 
 OUT:
@@ -164,10 +181,10 @@ STATIC INLINE UINT32 RwsemPendCheck(UINT32 semHandle, UINT32 timeout, LosTaskCB 
     }
 
     if (runTask->taskFlags & OS_TASK_FLAG_SYSTEM) {
-        PRINT_ERR("Warning: DO NOT recommend to use rwsem in system tasks.\n");
+        PRINT_DEBUG("Warning: DO NOT recommend to use %s in system tasks.\n", __FUNCTION__);
     }
 
-    if (OsPercpuGet()->taskLockCnt) {
+    if (!OsPreemptable()) {
         return LOS_ERRNO_RWSEM_PEND_IN_LOCK;
     }
     return LOS_OK;
@@ -175,7 +192,7 @@ STATIC INLINE UINT32 RwsemPendCheck(UINT32 semHandle, UINT32 timeout, LosTaskCB 
 
 STATIC VOID RwsemTaskWait(OsRwsemCB *rwsem, LosTaskCB *runTask, UINT32 timeout, UINT32 *ret)
 {
-    OsSchedWait(OsCurrTaskGet(), &rwsem->waitList, timeout);
+    OsSchedWait(runTask, &rwsem->waitList, timeout);
 
     if (runTask->taskStatus & OS_TASK_STATUS_TIMEOUT) {
         runTask->taskStatus &= ~OS_TASK_STATUS_TIMEOUT;
@@ -211,6 +228,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_RwsemPendRead(UINT32 semHandle, UINT32 timeout)
     }
 
     RWSEM_UNLOCK(intSave);
+    /* It may be preempted by other tasks. */
     SCHEDULER_LOCK(intSave);
     if ((rwsemPended->rwsemCount >= RWSEM_INITIAL) && LOS_ListEmpty(&rwsemPended->waitList)) {
         rwsemPended->rwsemCount++;
@@ -254,6 +272,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_RwsemPendWrite(UINT32 semHandle, UINT32 timeout)
     }
 
     RWSEM_UNLOCK(intSave);
+    /* It may be preempted by other tasks. */
     SCHEDULER_LOCK(intSave);
     if (rwsemPended->rwsemCount == RWSEM_INITIAL) {
         rwsemPended->rwsemCount--;
@@ -318,7 +337,9 @@ LITE_OS_SEC_TEXT UINT32 LOS_RwsemPostRead(UINT32 semHandle)
     }
 
     RWSEM_UNLOCK(intSave);
+    /* It may be preempted by other tasks. */
     SCHEDULER_LOCK(intSave);
+    /* rwsemPosted->rwsemCount = RWSEM_INITIAL  && rwsemPosted->waitList is not empty */
     RwsemTaskWakeup(rwsemPosted, RWSEM_WRITE);
     SCHEDULER_UNLOCK(intSave);
     LOS_Schedule();
@@ -358,7 +379,9 @@ LITE_OS_SEC_TEXT UINT32 LOS_RwsemPostWrite(UINT32 semHandle)
     }
 
     RWSEM_UNLOCK(intSave);
+    /* It may be preempted by other tasks. */
     SCHEDULER_LOCK(intSave);
+    /* rwsemPosted->rwsemCount = RWSEM_INITIAL  && rwsemPosted->waitList is not empty */
     resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&rwsemPosted->waitList));
     RwsemTaskWakeup(rwsemPosted, resumedTask->waitType);
     SCHEDULER_UNLOCK(intSave);
@@ -401,7 +424,9 @@ LITE_OS_SEC_TEXT UINT32 LOS_RwsemDowngradeWrite(UINT32 semHandle)
     }
 
     RWSEM_UNLOCK(intSave);
+    /* It may be preempted by other tasks. */
     SCHEDULER_LOCK(intSave);
+    /* rwsemDowngaded->rwsemCount = RWSEM_INITIAL  && rwsemDowngaded->waitList is not empty */
     resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&rwsemDowngaded->waitList));
     if (resumedTask->waitType == RWSEM_READ) {
         RwsemTaskWakeup(rwsemDowngaded, resumedTask->waitType);

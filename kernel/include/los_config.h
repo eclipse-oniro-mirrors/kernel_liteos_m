@@ -297,6 +297,8 @@ extern "C" {
  * Define a usable task priority.Lowest task priority.
  */
 #ifndef LOS_TASK_PRIORITY_LOWEST
+#define LOSCFG_KERNEL_LOWPOWER
+
 #define LOS_TASK_PRIORITY_LOWEST                            31
 #endif
 
@@ -304,6 +306,17 @@ extern "C" {
  * @ingroup los_config
  * Configuration item for task stack independent
  */
+/**
+ * @ingroup los_config
+ * Derived task module constants (kernel_lite naming).
+ * KERNEL_TSK_LIMIT reserves one extra slot for the IDLE task,
+ * same accounting as g_taskMaxNum = LOSCFG_BASE_CORE_TSK_LIMIT + 1.
+ */
+#define KERNEL_TSK_LIMIT                  (LOSCFG_BASE_CORE_TSK_LIMIT + 1)
+#define KERNEL_TSK_MIN_STACK_SIZE         LOSCFG_BASE_CORE_TSK_MIN_STACK_SIZE
+#define KERNEL_TSK_DEFAULT_STACK_SIZE     LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE
+#define KERNEL_TSK_IDLE_STACK_SIZE        LOSCFG_BASE_CORE_TSK_IDLE_STACK_SIZE
+
 #ifndef LOSCFG_BASE_CORE_TASKSTACK_INDEPENDENT
 #define LOSCFG_BASE_CORE_TASKSTACK_INDEPENDENT              0
 #endif
@@ -324,7 +337,7 @@ extern "C" {
  * Configuration item for semaphore module tailoring
  */
 #ifndef LOSCFG_BASE_IPC_SEM
-#define LOSCFG_BASE_IPC_SEM                                 1
+#define LOSCFG_BASE_IPC_SEM                                 0
 #endif
 
 /**
@@ -340,7 +353,7 @@ extern "C" {
  * Maximum number of semaphores.
  */
 #ifndef OS_SEM_COUNTING_MAX_COUNT
-#define OS_SEM_COUNTING_MAX_COUNT                           0xFFFF
+#define OS_SEM_COUNTING_MAX_COUNT                           0xFFFE
 #endif
 
 /* =============================================================================
@@ -351,7 +364,7 @@ extern "C" {
  * Configuration item for mutex module tailoring
  */
 #ifndef LOSCFG_BASE_IPC_MUX
-#define LOSCFG_BASE_IPC_MUX                                 1
+#define LOSCFG_BASE_IPC_MUX                                 0
 #endif
 
 /**
@@ -370,7 +383,7 @@ extern "C" {
  * Configuration item for queue module tailoring
  */
 #ifndef LOSCFG_BASE_IPC_QUEUE
-#define LOSCFG_BASE_IPC_QUEUE                               1
+#define LOSCFG_BASE_IPC_QUEUE                               0
 #endif
 
 /**
@@ -398,7 +411,7 @@ extern "C" {
  * Configuration item for software timer module tailoring
  */
 #ifndef LOSCFG_BASE_CORE_SWTMR
-#define LOSCFG_BASE_CORE_SWTMR                              1
+#define LOSCFG_BASE_CORE_SWTMR                              0
 #endif
 
 /**

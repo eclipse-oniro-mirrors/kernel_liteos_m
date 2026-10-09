@@ -89,5 +89,6 @@ VOID ItSuiteLosSem(void)
     ItLosSem303();
     ItLosSem304();
     ItLosSem305();
+    ItLosSem306(); /* swtmr 系统任务 Pend 拒绝分支 */
 #endif
 }

@@ -74,7 +74,7 @@ VOID OsTraceSendObjTable(VOID)
     LosTaskCB *tcb = NULL;
 
     for (loop = 0; loop < g_taskMaxNum; ++loop) {
-        tcb = g_taskCBArray + loop;
+        tcb = g_osTaskCBArray + loop;
         if (tcb->taskStatus & OS_TASK_STATUS_UNUSED) {
             continue;
         }

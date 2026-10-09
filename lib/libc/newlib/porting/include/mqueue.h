@@ -33,12 +33,14 @@
 
 #include <sys/features.h>
 #include <sys/types.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef int mqd_t;
+/* LP64-safe descriptor (see musl porting mqueue.h note). */
+typedef uintptr_t mqd_t;
 
 struct mq_attr {
     long mq_flags, mq_maxmsg, mq_msgsize, mq_curmsgs, _unused[4];

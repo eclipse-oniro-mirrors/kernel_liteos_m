@@ -220,12 +220,19 @@ VOID ItLosTick010(void);
 VOID ItLosTick011(void);
 VOID ItLosTick012(void);
 VOID ItLosTick013(void);
+VOID ItLosTick014(void);
+VOID ItLosTick015(void);
+VOID ItLosTick016(void);
+VOID ItLosTick017(void);
 VOID ItLosMem301(void);
 VOID ItLosMem310(void);
 VOID ItLosMem311(void);
 VOID ItLosMem312(void);
 VOID ItLosMem313(void);
 VOID ItLosMem314(void);
+VOID ItLosMem315(void);
+VOID ItLosMem316(void);
+VOID ItLosMem317(void);
 #ifdef LOSCFG_MEM_MUL_POOL_ALLOC
 #define TEST_POOL_MAX_NUM       4
 #define TEST_EACH_POOL_SIZE     0x2000
@@ -236,6 +243,7 @@ VOID TestReleaseAddrSize(VOID *pool);
 VOID TEST_MulPoolUnRegister(VOID);
 VOID ItLosMulPool001(void);
 VOID ItLosMulPool002(void);
+VOID ItLosMulPool003(void);
 #endif
 
 #ifdef __cplusplus

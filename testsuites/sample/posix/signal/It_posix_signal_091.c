@@ -30,9 +30,6 @@
  */
 
 
-#include "bug_isolate.h" /* BUG_03 等宏统一在此定义 */
-
-#ifndef PRODUCT_BUG_ISOLATE
 #include "It_posix_signal.h"
 
 /* 用例简要描述: sigtimedwait 无 pending 短超时返回-1 */
@@ -58,6 +55,3 @@ VOID ItPosixSignal091(VOID)
 {
     TEST_ADD_CASE("ItPosixSignal091", Testcase, TEST_LIB, TEST_POSIX, TEST_LEVEL1, TEST_FUNCTION);
 }
-#else
-typedef int bug03_placeholder;
-#endif /* PRODUCT_BUG_ISOLATE: signal_091 */

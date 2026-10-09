@@ -1,0 +1,9 @@
+import("//kernel/liteos_m/liteos.gni")
+
+group("liteos_m") {
+  deps = [ "board" ]
+}
+
+config("public") {
+  configs = [ "board:public" ]
+}

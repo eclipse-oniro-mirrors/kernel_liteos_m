@@ -82,8 +82,8 @@ static UINT32 Testcase(VOID)
     UINT32 osMuxUsedcnt = 0;
 
     for (loop = 0; loop < LOSCFG_BASE_IPC_SEM_LIMIT; loop++) {
-        semNode = g_allSem + loop;
-        if (semNode->semStat == OS_SEM_USED) {
+        semNode = g_osAllSem + loop;
+        if (semNode->semStat == LOS_USED) {
             osMuxUsedcnt++;
         }
     }

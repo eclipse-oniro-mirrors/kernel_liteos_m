@@ -121,7 +121,12 @@ typedef VOID (*pf_OUTPUT)(const CHAR *fmt, ...);
 /* LOS_Printf is declared in los_debug.h with the original signature:
  *   VOID LOS_Printf(LogModuleType type, INT32 level, const CHAR *fmt, ...);
  */
+#ifdef LOSCFG_LIB_LIBC
+extern VOID dprintf(const CHAR *fmt, ...);
+#define diag_printf(fmt, ...)   dprintf(fmt, ##__VA_ARGS__)
+#else
 #define diag_printf(fmt, ...)   LOS_Printf(LOG_MODULE_KERNEL, LOG_COMMON_LEVEL, fmt, ##__VA_ARGS__)
+#endif
 
 /**
  * @ingroup los_printf

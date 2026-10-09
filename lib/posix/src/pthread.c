@@ -113,10 +113,10 @@ static void *PthreadEntry(UINT32 param)
 static inline bool IsPthread(pthread_t thread)
 {
     LosTaskCB *tcb = NULL;
-    if ((UINT32)thread > LOSCFG_BASE_CORE_TSK_LIMIT) {
+    if ((UINT32)(UINTPTR)thread > LOSCFG_BASE_CORE_TSK_LIMIT) {
         return false;
     }
-    tcb = OS_TCB_FROM_TID((UINT32)thread);
+    tcb = OS_TCB_FROM_TID((UINT32)(UINTPTR)thread);
     if ((UINTPTR)tcb->taskEntry != (UINTPTR)PthreadEntry) {
         return false;
     }
@@ -131,9 +131,6 @@ static int PthreadAttrCheck(const pthread_attr_t *threadAttr, TSK_INIT_PARAM_S *
 
     if (threadAttr->stacksize < PTHREAD_STACK_MIN) {
         return EINVAL;
-    }
-    if ((threadAttr->stackaddr_set != 0) && (threadAttr->stacksize_set != 0)) {
-        taskInitParam->stackAddr = (UINTPTR)threadAttr->stackaddr;
     }
     if (threadAttr->stacksize_set != 0) {
         taskInitParam->uwStackSize = threadAttr->stacksize;
@@ -215,7 +212,7 @@ static int CheckForCancel(void)
         return 0;
     }
 
-    tcb = OS_TCB_FROM_TID((UINT32)thread);
+    tcb = OS_TCB_FROM_TID((UINT32)(UINTPTR)thread);
     intSave = LOS_IntLock();
     PthreadData *pthreadData = (PthreadData *)(UINTPTR)tcb->arg;
     if ((pthreadData->canceled) && (pthreadData->cancelState == PTHREAD_CANCEL_ENABLE)) {
@@ -257,7 +254,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
         return map_errno(ret);
     }
 
-    PthreadData *pthreadData = (PthreadData *)taskInitParam.uwArg;
+    PthreadData *pthreadData = (PthreadData *)(UINTPTR)taskInitParam.uwArg;
     intSave = LOS_IntLock();
     if (g_pthreadListHead.pstNext == NULL) {
         LOS_ListInit(&g_pthreadListHead);
@@ -266,7 +263,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     LOS_ListAdd(&g_pthreadListHead, &pthreadData->threadList);
     LOS_IntRestore(intSave);
 
-    *thread = (pthread_t)taskId;
+    *thread = (pthread_t)(UINTPTR)taskId;
 
     (void)LOS_TaskResume(taskId);
 
@@ -290,7 +287,7 @@ int pthread_setschedparam(pthread_t thread, int policy, const struct sched_param
         return ENOTSUP;
     }
 
-    if (LOS_TaskPriSet((UINT32)thread, (UINT16)param->sched_priority) != LOS_OK) {
+    if (LOS_TaskPriSet((UINT32)(UINTPTR)thread, (UINT16)param->sched_priority) != LOS_OK) {
         return EINVAL;
     }
 
@@ -304,7 +301,7 @@ int pthread_setschedprio(pthread_t thread, int prio)
         return EINVAL;
     }
 
-    if (LOS_TaskPriSet((UINT32)thread, (UINT16)prio) != LOS_OK) {
+    if (LOS_TaskPriSet((UINT32)(UINTPTR)thread, (UINT16)prio) != LOS_OK) {
         return EINVAL;
     }
 
@@ -357,7 +354,7 @@ int pthread_setcancelstate(int state, int *oldState)
         return EINVAL;
     }
 
-    tcb = OS_TCB_FROM_TID((UINT32)thread);
+    tcb = OS_TCB_FROM_TID((UINT32)(UINTPTR)thread);
     intSave = LOS_IntLock();
     pthreadData = (PthreadData *)(UINTPTR)tcb->arg;
     if (pthreadData == NULL) {
@@ -390,7 +387,7 @@ int pthread_setcanceltype(int type, int *oldType)
         return EINVAL;
     }
 
-    tcb = OS_TCB_FROM_TID((UINT32)thread);
+    tcb = OS_TCB_FROM_TID((UINT32)(UINTPTR)thread);
     intSave = LOS_IntLock();
     pthreadData = (PthreadData *)(UINTPTR)tcb->arg;
     if (pthreadData == NULL) {
@@ -421,7 +418,7 @@ int pthread_getschedparam(pthread_t thread, int *policy, struct sched_param *par
         return EINVAL;
     }
 
-    prio = LOS_TaskPriGet((UINT32)thread);
+    prio = LOS_TaskPriGet((UINT32)(UINTPTR)thread);
     if (prio == OS_INVALID) {
         return EINVAL;
     }
@@ -434,7 +431,7 @@ int pthread_getschedparam(pthread_t thread, int *policy, struct sched_param *par
 
 pthread_t pthread_self(void)
 {
-    return (pthread_t)LOS_CurTaskIDGet();
+    return (pthread_t)(UINTPTR)LOS_CurTaskIDGet();
 }
 
 STATIC UINT32 DoPthreadCancel(LosTaskCB *task)
@@ -470,7 +467,7 @@ int pthread_cancel(pthread_t thread)
         return EINVAL;
     }
     intSave = LOS_IntLock();
-    tcb = OS_TCB_FROM_TID((UINT32)thread);
+    tcb = OS_TCB_FROM_TID((UINT32)(UINTPTR)thread);
     pthreadData = (PthreadData *)(UINTPTR)tcb->arg;
     pthreadData->canceled = 1;
     if ((pthreadData->cancelState == PTHREAD_CANCEL_ENABLE) &&
@@ -503,6 +500,7 @@ void pthread_testcancel(void)
     }
 }
 
+#ifdef LOSCFG_TASK_JOINABLE
 int pthread_join(pthread_t thread, void **retval)
 {
     UINTPTR result;
@@ -512,7 +510,7 @@ int pthread_join(pthread_t thread, void **retval)
         return EINVAL;
     }
 
-    ret = LOS_TaskJoin((UINT32)thread, &result);
+    ret = LOS_TaskJoin((UINT32)(UINTPTR)thread, &result);
     if (ret == LOS_ERRNO_TSK_NOT_JOIN_SELF) {
         return EDEADLK;
     } else if ((ret == LOS_ERRNO_TSK_NOT_CREATED) ||
@@ -539,7 +537,7 @@ int pthread_detach(pthread_t thread)
         return EINVAL;
     }
 
-    ret = LOS_TaskDetach((UINT32)thread);
+    ret = LOS_TaskDetach((UINT32)(UINTPTR)thread);
     if (ret == LOS_ERRNO_TSK_ALREADY_JOIN) {
         return ESRCH;
     } else if (ret != LOS_OK) {
@@ -548,6 +546,7 @@ int pthread_detach(pthread_t thread)
 
     return 0;
 }
+#endif
 
 void pthread_exit(void *retVal)
 {
@@ -561,10 +560,7 @@ void pthread_exit(void *retVal)
         goto EXIT;
     }
 
-    tcb = OS_TCB_FROM_TID((UINT32)thread);
-#ifdef LOSCFG_TASK_JOINABLE
-    tcb->taskRetval = (UINTPTR)retVal;
-#endif
+    tcb = OS_TCB_FROM_TID((UINT32)(UINTPTR)thread);
     pthreadData = (PthreadData *)(UINTPTR)tcb->arg;
     if (pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL) != 0) {
         PRINT_ERR("%s: %d failed\n", __FUNCTION__, __LINE__);
@@ -587,7 +583,7 @@ void pthread_exit(void *retVal)
     tcb->taskName = PTHREAD_DEFAULT_NAME;
     LOS_IntRestore(intSave);
     free(pthreadData);
-    (void)LOS_TaskDelete(tcb->taskId);
+    (void)OsTaskDelete(tcb->taskId, (UINTPTR)retVal);
 EXIT:
     while (1) {
     }
@@ -604,7 +600,7 @@ int pthread_setname_np(pthread_t thread, const char *name)
         return EINVAL;
     }
 
-    taskName = LOS_TaskNameGet((UINT32)thread);
+    taskName = LOS_TaskNameGet((UINT32)(UINTPTR)thread);
     if (taskName == NULL) {
         return EINVAL;
     }
@@ -613,7 +609,7 @@ int pthread_setname_np(pthread_t thread, const char *name)
         return ERANGE;
     }
 
-    taskCB = OS_TCB_FROM_TID((UINT32)thread);
+    taskCB = OS_TCB_FROM_TID((UINT32)(UINTPTR)thread);
     intSave = LOS_IntLock();
     if (taskCB->taskStatus & OS_TASK_STATUS_ZOMBIE) {
         LOS_IntRestore(intSave);
@@ -641,7 +637,7 @@ int pthread_getname_np(pthread_t thread, char *buf, size_t buflen)
         return EINVAL;
     }
 
-    name = LOS_TaskNameGet((UINT32)thread);
+    name = LOS_TaskNameGet((UINT32)(UINTPTR)thread);
     if (name == NULL) {
         return EINVAL;
     }
@@ -775,8 +771,8 @@ int pthread_setspecific(pthread_key_t k, const void *x)
         return EINVAL;
     }
 
-    LosTaskCB *taskCB = OS_TCB_FROM_TID((UINT32)self);
-    PthreadData *pthreadData = (PthreadData *)taskCB->arg;
+    LosTaskCB *taskCB = OS_TCB_FROM_TID((UINT32)(UINTPTR)self);
+    PthreadData *pthreadData = (PthreadData *)(UINTPTR)taskCB->arg;
     if (pthreadData->key == NULL) {
         key = (uintptr_t *)malloc(sizeof(uintptr_t) * PTHREAD_KEYS_MAX);
         if (key == NULL) {
@@ -816,8 +812,8 @@ void *pthread_getspecific(pthread_key_t k)
         return NULL;
     }
 
-    LosTaskCB *taskCB = OS_TCB_FROM_TID((UINT32)self);
-    PthreadData *pthreadData = (PthreadData *)taskCB->arg;
+    LosTaskCB *taskCB = OS_TCB_FROM_TID((UINT32)(UINTPTR)self);
+    PthreadData *pthreadData = (PthreadData *)(UINTPTR)taskCB->arg;
     intSave = LOS_IntLock();
     if ((g_pthreadKeyData[k].flag == PTHREAD_KEY_UNUSED) || (pthreadData->key == NULL)) {
         LOS_IntRestore(intSave);

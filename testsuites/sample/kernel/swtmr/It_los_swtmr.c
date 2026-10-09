@@ -183,6 +183,7 @@ VOID ItSuiteLosSwtmr(void)
     ItLosSwtmr065();
     ItLosSwtmr121();
     ItLosSwtmr122();
+    ItLosSwtmr123(); /* 超长周期 rollnum 钳位分支 */
 #endif
 #endif
 #ifdef LOSCFG_KERNEL_CPUP

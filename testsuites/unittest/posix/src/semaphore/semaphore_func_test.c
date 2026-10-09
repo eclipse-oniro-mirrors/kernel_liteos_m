@@ -72,14 +72,15 @@ static BOOL PosixSemaphoreFuncTestSuiteTearDown(void)
 // get cur-time plus ms
 struct timespec GetDelayedTime(unsigned int ms)
 {
-    LOG("GetDelayedTime ms = %u", ms);
+    /* 注: 本函数内不得夹打印——本板 PRINTK 每条 ~100ms, 且 T0 读取后如果
+     * 再打印, 调用方进 sem_timedwait 时 now 已越过 +ms 的 deadline,
+     * 导致入口即 ETIMEDOUT(实测 Timedwait002 ret=-1 的根因)。 */
     struct timespec ts = { 0 };
     const unsigned int nsecPerSec = 1000000000;
     const unsigned int nsecPerMs = 1000000;
     unsigned long long setTimeNs = ms * nsecPerMs;
     struct timespec tsNow = { 0 };
     clock_gettime(CLOCK_REALTIME, &tsNow);
-    LOG("Cur time tv_sec: %lld, tv_nsec: %ld", tsNow.tv_sec, tsNow.tv_nsec);
     ts.tv_sec = tsNow.tv_sec + (tsNow.tv_nsec + setTimeNs) / nsecPerSec;
     ts.tv_nsec = (tsNow.tv_nsec + setTimeNs) % nsecPerSec;
     return ts;
@@ -110,7 +111,8 @@ LITE_TEST_CASE(PosixSemaphoreFuncTestSuite, testIpcSem_Timedwait001, Function | 
     ICUNIT_GOTO_EQUAL(sem_init((sem_t *)&sem, 0, 0), 0, 0, EXIT);
 
     ts = GetDelayedTime(100);
-    LOG("predicted time:%lld, %ld", ts.tv_sec, ts.tv_nsec);
+    /* 注: deadline 计算与 sem_timedwait 之间不得夹打印——本板 PRINTK 每条
+     * ~100ms 且打印期丢 tick, 会吃掉 100ms 超时裕量致入口即超时(实测 130-180ms)。 */
     if (sem_timedwait((sem_t *)&sem, &ts) == -1) {
         ICUNIT_GOTO_EQUAL(errno, ETIMEDOUT, errno, EXIT);
     } else {
@@ -121,7 +123,9 @@ LITE_TEST_CASE(PosixSemaphoreFuncTestSuite, testIpcSem_Timedwait001, Function | 
     LOG("tsNow %lld, %ld", tsNow.tv_sec, tsNow.tv_nsec);
     int timeDiff = GetTimeDiff(tsNow, ts); // calculate time different
     LOG("timeDiff %d", timeDiff);
-    ICUNIT_GOTO_EQUAL(abs(timeDiff) < (3 * 1000 / LOSCFG_BASE_CORE_TICK_PER_SECOND), TRUE, 0, EXIT);
+    /* 容差 5 tick: OsGetTickTimeFromNow 有 +1 tick 转换罚则(time_internal.h),
+     * 加上 tick 量化与唤醒调度延迟, 实测 10-30ms; 3 tick 的原容差压线误报。 */
+    ICUNIT_GOTO_EQUAL(abs(timeDiff) < (5 * 1000 / LOSCFG_BASE_CORE_TICK_PER_SECOND), TRUE, 0, EXIT);
 
     ICUNIT_TRACK_EQUAL(sem_destroy((sem_t *)&sem), 0, 0);
     return 0;
@@ -146,7 +150,7 @@ LITE_TEST_CASE(PosixSemaphoreFuncTestSuite, testIpcSem_Timedwait002, Function | 
     ICUNIT_ASSERT_EQUAL(sem_init((sem_t *)&sem, 0, 1), 0, 0);
 
     ts = GetDelayedTime(100);
-    LOG("\n ts %lld, %ld", ts.tv_sec, ts.tv_nsec);
+    /* 注: 同 001, deadline 与 sem_timedwait 之间不得夹打印 */
     clock_gettime(CLOCK_REALTIME, &tsBegin);
     int ret = sem_timedwait((sem_t *)&sem, &ts);
     clock_gettime(CLOCK_REALTIME, &tsNow);
@@ -160,7 +164,7 @@ LITE_TEST_CASE(PosixSemaphoreFuncTestSuite, testIpcSem_Timedwait002, Function | 
 
     // try get semaphore again
     ts = GetDelayedTime(100);
-    LOG("\n ts %lld, %ld", ts.tv_sec, ts.tv_nsec);
+    /* 注: 同 001, deadline 与 sem_timedwait 之间不得夹打印 */
     ret = sem_timedwait((sem_t *)&sem, &ts);
     clock_gettime(CLOCK_REALTIME, &tsNow);
     ICUNIT_ASSERT_EQUAL(ret, -1, ret);
@@ -339,10 +343,8 @@ RUN_TEST_SUITE(PosixSemaphoreFuncTestSuite);
 void PosixSemaphoreFuncTest()
 {
     dprintf("begin PosixSemaphoreFuncTest....");
-#if (LOS_FEATURE_ADAPTED == 1)
     RUN_ONE_TESTCASE(testIpcSem_Timedwait001);
     RUN_ONE_TESTCASE(testIpcSem_Named001);
-#endif
     RUN_ONE_TESTCASE(testIpcSem_Timedwait002);
     RUN_ONE_TESTCASE(testIpcSem_Timedwait003);
     RUN_ONE_TESTCASE(testIpcSem_Trywait004);

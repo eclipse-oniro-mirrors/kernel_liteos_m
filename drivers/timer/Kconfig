@@ -1,7 +1,7 @@
 config CORTEX_M_SYSTICK
     bool "ARM Cortex-M SysTick"
     default n
-    depends on ARCH_CORTEX_M3 || ARCH_CORTEX_M4 || ARCH_CORTEX_M7 || ARCH_CORTEX_M55
+    depends on ARCH_CORTEX_M0_PLUS || ARCH_CORTEX_M3 || ARCH_CORTEX_M4 || ARCH_CORTEX_M7 || ARCH_CORTEX_M55
     select ARCH_TIMER_VENDOR
     select TIMER_ARCH_BRIDGE
     help
@@ -15,11 +15,14 @@ config DW_APB_TIMER
     select ARCH_TIMER_VENDOR
     help
       Synopsys DesignWare APB dual timer as system tick (RISC-V boards).
-      Reserved for the RISC-V timer MR: dw_apb_timer.c lands there. Board
+      Native ArchTickTimer implementation, unified from the former
+      per-board RISC-V tick drivers — boards using it carry no
+      board-side timer anymore; this driver is their sole tick source, a
+      future board can still override with strong definitions. Board
       contract (asm/register_config.h / soc.h): DW_APB_TIMER_BASE is
       required; DW_APB_TIMER_IRQ, DW_APB_TIMER_CLOCK, DW_APB_TIMER_IRQ_PRIO,
       DW_APB_TIMER_LOCK_BASE, DW_APB_TIMER_UNLOCK_VAL are optional, with
-      DW_APB_TIMER_NEED_UNLOCK / DW_APB_TIMER_LOAD_WO / DW_APB_TIMER_EOI_FENCE
+      DW_APB_TIMER_NEED_UNLOCK / DW_APB_TIMER_CURRENT_BROKEN / DW_APB_TIMER_EOI_FENCE
       quirks as the SoC requires. The board must provide
       HalIrqEnable/HalIrqDisable. ArchSysTickTimerGet/ArchEnterSleep are
       exported weak, so a future board can still override.

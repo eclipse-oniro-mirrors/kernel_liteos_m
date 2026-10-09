@@ -33,8 +33,9 @@
 #include "stdarg.h"
 #include "los_interrupt.h"
 #include "los_task.h"
+#include "los_task_pri.h"
 
-#if (LOSCFG_KERNEL_PRINTF == 1)
+#if (LOSCFG_KERNEL_PRINTF == 1) || (LOSCFG_KERNEL_PRINTF == 2)
 STATIC const CHAR *g_logString[] = {
     "EMG",
     "COMMON",
@@ -83,7 +84,7 @@ VOID OsDoExcHook(EXC_TYPE excType)
     LOS_IntRestore(intSave);
 }
 
-#if (LOSCFG_KERNEL_PRINTF == 1)
+#if (LOSCFG_KERNEL_PRINTF == 1) || (LOSCFG_KERNEL_PRINTF == 2)
 INT32 OsLogLevelCheck(INT32 level)
 {
     if (level > PRINT_LEVEL) {

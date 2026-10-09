@@ -35,12 +35,15 @@ choice
 
 config LIBC_MUSL
     bool "musl libc"
+    select LIB_LIBC
 
 config LIBC_NEWLIB
     bool "newlibc"
+    select LIB_LIBC
 
 config LIBC_ICCARM
     bool "iar libc"
     depends on COMPILER_ICCARM
+    select LIB_LIBC
 
 endchoice

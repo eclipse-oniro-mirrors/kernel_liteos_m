@@ -203,13 +203,13 @@ extern UINT32 LOS_MemRegionsAdd(VOID *pool, const LosMemRegion * const memRegion
  * Memory pool extern information structure
  */
 typedef struct {
-    UINT32 totalUsedSize;
-    UINT32 totalFreeSize;
-    UINT32 maxFreeNodeSize;
-    UINT32 usedNodeNum;
-    UINT32 freeNodeNum;
-#if (LOSCFG_MEM_WATERLINE == 1)
-    UINT32 usageWaterLine;
+    union { UINT32 totalUsedSize; UINT32 uwTotalUsedSize; };
+    union { UINT32 totalFreeSize; UINT32 uwTotalFreeSize; };
+    union { UINT32 maxFreeNodeSize; UINT32 uwMaxFreeNodeSize; };
+    union { UINT32 usedNodeNum; UINT32 uwUsedNodeNum; };
+    union { UINT32 freeNodeNum; UINT32 uwFreeNodeNum; };
+#if (LOSCFG_MEM_WATERLINE == 1) || defined(LOSCFG_MEM_TASK_STAT)
+    union { UINT32 usageWaterLine; UINT32 uwUsageWaterLine; };
 #endif
 } LOS_MEM_POOL_STATUS;
 

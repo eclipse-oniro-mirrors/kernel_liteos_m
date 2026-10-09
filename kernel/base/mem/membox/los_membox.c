@@ -48,7 +48,7 @@
 STATIC INLINE VOID OsMemBoxSetMagic(LOS_MEMBOX_NODE *node)
 {
     UINT8 taskId = (UINT8)LOS_CurTaskIDGet();
-    node->pstNext = (LOS_MEMBOX_NODE *)(OS_MEMBOX_MAGIC | taskId);
+    node->pstNext = (LOS_MEMBOX_NODE *)(UINTPTR)(OS_MEMBOX_MAGIC | taskId);
 }
 
 STATIC INLINE UINT32 OsMemBoxCheckMagic(LOS_MEMBOX_NODE *node)
@@ -57,7 +57,7 @@ STATIC INLINE UINT32 OsMemBoxCheckMagic(LOS_MEMBOX_NODE *node)
     if (taskId > (LOSCFG_BASE_CORE_TSK_LIMIT + 1)) {
         return LOS_NOK;
     } else {
-        return (node->pstNext == (LOS_MEMBOX_NODE *)(OS_MEMBOX_MAGIC | taskId)) ? LOS_OK : LOS_NOK;
+        return (node->pstNext == (LOS_MEMBOX_NODE *)(UINTPTR)(OS_MEMBOX_MAGIC | taskId)) ? LOS_OK : LOS_NOK;
     }
 }
 

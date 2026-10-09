@@ -307,7 +307,7 @@ LITE_TEST_CASE(IpcSemApiTestSuite, testSemPostAbnormal, Function | MediumTest | 
     int ret;
     sem_t sem;
 
-    ret = sem_init(&sem, 0, SEM_VALUE_MAX);
+    ret = sem_init(&sem, 0, SEM_VALUE_MAX - 1);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = sem_post(&sem);
@@ -368,9 +368,7 @@ void PosixSemFuncTest()
     RUN_ONE_TESTCASE(testSemPost0100);
     RUN_ONE_TESTCASE(testSemWait0100);
     RUN_ONE_TESTCASE(testThreadChat0100);
-#if (LOS_FEATURE_ADAPTED == 1)
     RUN_ONE_TESTCASE(testThreadChat0400);
-#endif
     RUN_ONE_TESTCASE(testSemInitAbnormal0200);
     RUN_ONE_TESTCASE(testSemPostAbnormal);
     RUN_ONE_TESTCASE(testSemTimedWaitAbnormalA);

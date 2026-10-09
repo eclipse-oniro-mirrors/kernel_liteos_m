@@ -43,6 +43,12 @@
  */
 LITE_TEST_SUIT(Posix, PosixFs, PosixFsFuncTestSuite);
 
+/* 新增覆盖率补充用例套(说明见 PosixFsFuncTest 末尾调用处) */
+extern VOID PosixFsLfsTest(VOID);
+extern VOID PosixFsVfsTest(VOID);
+extern VOID PosixFsLfsRamTest(VOID);
+extern VOID PosixFsLfsDirectTest(VOID);
+
 /* *
  * @tc.setup     : setup for all testcases
  * @return       : setup result, TRUE is success, FALSE is fail
@@ -1264,6 +1270,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, testFsReaddir002, Function | MediumTest | L
     tellDir1 = dResult->d_off;
     ICUNIT_ASSERT_EQUAL(tellDir0, tellDir1, -1);
 
+    (void)closedir(dirp);
     (void)rmdir(DIRAC);
     (void)rmdir(DIRAB);
     (void)rmdir(DIRA);
@@ -1702,6 +1709,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, testFsOpen004, Function | MediumTest | Leve
     (void)rmdir(DIRA);
     fd = open(FILE_IN_DIRA, O_CREAT | O_RDWR, TEST_MODE_NORMAL);
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
+    (void)close(fd);
 
     return 0;
 }
@@ -2194,6 +2202,15 @@ void PosixFsAPITest(void)
 
 void PosixFsFuncTest()
 {
+    /*
+     * 板级按需挂卷（弱默认=启动时已挂载，如 qemu）。失败则跳过整个 FS 域，
+     * 避免全部用例对未挂载的 TEST_ROOT 连锁失败（XTS_FS_RAMDISK_PLAN.md：
+     * hi3322_testsuits 由 ram_lfs_backend.c 提供 RAM 盘强符号）。
+     */
+    if (TestFsVolumeEnsure() != 0) {
+        printf("PosixFsFuncTest: TEST_ROOT volume unavailable, skip\n");
+        return;
+    }
     PosixFsAPITest();
     PosixFsOpenTest();
     PosixFsCloseTest();
@@ -2210,14 +2227,27 @@ void PosixFsFuncTest()
     PosixFsFstatTest();
     PosixFsFsyncTest();
     PosixFsRenameTest();
-#if (LOSCFG_SUPPORT_FATFS == 1)
     PosixFsStatfsTest();
-#endif
     PosixFsFtruncateTest();
     PosixFsPreadTest();
     PosixFsPwriteTest();
     PosixFsAccessTest();
+    PosixFsLstatTest();
+    PosixFsReadvTest();
+    PosixFsWritevTest();
+    PosixFsMountTest();
     PosixFsFullTest();
     PosixFsPressureTest();
+    /* 本仓库新增的覆盖率补充用例:
+     * PosixFsLfsTest      : /littlefs 上的功能与错误分支(POSIX 对外接口)
+     * PosixFsVfsTest      : LOS_FsRegister 自定义文件系统驱动的 VFS 分支
+     * PosixFsLfsRamTest   : 卸载 /littlefs + RAM 盘错误注入, 须在依赖
+     *                       /littlefs 的用例之后执行
+     * PosixFsLfsDirectTest: littlefs 核心 + rambd 直接 API 单测, 每例自建/自销实例 */
+    PosixFsLfsTest();
+    PosixFsVfsTest();
+    PosixFsLfsRamTest();
+    PosixFsLfsDirectTest();
+    (void)TestFsVolumeRelease();
     return;
 }

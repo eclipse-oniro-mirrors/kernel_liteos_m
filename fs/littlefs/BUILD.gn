@@ -34,7 +34,25 @@ module_switch = defined(LOSCFG_FS_LITTLEFS)
 module_name = get_path_info(rebase_path("."), "name")
 kernel_module(module_name) {
   configs += [ "$LITEOSTOPDIR:warn_config" ]
-  sources = LITTLEFS_SRC_FILES_FOR_KERNEL_MODULE + [ "lfs_adapter.c" ]
+  # lfs_rambd (RAM test bd) is not used on real hardware and does not
+  # survive NDEBUG (-Werror): lfs.c/lfs_util.c + the adapter suffice.
+  sources = [
+    "//third_party/littlefs/lfs.c",
+    "//third_party/littlefs/lfs_util.c",
+    "lfs_adapter.c",
+  ]
+  # bare-metal liteos_m has no libc printf; littlefs debug output is off
+  # (lfs_util.h keeps its own printf call sites unless these are defined).
+  # NDEBUG: bd errors must return to littlefs error handling instead of
+  # halting the system in __assert_fail (musl assert honours NDEBUG).
+  defines = [
+    "NDEBUG",
+    "LFS_NO_DEBUG",
+    "LFS_NO_WARN",
+    "LFS_NO_ERROR",
+    "LFS_NO_TRACE",
+    "LFS_NO_ASSERT",
+  ]
 }
 
 config("public") {

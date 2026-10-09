@@ -36,7 +36,19 @@ extern "C" {
 
 /* TODO： 暂时将多个架构实现放这里，后续会按照架构依次重构到arch目录下 */
 
-#if defined(__thumb__) || (defined(__ARM_ARCH) && (__ARM_ARCH >= 7))
+#if defined(__aarch64__)
+/*
+ * AArch64: dsb/dmb REQUIRE a scope qualifier operand (bare forms are
+ * AArch32-only syntax).
+ */
+#define DSB()       __asm__ volatile("dsb sy" : : : "memory")
+#define DMB()       __asm__ volatile("dmb sy" : : : "memory")
+#define ISB()       __asm__ volatile("isb" : : : "memory")
+#define dsb DSB
+#define dmb DMB
+#define isb ISB
+
+#elif defined(__thumb__) || (defined(__ARM_ARCH) && (__ARM_ARCH >= 7))
 /*
  * Cortex-M (Thumb-2) or ARMv7+:
  *   dsb / dmb / isb are valid instructions, use inline asm.

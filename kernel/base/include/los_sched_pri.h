@@ -33,7 +33,8 @@
 #define _LOS_SCHED_PRI_H
 
 #include "los_sched.h"
-#include "los_task_pri.h"
+#include "los_task_base.h"
+#include "los_percpu_pri.h"
 #include "los_interrupt.h"
 #include "los_context.h"
 
@@ -47,6 +48,21 @@ extern "C" {
 #define OS_SCHED_MAX_RESPONSE_TIME OS_SORT_LINK_UINT64_MAX
 
 extern UINT32 g_taskScheduled;
+/*
+ * Schedule flag, one bit represents one core.
+ * This flag is used to prevent kernel scheduling before OSStartToRun.
+ */
+#define OS_SCHEDULER_SET(cpuid) do {     \
+    g_taskScheduled |= (1U << (cpuid));  \
+} while (0)
+
+#define OS_SCHEDULER_CLR(cpuid) do {     \
+    g_taskScheduled &= ~(1U << (cpuid)); \
+} while (0)
+
+#define OS_SCHEDULER_ACTIVE ((g_taskScheduled & (1U << ArchCurrCpuid())) != 0)
+
+#define OS_SCHEDULER_ALL_ACTIVE (g_taskScheduled == LOSCFG_KERNEL_CPU_MASK)
 typedef BOOL (*SchedScan)(VOID);
 
 typedef enum {
@@ -117,7 +133,7 @@ STATIC INLINE UINT64 OsGetCurrSchedTimeCycle(VOID)
 
 STATIC INLINE BOOL OsCheckKernelRunning(VOID)
 {
-    return (g_taskScheduled && LOS_CHECK_SCHEDULE);
+    return OS_SCHEDULER_ACTIVE;
 }
 
 VOID OsSchedResetSchedResponseTime(UINT64 responseTime);
@@ -153,6 +169,12 @@ STATIC INLINE VOID OsTimeSliceUpdate(LosTaskCB *taskCB, UINT64 currTime)
 
 VOID OsSchedTaskDeQueue(LosTaskCB *taskCB);
 
+STATIC INLINE BOOL OsSchedReadyTaskRemove(LosTaskCB *taskCB)
+{
+    OsSchedTaskDeQueue(taskCB);
+    return TRUE;
+}
+
 VOID OsSchedTaskEnQueue(LosTaskCB *taskCB);
 
 VOID OsSchedWait(LosTaskCB *runTask, LOS_DL_LIST *list, UINT32 timeout);
@@ -161,19 +183,18 @@ VOID OsSchedWake(LosTaskCB *resumedTask);
 
 BOOL OsSchedPrioModify(LosTaskCB *taskCB, UINT16 priority);
 
-VOID OsSchedDelay(LosTaskCB *runTask, UINT32 tick);
 
 UINT32 OsSchedYield(VOID);
 
-VOID OsSchedTaskExit(LosTaskCB *taskCB);
 
 UINT32 OsSchedSuspend(LosTaskCB *taskCB);
 
-BOOL OsSchedResume(LosTaskCB *taskCB);
+VOID OsSchedResume(LosTaskCB *taskCB, UINT32 intSave);
+VOID OsTickScanAdvance(SortLinkAttribute *sortLinkHeader);
+VOID OsSchedDeleteSortLink(SortLinkAttribute *sortLinkHeader, SortLinkList *sortList);
 
 VOID OsSchedTick(VOID);
 
-UINT32 OsSchedInit(VOID);
 
 LosTaskCB *OsSchedStart(VOID);
 
@@ -206,6 +227,11 @@ STATIC INLINE VOID OsTaskReSched(VOID)
 STATIC INLINE VOID OsSysTaskSuspend(LosTaskCB *taskCB)
 {
     (VOID)OsSchedSuspend(taskCB);
+}
+
+STATIC INLINE VOID OsSchedUnlock(VOID)
+{
+    LOS_SpinUnlock(&g_taskSpin);
 }
 
 #ifdef __cplusplus

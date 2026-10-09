@@ -86,7 +86,9 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsStatfsENOENT, Function | MediumTest |
 
 void PosixFsStatfsTest(void)
 {
+#if (LOSCFG_SUPPORT_FATFS == 1)
     RUN_ONE_TESTCASE(TestFsStatfsOK);
+#endif
     RUN_ONE_TESTCASE(TestFsStatfsEINVAL);
     RUN_ONE_TESTCASE(TestFsStatfsENOENT);
 }

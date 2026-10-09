@@ -1,3 +1,4 @@
+#ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
  * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
@@ -96,10 +97,9 @@ static UINT32 TestCase(VOID)
     g_testCount = 0;
 
     taskStack1 = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, task1.uwStackSize, 8);
-    task1.stackAddr = (UINTPTR)taskStack1;
-    ICUNIT_ASSERT_NOT_EQUAL(task1.stackAddr, 0, task1.stackAddr);
+    ICUNIT_ASSERT_NOT_EQUAL((UINTPTR)taskStack1, 0, (UINTPTR)taskStack1);
 
-    ret = LOS_TaskCreate(&g_testTaskID01, &task1);
+    ret = LOS_TaskCreateStatic(&g_testTaskID01, &task1, taskStack1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ICUNIT_GOTO_EQUAL(g_testCount, 1, g_testCount, EXIT);
@@ -110,10 +110,9 @@ static UINT32 TestCase(VOID)
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
 
     taskStack2 = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, task1.uwStackSize, 8);
-    task1.stackAddr = (UINTPTR)taskStack2;
-    ICUNIT_GOTO_NOT_EQUAL(task1.stackAddr, 0, task1.stackAddr, EXIT);
+    ICUNIT_GOTO_NOT_EQUAL((UINTPTR)taskStack2, 0, (UINTPTR)taskStack2, EXIT);
 
-    ret = LOS_TaskCreate(&g_testTaskID02, &task1);
+    ret = LOS_TaskCreateStatic(&g_testTaskID02, &task1, taskStack2);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ICUNIT_GOTO_EQUAL(g_testCount, 5, g_testCount, EXIT); // 5, Here, assert that g_testCount is equal to 5.
@@ -136,4 +135,4 @@ VOID ItLosTask130(VOID) // IT_Layer_ModuleORFeature_No
 {
     TEST_ADD_CASE("ItLosTask130", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL1, TEST_FUNCTION);
 }
-
+#endif

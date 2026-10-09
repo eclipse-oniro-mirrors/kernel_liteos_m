@@ -76,6 +76,7 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     UINT32 swtmrId1;
     UINT32 swtmrId2;
+    UINT32 waitLoop;
 
     g_testCount = 0;
 
@@ -102,8 +103,12 @@ static UINT32 Testcase(VOID)
     TestHwiTrigger(HWI_NUM_INT11);
 
     // 21, Here, check that g_testCount is equal to this .
-    while (g_testCount != 21) {
+    /* Bounded wait: a broken HWI/swtmr ordering on a port must surface as a
+     * [Failed] line, not as an endless spin that stalls the whole suite. */
+    for (waitLoop = 0; (g_testCount != 21) && (waitLoop < TEST_WAIT_TIMEOUT); waitLoop++) {
+        LOS_TaskDelay(1);
     }
+    ICUNIT_GOTO_EQUAL(g_testCount, 21, g_testCount, EXIT);
 
     TestHwiDelete(HWI_NUM_INT11);
 

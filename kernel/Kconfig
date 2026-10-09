@@ -1,5 +1,53 @@
 menu "Kernel"
 
+config KERNEL_RAM_PRESET
+    bool "Kernel RAM Preset"
+    default n
+    help
+      Enable the kernel RAM preset feature. When enabled, select a
+      preset (Tiny / Small / Standard) below. Individual
+      values can still be overridden in the sub-menus.
+
+if KERNEL_RAM_PRESET
+
+choice
+    prompt "Kernel RAM Preset"
+    default KERNEL_RAM_PRESET_STANDARD
+
+config KERNEL_RAM_PRESET_TINY
+    bool "Tiny"
+    help
+      Interrupt + task + exception focused (~2KB).
+
+      task: 1 (3 CBs) | sem: off | mux: on | queue: on | swtmr: on
+      shell: off | vfs: off | posix: core only
+      backtrace: off | cpup: off | platform_exc: off | signal: off
+      idle stack: 128 | min task stack: 128
+
+config KERNEL_RAM_PRESET_SMALL
+    bool "Small"
+    help
+      + sem + mux + swtmr + mem-algo (~5KB).
+
+      task: 2 (4 CBs) | sem: 8 | mux: 8 (FIFO) | queue: on | swtmr: on
+      shell: off | vfs: off | posix: core only
+      backtrace: off | cpup: off | platform_exc: off | signal: off
+      idle stack: 512 | min task stack: 256
+
+config KERNEL_RAM_PRESET_STANDARD
+    bool "Standard"
+    help
+      + queue + mutex-prio-inherit + swtmr task (~10KB).
+
+      task: 3 (5 CBs) | sem: 16 | mux: 16 (PRIO) | queue: 6 | swtmr: on
+      shell: on | vfs: on | posix: full
+      backtrace: on | cpup: on | platform_exc: on | signal: on
+      idle stack: 1024 | min task stack: 512
+
+endchoice
+
+endif # KERNEL_RAM_PRESET
+
 config KERNEL_SMP
     bool "Enable Kernel SMP"
     default n
@@ -13,6 +61,20 @@ config KERNEL_SMP_GC_SWTMR
     bool "Enable cross-core task GC swtmr"
     default y
     depends on KERNEL_SMP
+
+config KERNEL_SMP_TASK_SYNC
+    bool "Enable Synchronized Task Operations"
+    default n
+    depends on KERNEL_SMP
+    help
+      This option will enable task synchronized operate task across cores.
+
+config KERNEL_SMP_GC_IDLE
+    bool "SMP GC By Idle"
+    default n
+    depends on KERNEL_SMP
+    help
+      This option enable SMP GC by idle task.
 
 rsource "base/mem/Kconfig"
 
@@ -30,6 +92,7 @@ config KERNEL_EXTKERNEL
 
 config KERNEL_BACKTRACE
     bool "Enable Backtrace"
+    default y if KERNEL_RAM_PRESET_STANDARD
     default n
     depends on KERNEL_EXTKERNEL
     help
@@ -41,7 +104,7 @@ choice
 
 config BACKTRACE_TYPE_1
     bool "1: Call stack analysis for cortex-m series by scanning the stack"
-    depends on ARCH_ARM && !ARCH_ARM9
+    depends on ARCH_ARM_AARCH32 && !ARCH_ARM9
 
 config BACKTRACE_TYPE_2
     bool "2: Call stack analysis for risc-v by using frame pointer"
@@ -63,6 +126,10 @@ config BACKTRACE_TYPE_6
     bool "6: Call stack analysis for arm9 by scanning the stack"
     depends on ARCH_ARM9
 
+config BACKTRACE_TYPE_7
+    bool "7: Call stack analysis for aarch64 by frame pointer (x29)"
+    depends on ARCH_ARM_AARCH64
+
 endchoice
 
 config BACKTRACE_TYPE
@@ -74,6 +141,7 @@ config BACKTRACE_TYPE
     default 4 if BACKTRACE_TYPE_4
     default 5 if BACKTRACE_TYPE_5
     default 6 if BACKTRACE_TYPE_6
+    default 7 if BACKTRACE_TYPE_7
 
 config BACKTRACE_DEPTH
     int "Backtrace depth"
@@ -95,6 +163,7 @@ config BASE_CORE_CPUP
 
 config KERNEL_CPUP
     bool "Enable Cpup"
+    default y if KERNEL_RAM_PRESET_STANDARD
     default n
     depends on KERNEL_EXTKERNEL
     select BASE_CORE_CPUP
@@ -171,6 +240,7 @@ config KERNEL_PM_DEBUG
 
 config PLATFORM_EXC
     bool "Enable Platform Exc Hook"
+    default y if KERNEL_RAM_PRESET_STANDARD
     default n
     depends on KERNEL_EXTKERNEL
 
@@ -303,12 +373,19 @@ endchoice
 
 config BASE_CORE_TSK_LIMIT
     int "Max Task Number"
+    default 1  if KERNEL_RAM_PRESET_TINY
+    default 2  if KERNEL_RAM_PRESET_SMALL
+    default 3  if KERNEL_RAM_PRESET_STANDARD
     default 5
     help
-      This represents the max number of task.
+      The kernel internally reserves 2 slots (IDLE + runTask),
+      so g_taskCBArray has (LOSCFG_BASE_CORE_TSK_LIMIT + 2) entries.
 
 config BASE_CORE_TSK_MIN_STACK_SIZE
     int "Task Min Stack Size"
+    default 128  if KERNEL_RAM_PRESET_TINY
+    default 256  if KERNEL_RAM_PRESET_SMALL
+    default 512  if KERNEL_RAM_PRESET_STANDARD
     default 128
     help
       This represents the task min stack size. Must be aligned on a
@@ -316,6 +393,9 @@ config BASE_CORE_TSK_MIN_STACK_SIZE
 
 config BASE_CORE_TSK_IDLE_STACK_SIZE
     int "Idle Task Stack Size"
+    default 128   if KERNEL_RAM_PRESET_TINY
+    default 512   if KERNEL_RAM_PRESET_SMALL
+    default 1024  if KERNEL_RAM_PRESET_STANDARD
     default 384
     help
       This represents the idle task stack size.
@@ -354,9 +434,11 @@ config BASE_CORE_TSK_DEFAULT_STACK_SIZE
 config BASE_CORE_TSK_SWTMR_STACK_SIZE
     int "Swtmr Task Stack Size"
     default LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE
+    default 1024  if KERNEL_RAM_PRESET_STANDARD
     help
       This represents the swtmr task stack size. Defaults to the task
-      default stack size if not overridden.
+      default stack size if not overridden. Not used when swtmr runs in
+      ISR mode (LOSCFG_BASE_CORE_SWTMR_IN_ISR=1).
 
 config TASK_JOINABLE
     bool "Enable Join/Detach mechanism"
@@ -366,6 +448,19 @@ config TASK_JOINABLE
       tasks created with LOS_TASK_ATTR_JOINABLE attribute can be joined by other
       tasks to reclaim resources and retrieve return value. When disabled, all
       tasks behave as detached (resources freed automatically on exit).
+
+config TASK_STACK_STATIC_ALLOCATION
+    bool "Enable Task Stack Create Static Allocation"
+    default y
+    help
+      This represents to support task stack create static allocation.
+
+config TASK_STACK_DYNAMIC_ALLOCATION
+    bool "Enable Task Create Dynamic Allocation"
+    default y
+    depends on KERNEL_MEM_ALLOC
+    help
+      This represents to support task stack create dynamic allocation.
 
 config SCHED_LATENCY
     bool "Schedule Latency"
@@ -391,6 +486,7 @@ menuconfig BASE_IPC_EVENT
 
 menuconfig BASE_IPC_SEM
     bool "Enable Sem"
+    default n if KERNEL_RAM_PRESET_TINY
     default y
     help
       Enable semaphore module. When disabled, all LOS_Sem* APIs are unavailable
@@ -400,6 +496,9 @@ if BASE_IPC_SEM
 
 config BASE_IPC_SEM_LIMIT
     int "Max Sem Number"
+    default 4   if KERNEL_RAM_PRESET_TINY
+    default 8   if KERNEL_RAM_PRESET_SMALL
+    default 16  if KERNEL_RAM_PRESET_STANDARD
     default 6
     help
       This represents the maximum number of semaphores.
@@ -417,12 +516,21 @@ if BASE_IPC_MUX
 
 config BASE_IPC_MUX_LIMIT
     int "Max Mutex Number"
+    default 8   if KERNEL_RAM_PRESET_SMALL
+    default 16  if KERNEL_RAM_PRESET_STANDARD
     default 6
     help
       This represents the maximum number of mutexes.
 
+config BASE_IPC_MUX_CREATOR
+    bool "Mutex creator info"
+    default n
+    help
+      Save the mutex creator info.
+
 choice
     prompt "Mutex Wait Mode"
+    default MUTEX_WAITMODE_PRIO if KERNEL_RAM_PRESET_STANDARD
     default MUTEX_WAITMODE_FIFO
 
 config MUTEX_WAITMODE_FIFO
@@ -531,6 +639,16 @@ menu "Debug"
         depends on BASE_IPC_QUEUE
         help
           Answer Y to enable queue leak detection and creator tracking.
+
+    config DEBUG_SCHED_STATISTICS
+        bool "Enable Schedule Statistics"
+        default n
+        depends on DEBUG_KERNEL
+        help
+          Answer Y to enable per-CPU schedule statistics (idle percent, context
+          switch count, interrupt count, average priority, high-priority task
+          percent) collected between schedstatstart and schedstatstop, shown by
+          the schedstatinfo shell command.
 endmenu
 
 config BASE_CORE_SYS_RES_CHECK

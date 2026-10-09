@@ -64,6 +64,8 @@ typedef __uint128_t         UINT128;
 #ifndef LOSCFG_LIB_LIBC
 typedef INT64               ssize_t;
 typedef UINT64              size_t;
+#else
+typedef __SIZE_TYPE__       size_t;
 #endif
 #else
 typedef unsigned long long  UINT64;
@@ -73,6 +75,8 @@ typedef signed int          INTPTR;
 #ifndef LOSCFG_LIB_LIBC
 typedef INT32               ssize_t;
 typedef UINT32              size_t;
+#else
+typedef __SIZE_TYPE__       size_t;
 #endif
 #endif
 

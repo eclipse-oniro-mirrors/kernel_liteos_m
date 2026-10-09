@@ -54,7 +54,9 @@ python3 "$HERE/parse_gcov_log.py" "$LOG_PATH"
 
 # Locate the build dir from the first GCOV_BEGIN path (the .gcda path baked
 # at compile time: <build_dir>/obj/<...>/<name>.gcda)
-FIRST_GCDA=$(grep -m1 '^GCOV_BEGIN ' "$LOG_PATH" | sed 's/^GCOV_BEGIN //;s/\r$//')
+# -a: serial logs may carry stray non-ASCII bytes (line noise); without it
+# grep treats the file as binary and prints no match line.
+FIRST_GCDA=$(grep -a -m1 '^GCOV_BEGIN ' "$LOG_PATH" | sed 's/^GCOV_BEGIN //;s/\r$//')
 if [ -z "$FIRST_GCDA" ]; then
     echo "no GCOV_BEGIN frame in $LOG_PATH" >&2
     exit 1
@@ -100,11 +102,16 @@ lcov --capture \
      2>&1 | tail -8
 
 echo "=== step 3: genhtml ==="
-mkdir -p "$HTML_DIR"
+if [ -d "$HTML_DIR" ]; then
+    find "$HTML_DIR" -mindepth 1 -delete
+else
+    mkdir -p "$HTML_DIR"
+fi
 genhtml "$INFO_OUT" \
         --output-directory "$HTML_DIR" \
         --title "$BOARD coverage" \
         --branch-coverage \
+        --prefix "$REPO_ROOT" \
         --ignore-errors range,inconsistent,corrupt,unsupported \
         2>&1 | tail -8
 

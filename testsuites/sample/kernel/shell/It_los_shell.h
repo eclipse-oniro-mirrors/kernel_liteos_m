@@ -61,6 +61,18 @@ VOID ItLosShell006(VOID);
 VOID ItLosShell007(VOID);
 VOID ItLosShell008(VOID);
 VOID ItLosShell009(VOID);
+VOID ItLosShell010(VOID);
+VOID ItLosShell011(VOID);
+VOID ItLosShell012(VOID);
+VOID ItLosShell013(VOID);
+VOID ItLosShell014(VOID);
+VOID ItLosShell015(VOID);
+VOID ItLosShell016(VOID);
+VOID ItLosShell017(VOID);
+VOID ItLosShell018(VOID);
+VOID ItLosShell019(VOID);
+VOID ItLosShell020(VOID);
+VOID ItLosShell021(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

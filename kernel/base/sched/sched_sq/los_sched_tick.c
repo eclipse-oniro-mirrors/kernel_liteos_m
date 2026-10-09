@@ -217,7 +217,7 @@ VOID OsSchedUpdateExpireTime(VOID)
     BOOL isPmMode = FALSE;
     LosTaskCB *runTask = OsCurrTaskGet();
 
-    if (!g_taskScheduled || g_tickIntLock) {
+    if (!OS_SCHEDULER_ACTIVE || g_tickIntLock) {
         return;
     }
 
@@ -308,60 +308,6 @@ LITE_OS_SEC_TEXT UINT32 LOS_SleepTicksGet(VOID)
     return sleepTicks;
 }
 
-STATIC INLINE VOID OsSchedWakePendTimeTask(LosTaskCB *taskCB, BOOL *needSchedule)
-{
-    UINT16 tempStatus = taskCB->taskStatus;
-    if (tempStatus & (OS_TASK_STATUS_PEND | OS_TASK_STATUS_DELAY)) {
-        taskCB->taskStatus &= ~(OS_TASK_STATUS_PEND | OS_TASK_STATUS_PEND_TIME | OS_TASK_STATUS_DELAY);
-        if (tempStatus & OS_TASK_STATUS_PEND) {
-            taskCB->taskStatus |= OS_TASK_STATUS_TIMEOUT;
-            LOS_ListDelete(&taskCB->pendList);
-            taskCB->taskMux = NULL;
-            taskCB->taskSem = NULL;
-        }
-
-        if (!(tempStatus & OS_TASK_STATUS_SUSPEND)) {
-            OsSchedTaskEnQueue(taskCB);
-            *needSchedule = TRUE;
-        }
-    }
-}
-
-STATIC INLINE BOOL OsSchedScanTimerList(VOID)
-{
-    BOOL needSchedule = FALSE;
-    SortLinkAttribute *sortLinkHeader = &OsPercpuGet()->taskSortLink;
-    LOS_DL_LIST *listObject = NULL;
-    /*
-     * When task is pended with timeout, the task block is on the timeout sortlink
-     * (per cpu) and ipc(mutex,sem and etc.)'s block at the same time, it can be waken
-     * up by either timeout or corresponding ipc it's waiting.
-     *
-     * Now synchronize sortlink procedure is used, therefore the whole task scan needs
-     * to be protected, preventing another core from doing sortlink deletion at same time.
-     */
-
-    OsTickScanAdvance(sortLinkHeader);
-    SORTLINK_LISTOBJ_GET(listObject, sortLinkHeader);
-    if (LOS_ListEmpty(listObject)) {
-        return needSchedule;
-    }
-
-    SortLinkList *sortList = LOS_DL_LIST_ENTRY(listObject->pstNext, SortLinkList, sortLinkNode);
-    while (ROLLNUM(sortList->idxRollNum) == 0) {
-        LosTaskCB *taskCB = LOS_DL_LIST_ENTRY(sortList, LosTaskCB, sortList);
-        OsDeleteNodeSortLink(&taskCB->sortList);
-        OsSchedWakePendTimeTask(taskCB, &needSchedule);
-        if (LOS_ListEmpty(listObject)) {
-            break;
-        }
-
-        sortList = LOS_DL_LIST_ENTRY(listObject->pstNext, SortLinkList, sortLinkNode);
-    }
-
-    return needSchedule;
-}
-
 VOID OsSchedFreezeTask(LosTaskCB *taskCB)
 {
     SortLinkAttribute *head = &OsPercpuGet()->taskSortLink;
@@ -409,7 +355,7 @@ UINT32 OsTaskNextSwitchTimeGet(VOID)
 STATIC VOID TaskSchedTimeConvertFreq(UINT32 oldFreq)
 {
     for (UINT32 loopNum = 0; loopNum < g_taskMaxNum; loopNum++) {
-        LosTaskCB *taskCB = (((LosTaskCB *)g_taskCBArray) + loopNum);
+        LosTaskCB *taskCB = (((LosTaskCB *)g_osTaskCBArray) + loopNum);
         if (taskCB->taskStatus & OS_TASK_STATUS_UNUSED) {
             continue;
         }
@@ -466,7 +412,7 @@ UINT64 LOS_SchedTickTimeoutNsGet(VOID)
 
 VOID LOS_SchedTickHandler(VOID)
 {
-    if (!g_taskScheduled) {
+    if (!OS_SCHEDULER_ACTIVE) {
         return;
     }
 
@@ -480,7 +426,7 @@ VOID LOS_SchedTickHandler(VOID)
             (VOID)g_swtmrScan();
         }
 
-        (VOID)OsSchedScanTimerList();
+        OsTaskScan();
         g_tickIntLock--;
     }
 

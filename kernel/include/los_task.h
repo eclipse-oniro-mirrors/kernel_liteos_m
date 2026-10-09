@@ -505,6 +505,27 @@ extern "C" {
 
 /**
  * @ingroup los_task
+ * Task error code: Mp sync resource create failed.
+ *
+ * Value: 0x02000232.
+ *
+ * Solution: Check the memory for sem creation.
+ */
+#define LOS_ERRNO_TSK_MP_SYNC_RESOURCE              LOS_ERRNO_OS_ERROR(LOS_MOD_TSK, 0x32)
+
+/**
+ * @ingroup los_task
+ * Task error code: Mp sync wait failed.
+ *
+ * Value: 0x02000233.
+ *
+ * Solution: Check the mp sync sem operation.
+ */
+#define LOS_ERRNO_TSK_MP_SYNC_FAILED                LOS_ERRNO_OS_ERROR(LOS_MOD_TSK, 0x33)
+
+
+/**
+ * @ingroup los_task
  * Define the type of the task entry function.
  *
  */
@@ -593,6 +614,9 @@ extern VOID LOS_TaskSwitchHookReg(TSKSWITCHHOOK hook);
 typedef VOID (*IDLEHANDLERHOOK)(VOID);
 extern VOID LOS_IdleHandlerHookReg(IDLEHANDLERHOOK hook);
 
+typedef VOID (*LOWPOWERIDLEHOOK)(VOID);
+extern VOID LOS_LowpowerHookReg(LOWPOWERIDLEHOOK hook);
+
 /**
  * @ingroup los_task
  * Define the structure of the parameters used for task creation.
@@ -607,7 +631,6 @@ typedef struct tagTskInitParam {
 #else
     UINT32               uwArg;                     /**< Task parameters                        */
 #endif
-    UINTPTR              stackAddr;                 /**< Task stack memory                      */
     UINT32               uwStackSize;               /**< Task stack size                        */
     CHAR                 *pcName;                   /**< Task name                              */
     UINT32               uwResved;                  /**< Reserved                               */
@@ -746,6 +769,7 @@ extern UINT32 LOS_KernelInit(VOID);
  */
 extern UINT32 LOS_TaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam);
 
+#ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
 /**
  * @ingroup  los_task
  * @brief Create a task with user-provided static stack (suspended state).
@@ -755,8 +779,7 @@ extern UINT32 LOS_TaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam
  * leaving the task in suspended state (not enqueued into the ready queue).
  * The stack memory must remain valid throughout the task's lifetime; the kernel
  * will not free it on task deletion. This API is a thin wrapper over
- * LOS_TaskCreateOnly that sets TSK_INIT_PARAM_S::stackAddr to topStack and then
- * invokes LOS_TaskCreateOnly, so the static stack branch in OsNewTaskInit is taken.
+ * LOS_TaskCreateOnly with the user stack passed directly.
  *
  * @attention
  * <ul>
@@ -783,6 +806,7 @@ extern UINT32 LOS_TaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam
  * @see LOS_TaskCreateStatic
  */
 extern UINT32 LOS_TaskCreateOnlyStatic(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam, VOID *topStack);
+#endif /* LOSCFG_TASK_STACK_STATIC_ALLOCATION */
 
 /**
  * @ingroup  los_task
@@ -831,6 +855,7 @@ extern UINT32 LOS_TaskCreateOnlyStatic(UINT32 *taskId, TSK_INIT_PARAM_S *taskIni
  */
 extern UINT32 LOS_TaskCreate(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam);
 
+#ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
 /**
  * @ingroup  los_task
  * @brief Create a task with user-provided static stack.
@@ -839,8 +864,8 @@ extern UINT32 LOS_TaskCreate(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam);
  * Creates a task with user-provided static stack memory (no dynamic allocation).
  * The stack memory must remain valid throughout the task's lifetime; the kernel
  * will not free it on task deletion. This API is a thin wrapper over
- * LOS_TaskCreate that sets TSK_INIT_PARAM_S::stackAddr to topStack and then
- * invokes LOS_TaskCreate, so the static stack branch in OsNewTaskInit is taken.
+ * LOS_TaskCreateOnly with the user stack passed directly, then resumes the
+ * task.
  *
  * @attention
  * <ul>
@@ -850,8 +875,7 @@ extern UINT32 LOS_TaskCreate(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam);
  * </ul>
  *
  * @param  taskId        [OUT] Type #UINT32 * Task ID.
- * @param  taskInitParam [IN]  Type #TSK_INIT_PARAM_S * Task init parameters. The stackAddr field is
- *                             overwritten by topStack inside this API.
+ * @param  taskInitParam [IN]  Type #TSK_INIT_PARAM_S * Task init parameters.
  * @param  topStack      [IN]  Type #VOID * Top of stack address (user-provided).
  *
  * @retval #LOS_ERRNO_TSK_PTR_NULL          taskInitParam is NULL.
@@ -865,6 +889,7 @@ extern UINT32 LOS_TaskCreate(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam);
  * @see LOS_TaskCreate
  */
 extern UINT32 LOS_TaskCreateStatic(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam, VOID *topStack);
+#endif /* LOSCFG_TASK_STACK_STATIC_ALLOCATION */
 
 /**
  * @ingroup  los_task
@@ -1177,6 +1202,24 @@ extern UINT32 LOS_CurTaskIDGet(VOID);
 
 /**
  * @ingroup  los_task
+ * @brief Obtain current running task name.
+ *
+ * @par Description:
+ * This API is used to obtain the name of current running task.
+ *
+ * @attention None.
+ *
+ *
+ * @retval #NULL            invalid Task name.
+ * @retval #CHAR*           task name.
+ * @par Dependency:
+ * <ul><li>los_task.h: the header file that contains the API declaration.</li></ul>
+ * @see
+ */
+extern CHAR *LOS_CurTaskNameGet(VOID);
+
+/**
+ * @ingroup  los_task
  * @brief Obtain next running task ID.
  *
  * @par Description:
@@ -1209,7 +1252,6 @@ extern UINT32 LOS_NextTaskIDGet(VOID);
  * <ul><li>los_task.h: the header file that contains the API declaration.</li></ul>
  * @see
  */
-extern CHAR *LOS_CurTaskNameGet(VOID);
 
 /**
  * @ingroup  los_task
@@ -1717,7 +1759,6 @@ extern UINT32 OsGetAllTskInfo(VOID);
 
 extern VOID *OsTskUserStackInit(VOID* stackPtr, VOID* userSP, UINT32 userStackSize);
 
-extern UINT32 OsPmEnterHandlerSet(VOID (*func)(VOID));
 
 extern VOID LOS_TaskResRecycle(VOID);
 

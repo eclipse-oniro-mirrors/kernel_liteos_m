@@ -45,6 +45,7 @@ void ItLosSignal002(void);
 void ItLosSignal003(void);
 void ItLosSignal004(void);
 void ItLosSignal005(void);
+void ItLosSignal006(void);
 
 #ifdef __cplusplus
 #if __cplusplus

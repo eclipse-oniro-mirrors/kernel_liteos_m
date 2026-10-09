@@ -30,6 +30,7 @@
 rsource "vfs/Kconfig"
 rsource "littlefs/Kconfig"
 rsource "fatfs/Kconfig"
+rsource "yaffs2/Kconfig"
 
 config SUPPORT_FATFS
     bool

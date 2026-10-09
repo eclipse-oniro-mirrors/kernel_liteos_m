@@ -55,7 +55,7 @@ static UINT32 Testcase(VOID)
     UINT32 actTaskused = 0;
     LosTaskCB *taskCB = NULL;
     for (i = 0; i < LOSCFG_BASE_CORE_TSK_LIMIT; i++) {
-        taskCB = g_taskCBArray + i;
+        taskCB = g_osTaskCBArray + i;
         if (!(taskCB->taskStatus & OS_TASK_STATUS_UNUSED)) {
             actTaskused++;
         }

@@ -1,0 +1,138 @@
+# Copyright (c) 2022-2026 Huawei Device Co., Ltd. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of
+#    conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+#    conditions and the following disclaimer in the documentation and/or other materials
+#    provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its contributors may be used to
+#    endorse or promote products derived from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+# PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+# ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+# TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import("//kernel/liteos_m/liteos.gni")
+import("//third_party/cmsis/cmsis.gni")
+
+static_library("fuzzapi_test") {
+  sources = [
+    "cmsis/evflag/it_oseventflagsdelete_twice_fuzz.c",
+    "cmsis/evflag/it_cmsis_evflag_fuzz.c",
+    "cmsis/evflag/it_oseventflagsnew_set_wait_clear_get_delete_fuzz.c",
+    "cmsis/kernel/it_oskernelinitialize_reinit_fuzz.c",
+    "cmsis/kernel/it_cmsis_kernel_fuzz.c",
+    "cmsis/kernel/it_osdelay_fuzz.c",
+    "cmsis/kernel/it_oskernel_getter_family_fuzz.c",
+    "cmsis/mq/it_osmessagequeueget_after_delete_fuzz.c",
+    "cmsis/mq/it_cmsis_mq_fuzz.c",
+    "cmsis/mq/it_osmessagequeuenew_put_get_getcount_delete_fuzz.c",
+    "cmsis/mutex/it_osmutexacquire_after_delete_fuzz.c",
+    "cmsis/mutex/it_cmsis_mutex_fuzz.c",
+    "cmsis/mutex/it_osmutexnew_acquire_release_getowner_delete_fuzz.c",
+    "cmsis/sem/it_ossemaphoreacquire_wild_id_fuzz.c",
+    "cmsis/sem/it_ossemaphoredelete_twice_fuzz.c",
+    "cmsis/sem/it_cmsis_sem_fuzz.c",
+    "cmsis/sem/it_ossemaphorenew_acquire_release_delete_fuzz.c",
+    "cmsis/thread/it_osthreadterminate_twice_fuzz.c",
+    "cmsis/thread/it_cmsis_thread_fuzz.c",
+    "cmsis/thread/it_osthreadflags_family_fuzz.c",
+    "cmsis/thread/it_osthreadget_family_fuzz.c",
+    "cmsis/thread/it_osthreadnew_fuzz.c",
+    "cmsis/thread/it_osthreadset_getpriority_fuzz.c",
+    "cmsis/thread/it_osthreadsuspend_resume_fuzz.c",
+    "cmsis/timer/it_cmsis_timer_fuzz.c",
+    "cmsis/timer/it_ostimernew_start_stop_isrunning_delete_fuzz.c",
+    "it_fuzz.c",
+    "los/event/it_los_event_fuzz.c",
+    "los/event/it_los_eventread_fuzz.c",
+    "los/event/it_los_eventwrite_fuzz.c",
+    "los/mem/it_los_memfree_double_free_fuzz.c",
+    "los/mem/it_los_memalloc_wild_pool_fuzz.c",
+    "los/mem/it_los_mem_fuzz.c",
+    "los/mem/it_los_memallocalign_fuzz.c",
+    "los/mem/it_los_memalloc_fuzz.c",
+    "los/mem/it_los_memrealloc_fuzz.c",
+    "los/mem/it_los_memtotalused_musedget_poolsizeget_fuzz.c",
+    "los/misc/it_los_misc_fuzz.c",
+    "los/misc/it_los_atomic_family_fuzz.c",
+    "los/misc/it_los_hwicreate_delete_fuzz.c",
+    "los/misc/it_hwi_delete_system_irq_fuzz.c",
+    "los/misc/it_los_intlock_restore_fuzz.c",
+    "los/misc/it_los_rwsem_family_fuzz.c",
+    "los/misc/it_los_tick_syscycle_ms2tick_family_fuzz.c",
+    "los/mux/it_los_mux_fuzz.c",
+    "los/mux/it_los_muxcreate_fuzz.c",
+    "los/mux/it_los_muxpend_fuzz.c",
+    "los/mux/it_los_muxpost_fuzz.c",
+    "los/queue/it_los_queue_fuzz.c",
+    "los/queue/it_los_queuecreate_fuzz.c",
+    "los/queue/it_los_queueinfoget_fuzz.c",
+    "los/queue/it_los_queuereadcopy_fuzz.c",
+    "los/queue/it_los_queuewritecopy_fuzz.c",
+    "los/queue/it_los_queuewritehead_fuzz.c",
+    "los/sem/it_los_sem_fuzz.c",
+    "los/sem/it_los_semcreate_fuzz.c",
+    "los/sem/it_los_semdelete_fuzz.c",
+    "los/sem/it_los_semgetvalue_fuzz.c",
+    "los/sem/it_los_sempend_fuzz.c",
+    "los/sem/it_los_sempost_fuzz.c",
+    "los/swtmr/it_los_swtmr_fuzz.c",
+    "los/swtmr/it_los_swtmrcreate_fuzz.c",
+    "los/swtmr/it_los_swtmrtimeget_fuzz.c",
+    "los/task/it_los_task_fuzz.c",
+    "los/task/it_los_taskbacktrace_fuzz.c",
+    "los/task/it_los_taskcreate_fuzz.c",
+    "los/task/it_los_taskcreateonly_fuzz.c",
+    "los/task/it_los_taskdelete_fuzz.c",
+    "los/task/it_los_taskjoin_fuzz.c",
+    "los/task/it_los_tasklock_unlock_fuzz.c",
+    "los/task/it_los_taskpriget_fuzz.c",
+    "los/task/it_los_taskpriset_fuzz.c",
+    "los/task/it_los_taskresume_fuzz.c",
+    "los/task/it_los_tasksuspend_fuzz.c",
+    "posix/attr/it_posix_attr_fuzz.c",
+    "posix/attr/it_pthread_attr_family_fuzz.c",
+    "posix/cond/it_posix_cond_fuzz.c",
+    "posix/cond/it_pthread_cond_timedwait_signal_broadcast_fuzz.c",
+    "posix/mqueue/it_posix_mqueue_fuzz.c",
+    "posix/mqueue/it_mq_open_getattr_setattr_send_receive_close_unlink_fuzz.c",
+    "posix/mutex/it_posix_mutex_fuzz.c",
+    "posix/mutex/it_pthread_mutex_lock_unlock_trylock_fuzz.c",
+    "posix/pthread/it_posix_pthread_fuzz.c",
+    "posix/pthread/it_pthread_create_detach_fuzz.c",
+    "posix/pthread/it_pthread_create_join_fuzz.c",
+    "posix/pthread/it_pthread_self_equal_fuzz.c",
+    "posix/pthread/it_pthread_cleanup_task_ctx_fuzz.c",
+    "posix/rwlock/it_posix_rwlock_fuzz.c",
+    "posix/rwlock/it_pthread_rwlock_rd_wr_try_unlock_fuzz.c",
+    "posix/sem/it_posix_sem_fuzz.c",
+    "posix/sem/it_sem_init_trywait_post_timedwait_destroy_fuzz.c",
+    "posix/time/it_clock_gettime_settime_getres_fuzz.c",
+    "posix/time/it_posix_time_fuzz.c",
+    "posix/time/it_nanosleep_clock_nanosleep_fuzz.c",
+    "posix/time/it_sched_yield_priority_affinity_fuzz.c",
+    "posix/time/it_timer_create_settime_gettime_delete_fuzz.c",
+  ]
+
+  include_dirs = [
+    ".",
+    "$LITEOSTOPDIR/testsuites/include",
+    "$LITEOSTOPDIR/testsuites/src/fuzz/src",
+  ] + CMSIS_INCLUDE_DIRS
+
+  configs += [
+    "$LITEOSTOPDIR/testsuites:no_test_coverage",
+    "$LITEOSTOPDIR/testsuites:include",
+  ]
+}

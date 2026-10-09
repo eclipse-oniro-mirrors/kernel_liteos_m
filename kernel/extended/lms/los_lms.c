@@ -228,6 +228,12 @@ VOID OsLmsErrorHookSet(OsLmsErrorHookFn hook)
     LMS_UNLOCK(intSave);
 }
 
+/* Weak default no-op; boards with a task-fed watchdog override it, see
+ * los_lms_pri.h. */
+WEAK VOID OsLmsKeepaliveHook(VOID)
+{
+}
+
 STATIC INLINE UINT32 OsLmsMem2Shadow(LmsMemListNode *node, UINTPTR memAddr, UINTPTR *shadowAddr, UINT32 *shadowOffset)
 {
     if ((memAddr < node->poolAddr) || (memAddr >= node->poolAddr + node->poolSize)) { /* check ptr valid */
@@ -327,7 +333,9 @@ VOID OsLmsSimpleMark(UINTPTR startAddr, UINTPTR endAddr, UINT32 value)
 {
     UINT32 intSave;
     if (endAddr <= startAddr) {
-        PRINT_DEBUG("[LMS]mark 0x%x, 0x%x, 0x%x\n", startAddr, endAddr, (UINTPTR)__builtin_return_address(0));
+        /* Empty-range mark is a normal path (e.g. aligned alloc without
+         * padding); printing it per call floods slow UARTs and stalls
+         * alloc-heavy pressure test cases. */
         return;
     }
 
@@ -455,7 +463,7 @@ STATIC UINT32 OsLmsCheckAddr(UINTPTR addr)
     UINT32 shadowValue = INVALID_SHADOW_VALUE;
     /* do not check nested or before all cpu start */
     LMS_LOCK(intSave);
-    if ((LOS_AtomicRead(&g_checkDepth) != 0) || (!g_taskScheduled)) {
+    if ((LOS_AtomicRead(&g_checkDepth) != 0) || (!OS_SCHEDULER_ACTIVE)) {
         LMS_UNLOCK(intSave);
         return 0;
     }
@@ -538,6 +546,8 @@ VOID OsLmsPrintMemInfo(UINTPTR addr)
     }
 
     for (y = 0; y < printY; y++, dumpAddr += printX) {
+        OsLmsKeepaliveHook(); /* WDT keepalive: dump runs with ints locked, see los_lms_pri.h */
+
         if (dumpAddr < nodeInfo->poolAddr) { /* find util dumpAddr in pool region */
             continue;
         }
@@ -634,6 +644,7 @@ VOID OsLmsReportError(UINTPTR p, UINT32 size, UINT32 errMod)
 
     LMS_LOCK(intSave);
     LOS_AtomicInc(&g_checkDepth);
+    OsLmsKeepaliveHook(); /* WDT keepalive: the whole report runs inside LMS_LOCK */
     (VOID)memset_s(&info, sizeof(LmsAddrInfo), 0, sizeof(LmsAddrInfo));
 
     PRINT_ERR("*****  Kernel Address Sanitizer Error Detected Start *****\n");

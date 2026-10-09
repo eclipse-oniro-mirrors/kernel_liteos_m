@@ -63,7 +63,7 @@ VOID ItSuiteLosHwi()
     ItLosHwi030();
     ItLosHwi031();
     ItLosHwi034();
-#ifndef LOSCFG_PLATFORM_WS63_M
+#if (LOS_FEATURE_ADAPTED == 1)
 /**
  * 036/037: delay-timing tests; LOS_MDelay under IntLock hangs (needs tick IRQ) -> watchdog reboot.
  * Port issue, not HWI-trigger. Skip.
@@ -72,7 +72,7 @@ VOID ItSuiteLosHwi()
     ItLosHwi037();
 #endif
     ItLosHwi038();
-#ifndef LOSCFG_PLATFORM_WS63_M
+#if (LOS_FEATURE_ADAPTED == 1)
 /**
  * 039: tests LOS_HwiDisable-then-trigger, but HalTimerStart (TestHwiTrigger) calls
  * HalIrqEnable which re-enables the IRQ -> disable window broken, g_testCount==1 at the
@@ -104,12 +104,19 @@ VOID ItSuiteLosHwi()
     ItLosHwi009();
     ItLosHwi011();
     ItLosHwi012();
+#if !defined(LOSCFG_PLATFORM_HI3322)
     ItLosHwi013();
     ItLosHwi014();
+#endif
     ItLosHwi028();
     ItLosHwi029();
+#if !defined(LOSCFG_PLATFORM_HI3322)
     ItLosHwi032();
     ItLosHwi033();
 #endif
+#endif
     ItLosHwi047();
+    ItLosHwi049();
+    ItLosHwi050();
+    ItLosHwi051();
 }

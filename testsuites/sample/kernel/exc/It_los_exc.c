@@ -49,4 +49,8 @@ VOID ItSuiteLosExc(VOID)
     ItLosExc008();
     ItLosExc009();
 #endif
+#if defined(LOSCFG_SHELL_EXCINFO_DUMP)
+    // Non-destructive: registers exc-info dump buffer only, no real fault
+    ItLosExc012();
+#endif
 }

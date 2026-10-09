@@ -1,0 +1,32 @@
+# Copyright (c) 2026 morpheus
+#
+# AArch64 (ARMv8-A, 64-bit) architecture support, ported from
+# hs-fbb arch_lite/arm64 (same-origin kernel_lite base).
+#
+# 64-bit ARM architecture implementations. AArch64 was introduced in
+# ARMv8-A and is included in subsequent versions of ARMv8-A.
+
+config ARCH_ARM_AARCH64
+    bool
+    select ARCH_ARM
+    help
+      64-bit ARM architecture implementations (EL1 bare-metal kernel).
+
+config ARCH_ARM_V8A
+    bool
+    select ARCH_ARM_AARCH64
+
+config ARCH_CORTEX_A55
+    bool
+    select ARCH_ARM_V8A
+    select ARM_GIC_V3
+    help
+      ARM Cortex-A55 (ARMv8.2-A, AArch64, GICv3 + generic timer).
+
+config ARCH_FPU_ENABLE
+    bool "Enable FPU/NEON context save"
+    default y
+    depends on ARCH_ARM_AARCH64
+    help
+      Answer Y to save/restore Q0-Q31/FPCR/FPSR in task context
+      (Cortex-A55 always implements NEON).

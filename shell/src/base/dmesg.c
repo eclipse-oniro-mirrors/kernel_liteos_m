@@ -56,6 +56,7 @@
 #include "stdlib.h"
 #include "stdio.h"
 #include "fcntl.h"
+#include <stdint.h>
 #include "securec.h"
 #include "los_task.h"
 #include "los_spinlock.h"

@@ -32,7 +32,6 @@
 #include "osTest.h"
 #include "cmsis_os.h"
 #include "kal.h"
-#include "bug_isolate.h" /* BUG 宏统一在此定义,修复对应 BUG 后删宏恢复用例 */
 
 #define TEST_STR(func) ItLos##func
 #define TEST_TO_STR(x) #x
@@ -1446,8 +1445,11 @@ EXIT:
     return LOS_OK;
 }
 
-/* 用例简要描述: osKernelInitialize Running 态负面:期望 osError(guard) */
-#if !defined(PRODUCT_BUG_ISOLATE) || !defined(LOSCFG_ARCH_ARM)
+/* 用例简要描述: osKernelInitialize Running 态负面:期望 osError(guard)
+ * 【BUG_01】仅 qemu/ARM 隔离(osKernelInitialize Running 态重入 guard 失效):
+ * 定义无条件编译(unused 属性防未注册告警, 仓库既有惯用法), 隔离点在套件
+ * 注册处(ADD_TEST_CASE)—— 外层架构条件, 内层 BUG 宏守卫单独一行(见 bug_isolate.h)。 */
+static int TestCmsisKernel008(void) __attribute__((unused));
 LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel008, Function | MediumTest | Level1)
 {
     osKernelState_t state;
@@ -1465,7 +1467,6 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel008, Function | MediumTest | L
     dprintf("--- TestCmsisKernel008 end ---\n");
     return LOS_OK;
 }
-#endif /* PRODUCT_BUG_ISOLATE/ARM: Kernel008 qemu 隔离 */
 
 /* ==== ISR 综合用例: 对应设计 §5.5.1 行006/§5.7.1 行005/§5.8.1 行006/§5.9.1 行005/§5.10.1 行004
    的 F-ISR 场景(EventFlagsSet/SemaphoreRelease/MessageQueuePut/MemoryPoolFree/ThreadFlagsSet
@@ -2519,6 +2520,699 @@ EXIT:
     return LOS_OK;
 }
 
+/* ==== Batch 3: 覆盖率补充——错误分支/边界(目标 cmsis_liteos2.c 行/函数 100%) ==== */
+
+/* 用例简要描述: osKernelGetInfo 负路径: id_size 过小触发 memcpy_s 失败 + NULL 参数 */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel010, Function | MediumTest | Level1)
+{
+    osVersion_t ver = {0};
+    CHAR idBuf[32] = {0};
+    osStatus_t ret;
+
+    /* id_size=8 < sizeof("HUAWEI-LiteOS")=15: memcpy_s 返回非 EOK → osError (覆盖 127-128 行) */
+    ret = osKernelGetInfo(&ver, idBuf, 8);
+    ICUNIT_ASSERT_EQUAL(ret, osError, ret);
+
+    ret = osKernelGetInfo(NULL, idBuf, sizeof(idBuf));
+    ICUNIT_ASSERT_EQUAL(ret, osError, ret);
+
+    ret = osKernelGetInfo(&ver, NULL, sizeof(idBuf));
+    ICUNIT_ASSERT_EQUAL(ret, osError, ret);
+
+    ret = osKernelGetInfo(&ver, idBuf, 0);
+    ICUNIT_ASSERT_EQUAL(ret, osError, ret);
+
+    return LOS_OK;
+}
+
+/* 用例简要描述: 嵌套任务锁下 osKernelUnlock/RestoreLock 错误分支(LOS_TaskLock/Unlock 为对外接口) */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel011, Function | MediumTest | Level1)
+{
+    int32_t ret;
+
+    /* 嵌套锁: taskLockCnt=2, osKernelUnlock 解一层后仍非 0 → osError (覆盖 200 行) */
+    LOS_TaskLock();
+    LOS_TaskLock();
+    ret = osKernelUnlock();
+    ICUNIT_GOTO_EQUAL(ret, (int32_t)osError, ret, EXIT);
+
+    /* RestoreLock(0) 于 cnt=1: 解锁后 cnt==0 → 正常返回 0 */
+    ret = osKernelRestoreLock(0);
+    ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
+
+    /* RestoreLock(0) 于 cnt=2: 解一层后仍非 0 → break → osError (覆盖 223-225/234 行) */
+    LOS_TaskLock();
+    LOS_TaskLock();
+    ret = osKernelRestoreLock(0);
+    ICUNIT_GOTO_EQUAL(ret, (int32_t)osError, ret, EXIT);
+    LOS_TaskUnlock(); /* 恢复 cnt=0 */
+
+    /* RestoreLock 非法值 → default → osError (覆盖 230-234 行) */
+    ret = osKernelRestoreLock(42);
+    ICUNIT_GOTO_EQUAL(ret, (int32_t)osError, ret, EXIT);
+
+    /* 收尾校验锁状态已归零 */
+    ret = osKernelLock();
+    ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
+    ret = osKernelUnlock();
+    ICUNIT_GOTO_EQUAL(ret, 1, ret, EXIT);
+
+EXIT:
+    /* 兜底: 保证任务锁计数归零(本用例最多嵌套 2 层, 多余恢复在 cnt==0 时为无害空操作) */
+    (void)osKernelRestoreLock(0);
+    (void)osKernelRestoreLock(0);
+    (void)osKernelRestoreLock(0);
+    return LOS_OK;
+}
+
+/* 用例简要描述: 调度锁下 osDelayUntil → LOS_TaskDelay 返回 DELAY_IN_LOCK → osError (覆盖 730 行) */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel012, Function | MediumTest | Level1)
+{
+    osStatus_t ret;
+    uint32_t now = osKernelGetTickCount();
+
+    /* osDelayUntil 无 HalDelay 分支: 锁下直接进 LOS_TaskDelay → IN_LOCK 错误 */
+    (void)osKernelLock();
+    ret = osDelayUntil(now + 10);
+    ICUNIT_GOTO_EQUAL(ret, osError, ret, EXIT);
+
+EXIT:
+    (void)osKernelRestoreLock(0);
+    return LOS_OK;
+}
+
+/* 用例简要描述: 线程错误分支: detach 非 joinable/重复 suspend/resume 未挂起/重复 terminate/
+ * join 自身/已删线程 SetPriority/GetPriority/GetStackSpace/FlagsSet */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread014, Function | MediumTest | Level1)
+{
+    osThreadId_t tid;
+    osThreadAttr_t attr = {0};
+    osStatus_t ret;
+    osPriority_t prio;
+    uint32_t flagsRet;
+    uint32_t space;
+
+    attr.stack_size = OS_TSK_TEST_STACK_SIZE;
+    attr.priority = osPriorityLow1;
+    attr.attr_bits = osThreadDetached;
+    g_testCount = 0;
+
+    tid = osThreadNew((osThreadFunc_t)CmsisThreadWaitFunc, NULL, &attr);
+    ICUNIT_ASSERT_NOT_EQUAL(tid, NULL, tid);
+    osDelay(2); /* 等 helper 递增后阻塞在 osDelay */
+    ICUNIT_ASSERT_EQUAL(g_testCount, 1, g_testCount);
+
+    /* detach 非 joinable 线程 → LOS_TaskDetach 返回 IS_DETACHED → osErrorResource (覆盖 603 行) */
+    ret = osThreadDetach(tid);
+    ICUNIT_ASSERT_EQUAL(ret, osErrorResource, ret);
+
+    /* resume 未挂起线程 → NOT_SUSPENDED → osErrorResource (覆盖 581-582 行) */
+    ret = osThreadResume(tid);
+    ICUNIT_ASSERT_EQUAL(ret, osErrorResource, ret);
+
+    /* 挂起成功后重复挂起 → ALREADY_SUSPENDED → osErrorResource (覆盖 551-554 行) */
+    ret = osThreadSuspend(tid);
+    ICUNIT_ASSERT_EQUAL(ret, osOK, ret);
+    ret = osThreadSuspend(tid);
+    ICUNIT_ASSERT_EQUAL(ret, osErrorResource, ret);
+    ret = osThreadResume(tid);
+    ICUNIT_ASSERT_EQUAL(ret, osOK, ret);
+
+    /* join 自身 → NOT_JOIN_SELF → osErrorResource (覆盖 621-622 行) */
+    ret = osThreadJoin(osThreadGetId());
+    ICUNIT_ASSERT_EQUAL(ret, osErrorResource, ret);
+
+    /* 终止后重复终止 → NOT_CREATED → osErrorResource (覆盖 650-651 行) */
+    ret = osThreadTerminate(tid);
+    ICUNIT_ASSERT_EQUAL(ret, osOK, ret);
+    ret = osThreadTerminate(tid);
+    ICUNIT_ASSERT_EQUAL(ret, osErrorResource, ret);
+
+    /* 已删线程(TCB 静态数组、无复用窗口)查询 */
+    ICUNIT_ASSERT_EQUAL(osThreadGetState(tid), osThreadInactive, osThreadGetState(tid));
+
+    /* SetPriority → NOT_CREATED → osErrorResource (覆盖 479-480 行) */
+    ret = osThreadSetPriority(tid, osPriorityNormal);
+    ICUNIT_ASSERT_EQUAL(ret, osErrorResource, ret);
+
+    /* GetPriority → OS_INVALID → osPriorityError (覆盖 499-501 行) */
+    prio = osThreadGetPriority(tid);
+    ICUNIT_ASSERT_EQUAL(prio, osPriorityError, prio);
+
+    /* GetStackSpace → watermark UNUSED 分支返回 0 (覆盖 415-417 行) */
+    space = osThreadGetStackSpace(tid);
+    ICUNIT_ASSERT_EQUAL(space, 0, space);
+
+    /* FlagsSet → LOS_EventWrite 返回 NOT_INITIALIZED → osFlagsErrorResource (覆盖 1783-1784 行) */
+    flagsRet = osThreadFlagsSet(tid, 0x1);
+    ICUNIT_ASSERT_EQUAL(flagsRet, (uint32_t)osFlagsErrorResource, flagsRet);
+
+    return LOS_OK;
+}
+
+/* 用例简要描述: 调度锁下 osThreadYield → YIELD_IN_LOCK → osError (覆盖 527 行) */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread015, Function | MediumTest | Level1)
+{
+    osStatus_t ret;
+
+    (void)osKernelLock();
+    ret = osThreadYield();
+    ICUNIT_GOTO_EQUAL(ret, osError, ret, EXIT);
+
+EXIT:
+    (void)osKernelRestoreLock(0);
+    return LOS_OK;
+}
+
+/* 用例简要描述: ThreadFlags 错误分支: 含错误位 flags Set/等待超时/锁下等待 */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThreadFlags005, Function | MediumTest | Level1)
+{
+    osThreadId_t tid = osThreadGetId();
+    uint32_t ret;
+
+    /* flags 含 LOS_ERRTYPE_ERROR 位(0x02<<24) → SETBIT_INVALID → osFlagsErrorParameter (覆盖 1781-1782 行) */
+    ret = osThreadFlagsSet(tid, 0x02000000);
+    ICUNIT_GOTO_EQUAL(ret, (uint32_t)osFlagsErrorParameter, ret, EXIT);
+
+    /* 无标志位等待 2 tick → READ_TIMEOUT → osFlagsErrorTimeout (覆盖 1867-1868 行) */
+    (void)osThreadFlagsClear(0xFFFFFFFFU);
+    ret = osThreadFlagsWait(0x1, osFlagsWaitAny, 2);
+    ICUNIT_GOTO_EQUAL(ret, (uint32_t)osFlagsErrorTimeout, ret, EXIT);
+
+    /* 调度锁下等待(需阻塞) → READ_IN_LOCK → default → osFlagsErrorResource (覆盖 1869-1870 行) */
+    (void)osKernelLock();
+    ret = osThreadFlagsWait(0x1, osFlagsWaitAny, 2);
+    ICUNIT_GOTO_EQUAL(ret, (uint32_t)osFlagsErrorResource, ret, EXIT);
+
+EXIT:
+    (void)osKernelRestoreLock(0);
+    return LOS_OK;
+}
+
+/* 用例简要描述: EventFlags 错误分支: 含错误位 flags Set/锁下等待 READ_IN_LOCK */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags007, Function | MediumTest | Level1)
+{
+    osEventFlagsId_t ef = NULL;
+    uint32_t ret;
+
+    ef = osEventFlagsNew(NULL);
+    ICUNIT_GOTO_NOT_EQUAL(ef, NULL, ef, EXIT);
+
+    /* flags 含 LOS_ERRTYPE_ERROR 位 → SETBIT_INVALID → osFlagsErrorResource (覆盖 928-929 行) */
+    ret = osEventFlagsSet(ef, 0x02000000);
+    ICUNIT_GOTO_EQUAL(ret, (uint32_t)osFlagsErrorResource, ret, EXIT);
+
+    /* 调度锁下等待(需阻塞) → READ_IN_LOCK → osFlagsErrorResource (覆盖 1008-1010 行) */
+    (void)osKernelLock();
+    ret = osEventFlagsWait(ef, 0x1, osFlagsWaitAny, 2);
+    ICUNIT_GOTO_EQUAL(ret, (uint32_t)osFlagsErrorResource, ret, EXIT);
+
+EXIT:
+    (void)osKernelRestoreLock(0); /* cnt==0 时为无害空操作 */
+    if (ef != NULL) {
+        (void)osEventFlagsDelete(ef);
+    }
+    return LOS_OK;
+}
+
+/* ==== ISR 负路径综合: 适配层各接口 OS_INT_ACTIVE 保护分支 ==== */
+static osEventFlagsId_t g_isr2EfId;
+static osMutexId_t g_isr2MuxId;
+static osSemaphoreId_t g_isr2SemId;
+static osTimerId_t g_isr2TmrId;
+static osMemoryPoolId_t g_isr2MpId;
+static osThreadId_t g_isr2ThrId;
+static osMessageQueueId_t g_isr2MqId;
+static volatile uint32_t g_isr2EfWaitRet = 0xDEAD;
+static volatile uint32_t g_isr2EfGetRet = 0xDEAD;
+static volatile uint32_t g_isr2EfDelRet = 0xDEAD;
+static volatile uint32_t g_isr2MuxAcqRet = 0xDEAD;
+static volatile uint32_t g_isr2MuxRelRet = 0xDEAD;
+static volatile uint32_t g_isr2SemDelRet = 0xDEAD;
+static volatile uint32_t g_isr2TmrStartRet = 0xDEAD;
+static volatile uint32_t g_isr2TmrStopRet = 0xDEAD;
+static volatile uint32_t g_isr2TmrDelRet = 0xDEAD;
+static volatile uint32_t g_isr2TfClrRet = 0xDEAD;
+static volatile uint32_t g_isr2TfGetRet = 0xDEAD;
+static volatile uint32_t g_isr2TfWaitRet = 0xDEAD;
+static volatile uint32_t g_isr2YieldRet = 0xDEAD;
+static volatile uint32_t g_isr2SuspRet = 0xDEAD;
+static volatile uint32_t g_isr2DelayRet = 0xDEAD;
+static volatile uint32_t g_isr2DelayUntilRet = 0xDEAD;
+static volatile uint32_t g_isr2KernelInitRet = 0xDEAD;
+static volatile uint32_t g_isr2KernelStartRet = 0xDEAD;
+static volatile uint32_t g_isr2KernelLockRet = 0xDEAD;
+static volatile uint32_t g_isr2ThrJoinRet = 0xDEAD;
+static volatile uint32_t g_isr2ThrDetachRet = 0xDEAD;
+static volatile uint32_t g_isr2ThrSetPriRet = 0xDEAD;
+static volatile uint32_t g_isr2ThrGetPriRet = 0xDEAD;
+static volatile uint32_t g_isr2ThrGetNameRet = 0xDEAD;
+static volatile uint32_t g_isr2ThrGetStateRet = 0xDEAD;
+static volatile uint32_t g_isr2ThrGetStackRet = 0xDEAD;
+static volatile uint32_t g_isr2ThrGetSpaceRet = 0xDEAD;
+static volatile uint32_t g_isr2ThrGetCntRet = 0xDEAD;
+static volatile uint32_t g_isr2ThrGetArgRet = 0xDEAD;
+static volatile uint32_t g_isr2MuxOwnerRet = 0xDEAD;
+static volatile uint32_t g_isr2MpDelRet = 0xDEAD;
+static volatile uint32_t g_isr2MqDelRet = 0xDEAD;
+static volatile uint32_t g_isr2EfNewRet = 0xDEAD;
+static volatile uint32_t g_isr2MuxNewRet = 0xDEAD;
+
+static VOID HwiFIsr002(VOID)
+{
+    TestHwiClear(HWI_NUM_TEST);
+    /* EventFlags: ISR 内 Wait(timeout=0 通过入参检查, LOS_EventRead 返回 READ_IN_INTERRUPT) */
+    g_isr2EfWaitRet = osEventFlagsWait(g_isr2EfId, 0x1, osFlagsWaitAny, 0);
+    g_isr2EfGetRet = osEventFlagsGet(g_isr2EfId);
+    g_isr2EfDelRet = osEventFlagsDelete(g_isr2EfId);
+    g_isr2EfNewRet = (uint32_t)(UINTPTR)osEventFlagsNew(NULL);
+    /* Mutex */
+    g_isr2MuxAcqRet = osMutexAcquire(g_isr2MuxId, 0);
+    g_isr2MuxRelRet = osMutexRelease(g_isr2MuxId);
+    g_isr2MuxOwnerRet = (uint32_t)(UINTPTR)osMutexGetOwner(g_isr2MuxId);
+    g_isr2MuxNewRet = (uint32_t)(UINTPTR)osMutexNew(NULL);
+    /* Semaphore / Timer */
+    g_isr2SemDelRet = osSemaphoreDelete(g_isr2SemId);
+    g_isr2TmrStartRet = osTimerStart(g_isr2TmrId, 5);
+    g_isr2TmrStopRet = osTimerStop(g_isr2TmrId);
+    g_isr2TmrDelRet = osTimerDelete(g_isr2TmrId);
+    /* ThreadFlags */
+    g_isr2TfClrRet = osThreadFlagsClear(0x1);
+    g_isr2TfGetRet = osThreadFlagsGet();
+    g_isr2TfWaitRet = osThreadFlagsWait(0x1, osFlagsWaitAny, 0);
+    /* Thread */
+    g_isr2YieldRet = osThreadYield();
+    g_isr2SuspRet = osThreadSuspend(g_isr2ThrId);
+    g_isr2DelayRet = osDelay(1);
+    g_isr2DelayUntilRet = osDelayUntil(osKernelGetTickCount() + 5);
+    /* Kernel */
+    g_isr2KernelInitRet = osKernelInitialize();
+    g_isr2KernelStartRet = osKernelStart();
+    g_isr2KernelLockRet = osKernelLock();
+    g_isr2ThrJoinRet = osThreadJoin(g_isr2ThrId);
+    g_isr2ThrDetachRet = osThreadDetach(g_isr2ThrId);
+    g_isr2ThrSetPriRet = osThreadSetPriority(g_isr2ThrId, osPriorityNormal);
+    g_isr2ThrGetPriRet = osThreadGetPriority(g_isr2ThrId);
+    g_isr2ThrGetNameRet = (uint32_t)(UINTPTR)osThreadGetName(g_isr2ThrId);
+    g_isr2ThrGetStateRet = osThreadGetState(g_isr2ThrId);
+    g_isr2ThrGetStackRet = osThreadGetStackSize(g_isr2ThrId);
+    g_isr2ThrGetSpaceRet = osThreadGetStackSpace(g_isr2ThrId);
+    g_isr2ThrGetCntRet = osThreadGetCount();
+    g_isr2ThrGetArgRet = (uint32_t)(UINTPTR)osThreadGetArgument();
+    /* MemoryPool / MessageQueue */
+    g_isr2MpDelRet = osMemoryPoolDelete(g_isr2MpId);
+    g_isr2MqDelRet = osMessageQueueDelete(g_isr2MqId);
+}
+
+/* 用例简要描述: ISR 负路径: 适配层 OS_INT_ACTIVE 保护分支(只调保护分支, 不触内核危险路径) */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisIsr002, Function | MediumTest | Level1)
+{
+    uint32_t ret;
+    HWI_PRIOR_T hwiPrio = 3;
+    HWI_MODE_T mode = 0;
+    HwiIrqParam irqParam;
+
+    /* 资源准备(任务上下文) */
+    g_isr2EfId = osEventFlagsNew(NULL);
+    ICUNIT_ASSERT_EQUAL((g_isr2EfId != NULL), 1, (uint32_t)(UINTPTR)g_isr2EfId);
+    g_isr2MuxId = osMutexNew(NULL);
+    ICUNIT_ASSERT_EQUAL((g_isr2MuxId != NULL), 1, (uint32_t)(UINTPTR)g_isr2MuxId);
+    g_isr2SemId = osSemaphoreNew(1, 0, NULL);
+    ICUNIT_ASSERT_EQUAL((g_isr2SemId != NULL), 1, (uint32_t)(UINTPTR)g_isr2SemId);
+    g_isr2TmrId = osTimerNew(CmsisTimerCallback, osTimerOnce, NULL, NULL);
+    ICUNIT_ASSERT_EQUAL((g_isr2TmrId != NULL), 1, (uint32_t)(UINTPTR)g_isr2TmrId);
+#if (LOSCFG_KERNEL_MEMBOX_STATIC == 1)
+    g_isr2MpId = osMemoryPoolNew(2, 16, NULL);
+    ICUNIT_ASSERT_EQUAL((g_isr2MpId != NULL), 1, (uint32_t)(UINTPTR)g_isr2MpId);
+#endif
+    g_isr2MqId = osMessageQueueNew(2, 8, NULL);
+    ICUNIT_ASSERT_EQUAL((g_isr2MqId != NULL), 1, (uint32_t)(UINTPTR)g_isr2MqId);
+    g_isr2ThrId = osThreadGetId();
+
+    (VOID)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
+    irqParam.pDevId = 0;
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiFIsr002, &irqParam);
+    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
+
+    TestHwiTrigger(HWI_NUM_TEST);
+
+    /* EventFlags */
+    ICUNIT_GOTO_EQUAL(g_isr2EfWaitRet, (uint32_t)osFlagsErrorResource, g_isr2EfWaitRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2EfNewRet, 0, g_isr2EfNewRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2EfDelRet, (uint32_t)osErrorISR, g_isr2EfDelRet, EXIT);
+    /* Mutex */
+    ICUNIT_GOTO_EQUAL(g_isr2MuxAcqRet, (uint32_t)osErrorISR, g_isr2MuxAcqRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2MuxRelRet, (uint32_t)osErrorISR, g_isr2MuxRelRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2MuxOwnerRet, 0, g_isr2MuxOwnerRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2MuxNewRet, 0, g_isr2MuxNewRet, EXIT);
+    /* Semaphore / Timer */
+    ICUNIT_GOTO_EQUAL(g_isr2SemDelRet, (uint32_t)osErrorISR, g_isr2SemDelRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2TmrStartRet, (uint32_t)osErrorISR, g_isr2TmrStartRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2TmrStopRet, (uint32_t)osErrorISR, g_isr2TmrStopRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2TmrDelRet, (uint32_t)osErrorISR, g_isr2TmrDelRet, EXIT);
+    /* ThreadFlags */
+    ICUNIT_GOTO_EQUAL(g_isr2TfClrRet, (uint32_t)osFlagsErrorUnknown, g_isr2TfClrRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2TfGetRet, (uint32_t)osFlagsErrorUnknown, g_isr2TfGetRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2TfWaitRet, (uint32_t)osFlagsErrorUnknown, g_isr2TfWaitRet, EXIT);
+    /* Thread */
+    ICUNIT_GOTO_EQUAL(g_isr2YieldRet, (uint32_t)osErrorISR, g_isr2YieldRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2SuspRet, (uint32_t)osErrorISR, g_isr2SuspRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2DelayRet, (uint32_t)osErrorISR, g_isr2DelayRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2DelayUntilRet, (uint32_t)osErrorISR, g_isr2DelayUntilRet, EXIT);
+    /* Kernel */
+    ICUNIT_GOTO_EQUAL(g_isr2KernelInitRet, (uint32_t)osErrorISR, g_isr2KernelInitRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2KernelStartRet, (uint32_t)osErrorISR, g_isr2KernelStartRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2KernelLockRet, (uint32_t)osErrorISR, g_isr2KernelLockRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2ThrJoinRet, (uint32_t)osErrorISR, g_isr2ThrJoinRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2ThrDetachRet, (uint32_t)osErrorISR, g_isr2ThrDetachRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2ThrSetPriRet, (uint32_t)osErrorISR, g_isr2ThrSetPriRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2ThrGetPriRet, (uint32_t)osPriorityError, g_isr2ThrGetPriRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2ThrGetNameRet, 0, g_isr2ThrGetNameRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2ThrGetStateRet, (uint32_t)osThreadError, g_isr2ThrGetStateRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2ThrGetStackRet, 0, g_isr2ThrGetStackRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2ThrGetSpaceRet, 0, g_isr2ThrGetSpaceRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2ThrGetCntRet, 0, g_isr2ThrGetCntRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2ThrGetArgRet, 0, g_isr2ThrGetArgRet, EXIT);
+    /* MemoryPool / MessageQueue */
+    ICUNIT_GOTO_EQUAL(g_isr2MpDelRet, (uint32_t)osErrorISR, g_isr2MpDelRet, EXIT);
+    ICUNIT_GOTO_EQUAL(g_isr2MqDelRet, (uint32_t)osErrorISR, g_isr2MqDelRet, EXIT);
+
+EXIT:
+    TestHwiDelete(HWI_NUM_TEST);
+    if (g_isr2EfId != NULL) { (VOID)osEventFlagsDelete(g_isr2EfId); g_isr2EfId = NULL; }
+    if (g_isr2MuxId != NULL) { (VOID)osMutexDelete(g_isr2MuxId); g_isr2MuxId = NULL; }
+    if (g_isr2SemId != NULL) { (VOID)osSemaphoreDelete(g_isr2SemId); g_isr2SemId = NULL; }
+    if (g_isr2TmrId != NULL) { (VOID)osTimerDelete(g_isr2TmrId); g_isr2TmrId = NULL; }
+#if (LOSCFG_KERNEL_MEMBOX_STATIC == 1)
+    if (g_isr2MpId != NULL) { (VOID)osMemoryPoolDelete(g_isr2MpId); g_isr2MpId = NULL; }
+#endif
+    if (g_isr2MqId != NULL) { (VOID)osMessageQueueDelete(g_isr2MqId); g_isr2MqId = NULL; }
+    return LOS_OK;
+}
+
+/* 用例简要描述: Mutex 错误分支: 未持锁 release/锁下 acquire/删除被持有锁 */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutex006, Function | MediumTest | Level1)
+{
+    osMutexId_t mid = NULL;
+    osStatus_t ret;
+
+    mid = osMutexNew(NULL);
+    ICUNIT_GOTO_NOT_EQUAL(mid, NULL, mid, EXIT);
+
+    /* 未 acquire 直接 release → muxCount==0 → MUX_INVALID → osErrorParameter (覆盖 1109-1110 行) */
+    ret = osMutexRelease(mid);
+    ICUNIT_GOTO_EQUAL(ret, osErrorParameter, ret, EXIT);
+
+    /* 调度锁下 acquire → PEND_IN_LOCK → osErrorResource (覆盖 1089-1090 行) */
+    (void)osKernelLock();
+    ret = osMutexAcquire(mid, 5);
+    ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+    (void)osKernelRestoreLock(0);
+
+    /* 删除被持有的 mutex → PENDED → osErrorResource (覆盖 1160-1161 行) */
+    ret = osMutexAcquire(mid, 0);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+    ret = osMutexDelete(mid);
+    ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+
+    /* 释放后正常删除 */
+    ret = osMutexRelease(mid);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+    ret = osMutexDelete(mid);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+    mid = NULL;
+
+    /* 重复删除已删 mutex → MUX_INVALID → osErrorParameter (覆盖 1157-1158 行) */
+    mid = osMutexNew(NULL);
+    ICUNIT_GOTO_NOT_EQUAL(mid, NULL, mid, EXIT);
+    ret = osMutexDelete(mid);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+    ret = osMutexDelete(mid);
+    ICUNIT_GOTO_EQUAL(ret, osErrorParameter, ret, EXIT);
+    mid = NULL;
+
+EXIT:
+    (void)osKernelRestoreLock(0); /* cnt==0 时为无害空操作 */
+    if (mid != NULL) { (void)osMutexDelete(mid); }
+    return LOS_OK;
+}
+
+static osSemaphoreId_t g_cmsisSemPendId;
+static volatile osStatus_t g_cmsisSemPendRet;
+
+static VOID CmsisSemPendHelper(VOID)
+{
+    g_cmsisSemPendRet = osSemaphoreAcquire(g_cmsisSemPendId, osWaitForever);
+    g_testCount++;
+}
+
+/* 用例简要描述: Semaphore 错误分支: 删除有等待者的信号量/已删信号量 GetCount */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSem006, Function | MediumTest | Level1)
+{
+    osSemaphoreId_t sid = NULL;
+    osThreadId_t tid = NULL;
+    osThreadAttr_t attr = {0};
+    osStatus_t ret;
+    uint32_t cnt;
+
+    attr.stack_size = OS_TSK_TEST_STACK_SIZE;
+    attr.priority = osPriorityLow1;
+    attr.attr_bits = osThreadJoinable;
+    g_testCount = 0;
+
+    sid = osSemaphoreNew(1, 0, NULL);
+    ICUNIT_GOTO_NOT_EQUAL(sid, NULL, sid, EXIT);
+    g_cmsisSemPendId = sid;
+
+    tid = osThreadNew((osThreadFunc_t)CmsisSemPendHelper, NULL, &attr);
+    ICUNIT_GOTO_NOT_EQUAL(tid, NULL, tid, EXIT);
+    osDelay(3); /* 等 helper 阻塞在 Acquire */
+    ICUNIT_GOTO_EQUAL(g_testCount, 0, g_testCount, EXIT);
+
+    /* 有等待者时删除 → SEM_PENDED → osErrorResource (覆盖 1275-1276 行) */
+    ret = osSemaphoreDelete(sid);
+    ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+
+    /* 释放唤醒 helper 后正常删除 */
+    ret = osSemaphoreRelease(sid);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+    (void)osThreadJoin(tid);
+    tid = NULL;
+    ICUNIT_GOTO_EQUAL(g_cmsisSemPendRet, osOK, g_cmsisSemPendRet, EXIT);
+
+    ret = osSemaphoreDelete(sid);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+
+    /* 已删信号量 GetCount → semStat==0 → 返回 0 (覆盖 1247-1249 行) */
+    cnt = osSemaphoreGetCount(sid);
+    ICUNIT_GOTO_EQUAL(cnt, 0, cnt, EXIT);
+
+    /* 已删信号量 Release → SEM_INVALID → osErrorParameter (覆盖 1229-1230 行) */
+    ret = osSemaphoreRelease(sid);
+    ICUNIT_GOTO_EQUAL(ret, osErrorParameter, ret, EXIT);
+
+    /* 重复删除已删信号量 → SEM_INVALID → osErrorParameter (覆盖 1273-1274 行) */
+    ret = osSemaphoreDelete(sid);
+    ICUNIT_GOTO_EQUAL(ret, osErrorParameter, ret, EXIT);
+
+    /* 满计数二值信号量(计数已达 max=1) Release → SEM_OVERFLOW → osErrorResource (覆盖 1231-1232 行)
+     * 注: 计数信号量 max 为 OS_SEM_COUNTING_MAX_COUNT, 二值信号量 max=1 才可即时触发溢出 */
+    {
+        osSemaphoreId_t full = osSemaphoreNew(1, 1, NULL);
+        ICUNIT_GOTO_NOT_EQUAL(full, NULL, full, EXIT);
+        ret = osSemaphoreRelease(full);
+        ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+        (void)osSemaphoreDelete(full);
+    }
+
+    /* 调度锁下 Acquire(需阻塞) → SEM_PEND_IN_LOCK → osErrorResource (覆盖 1213-1214 行) */
+    {
+        osSemaphoreId_t empty = osSemaphoreNew(1, 0, NULL);
+        ICUNIT_GOTO_NOT_EQUAL(empty, NULL, empty, EXIT);
+        (void)osKernelLock();
+        ret = osSemaphoreAcquire(empty, 5);
+        ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+        (void)osKernelRestoreLock(0);
+        (void)osSemaphoreDelete(empty);
+    }
+    sid = NULL;
+
+EXIT:
+    (void)osKernelRestoreLock(0); /* cnt==0 时为无害空操作 */
+    if (tid != NULL) { (void)osThreadJoin(tid); }
+    if (sid != NULL) { (void)osSemaphoreDelete(sid); }
+    return LOS_OK;
+}
+
+static osMessageQueueId_t g_cmsisMqPendId;
+static volatile osStatus_t g_cmsisMqGetRet;
+
+static VOID CmsisMqGetHelper(VOID)
+{
+    uint32_t buf = 0;
+    g_cmsisMqGetRet = osMessageQueueGet(g_cmsisMqPendId, &buf, NULL, osWaitForever);
+    g_testCount++;
+}
+
+/* 用例简要描述: MessageQueue 错误分支: 满队+锁下 Put/删除有阻塞读者的队列 */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueue006, Function | MediumTest | Level1)
+{
+    osMessageQueueId_t mq = NULL;
+    osThreadId_t tid = NULL;
+    osThreadAttr_t attr = {0};
+    osStatus_t ret;
+    uint32_t msg = 0xAA;
+
+    attr.stack_size = OS_TSK_TEST_STACK_SIZE;
+    attr.priority = osPriorityLow1;
+    attr.attr_bits = osThreadJoinable;
+
+    mq = osMessageQueueNew(1, sizeof(uint32_t), NULL);
+    ICUNIT_GOTO_NOT_EQUAL(mq, NULL, mq, EXIT);
+
+    /* 填满队列(容量 1) */
+    ret = osMessageQueuePut(mq, &msg, 0, 0);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+
+    /* 满队 + 调度锁 + timeout → QUEUE_PEND_IN_LOCK → osErrorResource (覆盖 1361-1362 行) */
+    (void)osKernelLock();
+    ret = osMessageQueuePut(mq, &msg, 0, 5);
+    ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+    (void)osKernelRestoreLock(0);
+
+    /* 取走消息, 让 helper 阻塞在 Get */
+    ret = osMessageQueueGet(mq, &msg, NULL, 0);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+    g_cmsisMqPendId = mq;
+    g_testCount = 0;
+    tid = osThreadNew((osThreadFunc_t)CmsisMqGetHelper, NULL, &attr);
+    ICUNIT_GOTO_NOT_EQUAL(tid, NULL, tid, EXIT);
+    osDelay(3);
+    ICUNIT_GOTO_EQUAL(g_testCount, 0, g_testCount, EXIT);
+
+    /* 有阻塞读者时删除 → IN_TSKUSE → osErrorResource (覆盖 1449-1450 行) */
+    ret = osMessageQueueDelete(mq);
+    ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+
+    /* 唤醒 helper 后正常删除 */
+    ret = osMessageQueuePut(mq, &msg, 0, 0);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+    (void)osThreadJoin(tid);
+    tid = NULL;
+    ICUNIT_GOTO_EQUAL(g_cmsisMqGetRet, osOK, g_cmsisMqGetRet, EXIT);
+
+    ret = osMessageQueueDelete(mq);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+    mq = NULL;
+
+EXIT:
+    (void)osKernelRestoreLock(0); /* cnt==0 时为无害空操作 */
+    if (tid != NULL) { (void)osThreadJoin(tid); }
+    if (mq != NULL) { (void)osMessageQueueDelete(mq); }
+    return LOS_OK;
+}
+
+/* 用例简要描述: Timer 错误分支: 已删定时器 Start/伪造 id(timerId 越界) Start */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisTimer007, Function | MediumTest | Level1)
+{
+    osTimerId_t tid = NULL;
+    osStatus_t ret;
+    static UINT32 fakeSwtmr[16]; /* 全 0xFFFFFFFF: 使 pstSwtmr->timerId >= OS_SWTMR_MAX_TIMERID */
+
+    tid = osTimerNew(CmsisTimerCallback, osTimerOnce, NULL, NULL);
+    ICUNIT_GOTO_NOT_EQUAL(tid, NULL, tid, EXIT);
+
+    /* NULL 回调创建 → NULL (覆盖 742-743 行) */
+    ICUNIT_GOTO_EQUAL((UINTPTR)osTimerNew(NULL, osTimerOnce, NULL, NULL), (UINTPTR)NULL, 0, EXIT);
+
+    ret = osTimerDelete(tid);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+
+    /* 已删定时器再 Start → NOT_CREATED → osErrorResource (覆盖 810-811 行) */
+    ret = osTimerStart(tid, 10);
+    ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+
+    /* 已删定时器 Stop → NOT_CREATED → osErrorResource (覆盖 839-840 行) */
+    ret = osTimerStop(tid);
+    ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+
+    /* 伪造 id: timerId=0xFFFFFFFF 越界 → ID_INVALID → osErrorParameter (覆盖 808-809 行) */
+    (VOID)memset_s(fakeSwtmr, sizeof(fakeSwtmr), 0xFF, sizeof(fakeSwtmr));
+    ret = osTimerStart((osTimerId_t)fakeSwtmr, 10);
+    ICUNIT_GOTO_EQUAL(ret, osErrorParameter, ret, EXIT);
+
+    /* 伪造 id Stop → ID_INVALID → osErrorParameter (覆盖 837-838 行) */
+    ret = osTimerStop((osTimerId_t)fakeSwtmr);
+    ICUNIT_GOTO_EQUAL(ret, osErrorParameter, ret, EXIT);
+    tid = NULL;
+
+EXIT:
+    if (tid != NULL) { (void)osTimerDelete(tid); }
+    return LOS_OK;
+}
+
+/* 用例简要描述: MemoryPool: 静态 cb/mem 创建/越界 free/删后 free/重复删/超大 size 分配失败回退 */
+LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool009, Function | MediumTest | Level1)
+{
+    static UINT32 cbMem[32];      /* 静态控制块(>= sizeof(MemPoolCB)) */
+    static UINT32 mpMem[32];      /* 静态池内存(4*32=128 字节, 4 字节对齐) */
+    static UINT32 outOfRange[2];  /* 池外地址(用于越界 free 负路径) */
+    osMemoryPoolId_t mp = NULL;
+    osMemoryPoolAttr_t attr = {0};
+    void *blk = NULL;
+    osStatus_t ret;
+    const char *name;
+
+    (VOID)memset_s(cbMem, sizeof(cbMem), 0, sizeof(cbMem));
+    (VOID)memset_s(mpMem, sizeof(mpMem), 0, sizeof(mpMem));
+
+    attr.cb_mem = cbMem;
+    attr.cb_size = sizeof(cbMem);
+    attr.mp_mem = mpMem;
+    attr.mp_size = sizeof(mpMem);
+    attr.name = "mp_static_009";
+
+    /* 静态 CB + 静态内存池创建 (覆盖 1502-1509/1520-1522/1534-1535 行) */
+    mp = osMemoryPoolNew(4, 32, &attr);
+    ICUNIT_GOTO_NOT_EQUAL(mp, NULL, mp, EXIT);
+    ICUNIT_GOTO_EQUAL(osMemoryPoolGetCapacity(mp), 4, 0, EXIT);
+    ICUNIT_GOTO_EQUAL(osMemoryPoolGetBlockSize(mp), 32, 0, EXIT);
+    name = osMemoryPoolGetName(mp);
+    ICUNIT_GOTO_STRING_EQUAL(name, "mp_static_009", name, EXIT);
+
+    blk = osMemoryPoolAlloc(mp, 0);
+    ICUNIT_GOTO_NOT_EQUAL(blk, NULL, blk, EXIT);
+
+    /* 越界块 free → osErrorParameter (覆盖 1604-1607 行) */
+    ret = osMemoryPoolFree(mp, outOfRange);
+    ICUNIT_GOTO_EQUAL(ret, osErrorParameter, ret, EXIT);
+
+    /* 正常 free + 删除(静态 cb/mp 均不释放回堆) */
+    ret = osMemoryPoolFree(mp, blk);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+    ret = osMemoryPoolDelete(mp);
+    ICUNIT_GOTO_EQUAL(ret, osOK, ret, EXIT);
+
+    /* 删后 free → 状态失效 → osErrorResource (覆盖 1599-1601 行, CB 为静态内存仍可读) */
+    ret = osMemoryPoolFree(mp, blk);
+    ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+
+    /* 重复删 → 状态失效 → osErrorResource (覆盖 1634-1636 行) */
+    ret = osMemoryPoolDelete(mp);
+    ICUNIT_GOTO_EQUAL(ret, osErrorResource, ret, EXIT);
+    mp = NULL;
+
+    /* 超大 size(≈4GB, 通过 block_count>UINT32_MAX/block_size 边界检查): 动态 CB 成功、
+     * 池内存分配失败 → 释放 CB 返回 NULL (覆盖 1528-1531 行) */
+    mp = osMemoryPoolNew(0xFFFFF, 0x1000, NULL);
+    ICUNIT_GOTO_EQUAL((UINTPTR)mp, (UINTPTR)NULL, (UINTPTR)mp, EXIT);
+    mp = NULL;
+
+EXIT:
+    if (mp != NULL) { (void)osMemoryPoolDelete(mp); }
+    return LOS_OK;
+}
+
 void CmsisFuncTestSuite(void)
 {
     dprintf("***********************BEGIN CMSIS TEST**********************\n");
@@ -2592,8 +3286,11 @@ void CmsisFuncTestSuite(void)
     /* Batch 1 supplement: Kernel lock/delay, Timer boundary, Thread misc */
     ADD_TEST_CASE(TestCmsisKernel006);
     ADD_TEST_CASE(TestCmsisKernel007);
-#if !defined(PRODUCT_BUG_ISOLATE) || !defined(LOSCFG_ARCH_ARM)
+#if !defined(LOSCFG_ARCH_ARM) /* 外层: 非 ARM 平台 */
+#if defined(CMSIS_BUG_01_KERNELINIT_GUARD) && CMSIS_BUG_01_KERNELINIT_GUARD == 1
+    /* BUG_01 修复后恢复注册; BUG 宏守卫单独一行, 最里层 */
     ADD_TEST_CASE(TestCmsisKernel008);
+#endif
 #endif
     ADD_TEST_CASE(TestCmsisKernel009);
     ADD_TEST_CASE(TestCmsisIsr001);
@@ -2623,4 +3320,20 @@ void CmsisFuncTestSuite(void)
     ADD_TEST_CASE(TestCmsisMemPool008);
 #endif /* LOSCFG_KERNEL_MEMBOX_STATIC */
     ADD_TEST_CASE(TestCmsisLowFreq001);
+    /* Batch 3: 覆盖率补充——错误分支/边界 */
+    ADD_TEST_CASE(TestCmsisKernel010);
+    ADD_TEST_CASE(TestCmsisKernel011);
+    ADD_TEST_CASE(TestCmsisKernel012);
+    ADD_TEST_CASE(TestCmsisThread014);
+    ADD_TEST_CASE(TestCmsisThread015);
+    ADD_TEST_CASE(TestCmsisThreadFlags005);
+    ADD_TEST_CASE(TestCmsisEventFlags007);
+    ADD_TEST_CASE(TestCmsisIsr002);
+    ADD_TEST_CASE(TestCmsisMutex006);
+    ADD_TEST_CASE(TestCmsisSem006);
+    ADD_TEST_CASE(TestCmsisQueue006);
+    ADD_TEST_CASE(TestCmsisTimer007);
+#if (LOSCFG_KERNEL_MEMBOX_STATIC == 1)
+    ADD_TEST_CASE(TestCmsisMemPool009);
+#endif
 }

@@ -31,6 +31,8 @@
 
 #include "stdlib.h"
 #include "los_task.h"
+#include "los_task_pri.h"
+#include "los_backtrace.h"
 #include "shcmd.h"
 #include "shell.h"
 #define OS_ALL_TASK_MASK 0xFFFFFFFF
@@ -46,13 +48,24 @@ LITE_OS_SEC_TEXT_MINOR UINT32 OsShellCmdTskInfoGet(UINT32 taskId)
 
 INT32 OsShellCmdDumpTask(INT32 argc, const CHAR **argv)
 {
-    (VOID)argv;
     size_t taskId = OS_ALL_TASK_MASK;
+    CHAR *endPtr = NULL;
 
-    if (argc < 1) {
-        return OsShellCmdTskInfoGet((UINT32)taskId);
+    if (argc < 2) { /* 2:Just as number of parameters */
+        if (argc == 1) {
+            taskId = (size_t)strtoul(argv[0], &endPtr, 0);
+            if ((*endPtr != 0) || (taskId >= g_taskMaxNum)) {
+                PRINTK("\ntask ID can't access %s.\n", argv[0]);
+                return (INT32)OS_ERROR;
+            }
+        }
+        if (taskId == OS_ALL_TASK_MASK) {
+            return (INT32)OsShellCmdTskInfoGet((UINT32)taskId);
+        }
+        LOS_TaskBackTrace((UINT32)taskId);
+        return LOS_OK;
     } else {
-        PRINTK("\nUsage: task\n");
+        PRINTK("\nUsage: task or task ID\n");
         return (INT32)OS_ERROR;
     }
 }

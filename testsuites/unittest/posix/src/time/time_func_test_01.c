@@ -599,13 +599,15 @@ LITE_TEST_CASE(PosixTimeFuncTestSuite, testTimes, Function | MediumTest | Level1
     struct tms start = { 0 };
     struct tms end = { 0 };
     clock_t stTime = times(&start);
-    LOG("start_clock: stTime: %ld", stTime);
-    LOG("start_clock: tms_utime: %ld, tms_stime: %ld, tms_cutime:%ld, tms_cstime:%ld", start.tms_utime,
-        start.tms_stime, start.tms_cutime, start.tms_cstime);
 
     KeepRun(testClockt * msPerClock);
 
     clock_t endTime = times(&end);
+
+    LOG("start_clock: stTime: %ld", stTime);
+    LOG("start_clock: tms_utime: %ld, tms_stime: %ld, tms_cutime:%ld, tms_cstime:%ld", start.tms_utime,
+        start.tms_stime, start.tms_cutime, start.tms_cstime);
+
     LOG("end_clock: endTime: %ld", endTime);
     LOG("end_clock: tms_utime: %ld, tms_stime: %ld, tms_cutime:%ld, tms_cstime:%ld", end.tms_utime, end.tms_stime,
         end.tms_cutime, end.tms_cstime);
@@ -1065,9 +1067,7 @@ void PosixTimeFuncTest(void)
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
     RUN_ONE_TESTCASE(testTimeUSleep001);
 #endif
-#if (LOS_FEATURE_ADAPTED == 1)
     RUN_ONE_TESTCASE(testTimeUSleep002);
-#endif
     RUN_ONE_TESTCASE(testTimeGmtime001);
 #if (LOSCFG_LIBC_MUSL == 1)
     RUN_ONE_TESTCASE(testTimeLocaltime001);

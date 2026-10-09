@@ -50,6 +50,18 @@
 #define RUN_ONE_TESTCASE(caseName) ADD_TEST_CASE(caseName)
 #define AUTO_RUN_ONE_TESTCASEFUNC(func) UnityDefaultTestRun(func, __FILE__, __LINE__)
 
+/*
+ * 按套件挂/卸 TEST_ROOT 卷的板级钩子（posix 域 RUN_ONE_TESTCASE 走 iCunit
+ * 立即执行路径，不经过 hctest 的 lite_setup/lite_teardown，故由
+ * PosixStdioFuncTest()/PosixFsFuncTest() 首尾直接调用）。
+ * 弱默认实现（posix_test.c）恒返回 0：语义为"卷已由启动流程挂载"
+ * （qemu 产品的 LfsLowLevelInit 路径）。需要按需后端的板提供强符号覆盖
+ * （hi3322_testsuits 的 ram_lfs_backend.c：RAM 盘 + mount("/littlefs")）。
+ * Ensure 返回非 0 时调用方跳过整个套件，避免用例对未挂载路径连锁失败。
+ */
+extern int TestFsVolumeEnsure(void);
+extern int TestFsVolumeRelease(void);
+
 #ifdef __cplusplus
 #if __cplusplus
 #endif

@@ -39,6 +39,8 @@
 #include "los_cpup_pri.h"
 #endif
 #include "los_init.h"
+
+#include "los_sched_debug_pri.h"
 #if (LOSCFG_HWI_BOTTOM_HALF == 1)
 #include "los_task.h"
 #include "los_event.h"
@@ -57,12 +59,12 @@ UINT32 g_intCount[LOSCFG_KERNEL_CORE_NUM] = {0};
 
 LITE_OS_SEC_BSS SPIN_LOCK_INIT(g_hwiSpin);
 
-UINT32 IntActive(VOID)
+size_t IntActive(VOID)
 {
     UINT32 intSave = LOS_IntLock();
     UINT32 intCount = OS_INT_COUNT();
     LOS_IntRestore(intSave);
-    return intCount;
+    return (size_t)intCount;
 }
 
 /* ===========================================================================
@@ -292,6 +294,11 @@ VOID OsIntHandle(HWI_HANDLE_T hwiNum, HwiHandleInfo *handleForm)
     OS_INT_COUNT()++;
     LOS_IntRestore(intSave);
 
+#ifdef LOSCFG_DEBUG_SCHED_STATISTICS
+    OsSchedStatPause();
+    OsSchedStatHwi(hwiNum);
+#endif
+
     OsHookCall(LOS_HOOK_TYPE_ISR_ENTER, hwiNum);
     LOS_TRACE(HWI_RESPONSE_IN, hwiNum);
 
@@ -315,6 +322,10 @@ VOID OsIntHandle(HWI_HANDLE_T hwiNum, HwiHandleInfo *handleForm)
 
     LOS_TRACE(HWI_RESPONSE_OUT, hwiNum);
     OsHookCall(LOS_HOOK_TYPE_ISR_EXIT, hwiNum);
+
+#ifdef LOSCFG_DEBUG_SCHED_STATISTICS
+    OsSchedStatResume();
+#endif
 
     intSave = LOS_IntLock();
     OS_INT_COUNT()--;

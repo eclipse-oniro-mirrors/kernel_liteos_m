@@ -384,7 +384,20 @@ typedef struct {
     /* SMP interrupt-controller extensions; NULL on UP/single-core ports */
     UINT32 (*sendIpi)(HWI_HANDLE_T hwiNum, UINT32 cpuMask);
     UINT32 (*setIrqCpuAffinity)(HWI_HANDLE_T hwiNum, UINT32 cpuMask);
+    UINT32 (*createIrq)(HWI_HANDLE_T hwiNum, HWI_PRIOR_T priority);
+    /* Optional: program the per-IRQ trigger mode (edge/level). NULL when the
+     * controller has no per-IRQ trigger configuration (e.g. NVIC/CLIC). */
+    UINT32 (*setIrqMode)(HWI_HANDLE_T hwiNum, HWI_MODE_T mode);
 } HwiControllerOps;
+
+/* Arch interrupt hooks: implemented in arch/arm/common + interrupt controller driver. */
+extern HwiControllerOps *ArchIntOpsGet(VOID);
+extern UINT32 ArchIntTrigger(HWI_HANDLE_T hwiNum);
+extern UINT32 ArchIntEnable(HWI_HANDLE_T hwiNum);
+extern UINT32 ArchIntDisable(HWI_HANDLE_T hwiNum);
+extern UINT32 ArchIntClear(HWI_HANDLE_T hwiNum);
+extern UINT32 ArchIntSetPriority(HWI_HANDLE_T hwiNum, HWI_PRIOR_T priority);
+extern UINT32 ArchIntCurIrqNum(VOID);
 
 #if (LOSCFG_HWI_PRE_POST_PROCESS == 1)
 typedef enum {

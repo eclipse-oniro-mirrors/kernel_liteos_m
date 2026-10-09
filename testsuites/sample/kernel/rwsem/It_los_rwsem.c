@@ -55,6 +55,7 @@ VOID ItSuiteLosRwsem(VOID)
 #if (LOS_KERNEL_HWI_TEST == 1)
     ItLosRwsem015();
     ItLosRwsem016();
+    ItLosRwsem017(); /* 无竞争快路径 + swtmr 系统任务告警分支 */
 #endif
 #endif
 }

@@ -42,6 +42,12 @@ VOID ItSuiteLosMisc(VOID)
     ItLosErr001();
     ItLosPrintf001();
     ItLosPrintf002();
+    ItLosHook001(); /* LOS_HookReg/UnReg 全类型自适应矩阵(仅 qemu: ws63 未编译 hook) */
+    ItLosBacktrace001(); /* LOS_RecordLR/LOS_BackTrace 栈来源分支 */
+#if (LOS_KERNEL_TEST_MANUAL == 1)
+    /* DESTRUCTIVE/NON-RETURNING: LOS_Panic output path, manual only */
+    ItLosPrintf003();
+#endif
 #if defined(LOSCFG_ARCH_ARM)
     ItLosInit001();
 #endif

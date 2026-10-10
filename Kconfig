@@ -155,8 +155,8 @@ config PLATFORM_HI3322
     help
         HiSilicon HI3322 wearable SoC (RISC-V LinxCore).
 
-config PLATFORM_RK3568
-    bool "rk3568"
+config PLATFORM_RK3568_M
+    bool "rk3568_m"
     select ARCH_CORTEX_A55
     help
         Rockchip RK3568 (4x Cortex-A55, AArch64, GICv3) in AMP mode:

@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2026 morpheus
  * AArch64 cache maintenance (by address / by set-way / icache sync).
  * Ported from hs-fbb arch_lite/arm64/src/cache.S. Needed by OpenAMP
  * shared-memory coherence on RK3568 (no hardware coherency between the

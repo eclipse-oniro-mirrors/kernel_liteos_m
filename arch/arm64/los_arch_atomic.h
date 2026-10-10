@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 morpheus
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
  * AArch64 atomics (LDXR/STXR exclusive sequence), following the
  * los_arch_atomic.h contract shared with cortex_a_r.
  */

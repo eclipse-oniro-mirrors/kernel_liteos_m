@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 morpheus
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
  * AArch64 task context, ported from hs-fbb arch_lite/arm64 task.h.
  * TaskContext layout must match PUSH/POP sequences in los_dispatch.S.
  */

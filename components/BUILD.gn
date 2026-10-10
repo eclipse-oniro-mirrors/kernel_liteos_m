@@ -33,6 +33,7 @@ group("components") {
   deps = [
     "debugtools",
     "net",
+    "openamp",
     "security",
   ]
 }
@@ -41,6 +42,7 @@ config("public") {
   configs = [
     "debugtools:public",
     "net:public",
+    "openamp:public",
     "security:public",
   ]
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 morpheus
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
  * AArch64 task context init. Ported from hs-fbb arch_lite/arm64/src/task.c,
  * adapted to the liteos_m contract (see cortex_a_r/context.c).
  */

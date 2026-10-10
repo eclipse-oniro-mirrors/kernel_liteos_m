@@ -13,20 +13,22 @@
 # limitations under the License.
 """Generate the libmetal / libmica include sets for the liteos_m AMP build.
 
-The vanilla upstream snapshots (third_party/libmetal v1.3.0, the libmica
-subtree of kernel/liteos_m/compat/mcs) keep their cmake @PROJECT_*@ placeholders and
+The vanilla upstream snapshots (the libmetal headers shipped in the SoC repo
+//device/soc/rockchip/rk3568_m/include/libmetal, and the libmica subtree of
+kernel/liteos_m/compat/mcs) keep their cmake @PROJECT_*@ placeholders and
 only receive their public include prefixes (metal/, mica/platform/) at cmake
 install time. This script performs that configure_file/install step at build
 time (same scheme as the standalone liteos_m Makefile documented in
 kernel/liteos_m/compat/mcs/README.md):
 
-    <out>/metal/*.h                          <- third_party/libmetal/lib/*.h
+    <out>/metal/*.h                          <- device/soc/rockchip/rk3568_m/include/
+                                                libmetal/*.h
                                                 (@PROJECT_*@ substituted,
                                                 #cmakedefine resolved)
     <out>/metal/compiler/<cc>/*.h            <- lib/compiler/... (no tokens)
     <out>/metal/processor/aarch64/*.h        <- lib/processor/... (no tokens)
-    <out>/metal/system/liteos/*.h            <- kernel/liteos_m/compat/mcs/openamp/
-                                                libmetal/libmetal-system/
+    <out>/metal/system/liteos/*.h            <- device/soc/rockchip/rk3568_m/include/
+                                                libmetal/system/liteos/
                                                 (LiteOS system backend)
     <out>/mica/platform/*.h                  <- kernel/liteos_m/compat/mcs/mica/libmica/
                                                 lib/*.h (@PROJECT_SYSTEM@)

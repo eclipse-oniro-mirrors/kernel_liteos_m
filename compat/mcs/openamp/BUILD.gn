@@ -1,5 +1,0 @@
-# Reserved for future GN integration (see README.md).
-# The AMP slave firmware is currently built by the standalone Makefile in
-# kernel/liteos_m/vendor/hihope/dayu210 (kernel sources + third_party snapshots +
-# this component's libmetal backend). Nothing is compiled into the standard
-# LiteOS-M kernel image from here yet.

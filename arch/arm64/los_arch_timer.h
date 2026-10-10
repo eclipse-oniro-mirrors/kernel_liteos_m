@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 morpheus
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
  * AArch64 arch timer header (generic timer, physical EL1).
  */
 

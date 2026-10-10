@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2026 morpheus
  * AArch64 exception vector table (VBAR_EL1, 16-slot layout) and sync
  * exception entry. Ported from hs-fbb arch_lite/arm64/src/exception.S,
  * adapted to the liteos_m exception contract (HalExcHandleEntry).

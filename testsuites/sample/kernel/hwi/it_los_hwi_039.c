@@ -54,6 +54,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(g_testCount, 0, g_testCount, EXIT); // Compare wiht the expected value 0.
 
     LOS_HwiEnable(HWI_NUM_TEST);
+    TestHwiSync();
     ICUNIT_GOTO_EQUAL(g_testCount, 1, g_testCount, EXIT); // Compare wiht the expected value 1.
 
     TestHwiDelete(HWI_NUM_TEST);

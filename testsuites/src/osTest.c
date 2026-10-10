@@ -549,6 +549,13 @@ VOID TestHwiTrigger(UINT32 hwiNum)
 #endif
 }
 
+VOID TestHwiSync(VOID)
+{
+#ifdef __ARM_ARCH_7A__
+    for (volatile UINT32 i = 0; i < OS_HWI_TRIG_SPIN; i++) {}
+#endif
+}
+
 VOID TestHwiUnTrigger(UINT32 hwiNum)
 {
     LOS_HwiClear(hwiNum);

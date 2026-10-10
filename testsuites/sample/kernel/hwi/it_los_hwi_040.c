@@ -151,9 +151,11 @@ static UINT32 Testcase(VOID)
     LOS_HwiTrigger(HWI_NUM_TEST);
     ICUNIT_GOTO_EQUAL(g_testCount, 6, g_testCount, EXIT); // Compare wiht the expected value 6.
     ret = LOS_HwiEnable(HWI_NUM_TEST);
+    TestHwiSync();
     ICUNIT_GOTO_EQUAL(g_testCount, 7, g_testCount, EXIT); // Compare wiht the expected value 7.
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     LOS_HwiTrigger(HWI_NUM_TEST);
+    TestHwiSync();
     ICUNIT_GOTO_EQUAL(g_testCount, 8, g_testCount, EXIT); // Compare wiht the expected value 8.
 
     TestHwiDelete(HWI_NUM_TEST);

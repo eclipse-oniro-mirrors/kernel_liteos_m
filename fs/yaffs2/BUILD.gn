@@ -30,12 +30,12 @@ kernel_module(module_name) {
 
   include_dirs = [
     # yaffs2 authoritative fbb header set
-    "//third_party/yaffs2/include/yaffs2",
-    "//third_party/yaffs2/include/yaffs2/direct",
+    "//device/soc/hisilicon/hi3322/yaffs2/include/yaffs2",
+    "//device/soc/hisilicon/hi3322/yaffs2/include/yaffs2/direct",
     # yaffs_nandcfg.h (yaffs_start/yaffs_end contract)
-    "//third_party/yaffs2/include/yaffs2/os_adapt/adapt_liteos",
+    "//device/soc/hisilicon/hi3322/yaffs2/include/yaffs2/os_adapt/adapt_liteos",
     # mtd_partition.h / linux/mtd/mtd.h (fbb contract headers)
-    "//third_party/yaffs2/include",
+    "//device/soc/hisilicon/hi3322/yaffs2/include",
   ]
 
   defines = [

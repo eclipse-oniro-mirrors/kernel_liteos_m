@@ -40,7 +40,17 @@ config("kernel_test_coverage") {
       # arm gcc 10.3 -fprofile-arcs miscompiles optimized-routines string
       # functions (gcov counter prologue ldrd clobbers a live argument
       # register, so strcpy-family calls copy from address 0).
+      # ★ 必须保持单个旗标（组合正则）：GCC 对多个 -fprofile-exclude-files
+      #   取 last-wins，第二个会覆盖第一个（实测）。
       cflags += [ "-fprofile-exclude-files=.*third_party.*optimized-routines.*" ]
+      # ★ 覆盖率构建须关闭栈保护：gcc 10.3 会无视 naked 属性向裸函数注入
+      #   canary 序言（ldr/ldr/str [sp,#4]），把 __stack_chk_guard 写到
+      #   调用者栈帧 [sp+4]——实测踩坏 lfs_dir_read 保存的 r4（= 调用者
+      #   gcov 基址），ItLosShell012 处 ldrd [r4+0x30] 以 0xd00a0dff 崩溃
+      #   （__stack_chk_guard 的 WEAK 初值）。-fno-stack-protector 靠
+      #   last-wins 盖过 ssp_config 的 -fstack-protector-all；仅影响
+      #   CM4 的覆盖率（测试专用）构建，发布构建不受影响。
+      cflags += [ "-fno-stack-protector" ]
     }
     cflags_cc = cflags
   }

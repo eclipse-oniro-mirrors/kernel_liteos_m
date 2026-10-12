@@ -32,6 +32,8 @@
 extern VOID ItSuitePosixRwlock(VOID);
 extern VOID ItSuitePosixTime(VOID);
 extern VOID ItSuitePosixIo(VOID);
+extern void PosixStdlibStrtodFuncTest(void);
+extern void PosixLocaleFuncTest(void);
 #if defined(LOSCFG_ARCH_ARM) && defined(LOSCFG_POSIX_SIGNAL_API)
 extern VOID ItSuitePosixSignal(VOID);
 #endif
@@ -55,6 +57,8 @@ void ItSuitePosix(void)
     PosixIslowerFuncTest();
     PosixIsxdigitFuncTest();
     PosixTolowerFuncTest();
+    PosixStdlibStrtodFuncTest();
+    PosixLocaleFuncTest();
     PosixToupperFuncTest();
     PosixStrerrorTest();
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)

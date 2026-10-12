@@ -113,6 +113,18 @@
                                                     * 契约(timerStart 计数>=1 且编程周期在一个 tick
                                                     * 以上), 修复前置 1 将失败; 隔离点在 It_los_pm.c
                                                     * 聚合注册点(仅周期 tick 板) */
+#define LIBC_BUG_13_VSSCANF_LOCK        0 /* ItLostestStdlibSscanfInt001: musl 移植层 vsscanf 在栈上
+                                           * 构造伪 FILE{.lock=-1}(sscanf.c/vsscanf.c:14-19), 而移植版
+                                           * __lockfile(__lockfile.c:7-10) 无 -1 哨兵检查, 直接
+                                           * pthread_mutex_lock((pthread_mutex_t *)-1) -> OsMuxPreCheck
+                                           * 解引用 0xffffffff 硬故障(BUG_13, FaultAddr 0xfffffffc,
+                                           * qemu 实测 Type=4)。上游 musl __lockfile 对栈 FILE 有
+                                           * 免锁路径, 移植改造为 pthread 锁时丢失该分支。
+                                           * 修复方向: __lockfile 增加 f->lock<0 直接返回 0。
+                                           * 全仓此前无 sscanf 用例(潜伏缺陷); 同族: fscanf 走
+                                           * fopen 的真实 FILE(锁有效)不受影响(ItLostestStdioFscanfFile001
+                                           * 照常执行, __shgetc 覆盖目标由其承接); 隔离点在
+                                           * strtod_test.c 的 RUN_ONE_TESTCASE 注册处, 修复后置 1 恢复 */
 
 /* ==================== fuzz 探针隔离宏(每用例一个) ====================
  * 探针为 sample/fuzz 各模块目录下的正常用例文件 it_<接口描述>_fuzz.c,

@@ -265,6 +265,18 @@ LITE_TEST_CASE(PosixStdlibMultibyteTest, testStdlibWcrtomb001, Function | Medium
     return 0;
 }
 
+/* 用例简要描述: MB_CUR_MAX 宏求值返回 4 */
+LITE_TEST_CASE(PosixStdlibMultibyteTest, testStdlibMbCurMax001, Function | MediumTest | Level1)
+{
+    size_t maxCurMb;
+
+    /* __ctype_get_mb_cur_max.c:4-6 返回 locale_impl.h 的编译期常量
+     * CURRENT_UTF8 ? 4 : 1（__c_dot_utf8_locale.cat[LC_CTYPE] 恒非空） */
+    maxCurMb = MB_CUR_MAX;
+    ICUNIT_ASSERT_EQUAL(maxCurMb, 4, (int)maxCurMb);
+    return 0;
+}
+
 RUN_TEST_SUITE(PosixStdlibMultibyteTest);
 
 void PosixStdlibMultibyteFuncTest(void)
@@ -274,6 +286,7 @@ void PosixStdlibMultibyteFuncTest(void)
     RUN_ONE_TESTCASE(testStdlibMbtowcUtf8001);
     RUN_ONE_TESTCASE(testStdlibWctomb001);
     RUN_ONE_TESTCASE(testStdlibWcrtomb001);
+    RUN_ONE_TESTCASE(testStdlibMbCurMax001);
 
     return;
 }

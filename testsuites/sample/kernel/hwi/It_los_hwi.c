@@ -119,4 +119,12 @@ VOID ItSuiteLosHwi()
     ItLosHwi049();
     ItLosHwi050();
     ItLosHwi051();
+#if defined(LOSCFG_ARCH_ARM) && defined(LOSCFG_CORTEX_M_NVIC)
+    /* 052: 真驱动 ops 下 Trigger/Clear 闭环, 仅 qemu(cortex-m NVIC) */
+    ItLosHwi052();
+#endif
+#if defined(LOSCFG_ARCH_RISCV) && defined(LOSCFG_RISCV_HIMIDEERV200_PLIC)
+    /* 053: 高段向量(32..95) LOCIEN0/1 与 LOCIPRI reg1-8, 仅 ws63(himideerv200 PLIC) */
+    ItLosHwi053();
+#endif
 }

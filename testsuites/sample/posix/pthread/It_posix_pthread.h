@@ -109,5 +109,12 @@ VOID ItPosixPthread032(VOID);
 VOID ItPosixPthread033(VOID);
 VOID ItPosixPthread034(VOID);
 VOID ItPosixPthread035(VOID);
+VOID ItPosixPthread036(VOID);
+VOID ItPosixPthread037(VOID);
+VOID ItPosixPthread038(VOID);
+VOID ItPosixPthread039(VOID);
+VOID ItPosixPthread040(VOID);
+VOID ItPosixPthread041(VOID);
+VOID ItPosixPthread042(VOID);
 
 #endif /* IT_POSIX_PTHREAD_H */

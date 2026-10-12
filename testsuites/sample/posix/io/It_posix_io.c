@@ -10,4 +10,13 @@ VOID ItSuitePosixIo(void)
     ItPosixPipe005();
     ItPosixPipe006();
     ItPosixPipe007();
+    ItPosixPipe008();
+    ItPosixPipe009();
+    ItPosixPipe010();
+    ItPosixPipe011();
+    ItPosixPipe012();
+    ItPosixPipe013();
+    ItPosixPipe014();
+    ItPosixPipe015();
+    ItPosixPipe016();
 }

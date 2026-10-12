@@ -105,4 +105,9 @@ VOID ItSuitePosixMqueue(void)
     ItPosixQueue050();
     ItPosixQueue051();
     ItPosixQueue052();
+    ItPosixQueue053();
+    ItPosixQueue054();
+    ItPosixQueue055();
+    ItPosixQueue056();
+    ItPosixQueue057();
 }

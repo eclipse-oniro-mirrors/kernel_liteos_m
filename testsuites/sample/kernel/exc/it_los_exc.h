@@ -56,6 +56,9 @@ extern VOID ItLosExc009(VOID);
 VOID ItLosExc010(VOID);
 VOID ItLosExc011(VOID);
 VOID ItLosExc012(VOID);
+VOID ItLosExc013(VOID);
+VOID ItLosExc014(VOID);
+VOID ItLosExc015(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

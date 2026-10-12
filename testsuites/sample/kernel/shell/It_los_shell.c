@@ -31,8 +31,42 @@
 
 #include "It_los_shell.h"
 
+/* RAM 盘挂载钩子(强符号由 ws63 ram_lfs_backend.c / 弱默认 posix_test.c 提供)。
+ * ws63: RamLfsSetBlocks 在 shell 域临时上调盘几何(具具需 ~22 数据块),
+ * 每个 vfs 用例间新鲜重挂(清 tc12-15 残留孤儿块), 套件结束复位默认几何。 */
+extern int TestFsVolumeEnsure(void);
+extern int TestFsVolumeRelease(void);
+#ifdef LOSCFG_PLATFORM_WS63_M
+extern void RamLfsSetBlocks(unsigned int blocks);
+#endif
+#ifdef LOSCFG_FS_LITTLEFS
+#include "shcmd.h"
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+
 VOID ItSuiteLosShell(VOID)
 {
+#if defined(LOSCFG_FS_LITTLEFS)
+    (VOID)TestFsVolumeEnsure(); /* 48KB/22 数据块(后端默认几何), 每用例间新鲜重挂 */
+#ifdef LOSCFG_FS_LITTLEFS
+    /* 预热 shell cp 的静态互斥锁 g_mutexCp: OsShellCmdDoCp 首次 lock 走 pthread
+     * 静态锁懒初始化(LOS_MuxCreate), 一次性创建若落入首个 cp 用例(Shell014)
+     * 的 ResLeak 窗口会被计为 mux 泄漏(误报, 与 los_resleak_test.c 预热段同一
+     * 处置模式)。注意 DoCp 的 stat(src) 在加锁之前, 源文件必须真实存在才能
+     * 走到 lock——临时建/拷/删一个最小文件完成预热。 */
+    {
+        INT32 pwFd = open("/littlefs/.prewarm_src", O_CREAT | O_RDWR, 0666);
+        if (pwFd >= 0) {
+            const CHAR *pwArgv[2] = {"/littlefs/.prewarm_src", "/littlefs/.prewarm_dst"};
+            (VOID)close(pwFd);
+            (VOID)OsShellCmdCp(2, pwArgv);
+            (VOID)unlink("/littlefs/.prewarm_src");
+            (VOID)unlink("/littlefs/.prewarm_dst");
+        }
+    }
+#endif
+#endif
 #ifdef LOSCFG_SHELL_DMESG
     ItLosShell001();
     ItLosShell008(); /* dmesg 边界深化: 环绕读回一致性/LvSet-LvGet 往返/重装清零 */
@@ -57,8 +91,21 @@ VOID ItSuiteLosShell(VOID)
 #endif
 #if defined(LOSCFG_SHELL) && defined(LOSCFG_FS_LITTLEFS)
     ItLosShell012(); /* ls/cd/pwd 成功路径(自包含,无挂载副作用) */
+    (VOID)TestFsVolumeRelease(); /* 新鲜重挂: 清上一用例孤儿块(ws63 小盘几何) */
+    (VOID)TestFsVolumeEnsure();
     ItLosShell013(); /* touch/cat/mkdir 成功与失败路径 */
+    (VOID)TestFsVolumeRelease();
+    (VOID)TestFsVolumeEnsure();
     ItLosShell014(); /* cp 全分支(含通配符/深路径/fd 耗尽) */
+#if defined(LOSCFG_FS_LITTLEFS) && defined(LOSCFG_PLATFORM_WS63_M)
+    /* ws63 RAM 盘窗口扩容: Shell015 具具 17 个 mkdir(littlefs 每目录 2 块冗余
+     * 元数据对): 2(超级/根)+2(tc15)+16*2=36 块 + 提交余量 > 默认 24 块(48KB),
+     * 实测第 12 个 mkdir 即 ENOSPC(errno=28)。40 块(80KB)余量充足; 套件结束
+     * 复位默认几何(FS/stdio 域沿用 24 块, 堆预算见 ram_lfs_backend.c 头注)。 */
+    RamLfsSetBlocks(40);
+#endif
+    (VOID)TestFsVolumeRelease();
+    (VOID)TestFsVolumeEnsure();
     ItLosShell015(); /* rm/rmdir 全分支(含通配符矩阵/句柄耗尽/极限路径) */
 #endif
 #if defined(LOSCFG_SHELL) && defined(LOSCFG_SHELL_LK)
@@ -72,4 +119,11 @@ VOID ItSuiteLosShell(VOID)
     ItLosShell020(); /* 框架辅助接口(OsCmdKeyShift/OsCmdParse/OsShellKey*) */
     ItLosShell021(); /* task 命令单参任务号分支(合法回溯/非数字/越界/掩码/双参) */
 #endif
+#if defined(LOSCFG_FS_LITTLEFS)
+    (VOID)TestFsVolumeRelease();
+#if defined(LOSCFG_PLATFORM_WS63_M)
+    RamLfsSetBlocks(24); /* 复位 FS/stdio 域默认几何 */
+#endif
+#endif
+
 }

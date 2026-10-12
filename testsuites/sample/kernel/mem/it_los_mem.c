@@ -167,7 +167,11 @@ VOID ItSuiteLosMem(void)
     ItLosMem051(); /* LOS_MemUnlockEnable (TLSF only) */
 #if (LOSCFG_MEM_LEAKCHECK == 1)
     ItLosMem052(); /* LOS_MemUsedNodeShow */
+    ItLosMem318(); /* LOS_MemUsedNodeShow NULL pool early-return (TLSF+LEAKCHECK only) */
 #endif
+    ItLosMem319(); /* LOS_MemFreeNodeShow: free-list middle-node delete + small-bucket print */
+    ItLosMem320(); /* LOS_MemAllocAlign/Free fuzz: bad gap word (TLSF only) */
+    ItLosMem321(); /* LOS_MemFree fuzz: free-node ptr.prev out of range (TLSF only) */
 #endif
 #ifdef LOSCFG_KERNEL_MEM_BESTFIT
     ItLosMem053(); /* LOS_MemPoolInit */
@@ -179,6 +183,30 @@ VOID ItSuiteLosMem(void)
 #endif
 #if defined(LOSCFG_KERNEL_MEM_BESTFIT) && (LOSCFG_MEM_MUL_MODULE == 1)
     ItLosMem057(); /* LOS_MemMalloc/MallocAlign/Mfree/Mrealloc/MusedGet */
+#endif
+#if (LOSCFG_KERNEL_MEM_SLAB_EXTENTION == 1)
+    ItLosMem322(); /* LOS_SlabSizeCfg: cross-32bit-word bitmap, 33 allocs (slab) */
+    ItLosMem323(); /* LOS_SlabSizeCfg: slab class alloc failure -> bestfit fallback (slab) */
+#endif
+#ifdef LOSCFG_KERNEL_MEM_BESTFIT
+    ItLosMem324(); /* LOS_MemPoolInit: unaligned size warning + aligned down (bestfit) */
+    ItLosMem325(); /* g_MALLOC_HOOK: hook fired once per alloc (bestfit) */
+#endif
+#if defined(LOSCFG_KERNEL_MEM_BESTFIT) && (LOSCFG_MEM_MUL_MODULE == 1)
+    ItLosMem326(); /* LOS_MemMalloc/Mfree fuzz: bad gap word (bestfit+mulmodule) */
+#endif
+#ifdef LOSCFG_KERNEL_MEM_BESTFIT
+    ItLosMem327(); /* LOS_MemAllocAlign/Free fuzz: used|aligned gap word (bestfit) */
+#endif
+#if defined(LOSCFG_KERNEL_MEM_BESTFIT) && (defined(LOSCFG_MEM_DEBUG) || defined(LOSCFG_MEM_TASK_STAT))
+    ItLosMem328(); /* LOS_MemInfoGet/PoolList fuzz: END-node magic broken (bestfit) */
+#endif
+#if defined(LOSCFG_KERNEL_MEM_BESTFIT) && (LOSCFG_BASE_MEM_NODE_INTEGRITY_CHECK == 1)
+    ItLosMem329(); /* LOS_MemIntegrityCheck fuzz: dlink head pstPrev broken (bestfit) */
+#endif
+#ifdef LOSCFG_KERNEL_MEM_BESTFIT
+    ItLosMem330(); /* LOS_MemTaskIdGet: freed-node + END-address miss branches (bestfit) */
+    ItLosMem331(); /* LOS_MemLastUsedGet: used-last-neighbor exact value (bestfit) */
 #endif
 #if (LOSCFG_KERNEL_MEM_TLSF == 1) && (LOSCFG_MEM_FREE_BY_TASKID == 1)
     ItLosMem058(); /* LOS_MemFreeByTaskID */
@@ -219,9 +247,13 @@ VOID ItSuiteLosMem(void)
     ItLosMem315();
 #endif
 #ifdef LOSCFG_MEM_MUL_POOL_ALLOC
+    ItLosMem332(); /* LOS_MulPool* unregistered-hook rejects: MUST run before ItLosMulPool001
+                      (g_poolFlag is irreversible once registered, los_multipool.c:165-184) */
     ItLosMulPool001();
     ItLosMulPool002();
     ItLosMulPool003(); /* LOS_MulPoolRealloc/LOS_MulPoolFree 分支 */
+    ItLosMulPool004(); /* LOS_MulPoolRealloc 跨池拷贝(OsMulPoolCopyToNewNode) */
+    ItLosMulPool005(); /* LOS_MulPoolShrink 有占用池跳过 */
 #endif
     MemEnd();
 }

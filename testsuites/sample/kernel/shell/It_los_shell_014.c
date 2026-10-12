@@ -141,7 +141,6 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     ret = mkdir("/littlefs/tc14/dd/a.txt", 0777); /* 与源同名的目录,构造 open(EISDIR) */
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
-
     /* F-Pos: 常规单文件复制 + 内容校验 */
     ret = OsShellCmdCp(2, argvBasic);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);

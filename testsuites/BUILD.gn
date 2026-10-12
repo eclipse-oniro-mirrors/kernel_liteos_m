@@ -52,6 +52,9 @@ config("kernel_test_coverage") {
       #   CM4 的覆盖率（测试专用）构建，发布构建不受影响。
       cflags += [ "-fno-stack-protector" ]
     }
+    # 注: riscv gcc 7.3 不支持 -fprofile-exclude-files(GCC 8+), ws63 侧对非
+    # 30 目标目录(shell/cmsis/lms/pm/cpup/backtrace)的插桩排除改由 liteos.gni
+    # 的 kernel_module 模板追加 no_test_coverage 实现(见该处注释)。
     cflags_cc = cflags
   }
 }
@@ -116,6 +119,7 @@ kernel_module("test_init") {
     "src/iCunit.c",
     "src/icunit_filter.c",
     "src/osTest.c",
+    "src/ram_lfs_backend.c",
     "src/test_common.c",
     "src/los_resleak_test.c",
   ]
@@ -123,6 +127,10 @@ kernel_module("test_init") {
   include_dirs = [
     "unittest/posix/src",
     "unittest/xts",
+    # ram_lfs_backend.c: los_fs.h (mount/umount/LOS_DiskPartition/PartitionCfg)
+    # 与 securec.h; 文件体仅 riscv 测试板非空(qemu/hi3322 走各自板级挂载)
+    "//kernel/liteos_m/fs/vfs",
+    "//third_party/bounds_checking_function/include",
   ]
 
   configs += [ ":include" ]

@@ -63,4 +63,7 @@ VOID ItSuitePosixRwlock(void)
     ItPosixRwlock075();
     ItPosixRwlock076();
     ItPosixRwlock077();
+    ItPosixRwlock078();
+    ItPosixRwlock079();
+    ItPosixRwlock080();
 }

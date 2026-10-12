@@ -18,4 +18,8 @@ VOID ItSuitePosixSignal(void)
     ItPosixSignal093();
     ItPosixSignal094();
     ItPosixSignal095();
+    ItPosixSignal096();
+    ItPosixSignal097();
+    ItPosixSignal098();
+    ItPosixSignal099();
 }

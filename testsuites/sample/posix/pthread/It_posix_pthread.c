@@ -83,4 +83,11 @@ void ItSuitePosixPthread(void)
     ItPosixPthread033();
     ItPosixPthread034();
     ItPosixPthread035();
+    ItPosixPthread036();
+    ItPosixPthread037();
+    ItPosixPthread038();
+    ItPosixPthread039();
+    ItPosixPthread040();
+    ItPosixPthread041();
+    ItPosixPthread042();
 }

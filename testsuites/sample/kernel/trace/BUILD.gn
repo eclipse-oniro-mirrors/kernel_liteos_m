@@ -42,6 +42,7 @@ static_library("test_trace") {
     "It_los_trace_008.c",
     "It_los_trace_009.c",
     "It_los_trace_010.c",
+    "It_los_trace_011.c",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

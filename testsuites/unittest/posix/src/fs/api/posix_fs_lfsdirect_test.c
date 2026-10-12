@@ -698,6 +698,194 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsDirectRambd, Function | MediumTest
     return POSIX_FS_NO_ERROR;
 }
 
+/* 用例简要描述: 超级块cfg校验与旧版本升级重写 */
+/* *
+ * @tc.number   SUB_KERNEL_FS_LFSDIRECT_SUPERBLOCK_CFG
+ * @tc.name     LfsDirectSuperblockCfg
+ * @tc.desc     超级块cfg校验与旧版本升级重写
+ */
+LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsDirectSuperblockCfg, Function | MediumTest | Level1)
+{
+    int err;
+    lfs_file_t file;
+    char buf[DIRECT_BUF_LEN];
+    /* lfs_init 静态用户缓冲(尺寸须与 cache_size/lookahead_size 一致) */
+    static uint8_t readBuf[DIRECT_IO_SIZE];
+    static uint8_t progBuf[DIRECT_IO_SIZE];
+    static uint8_t lookBuf[8]; /* 8: 前瞻缓冲字数 */
+
+    /* 以默认上限(name_max=255 等)格式化并挂载 */
+    err = LfsDirectSetup(true, DIRECT_BLOCKS);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_unmount(&g_directLfs);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+
+    /* name_max 小于盘面值: 超级块记录 255 > cfg 100 -> INVAL */
+    g_directCfg.name_max = 100;
+    err = lfs_mount(&g_directLfs, &g_directCfg);
+    ICUNIT_ASSERT_EQUAL(err, LFS_ERR_INVAL, err);
+    g_directCfg.name_max = 0;
+    /* file_max 小于盘面值: INVAL */
+    g_directCfg.file_max = 100;
+    err = lfs_mount(&g_directLfs, &g_directCfg);
+    ICUNIT_ASSERT_EQUAL(err, LFS_ERR_INVAL, err);
+    g_directCfg.file_max = 0;
+    /* attr_max 小于盘面值: INVAL */
+    g_directCfg.attr_max = 100;
+    err = lfs_mount(&g_directLfs, &g_directCfg);
+    ICUNIT_ASSERT_EQUAL(err, LFS_ERR_INVAL, err);
+    g_directCfg.attr_max = 0;
+
+#ifdef LFS_MULTIVERSION
+    /* 旧次版本(2.0)格式化 + 默认版本(2.1)挂载: 挂载登记 needssuperblock,
+     * 首次目录操作触发 desuperblock 重写超级块, 版本升级并持久化。
+     * 注: 本构建未定义 LFS_MULTIVERSION(无 disk_version 配置字段),
+     * 该段仅在启用多版本支持的构建中生效。 */
+    struct lfs_fsinfo fsinfo = { 0 };
+    g_directCfg.disk_version = 0x00020000; /* v2.0 旧次版本 */
+    err = lfs_format(&g_directLfs, &g_directCfg);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    g_directCfg.disk_version = 0;
+    err = lfs_mount(&g_directLfs, &g_directCfg);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_fs_stat(&g_directLfs, &fsinfo);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    ICUNIT_ASSERT_EQUAL((int)fsinfo.disk_version, 0x00020000, (int)fsinfo.disk_version);
+    err = lfs_mkdir(&g_directLfs, "vdir"); /* 首次目录写 -> desuperblock 升级 */
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_fs_stat(&g_directLfs, &fsinfo);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    ICUNIT_ASSERT_EQUAL((int)fsinfo.disk_version, (int)LFS_DISK_VERSION, (int)fsinfo.disk_version);
+    (void)lfs_remove(&g_directLfs, "vdir");
+    err = lfs_unmount(&g_directLfs);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+#endif
+
+    /* read/prog/lookahead 静态用户缓冲挂载: lfs_init 直接采用用户缓冲 */
+    g_directCfg.read_buffer = readBuf;
+    g_directCfg.prog_buffer = progBuf;
+    g_directCfg.lookahead_buffer = lookBuf;
+    err = lfs_mount(&g_directLfs, &g_directCfg);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+
+    /* 静态缓冲下的读写校验 */
+    err = lfs_file_open(&g_directLfs, &file, "sbf", LFS_O_WRONLY | LFS_O_CREAT);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_file_write(&g_directLfs, &file, "Hello", strlen("Hello") + 1);
+    ICUNIT_ASSERT_EQUAL(err, (int)strlen("Hello") + 1, err);
+    err = lfs_file_close(&g_directLfs, &file);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_file_open(&g_directLfs, &file, "sbf", LFS_O_RDONLY);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    (void)memset_s(buf, sizeof(buf), 0, sizeof(buf));
+    err = lfs_file_read(&g_directLfs, &file, buf, sizeof(buf));
+    ICUNIT_ASSERT_EQUAL(err, (int)strlen("Hello") + 1, err);
+    err = strcmp(buf, "Hello");
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_file_close(&g_directLfs, &file);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+
+    /* 注: read_buffer 等字段须保持至 unmatch/teardown 之后由 LfsDirectSetup
+     * 清零, 提前置空会使 lfs_deinit 误释放静态缓冲 */
+    err = lfs_remove(&g_directLfs, "sbf");
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    LfsDirectTeardown();
+    return POSIX_FS_NO_ERROR;
+}
+
+/* 用例简要描述: opencfg属性读写与路径名错误码 */
+/* *
+ * @tc.number   SUB_KERNEL_FS_LFSDIRECT_OPENCFG_ATTRS
+ * @tc.name     LfsDirectOpenCfgAttrs
+ * @tc.desc     opencfg属性读写与路径名错误码
+ */
+LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsDirectOpenCfgAttrs, Function | MediumTest | Level1)
+{
+    int err;
+    lfs_file_t file;
+    char rBuf0[8] = { 0 }; /* 8: 属性读缓冲 0 */
+    char rBuf1[8] = { 0 }; /* 8: 属性读缓冲 1 */
+    char buf[DIRECT_BUF_LEN];
+    static char attrData[] = "newattr"; /* 7 字节写入属性 */
+    static char bigAttr[LFS_ATTR_MAX + 2]; /* 静态超限缓冲, 1024 字节 */
+    static char longName[LFS_NAME_MAX + 2]; /* 静态超长名, 256 字节 */
+    struct lfs_attr rAttrs[2];
+    struct lfs_attr wAttrs[1];
+    struct lfs_attr overAttrs[1];
+    struct lfs_file_config fcfg = { 0 };
+
+    err = LfsDirectSetup(true, DIRECT_BLOCKS);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+
+    /* 建文件并写入一个用户属性 */
+    err = lfs_file_open(&g_directLfs, &file, "af", LFS_O_WRONLY | LFS_O_CREAT);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_file_close(&g_directLfs, &file);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_setattr(&g_directLfs, "af", 0x11, "attr", 4); /* 4 字节属性 */
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+
+    /* 读开取回属性: opencfg 的 attrs 缓冲在 open 时回填 */
+    rAttrs[0].type = 0x11;
+    rAttrs[0].buffer = rBuf0;
+    rAttrs[0].size = 4; /* 4: 与盘面属性同尺寸 */
+    rAttrs[1].type = 0x22; /* 不存在的属性类型 */
+    rAttrs[1].buffer = rBuf1;
+    rAttrs[1].size = 4;
+    fcfg.attrs = rAttrs;
+    fcfg.attr_count = 2; /* 2: 存在 + 不存在各一 */
+    err = lfs_file_opencfg(&g_directLfs, &file, "af", LFS_O_RDONLY, &fcfg);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_file_close(&g_directLfs, &file);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = memcmp(rBuf0, "attr", 4);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    ICUNIT_ASSERT_EQUAL(rBuf1[0], 0, rBuf1[0]); /* 不存在属性不回填 */
+
+    /* 写开置脏: 属性随文件内容在关闭时原子提交 */
+    wAttrs[0].type = 0x33;
+    wAttrs[0].buffer = attrData;
+    wAttrs[0].size = strlen(attrData);
+    fcfg.attrs = wAttrs;
+    fcfg.attr_count = 1;
+    err = lfs_file_opencfg(&g_directLfs, &file, "af", LFS_O_WRONLY, &fcfg);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_file_write(&g_directLfs, &file, "data", 4); /* 4 字节数据 */
+    ICUNIT_ASSERT_EQUAL(err, 4, err);
+    err = lfs_file_close(&g_directLfs, &file);
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    err = lfs_getattr(&g_directLfs, "af", 0x33, buf, sizeof(buf));
+    ICUNIT_ASSERT_EQUAL(err, (int)strlen(attrData), err);
+    err = memcmp(buf, attrData, strlen(attrData));
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+
+    /* 写开属性超限(attr_max=1022): NOSPC */
+    overAttrs[0].type = 0x44;
+    overAttrs[0].buffer = bigAttr;
+    overAttrs[0].size = sizeof(bigAttr);
+    fcfg.attrs = overAttrs;
+    fcfg.attr_count = 1;
+    err = lfs_file_opencfg(&g_directLfs, &file, "af", LFS_O_WRONLY, &fcfg);
+    ICUNIT_ASSERT_EQUAL(err, LFS_ERR_NOSPC, err);
+
+    /* 带尾斜杠的新路径: NOTDIR */
+    fcfg.attrs = NULL;
+    fcfg.attr_count = 0;
+    err = lfs_file_opencfg(&g_directLfs, &file, "trail/", LFS_O_WRONLY | LFS_O_CREAT, &fcfg);
+    ICUNIT_ASSERT_EQUAL(err, LFS_ERR_NOTDIR, err);
+
+    /* 超长名(name_max=255): NAMETOOLONG */
+    (void)memset_s(longName, sizeof(longName), 'l', sizeof(longName) - 1);
+    longName[LFS_NAME_MAX + 1] = '\0';
+    err = lfs_file_opencfg(&g_directLfs, &file, longName, LFS_O_WRONLY | LFS_O_CREAT, &fcfg);
+    ICUNIT_ASSERT_EQUAL(err, LFS_ERR_NAMETOOLONG, err);
+
+    err = lfs_remove(&g_directLfs, "af");
+    ICUNIT_ASSERT_EQUAL(err, 0, err);
+    LfsDirectTeardown();
+    return POSIX_FS_NO_ERROR;
+}
+
 void PosixFsLfsDirectTest(void)
 {
     RUN_ONE_TESTCASE(TestFsLfsDirectTruncate);
@@ -710,6 +898,8 @@ void PosixFsLfsDirectTest(void)
     RUN_ONE_TESTCASE(TestFsLfsDirectFsGrow);
     RUN_ONE_TESTCASE(TestFsLfsDirectFsGcMkconsistent);
     RUN_ONE_TESTCASE(TestFsLfsDirectRambd);
+    RUN_ONE_TESTCASE(TestFsLfsDirectSuperblockCfg);
+    RUN_ONE_TESTCASE(TestFsLfsDirectOpenCfgAttrs);
 }
 #else
 void PosixFsLfsDirectTest(void)

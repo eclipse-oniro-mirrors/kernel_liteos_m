@@ -47,6 +47,12 @@ extern "C" {
 
 /**
  * @ingroup los_mux
+ * Mutex control block.
+ */
+typedef struct LosMuxCB LosMuxCB;
+
+/**
+ * @ingroup los_mux
  * Mutex error code: The memory request fails.
  *
  * Value: 0x02001d00
@@ -95,6 +101,7 @@ extern "C" {
 */
 #define LOS_ERRNO_MUX_UNAVAILABLE   LOS_ERRNO_OS_ERROR(LOS_MOD_MUX, 0x04)
 
+
 /**
 * @ingroup los_mux
 * Mutex error code: The mutex is being locked during an interrupt.
@@ -104,6 +111,7 @@ extern "C" {
 * Solution: Check whether the mutex is being locked during an interrupt.
 */
 #define LOS_ERRNO_MUX_IN_INTERR   LOS_ERRNO_OS_ERROR(LOS_MOD_MUX, 0x05)
+#define LOS_ERRNO_MUX_PEND_INTERR LOS_ERRNO_MUX_IN_INTERR
 
 /**
 * @ingroup los_mux
@@ -163,23 +171,25 @@ extern "C" {
 
 /**
  * @ingroup los_mux
+ * Mutex error code: The mutex is being locked in system-level task.
+ *        old usage: The mutex is being locked in software timer task(LOS_ERRNO_MUX_PEND_IN_SWTMR_TSK).
  *
- * Mutex error code: LOS_ERRNO_MUX_MAXNUM_ZERO is zero.
- * Value: 0x02001d0C
+ * Value: 0x02001d0C.
  *
- * Solution: LOS_ERRNO_MUX_MAXNUM_ZERO should not be zero.
+ * Solution: Pend the mutex in a valid task.
+ * @deprecated This error code is obsolete since LiteOS 5.0.0.
  */
-#define LOS_ERRNO_MUX_MAXNUM_ZERO   LOS_ERRNO_OS_ERROR(LOS_MOD_MUX, 0x0C)
+#define LOS_ERRNO_MUX_PEND_IN_SYSTEM_TASK   LOS_ERRNO_OS_ERROR(LOS_MOD_MUX, 0x0C)
 
 /**
  * @ingroup los_mux
  *
- * Mutex error code: The API is called in a system-level task, which is forbidden.
- * Value: 0x02001d0D
+ * Mutex error code: LOS_ERRNO_MUX_MAXNUM_ZERO is zero.
+ * Value: 0x02001d0E
  *
- * Solution: Do not call the API in system-level tasks.
+ * Solution: LOS_ERRNO_MUX_MAXNUM_ZERO should not be zero.
  */
-#define LOS_ERRNO_MUX_PEND_IN_SYSTEM_TASK   LOS_ERRNO_OS_ERROR(LOS_MOD_MUX, 0x0D)
+#define LOS_ERRNO_MUX_MAXNUM_ZERO   LOS_ERRNO_OS_ERROR(LOS_MOD_MUX, 0x0E)
 
 /**
  * @ingroup los_mux
@@ -255,7 +265,7 @@ extern UINT32 LOS_MuxDelete(UINT32 muxHandle);
  *                                           is not applicable for the current operation.
  * @retval #LOS_ERRNO_MUX_UNAVAILABLE        The mutex fails to be locked because it is locked by another thread and
  * a period of time is not set for waiting for the mutex to become available.
- * @retval #LOS_ERRNO_MUX_IN_INTERR        The mutex is being locked during an interrupt.
+ * @retval #LOS_ERRNO_MUX_PEND_INTERR      The mutex is being locked during an interrupt.
  * @retval #LOS_ERRNO_MUX_PEND_IN_LOCK       The mutex is waited on when the task scheduling is disabled.
  * @retval #LOS_ERRNO_MUX_TIMEOUT            The mutex waiting times out.
  * @retval #LOS_OK                           The mutex is successfully locked.
@@ -283,7 +293,7 @@ extern UINT32 LOS_MuxPend(UINT32 muxHandle, UINT32 timeout);
  *
  * @retval #LOS_ERRNO_MUX_INVALID            The mutex state (for example, the mutex does not exist or is not in use
  * or owned by other thread) is not applicable for the current operation.
- * @retval #LOS_ERRNO_MUX_IN_INTERR        The mutex is being released during an interrupt.
+ * @retval #LOS_ERRNO_MUX_PEND_INTERR      The mutex is being released during an interrupt.
  * @retval #LOS_OK                           The mutex is successfully released.
  * @par Dependency:
  * <ul><li>los_mux.h: the header file that contains the API declaration.</li></ul>
@@ -293,77 +303,17 @@ extern UINT32 LOS_MuxPost(UINT32 muxHandle);
 
 /**
  * @ingroup los_mux
- * Mutex object.
+ * Mutex base object must be the same as the first three member names of LosMuxCB,
+ * so that pthread_mutex_t can share the kernel mutex mechanism.
  */
 typedef struct {
-    UINT8 muxStat;       /**< State OS_MUX_UNUSED,OS_MUX_USED  */
-    UINT16 muxCount;     /**< Times of locking a mutex */
-    UINT32 muxID;        /**< Handle ID */
-    LOS_DL_LIST muxList; /**< Mutex linked list */
-    LosTaskCB *owner;    /**< The current thread that is locking a mutex */
-#if (LOSCFG_MUTEX_CREATE_TRACE == 1)
-    UINTPTR createInfo; /**< Return address of the caller */
-#endif
-    UINT16 priority;     /**< Priority of the thread that is locking a mutex */
-} LosMuxCB;
-
-/**
- * @ingroup los_mux
- * Mutex state: not in use.
- */
-#define OS_MUX_UNUSED 0
-
-/**
- * @ingroup los_mux
- * Mutex state: in use.
- */
-#define OS_MUX_USED   1
-
-extern LosMuxCB *g_allMux;
-
-/**
- * @ingroup los_mux
- * Obtain the pointer to a mutex object of the mutex that has a specified handle.
- */
-#define GET_MUX(muxid) (((LosMuxCB *)g_allMux) + (muxid))
-
-/**
- * @ingroup los_mux
- * @brief Initializes the mutex.
- *
- * @par Description:
- * This API is used to initializes the mutex.
- * @attention
- * <ul>
- * <li>None.</li>
- * </ul>
- *
- * @param None.
- *
- * @retval UINT32     Initialization result.
- * @par Dependency:
- * <ul><li>los_mux.h: the header file that contains the API declaration.</li></ul>
- * @see LOS_MuxDelete
- */
-extern UINT32 OsMuxInit(VOID);
-
-/**
- * @ingroup los_mux
- * Obtain the pointer to the linked list in the mutex pointed to by a specified pointer.
- */
-#define GET_MUX_LIST(ptr) LOS_DL_LIST_ENTRY(ptr, LosMuxCB, muxList)
-
-#if (LOSCFG_MUTEX_CREATE_TRACE == 1)
-STATIC INLINE VOID OsSetMutexCreateInfo(LosMuxCB *mux, UINTPTR val)
-{
-    mux->createInfo = val;
-}
-#endif /* LOSCFG_MUTEX_CREATE_TRACE == 1 */
+    LOS_DL_LIST muxList;    /**< Mutex linked list */
+    VOID *owner;            /**< The current thread that is locking a mutex */
+    UINT16 muxCount;        /**< Times of locking a mutex */
+} MuxBaseCB;
 
 #ifdef __cplusplus
-#if __cplusplus
 }
-#endif
 #endif /* __cplusplus */
 
 #endif /* _LOS_MUX_H */

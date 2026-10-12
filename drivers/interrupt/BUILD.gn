@@ -1,0 +1,26 @@
+import("//kernel/liteos_m/liteos.gni")
+
+module_name = "interrupt"
+kernel_module(module_name) {
+  sources = []
+  if (defined(LOSCFG_RISCV_LCMP_CLIC)) {
+    sources += [ "riscv_lcmp_clic.c" ]
+  }
+  if (defined(LOSCFG_RISCV_HIMIDEERV200_PLIC)) {
+    sources += [ "riscv_himideerv200_plic.c" ]
+  }
+  if (defined(LOSCFG_ARM_GIC_V2)) {
+    sources += [ "arm_gic_v2.c" ]
+  }
+  if (defined(LOSCFG_CORTEX_M_NVIC)) {
+    sources += [ "arm_nvic.c" ]
+  }
+  if (defined(LOSCFG_ARM_GIC_V3)) {
+    sources += [ "gic-v3/interrupt.c" ]
+  }
+  include_dirs = [ "include" ]
+}
+
+config("public") {
+  include_dirs = [ "include" ]
+}

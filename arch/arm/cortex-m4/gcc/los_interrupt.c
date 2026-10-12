@@ -24,151 +24,32 @@
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
  * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdarg.h>
+/*
+ * Cortex-M4 exception handling (gcc variant).
+ * The NVIC interrupt controller driver moved to the driver layer:
+ * drivers/interrupt/arm_nvic.c (HwiControllerOps, HalInterrupt,
+ * HalHwiInit). This file keeps only the exception dump/display logic
+ * and HalExcHandleEntry. Filename is kept because los_exc.S already
+ * occupies the los_exc.o object name in this directory.
+ */
+
 #include "securec.h"
 #include "los_context.h"
 #include "los_arch_interrupt.h"
-#include "los_hook.h"
-#include "los_task.h"
-#include "los_sched.h"
+#include "los_task_pri.h"
 #include "los_memory.h"
 #include "los_membox.h"
-#if (LOSCFG_CPUP_INCLUDE_IRQ == 1)
-#include "los_cpup.h"
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+#include "los_exc_pri.h"
 #endif
-
-/* ****************************************************************************
- Function    : HwiNumGet
- Description : Get an interrupt number
- Input       : None
- Output      : None
- Return      : Interrupt Indexes number
- **************************************************************************** */
-STATIC UINT32 HwiNumGet(VOID)
-{
-    return __get_IPSR();
-}
-
-STATIC UINT32 HwiUnmask(HWI_HANDLE_T hwiNum)
-{
-    NVIC_EnableIRQ((IRQn_Type)hwiNum);
-    return LOS_OK;
-}
-
-STATIC UINT32 HwiMask(HWI_HANDLE_T hwiNum)
-{
-    NVIC_DisableIRQ((IRQn_Type)hwiNum);
-    return LOS_OK;
-}
-
-STATIC UINT32 HwiSetPriority(HWI_HANDLE_T hwiNum, UINT8 priority)
-{
-    NVIC_SetPriority((IRQn_Type)hwiNum, priority);
-    return LOS_OK;
-}
-
-STATIC UINT32 HwiPending(HWI_HANDLE_T hwiNum)
-{
-    NVIC_SetPendingIRQ((IRQn_Type)hwiNum);
-    return LOS_OK;
-}
-
-STATIC UINT32 HwiClear(HWI_HANDLE_T hwiNum)
-{
-    NVIC_ClearPendingIRQ((IRQn_Type)hwiNum);
-    return LOS_OK;
-}
-
-STATIC UINT32 HwiCreate(HWI_HANDLE_T hwiNum, HWI_PRIOR_T hwiPrio)
-{
-    HwiSetPriority(hwiNum, hwiPrio);
-    HwiUnmask(hwiNum);
-    return LOS_OK;
-}
-
-STATIC HwiControllerOps g_archHwiOps = {
-    .enableIrq      = HwiUnmask,
-    .disableIrq     = HwiMask,
-    .setIrqPriority = HwiSetPriority,
-    .getCurIrqNum   = HwiNumGet,
-    .triggerIrq     = HwiPending,
-    .clearIrq       = HwiClear,
-    .createIrq      = HwiCreate,
-};
-
-HwiControllerOps *ArchIntOpsGet(VOID)
-{
-    return &g_archHwiOps;
-}
-
-/* ****************************************************************************
- Function    : HalInterrupt
- Description : Hardware interrupt entry function
- Input       : None
- Output      : None
- Return      : None
- **************************************************************************** */
-LITE_OS_SEC_TEXT VOID HalInterrupt(VOID)
-{
-    UINT32 hwiIndex;
-    UINT32 intSave;
-
-#if (LOSCFG_KERNEL_RUNSTOP == 1)
-    SCB->SCR &= (UINT32) ~((UINT32)SCB_SCR_SLEEPDEEP_Msk);
-#endif
-
-    intSave = LOS_IntLock();
-    g_intCount++;
-    LOS_IntRestore(intSave);
-
-    hwiIndex = HwiNumGet();
-
-    OsHookCall(LOS_HOOK_TYPE_ISR_ENTER, hwiIndex);
-#if (LOSCFG_CPUP_INCLUDE_IRQ == 1)
-    OsCpupIrqStart(hwiIndex);
-#endif
-
-    HalPreInterruptHandler(hwiIndex);
-
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
-    if (g_hwiHandlerForm[hwiIndex].pfnHandler != 0) {
-        g_hwiHandlerForm[hwiIndex].pfnHandler((VOID *)g_hwiHandlerForm[hwiIndex].pParm);
-    }
-#else
-    if (g_hwiHandlerForm[hwiIndex] != 0) {
-        g_hwiHandlerForm[hwiIndex]();
-    }
-#endif
-
-#if (LOSCFG_DEBUG_TOOLS == 1)
-    ++g_hwiFormCnt[hwiIndex];
-#endif
-
-    HalAftInterruptHandler(hwiIndex);
-
-#if (LOSCFG_CPUP_INCLUDE_IRQ == 1)
-    OsCpupIrqEnd(hwiIndex);
-#endif
-
-    OsHookCall(LOS_HOOK_TYPE_ISR_EXIT, hwiIndex);
-
-    intSave = LOS_IntLock();
-    g_intCount--;
-    LOS_IntRestore(intSave);
-}
+#include "los_hwi_pri.h"
 
 #define FAULT_STATUS_REG_BIT            32
-#define USGFAULT                        (1 << 18)
-#define BUSFAULT                        (1 << 17)
-#define MEMFAULT                        (1 << 16)
-#define DIV0FAULT                       (1 << 4)
-#define UNALIGNFAULT                    (1 << 3)
-#define HARDFAULT_IRQN                  (-13)
 
 ExcInfo g_excInfo = {0};
 
@@ -238,7 +119,7 @@ STATIC VOID OsExcCurTaskInfo(const ExcInfo *excInfo)
     if (excInfo->phase == OS_EXC_IN_TASK) {
         LosTaskCB *taskCB = OS_TCB_FROM_TID(LOS_CurTaskIDGet());
         PRINTK("Task name = %s\n", taskCB->taskName);
-        PRINTK("Task ID   = %d\n", taskCB->taskID);
+        PRINTK("Task ID   = %d\n", taskCB->taskId);
         PRINTK("Task SP   = %p\n", taskCB->stackPointer);
         PRINTK("Task ST   = 0x%x\n", taskCB->topOfStack);
         PRINTK("Task SS   = 0x%x\n", taskCB->stackSize);
@@ -351,7 +232,7 @@ STATIC VOID OsExcInfoDisplay(const ExcInfo *excInfo)
 LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, UINT32 pid, EXC_CONTEXT_S *excBufAddr)
 {
     UINT16 tmpFlag = (excType >> 16) & OS_NULL_SHORT; /* 16: Get Exception Type */
-    g_intCount++;
+    g_intCount[ArchCurrCpuid()]++;
     g_excInfo.nestCnt++;
 
     g_excInfo.type = excType & OS_NULL_SHORT;
@@ -361,13 +242,13 @@ LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, U
     } else {
         g_excInfo.faultAddr = OS_EXC_IMPRECISE_ACCESS_ADDR;
     }
-    if (g_losTask.runTask != NULL) {
+    if (g_runTask != NULL) {
         if (tmpFlag & OS_EXC_FLAG_IN_HWI) {
             g_excInfo.phase = OS_EXC_IN_HWI;
             g_excInfo.thrdPid = pid;
         } else {
             g_excInfo.phase = OS_EXC_IN_TASK;
-            g_excInfo.thrdPid = g_losTask.runTask->taskID;
+            g_excInfo.thrdPid = g_runTask->taskId;
         }
     } else {
         g_excInfo.phase = OS_EXC_IN_INIT;
@@ -379,9 +260,24 @@ LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, U
         g_excInfo.context = excBufAddr;
     }
 
-    OsDoExcHook(EXC_INTERRUPT);
-    OsExcInfoDisplay(&g_excInfo);
-    ArchSysExit();
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+    LogReadWriteFunc dumpFunc = OsGetExcInfoRW();
+    if (dumpFunc != NULL) {
+        OsSetExcInfoOffset(0);
+    }
+#endif
+    if (g_excRegHook != NULL) {
+        g_excRegHook(excType, g_excInfo.context);
+    } else {
+        OsDoExcHook(EXC_INTERRUPT);
+        OsExcInfoDisplay(&g_excInfo);
+    }
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+    if (dumpFunc != NULL) {
+        dumpFunc(OsGetExcInfoDumpAddr(), OsGetExcInfoLen(), 0, OsGetExcInfoBuf());
+    }
+#endif
+    ArchTaskExit();
 }
 
 /* stack protector */
@@ -392,56 +288,4 @@ WEAK VOID __stack_chk_fail(VOID)
     /* __builtin_return_address is a builtin function, building in gcc */
     LOS_Panic("stack-protector: Kernel stack is corrupted in: %p\n",
               __builtin_return_address(0));
-}
-
-WEAK VOID SysTick_Handler(VOID)
-{
-    return;
-}
-
-/* ****************************************************************************
- Function    : HalHwiInit
- Description : initialization of the hardware interrupt
- Input       : None
- Output      : None
- Return      : None
- **************************************************************************** */
-LITE_OS_SEC_TEXT_INIT VOID HalHwiInit(VOID)
-{
-#if (LOSCFG_USE_SYSTEM_DEFINED_INTERRUPT == 1)
-    UINT32 index;
-    HWI_PROC_FUNC *hwiForm = (HWI_PROC_FUNC *)ArchGetHwiFrom();
-    hwiForm[0] = 0; /* [0] Top of Stack */
-    hwiForm[1] = (HWI_PROC_FUNC)Reset_Handler; /* [1] reset */
-    for (index = 2; index < OS_VECTOR_CNT; index++) { /* 2: The starting position of the interrupt */
-        hwiForm[index] = (HWI_PROC_FUNC)HalHwiDefaultHandler;
-    }
-    /* Exception handler register */
-    hwiForm[NonMaskableInt_IRQn + OS_SYS_VECTOR_CNT]   = (HWI_PROC_FUNC)HalExcNMI;
-    hwiForm[HARDFAULT_IRQN + OS_SYS_VECTOR_CNT]        = (HWI_PROC_FUNC)HalExcHardFault;
-    hwiForm[MemoryManagement_IRQn + OS_SYS_VECTOR_CNT] = (HWI_PROC_FUNC)HalExcMemFault;
-    hwiForm[BusFault_IRQn + OS_SYS_VECTOR_CNT]         = (HWI_PROC_FUNC)HalExcBusFault;
-    hwiForm[UsageFault_IRQn + OS_SYS_VECTOR_CNT]       = (HWI_PROC_FUNC)HalExcUsageFault;
-    hwiForm[SVCall_IRQn + OS_SYS_VECTOR_CNT]           = (HWI_PROC_FUNC)HalExcSvcCall;
-    hwiForm[PendSV_IRQn + OS_SYS_VECTOR_CNT]           = (HWI_PROC_FUNC)HalPendSV;
-    hwiForm[SysTick_IRQn + OS_SYS_VECTOR_CNT]          = (HWI_PROC_FUNC)SysTick_Handler;
-
-    /* Interrupt vector table location */
-    SCB->VTOR = (UINT32)(UINTPTR)hwiForm;
-#endif
-#if (__CORTEX_M >= 0x03U) /* only for Cortex-M3 and above */
-    NVIC_SetPriorityGrouping(OS_NVIC_AIRCR_PRIGROUP);
-#endif
-
-    /* Enable USGFAULT, BUSFAULT, MEMFAULT */
-    *(volatile UINT32 *)OS_NVIC_SHCSR |= (USGFAULT | BUSFAULT | MEMFAULT);
-
-    /* Enable DIV 0 and unaligned exception */
-#ifdef LOSCFG_ARCH_UNALIGNED_EXC
-    *(volatile UINT32 *)OS_NVIC_CCR |= (DIV0FAULT | UNALIGNFAULT);
-#else
-    *(volatile UINT32 *)OS_NVIC_CCR |= (DIV0FAULT);
-#endif
-
-    return;
 }

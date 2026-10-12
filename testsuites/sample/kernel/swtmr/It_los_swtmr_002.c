@@ -33,7 +33,7 @@
 #include "It_los_swtmr.h"
 
 
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     if (arg != 0xabcdbcda) {
         return;
@@ -64,9 +64,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     // 2, Here, assert that g_testCount is equal to this .
-    if (g_testCount < 2) {
-        ICUNIT_GOTO_EQUAL(g_testCount, 2, g_testCount, EXIT); // 2, Here, assert that g_testCount is equal to this
-    }
+    ICUNIT_GOTO_EQUAL(g_testCount, 2, g_testCount, EXIT);
 
     ret = LOS_SwtmrDelete(swTmrID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
@@ -75,9 +73,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     // 2, Here, assert that g_testCount is equal to this .
-    if (g_testCount < 2) {
-        ICUNIT_ASSERT_EQUAL(g_testCount, 2, g_testCount); // 2, Here, assert that g_testCount is equal to this
-    }
+    ICUNIT_ASSERT_EQUAL(g_testCount, 2, g_testCount);
 
     return LOS_OK;
 

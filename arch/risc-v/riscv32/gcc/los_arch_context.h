@@ -35,6 +35,23 @@
 #include "los_compiler.h"
 #include "los_context.h"
 
+extern LosTaskCB *g_runTask;
+
+STATIC INLINE VOID *ArchCurrTaskGet(VOID)
+{
+    return (VOID *)g_runTask;
+}
+
+STATIC INLINE VOID ArchCurrTaskSet(VOID *val)
+{
+    g_runTask = (LosTaskCB *)val;
+}
+
+STATIC INLINE UINT32 ArchCurrCpuid(VOID)
+{
+    return 0;
+}
+
 #ifdef __cplusplus
 #if __cplusplus
 extern "C" {
@@ -80,6 +97,15 @@ extern "C" {
  * @ingroup los_arch_context
  * Define the type of a task context control block.
  */
+#ifndef LOSCFG_ARCH_FPU_DISABLE
+#ifdef LOSCFG_ARCH_FPU_DOUBLE
+/* D extension: FP registers are 64-bit wide (RV32D, FLEN=64). */
+typedef UINT64 FLOATREG_TYPE;
+#else
+typedef UINT32 FLOATREG_TYPE;
+#endif
+#endif
+
 typedef struct {
     UINT32 sp;
     UINT32 tp;
@@ -113,7 +139,52 @@ typedef struct {
     UINT32 s1;
     UINT32 s0;
     UINT32 ra;
+#ifndef LOSCFG_ARCH_FPU_DISABLE
+    /* FPU state mirrors the assembly stack frame (see soc_common.h).
+     * Order must match PUSH_ALL_REG/POP_ALL_REG in los_dispatch.S and
+     * PUSH_CALLER_REG/POP_ALL_REG in los_exc.S. */
+    FLOATREG_TYPE ft11;
+    FLOATREG_TYPE ft10;
+    FLOATREG_TYPE ft9;
+    FLOATREG_TYPE ft8;
+    FLOATREG_TYPE fa7;
+    FLOATREG_TYPE fa6;
+    FLOATREG_TYPE fa5;
+    FLOATREG_TYPE fa4;
+    FLOATREG_TYPE fa3;
+    FLOATREG_TYPE fa2;
+    FLOATREG_TYPE fa1;
+    FLOATREG_TYPE fa0;
+    FLOATREG_TYPE ft7;
+    FLOATREG_TYPE ft6;
+    FLOATREG_TYPE ft5;
+    FLOATREG_TYPE ft4;
+    FLOATREG_TYPE ft3;
+    FLOATREG_TYPE ft2;
+    FLOATREG_TYPE ft1;
+    FLOATREG_TYPE ft0;
+    FLOATREG_TYPE fs11;
+    FLOATREG_TYPE fs10;
+    FLOATREG_TYPE fs9;
+    FLOATREG_TYPE fs8;
+    FLOATREG_TYPE fs7;
+    FLOATREG_TYPE fs6;
+    FLOATREG_TYPE fs5;
+    FLOATREG_TYPE fs4;
+    FLOATREG_TYPE fs3;
+    FLOATREG_TYPE fs2;
+    FLOATREG_TYPE fs1;
+    FLOATREG_TYPE fs0;
+    UINT32 fcsr;
+    UINT32 fpuReserved[3];
+#endif
 } TaskContext;
+
+/* Extract the frame pointer (s0) from a suspended task's saved context. */
+STATIC INLINE UINTPTR ArchGetTaskFp(const VOID *stackPointer)
+{
+    return ((TaskContext *)stackPointer)->s0;
+}
 
 STATIC INLINE UINTPTR GetSP(VOID)
 {
@@ -129,9 +200,7 @@ STATIC INLINE UINTPTR GetFp(VOID)
     return fpSave;
 }
 
-extern VOID HalStartToRun(VOID);
-
-extern VOID HalTaskContextSwitch(UINT32 intSave);
+extern VOID ArchStartToRun(LosTaskCB *newTask);
 
 /**
  * @ingroup los_arch_context

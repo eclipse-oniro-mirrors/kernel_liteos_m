@@ -37,4 +37,5 @@ void ItSuiteLosSignal(void)
     ItLosSignal003();
     ItLosSignal004();
     ItLosSignal005();
+    ItLosSignal006(); /* SignalMask/SignalWait 防御分支 + 中断上下文拒绝 */
 }

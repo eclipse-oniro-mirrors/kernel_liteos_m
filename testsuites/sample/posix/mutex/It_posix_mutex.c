@@ -78,7 +78,7 @@ VOID TestExtraTaskDelay(UINT32 uwTick)
 
 VOID ItSuitePosixMutex(void)
 {
-    PRINTF("*********** Begin sample posix mutex test ************\n");
+    dprintf("*********** Begin sample posix mutex test ************\n");
     ItPosixMux001();
     ItPosixMux002();
     ItPosixMux003();
@@ -128,6 +128,27 @@ VOID ItSuitePosixMutex(void)
     ItPosixMux047();
     ItPosixMux048();
 #ifndef LOSCFG_KERNEL_SMP
+#if (LOS_FEATURE_ADAPTED == 1)
     ItPosixMux049();
 #endif
+#endif
+    ItPosixMux050();
+    ItPosixMux051();
+    ItPosixMux052();
+    ItPosixMux053();
+    ItPosixMux054();
+    ItPosixMux055();
+    ItPosixMux056();
+    ItPosixMux057();
+    ItPosixMux058();
+    ItPosixMux076();
+    ItPosixMux077();
+    ItPosixMux078();
+    ItPosixMux079();
+    ItPosixMux080();
+    ItPosixMux081();
+    ItPosixMux082();
+    ItPosixMux083();
+    ItPosixMux084();
+    ItPosixMux085();
 }

@@ -29,9 +29,16 @@
 import("//kernel/liteos_m/liteos.gni")
 
 static_library("math_test") {
+  defines = [
+    "XTS_CASE_LAYER=TEST_LIB",
+    "XTS_CASE_MODULE=TEST_LIBM",
+    "XTS_CASE_LEVEL=TEST_LEVEL0",
+  ]
+
   sources = [
     "math_api_test.c",
     "math_std_api_test.c",
+    "math_fpu_test.c",
     "xts_math.c",
   ]
 
@@ -40,4 +47,5 @@ static_library("math_test") {
     "$LITEOSTOPDIR/testsuites/include",
     "$LITEOSTOPDIR/testsuites/unittest/xts",
   ]
+  configs += [ "$LITEOSTOPDIR/testsuites:no_test_coverage" ]
 }

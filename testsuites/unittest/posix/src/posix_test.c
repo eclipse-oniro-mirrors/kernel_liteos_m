@@ -29,14 +29,27 @@
  */
 
 #include "posix_test.h"
+extern VOID ItSuitePosixRwlock(VOID);
+extern VOID ItSuitePosixTime(VOID);
+extern VOID ItSuitePosixIo(VOID);
+#if defined(LOSCFG_ARCH_ARM) && defined(LOSCFG_POSIX_SIGNAL_API)
+extern VOID ItSuitePosixSignal(VOID);
+#endif
 
 void ItSuitePosix(void)
 {
-    PRINTF("***********************BEGIN POSIX TEST**********************\n");
     PthreadFuncTestSuite();
     ItSuitePosixPthread();
     ItSuitePosixMutex();
+    ItSuitePosixRwlock();
     ItSuitePosixMqueue();
+    ItSuitePosixTime();
+#ifdef LOSCFG_POSIX_PIPE_API
+    ItSuitePosixIo();
+#endif
+#if defined(LOSCFG_ARCH_ARM) && defined(LOSCFG_POSIX_SIGNAL_API)
+    ItSuitePosixSignal();
+#endif
     PosixCtypeFuncTest();
     PosixIsdigitFuncTest();
     PosixIslowerFuncTest();
@@ -44,7 +57,9 @@ void ItSuitePosix(void)
     PosixTolowerFuncTest();
     PosixToupperFuncTest();
     PosixStrerrorTest();
+#if !defined(LOSCFG_ARCH_FPU_DISABLE)
     PosixMathFuncTest();
+#endif
     PosixMqueueFuncTest();
     PosixStdargFuncTest();
     PosixStdlibAtoiFuncTest();
@@ -53,11 +68,17 @@ void ItSuitePosix(void)
     PosixStdlibStrtolFuncTest();
     PosixStdlibStrtoulFuncTest();
     PosixStdlibStrtoullFuncTest();
+    PosixStdlibMultibyteFuncTest();
+    PosixStdlibRandomStateFuncTest();
+#if (LOSCFG_POSIX_FS_API == 1)
+    PosixStdioFuncTest();
+#endif
     PosixStringMemTest03();
     PosixStringStrchrTest();
     PosixStringFuncTest02();
     PosixStringStrcasecmpFuncTest();
     PosixStringFuncTest03();
+    PosixStringStrstrTest();
 #if (LOS_KERNEL_TEST_FULL == 1)
     PosixSemaphoreFuncTest();
     PosixTimeFuncTest();
@@ -65,4 +86,19 @@ void ItSuitePosix(void)
 #if (LOSCFG_SUPPORT_LITTLEFS == 1 || LOSCFG_SUPPORT_FATFS == 1)
     PosixFsFuncTest();
 #endif
+}
+
+/*
+ * 板级按需挂卷钩子的弱默认实现（声明见 kernel_test.h）：恒成功（返回 0），
+ * 语义为"TEST_ROOT 卷已由启动流程挂载"（qemu 产品的 LfsLowLevelInit 路径）。
+ * hi3322_testsuits 的 ram_lfs_backend.c 提供强符号覆盖（RAM 盘按套件挂/卸）。
+ */
+__attribute__((weak)) int TestFsVolumeEnsure(void)
+{
+    return 0;
+}
+
+__attribute__((weak)) int TestFsVolumeRelease(void)
+{
+    return 0;
 }

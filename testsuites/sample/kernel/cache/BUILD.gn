@@ -1,0 +1,28 @@
+# Copyright (c) 2026-2026. All rights reserved.
+#
+# Cache maintenance interface test suite (ws63 arch/cache.h). Gated by
+# LOSCFG_ARCH_CACHE (the closed liblos_cache.a provider must be linked for the
+# ArchICache*/ArchDCache* symbols to resolve) and LOSCFG_KERNEL_TEST.
+
+import("//kernel/liteos_m/liteos.gni")
+
+static_library("test_cache") {
+  sources = [
+    "it_los_cache.c",
+    "it_los_cache_001.c",
+    "it_los_cache_002.c",
+    "it_los_cache_003.c",
+    "it_los_cache_004.c",
+    "it_los_cache_005.c",
+    "it_los_cache_006.c",
+    "it_los_cache_007.c",
+    "it_los_cache_008.c",
+    "it_los_cache_009.c",
+    "it_los_cache_010.c",
+    "it_los_cache_011.c",
+  ]
+
+  include_dirs = [ "." ]
+
+  configs += [ "$LITEOSTOPDIR/testsuites:include" ]
+}

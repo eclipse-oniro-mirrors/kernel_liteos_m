@@ -33,7 +33,7 @@
 #include "It_los_swtmr.h"
 
 
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     UINT32 index;
 
@@ -59,6 +59,7 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     UINT32 swtmrId1;
     UINT32 swtmrId2;
+    UINT32 waitLoop;
     g_testCount = 0;
 
     // 1, Timeout interval of a periodic software timer.
@@ -85,8 +86,12 @@ static UINT32 Testcase(VOID)
     TestHwiTrigger(HWI_NUM_TEST);
 
     // 10, Here, check that g_testCount is smaller than this .
-    while (g_testCount < 10) {
+    /* Bounded wait: see It_los_swtmr_033.c. Periodic timers keep counting
+     * while we yield, so accept a small overshoot above 10. */
+    for (waitLoop = 0; (g_testCount < 10) && (waitLoop < TEST_WAIT_TIMEOUT); waitLoop++) {
+        LOS_TaskDelay(1);
     }
+    ICUNIT_GOTO_WITHIN_EQUAL(g_testCount, 10, 20, g_testCount, EXIT);
 
     LOS_SwtmrDelete(swtmrId2);
     LOS_SwtmrDelete(swtmrId1);

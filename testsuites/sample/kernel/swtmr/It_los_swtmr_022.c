@@ -38,7 +38,7 @@
 #define HWI_NUM_INT14 HWI_NUM_TEST
 #endif
 
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     if (g_testCount != 2) { // 2, herr, the current possible value of the variable
         return;
@@ -73,7 +73,7 @@ static UINT32 Testcase(VOID)
     HWI_HANDLE_T hwiNum = HWI_NUM_INT14;
     g_testCount = 0;
 
-    ret = LOS_HwiCreate(hwiNum, 1, 0, Case2, 0);
+    ret = LOS_HwiCreate(hwiNum, 1, 0, (HWI_PROC_FUNC)Case2, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     TestHwiTrigger(hwiNum);

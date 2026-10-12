@@ -1,0 +1,38 @@
+# Copyright (c) 2026 morpheus.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Shared plumbing for the generated libmetal/libmica include sets.
+#
+# This tree's gn binary has no glob(), and exec_script() calls from
+# BUILD.gn files are blocked by the exec_script whitelist (the same
+# mechanism kernel/liteos_m/liteos.gni relies on: calls from .gni
+# files are permitted). The generator script enumerates its own input
+# headers via --list; all paths are absolute so the result does not
+# depend on the working directory.
+
+mcs_root = "//kernel/liteos_m/compat/mcs"
+
+mcs_gen_args = [
+  "--metal-lib",
+  rebase_path("//third_party/libmetal/lib", ""),
+  "--metal-backend",
+  rebase_path("$mcs_root/openamp/libmetal/libmetal-system", ""),
+  "--mica-lib",
+  rebase_path("$mcs_root/mica/libmica/lib", ""),
+  "--mica-platform",
+  rebase_path("$mcs_root/mica/platform", ""),
+]
+
+mcs_header_inputs = exec_script("gen_mcs_includes.py",
+                                [ "--list" ] + mcs_gen_args,
+                                "list lines")

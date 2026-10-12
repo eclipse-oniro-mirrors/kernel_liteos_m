@@ -35,7 +35,6 @@
 #include "los_reg.h"
 #include "los_arch_interrupt.h"
 #include "los_arch_timer.h"
-#include "riscv_hal.h"
 #include "los_debug.h"
 
 STATIC UINT32 SysTickStart(HWI_PROC_FUNC handler);
@@ -43,6 +42,28 @@ STATIC UINT64 SysTickReload(UINT64 nextResponseTime);
 STATIC UINT64 SysTickCycleGet(UINT32 *period);
 STATIC VOID SysTickLock(VOID);
 STATIC VOID SysTickUnlock(VOID);
+
+#ifdef LOSCFG_KERNEL_TICK_PERIODIC
+STATIC UINT32 g_tickPeriod = 0;
+
+STATIC VOID SysTickPeriodicHandler(VOID)
+{
+    UINT32 timerL, timerH;
+    UINT64 cmp;
+
+    READ_UINT32(timerL, MTIMERCMP);
+    READ_UINT32(timerH, MTIMERCMP + MTIMER_HI_OFFSET);
+    cmp = OS_COMBINED_64(timerH, timerL);
+    cmp += g_tickPeriod;
+    LOS_HwiDisable(RISCV_MACH_TIMER_IRQ);
+    WRITE_UINT32(0xffffffff, MTIMERCMP + MTIMER_HI_OFFSET);
+    WRITE_UINT32((UINT32)cmp, MTIMERCMP);
+    WRITE_UINT32((UINT32)(cmp >> SHIFT_32_BIT), MTIMERCMP + MTIMER_HI_OFFSET);
+    LOS_HwiEnable(RISCV_MACH_TIMER_IRQ);
+
+    OsTickHandler();
+}
+#endif
 
 STATIC ArchTickTimer g_archTickTimer = {
     .freq = 0,
@@ -53,14 +74,24 @@ STATIC ArchTickTimer g_archTickTimer = {
     .reload = SysTickReload,
     .lock = SysTickLock,
     .unlock = SysTickUnlock,
+#ifdef LOSCFG_KERNEL_TICK_PERIODIC
+    .tickHandler = SysTickPeriodicHandler,
+#else
     .tickHandler = NULL,
+#endif
 };
 
 STATIC UINT32 SysTickStart(HWI_PROC_FUNC handler)
 {
     ArchTickTimer *tick = &g_archTickTimer;
+    tick->freq = OS_SYS_CLOCK;
 
+#ifdef LOSCFG_KERNEL_TICK_PERIODIC
+    g_tickPeriod = tick->freq / LOSCFG_BASE_CORE_TICK_PER_SECOND;
+    UINT32 period = g_tickPeriod;
+#else
     UINT32 period = (UINT32)LOSCFG_BASE_CORE_TICK_RESPONSE_MAX;
+#endif
     HwiIrqParam irqParam;
     irqParam.pDevId = (VOID *)period;
 
@@ -69,13 +100,11 @@ STATIC UINT32 SysTickStart(HWI_PROC_FUNC handler)
         return ret;
     }
 
-    tick->freq = OS_SYS_CLOCK;
-
     WRITE_UINT32(0xffffffff, MTIMERCMP + 4); /* The high 4 bits of mtimer */
     WRITE_UINT32(period, MTIMERCMP);
     WRITE_UINT32(0x0, MTIMERCMP + 4); /* The high 4 bits of mtimer */
 
-    HalIrqEnable(RISCV_MACH_TIMER_IRQ);
+    LOS_HwiEnable(RISCV_MACH_TIMER_IRQ);
     return LOS_OK;
 }
 
@@ -93,11 +122,11 @@ STATIC UINT64 SysTickReload(UINT64 nextResponseTime)
         timer = timeMax;
     }
 
-    HalIrqDisable(RISCV_MACH_TIMER_IRQ);
+    LOS_HwiDisable(RISCV_MACH_TIMER_IRQ);
     WRITE_UINT32(0xffffffff, MTIMERCMP + MTIMER_HI_OFFSET);
     WRITE_UINT32((UINT32)timer, MTIMERCMP);
     WRITE_UINT32((UINT32)(timer >> SHIFT_32_BIT), MTIMERCMP + MTIMER_HI_OFFSET);
-    HalIrqEnable(RISCV_MACH_TIMER_IRQ);
+    LOS_HwiEnable(RISCV_MACH_TIMER_IRQ);
     return nextResponseTime;
 }
 
@@ -113,12 +142,12 @@ STATIC UINT64 SysTickCycleGet(UINT32 *period)
 
 STATIC VOID SysTickLock(VOID)
 {
-    HalIrqDisable(RISCV_MACH_TIMER_IRQ);
+    LOS_HwiDisable(RISCV_MACH_TIMER_IRQ);
 }
 
 STATIC VOID SysTickUnlock(VOID)
 {
-    HalIrqEnable(RISCV_MACH_TIMER_IRQ);
+    LOS_HwiEnable(RISCV_MACH_TIMER_IRQ);
 }
 
 ArchTickTimer *ArchSysTickTimerGet(VOID)

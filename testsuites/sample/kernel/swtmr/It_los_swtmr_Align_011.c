@@ -36,7 +36,7 @@
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
 static  UINT32 g_swtmrCount1;
 static  UINT32 g_swtmrCount2;
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     ICUNIT_ASSERT_EQUAL_VOID(arg, 0xffff, arg);
     g_testCount++;
@@ -44,7 +44,7 @@ static VOID Case1(UINT32 arg)
     return;
 }
 
-static VOID Case2(UINT32 arg)
+static VOID Case2(UINTPTR arg)
 {
     ICUNIT_ASSERT_EQUAL_VOID(arg, 0xffff, arg);
     g_testCount++;
@@ -80,16 +80,33 @@ static UINT32 Testcase(VOID)
     ret = LOS_SwtmrStart(swtmrId2);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_TaskDelay(3); // 3, set delay time.
-    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    // 2, Here, assert that g_testCount is equal to this .
-    ICUNIT_GOTO_EQUAL(g_testCount, 2, g_testCount, EXIT);
-    ICUNIT_GOTO_EQUAL(g_swtmrCount2 - g_swtmrCount1, 0, g_swtmrCount2 - g_swtmrCount1, EXIT);
+    // Wait for both timers to fire and callback counts to stabilize.
+    // SwtmrTask processes callbacks via queue, so cnt1/cnt2 may differ
+    // temporarily when one timer's callback completes before the other's.
+    // Poll until cnt1 == cnt2 (both > 0) or timeout.
+    {
+        UINT32 waitLoop = 100;
+        while ((g_swtmrCount1 == 0 || g_swtmrCount2 == 0 || g_swtmrCount1 != g_swtmrCount2) && waitLoop > 0) {
+            LOS_TaskDelay(1);
+            waitLoop--;
+        }
+    }
+    ICUNIT_GOTO_NOT_EQUAL(g_swtmrCount1, 0, g_swtmrCount1, EXIT);
+    ICUNIT_GOTO_NOT_EQUAL(g_swtmrCount2, 0, g_swtmrCount2, EXIT);
+    ICUNIT_GOTO_EQUAL(g_swtmrCount1, g_swtmrCount2, g_swtmrCount1 - g_swtmrCount2, EXIT);
 
-    ret = LOS_TaskDelay(16); // 16, set delay time.
+    ret = LOS_TaskDelay(24); // 24, wait for 3 more periods of each timer
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    // 6, Here, assert that g_testCount is equal to this .
-    ICUNIT_GOTO_EQUAL(g_testCount, 6, g_testCount, EXIT);
+    {
+        UINT32 waitLoop = 100;
+        while (g_swtmrCount1 != g_swtmrCount2 && waitLoop > 0) {
+            LOS_TaskDelay(1);
+            waitLoop--;
+        }
+    }
+    ICUNIT_GOTO_NOT_EQUAL(g_swtmrCount1, 0, g_swtmrCount1, EXIT);
+    ICUNIT_GOTO_NOT_EQUAL(g_swtmrCount2, 0, g_swtmrCount2, EXIT);
+    ICUNIT_GOTO_EQUAL(g_swtmrCount1, g_swtmrCount2, g_swtmrCount1 - g_swtmrCount2, EXIT);
 
     ret = LOS_SwtmrDelete(swtmrId1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);

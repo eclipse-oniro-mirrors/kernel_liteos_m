@@ -1,0 +1,87 @@
+# Copyright (C) 2024 HiHope Open Source Organization .
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Kernel type, e.g. "linux", "liteos_a", "liteos_m".
+kernel_type = "liteos_m"
+
+# Kernel version.
+kernel_version = "3.0.0"
+
+# Board CPU type, e.g. "cortex-a7", "riscv32".
+board_cpu = ""
+
+# Board arch — must match SDK toolchain ABI (ilp32f / rv32imfc)
+board_arch = "rv32imfc"
+
+# Toolchain name used for system compiling.
+board_toolchain = "riscv32-linux-musl"
+
+# The toolchain path installed, it's not mandatory if you have added toolchain path to your ~/.bashrc.
+board_toolchain_path = ""
+
+# Compiler prefix.
+board_toolchain_prefix = "riscv32-linux-musl-"
+
+# Compiler type, "gcc" or "clang".
+board_toolchain_type = "gcc"
+
+# Board related common compile flags.
+# Use rv32imc/ilp32 to match SDK's libc (no FPU)
+board_cflags = [
+  "-mabi=ilp32f",
+  "-march=rv32imfc",
+  "-falign-functions=2",
+  "-fno-optimize-strlen",
+  "-freorder-blocks-algorithm=simple",
+  "-fno-schedule-insns",
+  "-fno-inline-small-functions",
+  "-fno-inline-functions-called-once",
+  "-mtune=size",
+  "-mno-small-data-limit=0",
+  "-fno-aggressive-loop-optimizations",
+  "-std=c99",
+  "-Wpointer-arith",
+  "-Wstrict-prototypes",
+  "-ffunction-sections",
+  "-fdata-sections",
+  "-fno-exceptions",
+  "-fshort-enums",
+  "-Wextra",
+  "-U",
+  "PRODUCT_CFG_BUILD_TIME",
+  "-D__LITEOS__",
+  "-DCHIP_WS63=1",
+  "-D__RISC_V__",
+]
+board_cxx_flags = board_cflags
+
+board_asmflags = [
+  "-mabi=ilp32f",
+  "-march=rv32imfc",
+  "-DCHIP_WS63=1",
+  "-D__RISC_V__",
+]
+
+board_ld_flags = []
+
+# Board related headfiles search path.
+board_include_dirs = []
+
+# Board adapter dir for OHOS components.
+board_adapter_dir = "//device/soc/hisilicon/ws63_m/adapter"
+
+# Sysroot path.
+board_configed_sysroot = ""
+
+# Board storage type, it used for file system generation.
+storage_type = ""

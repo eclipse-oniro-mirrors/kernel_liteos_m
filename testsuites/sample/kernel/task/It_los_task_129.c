@@ -1,3 +1,4 @@
+#ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
 /*
  * Copyright (c) 2021-2021 Huawei Device Co., Ltd. All rights reserved.
  *
@@ -40,31 +41,38 @@ static VOID *TaskDeatchf01(void *argument)
 static UINT32 TestCase(VOID)
 {
     UINT32 ret;
-    UINT32 taskID;
+    UINT32 taskId;
     TSK_INIT_PARAM_S osTaskInitParam = { 0 };
     VOID *taskStack = NULL;
     g_testCount = 0;
 
     osTaskInitParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskDeatchf01;
-    osTaskInitParam.uwStackSize = 0x1003; /* 0x1003: The size is not aligned */
     osTaskInitParam.pcName = "deatch";
     osTaskInitParam.usTaskPrio = TASK_PRIO_TEST - 5; /* 5: Relatively high priority */
     osTaskInitParam.uwResved = LOS_TASK_ATTR_JOINABLE;
 
-    taskStack = LOS_MemAlloc(OS_TASK_STACK_ADDR, osTaskInitParam.uwStackSize);
-    osTaskInitParam.stackAddr = (UINTPTR)taskStack;
-    ICUNIT_ASSERT_NOT_EQUAL(osTaskInitParam.stackAddr, 0, osTaskInitParam.stackAddr);
+    osTaskInitParam.uwStackSize = 0x1000;
+    taskStack = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, osTaskInitParam.uwStackSize, 8);
+    ICUNIT_ASSERT_NOT_EQUAL((UINTPTR)taskStack, 0, (UINTPTR)taskStack);
 
-    ret = LOS_TaskCreate(&taskID, &osTaskInitParam);
-    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ret = LOS_TaskCreateStatic(&taskId, &osTaskInitParam, taskStack);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ICUNIT_ASSERT_EQUAL(g_testCount, 1, g_testCount);
 
-    ret = LOS_TaskJoin(taskID, NULL);
+    ret = LOS_TaskJoin(taskId, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_TaskDelete(taskID);
+    ret = LOS_TaskDelete(taskId);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_TSK_NOT_CREATED, ret);
+
+    osTaskInitParam.uwStackSize = 0x1003; /* 0x1003: The size is not aligned */
+    ret = LOS_TaskCreateStatic(&taskId, &osTaskInitParam, taskStack);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_TSK_STKSZ_NOT_ALIGN, ret);
+
+    osTaskInitParam.uwStackSize = 0x1000;
+    ret = LOS_TaskCreateStatic(&taskId, &osTaskInitParam, (VOID *)((UINTPTR)taskStack + 4));
+    ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_TSK_STKSZ_NOT_ALIGN, ret);
 
     ret = LOS_MemFree(OS_TASK_STACK_ADDR, taskStack);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
@@ -75,4 +83,4 @@ VOID ItLosTask129(VOID) // IT_Layer_ModuleORFeature_No
 {
     TEST_ADD_CASE("ItLosTask129", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL0, TEST_FUNCTION);
 }
-
+#endif

@@ -1,0 +1,12 @@
+# Reserved for future GN integration (see README.md).
+# The AMP slave firmware is currently built by the standalone Makefile in
+# kernel/liteos_m/vendor/hihope/dayu210, not by the standard LiteOS-M kernel build.
+
+config AMP_OPENAMP
+	bool "Enable openamp/libmetal (AMP slave communication stack)"
+	default n
+	help
+	  Compile the open-amp/libmetal based inter-core communication stack
+	  for the AMP slave image. Currently unused: the slave firmware is
+	  built out-of-tree; this switch is a placeholder for a future
+	  in-kernel GN integration.

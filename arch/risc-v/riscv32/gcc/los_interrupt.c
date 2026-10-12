@@ -34,13 +34,23 @@
 #include "los_arch.h"
 #include "los_arch_interrupt.h"
 #include "los_arch_context.h"
-#include "los_task.h"
+#include "los_hwi_pri.h"
+#include "los_task_pri.h"
 #include "los_sched.h"
+#include "los_sched_pri.h"
 #include "los_debug.h"
 #include "los_hook.h"
 #include "riscv_hal.h"
+#include "los_hwi_pri.h"
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+#include "los_exc_pri.h"
+#endif
 
 LosExcInfo g_excInfo;
+/* g_hwiControllerOps lives in the selected interrupt-controller driver
+ * (drivers/interrupt/riscv_lcmp_clic.c or riscv_himideerv200_plic.c),
+ * which also provides HwiControllerOpsGet(). This file only consumes the
+ * ops via HwiControllerOpsGet() in HalHwiInterruptDone. */
 #define RISCV_EXC_TYPE_NUM 16
 #define RISCV_EXC_LOAD_MISALIGNED 4
 #define RISCV_EXC_STORE_MISALIGNED 6
@@ -100,24 +110,21 @@ LITE_OS_SEC_TEXT_INIT VOID HalHwiInit(VOID)
         g_hwiForm[index].pfnHook = HalHwiDefaultHandler;
         g_hwiForm[index].uwParam = 0;
     }
+    /* Point mtvec at the arch trap entry (HalTrapVector, los_exc.S).
+     * mtvec is CPU-level trap configuration — an arch concern (moved from
+     * the CLIC driver). Idempotent for boards whose reset code already
+     * sets it (ws63 reset_vector.S). WRITE_CSR: asm/soc_common.h. */
+    WRITE_CSR(mtvec, (UINT32)(UINTPTR)HalTrapVector);
 }
 
 typedef VOID (*HwiProcFunc)(VOID *arg);
 __attribute__((section(".interrupt.text"))) VOID HalHwiInterruptDone(HWI_HANDLE_T hwiNum)
 {
-    g_intCount++;
-
-    OsHookCall(LOS_HOOK_TYPE_ISR_ENTER, hwiNum);
-
-    HWI_HANDLE_FORM_S *hwiForm = &g_hwiForm[hwiNum];
-    HwiProcFunc func = (HwiProcFunc)(hwiForm->pfnHook);
-    func(hwiForm->uwParam);
-
-    ++g_hwiFormCnt[hwiNum];
-
-    OsHookCall(LOS_HOOK_TYPE_ISR_EXIT, hwiNum);
-
-    g_intCount--;
+    HwiControllerOps *ops = HwiControllerOpsGet();
+    if ((ops != NULL) && (ops->clearIrq != NULL)) {
+        ops->clearIrq(hwiNum);
+    }
+    OsIntHandle(hwiNum, &g_hwiHandleForm[hwiNum]);
 }
 
 LITE_OS_SEC_TEXT UINT32 HalGetHwiFormCnt(HWI_HANDLE_T hwiNum)
@@ -134,80 +141,7 @@ LITE_OS_SEC_TEXT HWI_HANDLE_FORM_S *HalGetHwiForm(VOID)
     return g_hwiForm;
 }
 
-/*****************************************************************************
- Function    : ArchHwiCreate
- Description : create hardware interrupt
- Input       : hwiNum     --- hwi num to create
-               hwiPrio    --- priority of the hwi
-               hwiMode    --- hwi interrupt mode
-               hwiHandler --- hwi handler
-               irqParam   --- param of the hwi handler
- Output      : None
- Return      : LOS_OK on success or error code on failure
- *****************************************************************************/
-LITE_OS_SEC_TEXT UINT32 ArchHwiCreate(HWI_HANDLE_T hwiNum,
-                                      HWI_PRIOR_T hwiPrio,
-                                      HWI_MODE_T hwiMode,
-                                      HWI_PROC_FUNC hwiHandler,
-                                      HwiIrqParam *irqParam)
-{
-    (VOID)hwiMode;
-    UINT32 intSave;
-
-    if (hwiHandler == NULL) {
-        return OS_ERRNO_HWI_PROC_FUNC_NULL;
-    }
-    if (hwiNum >= OS_HWI_MAX_NUM) {
-        return OS_ERRNO_HWI_NUM_INVALID;
-    }
-    if (g_hwiForm[hwiNum].pfnHook == NULL) {
-        return OS_ERRNO_HWI_NUM_INVALID;
-    } else if (g_hwiForm[hwiNum].pfnHook != HalHwiDefaultHandler) {
-        return OS_ERRNO_HWI_NUM_INVALID;
-    }
-    if ((hwiPrio < OS_HWI_PRIO_LOWEST) || (hwiPrio > OS_HWI_PRIO_HIGHEST)) {
-        return OS_ERRNO_HWI_PRIO_INVALID;
-    }
-
-    intSave = LOS_IntLock();
-    g_hwiForm[hwiNum].pfnHook = hwiHandler;
-    if (irqParam != NULL) {
-        g_hwiForm[hwiNum].uwParam = (VOID *)irqParam->pDevId;
-    } else {
-        g_hwiForm[hwiNum].uwParam = NULL;
-    }
-    if (hwiNum >= OS_RISCV_SYS_VECTOR_CNT) {
-        HalSetLocalInterPri(hwiNum, hwiPrio);
-    }
-
-    LOS_IntRestore(intSave);
-
-    return LOS_OK;
-}
-
-/*****************************************************************************
- Function    : ArchHwiDelete
- Description : Delete hardware interrupt
- Input       : hwiNum   --- hwi num to delete
-               irqParam --- param of the hwi handler
- Return      : LOS_OK on success or error code on failure
- *****************************************************************************/
-LITE_OS_SEC_TEXT UINT32 ArchHwiDelete(HWI_HANDLE_T hwiNum, HwiIrqParam *irqParam)
-{
-    (VOID)irqParam;
-    UINT32 intSave;
-
-    if (hwiNum >= OS_HWI_MAX_NUM) {
-        return OS_ERRNO_HWI_NUM_INVALID;
-    }
-
-    intSave = LOS_IntLock();
-    g_hwiForm[hwiNum].pfnHook = HalHwiDefaultHandler;
-    g_hwiForm[hwiNum].uwParam = 0;
-    LOS_IntRestore(intSave);
-    return LOS_OK;
-}
-
+#ifdef LOSCFG_KERNEL_BACKTRACE
 STATIC VOID ExcBackTrace(UINTPTR fp)
 {
     UINTPTR LR[LOSCFG_BACKTRACE_DEPTH] = { 0 };
@@ -224,6 +158,7 @@ STATIC VOID ExcBackTrace(UINTPTR fp)
     }
     PRINTK("----- traceback end -----\n");
 }
+#endif
 
 STATIC VOID ExcInfoDisplayContext(const LosExcInfo *exc)
 {
@@ -265,7 +200,9 @@ STATIC VOID ExcInfoDisplayContext(const LosExcInfo *exc)
     PRINTK("t5         = 0x%x\n", taskContext->t5);
     PRINTK("t6         = 0x%x\n", taskContext->t6);
 
+#ifdef LOSCFG_KERNEL_BACKTRACE
     ExcBackTrace(taskContext->s0);
+#endif
 }
 
 STATIC VOID ExcInfoDisplay(VOID)
@@ -278,9 +215,9 @@ STATIC VOID ExcInfoDisplay(VOID)
         PRINTK("Exc  type : Oops  - Invalid\n");
     }
 
-    if (LOS_TaskIsRunning()) {
-        PRINTK("taskName = %s\n", g_losTask.runTask->taskName);
-        PRINTK("taskID = %u\n", g_losTask.runTask->taskID);
+    if (LOS_TaskIsScheduled()) {
+    PRINTK("taskName = %s\n", g_runTask->taskName);
+    PRINTK("taskID = %u\n", g_runTask->taskId);
     } else {
         PRINTK("The exception occurs during system startup!\n");
     }
@@ -319,9 +256,27 @@ VOID HalExcEntry(const LosExcContext *excBufAddr)
         }
     }
 
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+    LogReadWriteFunc dumpFunc = OsGetExcInfoRW();
+    if (dumpFunc != NULL) {
+        OsSetExcInfoOffset(0);
+    }
+#endif
+
+    if (g_excRegHook != NULL) {
+        g_excRegHook(g_excInfo.type, g_excInfo.context);
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+        if (dumpFunc != NULL) {
+            dumpFunc(OsGetExcInfoDumpAddr(), OsGetExcInfoLen(), 0, OsGetExcInfoBuf());
+        }
+#endif
+        while (1) {
+        }
+    }
+
     ExcInfoDisplay();
 
-    if (LOS_TaskIsRunning()) {
+    if (LOS_TaskIsScheduled()) {
         PRINTK("----------------All Task information ------------\n");
         OsGetAllTskInfo();
     }
@@ -330,11 +285,4 @@ SYSTEM_DEATH:
     OsDoExcHook(EXC_INTERRUPT);
     while (1) {
     }
-}
-
-LITE_OS_SEC_BSS STATIC HwiControllerOps g_archHwiOps;
-
-HwiControllerOps *ArchIntOpsGet(VOID)
-{
-    return &g_archHwiOps;
 }

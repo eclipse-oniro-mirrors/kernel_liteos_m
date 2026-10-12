@@ -34,7 +34,7 @@
 
 
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     ICUNIT_ASSERT_EQUAL_VOID(arg, 0xffff, arg);
     g_uwsTick1 = LOS_TickCountGet();
@@ -42,7 +42,7 @@ static VOID Case1(UINT32 arg)
     return;
 }
 
-static VOID Case2(UINT32 arg)
+static VOID Case2(UINTPTR arg)
 {
     UINT16 align;
     ICUNIT_ASSERT_EQUAL_VOID(arg, 0xffff, arg);
@@ -53,12 +53,12 @@ static VOID Case2(UINT32 arg)
     return;
 }
 
-static VOID Case3(UINT32 arg)
+static VOID Case3(UINTPTR arg)
 {
     UINT16 align;
     ICUNIT_ASSERT_EQUAL_VOID(arg, 0xffff, arg);
     g_uwsTick3 = LOS_TickCountGet();
-    printf("g_uwsTick3=%d\n", g_uwsTick3);
+    dprintf("g_uwsTick3=%d\n", g_uwsTick3);
     align = g_uwsTick3 - g_uwsTick2;
     ICUNIT_ASSERT_NOT_EQUAL_VOID(align, 0, align);
     g_testCount++;

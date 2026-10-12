@@ -1,0 +1,258 @@
+/*
+ * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this list of
+ * conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
+ * of conditions and the following disclaimer in the documentation and/or other materials
+ * provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
+ * to endorse or promote products derived from this software without specific prior written
+ * permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include "osTest.h"
+#include "los_resleak_test.h"
+#include "los_mux.h"
+#include "los_mux_pri.h"
+#include "los_sem.h"
+#include "los_sem_pri.h"
+#include "los_queue.h"
+#include "los_swtmr.h"
+#include "los_task_pri.h"
+#include "los_task.h"
+#include "los_memory.h"
+#include "los_config.h"
+#if (LOSCFG_KERNEL_SIGNAL == 1)
+#include "los_signal.h"
+#include <signal.h>
+#endif
+#include <time.h>
+#include <stdio.h>
+#if (LOSCFG_POSIX_MQUEUE_API == 1)
+#include <mqueue.h>
+#include <fcntl.h>
+#endif
+
+#if (LOSCFG_SHELL == 1)
+extern UINT32 OsShellInit(VOID);
+#endif
+
+extern UINT32 QueueUsedCountGet(VOID);
+extern UINT32 TaskUsedCountGet(VOID);
+extern UINT32 SwtmrCountGetTest(VOID);
+
+STATIC ResLeakStat g_resLeakBeforeStat;
+STATIC volatile UINT32 g_resLeakTotalCnt = 0;
+
+STATIC UINT32 OsResLeakMemUsedGet(VOID)
+{
+#if (LOSCFG_MEM_WATERLINE == 1)
+    return ((struct OsMemPoolHead *)m_aucSysMem0)->info.curUsedSize;
+#else
+    return LOS_MemTotalUsedGet(m_aucSysMem0);
+#endif
+}
+
+STATIC VOID OsResLeakForceReclaim(VOID)
+{
+    /* Intentionally empty: calling LOS_TaskResRecycle() here (as main did)
+     * forcibly reclaims task resources mid-test, corrupting TCB/stack state
+     * for tests that create and exit tasks — causes TSK_TCB_UNAVAILABLE and
+     * TSK_DELAY_IN_LOCK regressions on qemu_mini_system_demo. Resource
+     * reclamation is left to the idle task and LOS_TaskCreate as designed. */
+}
+
+#if (LOSCFG_POSIX_MQUEUE_API == 1)
+STATIC VOID OsResLeakMqueuePreInit(VOID)
+{
+    STATIC UINT32 s_preInitialized = 0;
+    mqd_t mqd;
+    const CHAR *name = "/resleak_mq_prewarm";
+
+    if (s_preInitialized != 0) {
+        return;
+    }
+    s_preInitialized = 1;
+
+    mqd = mq_open(name, O_CREAT | O_RDWR, 0, NULL);
+    if (mqd != (mqd_t)-1) {
+        (VOID)mq_close(mqd);
+        (VOID)mq_unlink(name);
+    }
+}
+#endif
+
+/* 预热 libc/shell 的"首次使用才创建"的单例锁（内核 mux），避免首次使用恰好落在
+ * 某条用例的 ResLeak 检查窗口内而被误报为 mux/memory 泄漏：
+ *  - localtime()/tzset() : lib/posix tzdst.c 的 g_tzdstLock 与 musl porting
+ *                          __tz.c 的 locallock（strftime %Z/localtime 首用触发）
+ *  - fflush(NULL)        : stdout/stderr 的 FILE 锁 + musl 打开文件链表锁(ofl)
+ *                          （perror 首用 stderr、fopen 首用 ofl 时触发）
+ *  - OsShellInit()       : shell 命令表锁 cmdInfo.muxLock + 内置命令注册
+ * 这些对象是系统生命周期单例，按设计不释放，不是真实泄漏。 */
+STATIC VOID OsResLeakLazyLockPreInit(VOID)
+{
+    time_t now = 0;
+
+    (VOID)localtime(&now);
+    tzset();
+#if (LOSCFG_POSIX_FS_API == 1)
+    (VOID)fflush(NULL);
+#endif
+
+#if (LOSCFG_KERNEL_SIGNAL == 1)
+    /* 触发当前任务(测试主任务) OsSigCB 的懒分配(los_signal.c SignalCBInit),
+     * 避免首个信号用例(如 ItLosSignal001)被误报 +304B 内存泄漏。
+     * SIGHUP 无用例使用,设为 SIG_DFL 不改变任何用例可见行为 */
+    (VOID)LOS_SignalSet(SIGHUP, SIG_DFL);
+#endif
+
+#if (LOSCFG_SHELL == 1)
+    (VOID)OsShellInit();
+#endif
+}
+
+VOID OsResLeakInit(VOID)
+{
+#if (LOSCFG_POSIX_MQUEUE_API == 1)
+    OsResLeakMqueuePreInit();
+#endif
+    OsResLeakLazyLockPreInit();
+    OsResLeakForceReclaim();
+}
+
+UINT32 OsResLeakMuxCountGet(VOID)
+{
+    UINT32 intSave;
+    UINT32 count = 0;
+    UINT32 index;
+
+    intSave = LOS_IntLock();
+    for (index = 0; index < LOSCFG_BASE_IPC_MUX_LIMIT; index++) {
+        LosMuxCB *muxNode = ((LosMuxCB *)g_osAllMux) + index;
+        if (muxNode->muxStat == LOS_USED) {
+            count++;
+        }
+    }
+    (VOID)LOS_IntRestore(intSave);
+    return count;
+}
+
+UINT32 OsResLeakSemCountGet(VOID)
+{
+    UINT32 intSave;
+    UINT32 count = 0;
+    UINT32 index;
+
+    intSave = LOS_IntLock();
+    for (index = 0; index < LOSCFG_BASE_IPC_SEM_LIMIT; index++) {
+        LosSemCB *semNode = ((LosSemCB *)g_osAllSem) + index;
+        if (semNode->semStat == LOS_USED) {
+            count++;
+        }
+    }
+    (VOID)LOS_IntRestore(intSave);
+    return count;
+}
+
+/* 任务退出后其 TCB/栈由 idle 任务异步回收（g_taskRecycleList），检查点若紧跟
+ * 用例内任务退出执行，会看到"栈未释放"的瞬时假阳性（内存 ±栈大小振荡、task 计数
+ * 抖动）。检查窗口前先让出 1 个 tick，给 idle 任务机会完成回收，消除该竞态。
+ * 仅在回收列表非空时才让出，避免对无关用例引入额外调度时机。 */
+STATIC VOID OsResLeakDrainPendingRecycle(VOID)
+{
+    extern LOS_DL_LIST g_taskRecycleList;
+
+    if (LOS_ListEmpty(&g_taskRecycleList)) {
+        return;
+    }
+    (VOID)LOS_TaskDelay(1);
+}
+
+VOID OsResLeakCheckBegin(VOID)
+{
+    OsResLeakDrainPendingRecycle();
+    OsResLeakForceReclaim();
+    g_resLeakBeforeStat.muxCnt = OsResLeakMuxCountGet();
+    g_resLeakBeforeStat.queueCnt = QueueUsedCountGet();
+    g_resLeakBeforeStat.semCnt = OsResLeakSemCountGet();
+    g_resLeakBeforeStat.swtmrCnt = SwtmrCountGetTest();
+    g_resLeakBeforeStat.taskCnt = TaskUsedCountGet();
+    g_resLeakBeforeStat.memUsed = OsResLeakMemUsedGet();
+}
+
+VOID OsResLeakCheckEnd(const CHAR *caseName)
+{
+    ResLeakStat after;
+    UINT32 leakCnt = 0;
+
+    OsResLeakDrainPendingRecycle();
+    OsResLeakForceReclaim();
+    after.muxCnt = OsResLeakMuxCountGet();
+    after.queueCnt = QueueUsedCountGet();
+    after.semCnt = OsResLeakSemCountGet();
+    after.swtmrCnt = SwtmrCountGetTest();
+    after.taskCnt = TaskUsedCountGet();
+    after.memUsed = OsResLeakMemUsedGet();
+
+    if (after.muxCnt != g_resLeakBeforeStat.muxCnt) {
+        dprintf("[ResLeak] %s: mux leak! before=%u after=%u\n",
+                caseName, g_resLeakBeforeStat.muxCnt, after.muxCnt);
+        leakCnt++;
+    }
+    if (after.queueCnt != g_resLeakBeforeStat.queueCnt) {
+        dprintf("[ResLeak] %s: queue leak! before=%u after=%u\n",
+                caseName, g_resLeakBeforeStat.queueCnt, after.queueCnt);
+        leakCnt++;
+    }
+    if (after.semCnt != g_resLeakBeforeStat.semCnt) {
+        dprintf("[ResLeak] %s: sem leak! before=%u after=%u\n",
+                caseName, g_resLeakBeforeStat.semCnt, after.semCnt);
+        leakCnt++;
+    }
+    if (after.swtmrCnt != g_resLeakBeforeStat.swtmrCnt) {
+        dprintf("[ResLeak] %s: swtmr leak! before=%u after=%u\n",
+                caseName, g_resLeakBeforeStat.swtmrCnt, after.swtmrCnt);
+        leakCnt++;
+    }
+    if (after.taskCnt != g_resLeakBeforeStat.taskCnt) {
+        dprintf("[ResLeak] %s: task leak! before=%u after=%u\n",
+                caseName, g_resLeakBeforeStat.taskCnt, after.taskCnt);
+        leakCnt++;
+    }
+    if (after.memUsed != g_resLeakBeforeStat.memUsed) {
+        dprintf("[ResLeak] %s: memory leak! before=%u after=%u\n",
+                caseName, g_resLeakBeforeStat.memUsed, after.memUsed);
+        leakCnt++;
+    }
+
+    if (leakCnt > 0) {
+        g_resLeakTotalCnt += leakCnt;
+        dprintf("[ResLeak] %s: %u resource(s) leaked in this case\n", caseName, leakCnt);
+    }
+}
+
+UINT32 OsResLeakGetTotalLeakCnt(VOID)
+{
+    return g_resLeakTotalCnt;
+}
+

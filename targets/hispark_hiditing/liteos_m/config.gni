@@ -1,0 +1,166 @@
+# Copyright (C) 2024 HiHope Open Source Organization .
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Kernel type, e.g. "linux", "liteos_a", "liteos_m".
+kernel_type = "liteos_m"
+
+# Kernel version.
+kernel_version = "3.0.0"
+
+# Board CPU type, e.g. "cortex-a7", "riscv32".
+board_cpu = ""
+
+# Board arch — hard-float double ABI: D extension + ilp32d, aligning with
+# 3322.config LOSCFG_ARCH_FPU_DOUBLE=y. Pairs with
+# LOSCFG_ARCH_FPU_DOUBLE=y in vendor kernel_configs/debug.config (kernel
+# saves FP registers as 64-bit, see liteos_m soc_common.h).
+board_arch = "rv32imfdcxlinxma_xlinxmb_xlinxmc_xlinxmd"
+
+# Toolchain name used for system compiling.
+board_toolchain = "riscv32-clang"
+
+# The toolchain path installed, derived from source root via rebase_path.
+# Uses the BiSheng riscv32 toolchain from prebuilts/ (the copy under the
+# SDK tree was removed). An absolute path is needed because the build
+# system's ninja subprocess doesn't inherit our exported PATH.
+board_toolchain_path = rebase_path("//prebuilts/bisheng_26_03_1/BiSheng-llvm-15.0.4-riscv-x86-linux-26.03.1/bin", "", "//")
+
+# clang compiler-rt builtins for riscv32, linked --whole-archive to satisfy
+# __muldi3 / soft-fp helpers. Derived from board_toolchain_path; the multilib
+# dir name must match the -march/-mabi above.
+board_clang_rt_lib = board_toolchain_path + "/../lib/clang/15.0.4/lib/rv32imfdcxlinxma_xlinxmb_xlinxmc_xlinxmd_ilp32d/libclang_rt.builtins-riscv32.a"
+
+# Compiler prefix (clang/llvm-ar are not prefixed).
+board_toolchain_prefix = ""
+
+# Compiler type, "gcc" or "clang".
+board_toolchain_type = "clang"
+
+# Board related common compile flags (Clang-compatible, matching hs-fbb).
+board_cflags = [
+  "--target=riscv32",
+  "-march=rv32imfdc",
+  "-mabi=ilp32d",
+  "-msmall-data-limit=0",
+  "-Oz",
+  "-D__RISC_V__",
+  "-ffunction-sections",
+  "-fdata-sections",
+  "-fno-common",
+  "-fsigned-char",
+  "-fshort-enums",
+  "-fno-exceptions",
+  "-fno-omit-frame-pointer",
+  "-falign-functions=2",
+  "-std=gnu99",
+  "-Wall",
+  "-Wpointer-arith",
+  "-Wstrict-prototypes",
+  "-Wno-unused-command-line-argument",
+  "-Wno-int-conversion",
+  "-Wno-implicit-function-declaration",
+  "-Wno-incompatible-pointer-types",
+  "-Wno-unused-function",
+  "-Wno-unused-variable",
+  "-U",
+  "PRODUCT_CFG_BUILD_TIME",
+  "-D__LITEOS__",
+  "-DCHIP_HI3322=1",
+  "-DTARGET_CHIP_3322=1",
+]
+board_cxx_flags = board_cflags
+
+board_asmflags = [
+  "--target=riscv32",
+  "-march=rv32imfdc",
+  "-mabi=ilp32d",
+  "-D__RISC_V__",
+  "-DCHIP_HI3322=1",
+  "-DTARGET_CHIP_3322=1",
+]
+
+board_ld_flags = [
+  "-fuse-ld=lld",
+  "-Wl,--relax-gp",
+]
+
+# Board related headfiles search path.
+board_include_dirs = []
+
+# Board adapter dir for OHOS components.
+board_adapter_dir = "//device/soc/hisilicon/hi3322/adapter"
+
+# Sysroot path.
+board_configed_sysroot = ""
+
+# Board storage type, it used for file system generation.
+storage_type = ""
+
+# SPI-NAND file system backend (YAFFS2_BINARY_LIB_PORTING_PLAN.md decision B):
+#   "yaffs"    - CLOSED fbb prebuilt libyaffs2.orig.a + OH-VFS adapter + bridge
+#   "littlefs" - v3 nand_lfs_bridge (kept as the fallback path)
+# The volume layout (5%/25%/70%, block 0 reserved) and the two-phase
+# nandflash_filesystem_init(bool) API are identical for both backends and
+# align with the fbb original (260903_fbb fmc/nand/nand_init.c).
+board_nand_backend = "yaffs"
+
+# Dedicated yaffs2 memory pool in bytes (.bss in DTCM). Initial 288KB per the
+# plan section 6.1: the CLOSED archive bakes in n_caches=20 per volume (the
+# morpheus source route measured 160KB with n_caches=6; +14 caches x 2112B x
+# 3 volumes ~= +89KB plus checkpoint headroom). Board high-water prints
+# (nand_yaffs_pool_print after each mount) decide the final value.
+#
+# hi3322_testsuits (kernel test product) never mounts yaffs — the suite has no
+# yaffs cases — so it keeps only a token pool (the fmc bridge must still
+# compile) and the 288KB of DTCM goes to the kernel heap instead. Without
+# this the testsuit boot dies at LOS_TaskCreate with LOS_ERRNO_TSK_NO_MEMORY:
+# DTCM 576KB minus .bss 552KB (yaffs pool 288KB + smoke buffers 148KB + test
+# statics ~75KB) leaves a 22KB heap, of which kernel init alone takes 21KB.
+if (product_name == "hi3322_testsuits") {
+  board_nand_yaffs_pool_bytes = 4096
+} else {
+  board_nand_yaffs_pool_bytes = 294912
+}
+
+# yaffs trace mask for bring-up (yaffs_trace.h flags; GN has no hex literals).
+# 0 = off — the fbb production shape. Bring-up diagnostic value (R4):
+# ALLOCATE|SCAN|BAD_BLOCKS|BUFFERS|CHECKPOINT|MOUNT|ERROR = 1074299932
+# (decimal) — the last trace lines before a stall locate it.
+#
+# R3 diagnostic capture (2026-09-29) DONE: checkpoint restore is skipped
+# because the CLOSED archive ships g_yaffs_nand_checkpt_cfg = SKIPED
+# (.sdata init 0x01 -> dev param[64]); save works for /system /user but
+# /boot can never save (<60 free blocks baked-in gate). Candidate fix is
+# RECORDED, NOT APPLIED: see NAND_YAFFS_SYNC_PLAN.md §5.
+board_nand_yaffs_trace = 0
+
+# One-shot clean slate: erase NAND blocks 1..end at backend init (before the
+# first mount). false = the fbb startup shape: nandflash_filesystem_init()
+# only probes the FMC, registers the 3 volumes and mounts — no erase on the
+# boot path (fbb keeps nandflash_format() as an explicit tooling API, and so
+# does the ported nand_init.c). MUST stay false in normal operation — true
+# wipes the volumes (incl. the TC-persist marker) on every boot. Only flip to
+# true for one bring-up round to escape a partial-block scan vicious cycle
+# (source-repo R6 lesson), then revert.
+board_nand_yaffs_erase_first = false
+
+# Compile & run the NAND file system smoke test (board/nand_smoke_test.c,
+# backend-agnostic POSIX/VFS level) right after nandflash_filesystem_init()
+# in main(). Prints per-case PASS/FAIL over the debug UART.
+# Off for hi3322_testsuits: smoke_bigbuf alone is 140KB of .bss and the
+# kernel test product does not exercise the file system.
+if (product_name == "hi3322_testsuits") {
+  board_nand_smoke_test = false
+} else {
+  board_nand_smoke_test = true
+}

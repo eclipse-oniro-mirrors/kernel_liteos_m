@@ -48,6 +48,11 @@ UINT32 g_uwsTick3;
 
 VOID ItSuiteLosSwtmr(void)
 {
+#ifdef LOSCFG_KERNEL_CPUP
+    /* 停用 cpup guard timer，消除其对齐锚点相位对本系列用例断言窗口的干扰 */
+    OsCpupStop();
+#endif
+
     ItLosSwtmr001();
     ItLosSwtmr002();
     ItLosSwtmr003();
@@ -71,7 +76,11 @@ VOID ItSuiteLosSwtmr(void)
     ItLosSwtmr021();
     ItLosSwtmr024();
     ItLosSwtmr027();
+    ItLosSwtmrApi001();
+    ItLosSwtmrApi002();
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
+    ItLosSwtmrApi003();
+    ItLosSwtmrApi004();
     ItLosSwtmrAlign001();
     ItLosSwtmrAlign002();
     ItLosSwtmrAlign003();
@@ -125,6 +134,7 @@ VOID ItSuiteLosSwtmr(void)
     ItLosSwtmr079();
     ItLosSwtmr080();
     ItLosSwtmr081();
+
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
     ItLosSwtmrAlign005();
     ItLosSwtmrAlign006();
@@ -153,6 +163,7 @@ VOID ItSuiteLosSwtmr(void)
     ItLosSwtmrAlign029();
     ItLosSwtmrAlign030();
     ItLosSwtmrAlign031();
+    ItLosSwtmrAlign032();
 #endif
     ItLosSwtmrDelay001();
     ItLosSwtmrDelay003();
@@ -170,7 +181,12 @@ VOID ItSuiteLosSwtmr(void)
     ItLosSwtmr043();
     ItLosSwtmr064();
     ItLosSwtmr065();
+    ItLosSwtmr121();
+    ItLosSwtmr122();
+    ItLosSwtmr123(); /* 超长周期 rollnum 钳位分支 */
 #endif
+#endif
+#ifdef LOSCFG_KERNEL_CPUP
+    OsCpupStart();
 #endif
 }
-

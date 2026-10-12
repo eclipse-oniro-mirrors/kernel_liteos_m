@@ -33,13 +33,14 @@
 #include <securec.h>
 #include "hctest.h"
 #include "los_config.h"
+#if (LOS_CMSIS_TEST == 1)
 #include "cmsis_os2.h"
+#endif
 #include "kernel_test.h"
 #include "pthread.h"
 #include "log.h"
 
 #define TASK_PRIO_TEST           LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO
-#define OS_TSK_TEST_STACK_SIZE   0x1000
 #define PTHREAD_TASK_DELAY       10
 
 static INT32 g_pthreadSem = 0;
@@ -68,7 +69,7 @@ static BOOL PthreadFuncTestSuiteSetUp(void)
  */
 static BOOL PthreadFuncTestSuiteTearDown(void)
 {
-    printf("+-------------------------------------------+\n");
+    dprintf("+-------------------------------------------+\n");
     return TRUE;
 }
 

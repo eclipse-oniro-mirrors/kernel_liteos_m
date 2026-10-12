@@ -38,7 +38,7 @@
 #endif
 
 static UINT32 g_testCount1 = 0;
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     g_testCount1++;
     return;
@@ -76,7 +76,7 @@ static UINT32 Testcase(VOID)
     );
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_HwiCreate(hwiNum, 1, 0, Case2, 0);
+    ret = LOS_HwiCreate(hwiNum, 1, 0, (HWI_PROC_FUNC)Case2, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     TestHwiTrigger(hwiNum);

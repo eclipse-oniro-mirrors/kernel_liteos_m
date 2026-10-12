@@ -32,6 +32,7 @@
 #define IT_LOS_MUX_H
 
 #include "osTest.h"
+#include "los_mux_pri.h"
 
 #ifdef __cplusplus
 #if __cplusplus
@@ -74,11 +75,14 @@ VOID ItLosMux031(void);
 VOID ItLosMux032(void);
 VOID ItLosMux033(void);
 VOID ItLosMux034(void);
+VOID ItLosMux035(void);
+VOID ItLosMux036(void);
 
 VOID ItSuiteLosMux(void);
 
 #if (LOS_KERNEL_MULTI_HWI_TEST == 1)
 VOID ItLosMux020(void);
+VOID ItLosMux301(VOID);
 #endif
 
 #ifdef __cplusplus

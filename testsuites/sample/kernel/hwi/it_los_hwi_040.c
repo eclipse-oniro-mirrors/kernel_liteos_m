@@ -34,42 +34,42 @@
 static UINT32 TesttriggerIrq(HWI_HANDLE_T hwiNum)
 {
     g_testCount++;
-    printf("This is TesttriggerIrq\n");
+    dprintf("This is TesttriggerIrq\n");
     return LOS_OK;
 }
 
 static UINT32 TestclearIrq(HWI_HANDLE_T hwiNum)
 {
     g_testCount++;
-    printf("This is TestclearIrq\n");
+    dprintf("This is TestclearIrq\n");
     return LOS_OK;
 }
 
 static UINT32 TestenableIrq(HWI_HANDLE_T hwiNum)
 {
     g_testCount++;
-    printf("This is TestenableIrq\n");
+    dprintf("This is TestenableIrq\n");
     return LOS_OK;
 }
 
 static UINT32 TestdisableIrq(HWI_HANDLE_T hwiNum)
 {
     g_testCount++;
-    printf("This is TestdisableIrq\n");
+    dprintf("This is TestdisableIrq\n");
     return LOS_OK;
 }
 
-static UINT32 TestsetIrqPriority(HWI_HANDLE_T hwiNum, UINT8 priority)
+static UINT32 TestsetIrqPriority(HWI_HANDLE_T hwiNum, HWI_PRIOR_T priority)
 {
     g_testCount++;
-    printf("This is TestsetIrqPriority\n");
+    dprintf("This is TestsetIrqPriority\n");
     return LOS_OK;
 }
 
 static UINT32 TestgetCurIrqNum(VOID)
 {
     g_testCount++;
-    printf("This is TestgetCurIrqNum\n");
+    dprintf("This is TestgetCurIrqNum\n");
     return HWI_NUM_TEST;
 }
 
@@ -151,9 +151,11 @@ static UINT32 Testcase(VOID)
     LOS_HwiTrigger(HWI_NUM_TEST);
     ICUNIT_GOTO_EQUAL(g_testCount, 6, g_testCount, EXIT); // Compare wiht the expected value 6.
     ret = LOS_HwiEnable(HWI_NUM_TEST);
+    TestHwiSync();
     ICUNIT_GOTO_EQUAL(g_testCount, 7, g_testCount, EXIT); // Compare wiht the expected value 7.
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     LOS_HwiTrigger(HWI_NUM_TEST);
+    TestHwiSync();
     ICUNIT_GOTO_EQUAL(g_testCount, 8, g_testCount, EXIT); // Compare wiht the expected value 8.
 
     TestHwiDelete(HWI_NUM_TEST);

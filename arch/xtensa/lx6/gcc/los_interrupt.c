@@ -35,11 +35,13 @@
 #include "los_arch_interrupt.h"
 #include "los_debug.h"
 #include "los_hook.h"
-#include "los_task.h"
+#include "los_task_pri.h"
 #include "los_sched.h"
+#include "los_sched_pri.h"
 #include "los_memory.h"
 #include "los_membox.h"
 #include "los_arch_regs.h"
+#include "los_hwi_pri.h"
 
 /* *
  * @ingroup los_hwi
@@ -150,25 +152,22 @@ STATIC UINT32 HwiClear(HWI_HANDLE_T hwiNum)
     return LOS_OK;
 }
 
-STATIC UINT32 HwiCreate(HWI_HANDLE_T hwiNum, HWI_PRIOR_T hwiPrio)
-{
-    (VOID)hwiPrio;
-    HwiUnmask(hwiNum);
-    return LOS_OK;
-}
-
-STATIC HwiControllerOps g_archHwiOps = {
+/* Un-migrated arch variant: this file still owns g_hwiControllerOps + HwiControllerOpsGet
+ * (pre-driver-layer model). Migrated pattern: driver-owned static ops table
+ * under drivers/interrupt/ (see arm_nvic.c), selected via Kconfig. Migrate
+ * this variant when it is next touched. */
+STATIC HwiControllerOps g_hwiControllerOps = {
     .triggerIrq     = HwiPending,
     .enableIrq      = HwiUnmask,
     .disableIrq     = HwiMask,
     .getCurIrqNum   = HwiNumGet,
     .clearIrq       = HwiClear,
-    .createIrq      = HwiCreate,
+    .getHandleForm  = HalGetHandleForm,
 };
 
-HwiControllerOps *ArchIntOpsGet(VOID)
+HwiControllerOps *HwiControllerOpsGet(VOID)
 {
-    return &g_archHwiOps;
+    return &g_hwiControllerOps;
 }
 
 /* ****************************************************************************
@@ -181,36 +180,10 @@ HwiControllerOps *ArchIntOpsGet(VOID)
 VOID HalInterrupt(VOID)
 {
     UINT32 hwiIndex;
-    UINT32 intSave;
-
-    intSave = LOS_IntLock();
-    g_intCount++;
-    LOS_IntRestore(intSave);
 
     hwiIndex = HwiNumGet();
     HwiClear(hwiIndex);
-
-    OsHookCall(LOS_HOOK_TYPE_ISR_ENTER, hwiIndex);
-
-    HalPreInterruptHandler(hwiIndex);
-
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
-    if (g_hwiHandlerForm[hwiIndex].pfnHandler != 0) {
-        g_hwiHandlerForm[hwiIndex].pfnHandler((VOID *)g_hwiHandlerForm[hwiIndex].pParm);
-    }
-#else
-    if (g_hwiHandlerForm[hwiIndex] != 0) {
-        g_hwiHandlerForm[hwiIndex]();
-    }
-#endif
-
-    HalAftInterruptHandler(hwiIndex);
-
-    OsHookCall(LOS_HOOK_TYPE_ISR_EXIT, hwiIndex);
-
-    intSave = LOS_IntLock();
-    g_intCount--;
-    LOS_IntRestore(intSave);
+    OsIntHandle(hwiIndex, &g_hwiHandleForm[hwiIndex]);
     HalIrqEndCheckNeedSched();
 }
 
@@ -234,7 +207,7 @@ STATIC VOID OsExcCurTaskInfo(const ExcInfo *excInfo)
     if (excInfo->phase == OS_EXC_IN_TASK) {
         LosTaskCB *taskCB = OS_TCB_FROM_TID(LOS_CurTaskIDGet());
         PRINTK("Task name = %s\n", taskCB->taskName);
-        PRINTK("Task ID   = %d\n", taskCB->taskID);
+        PRINTK("Task ID   = %d\n", taskCB->taskId);
         PRINTK("Task SP   = 0x%x\n", (UINTPTR)taskCB->stackPointer);
         PRINTK("Task ST   = 0x%x\n", taskCB->topOfStack);
         PRINTK("Task SS   = 0x%x\n", taskCB->stackSize);
@@ -353,14 +326,14 @@ VOID HalExcHandleEntry(UINTPTR faultAddr, EXC_CONTEXT_S *excBufAddr, UINT32 type
         g_excInfo.thrdPid = HwiNumGet();
     } else {
         g_excInfo.phase = OS_EXC_IN_TASK;
-        g_excInfo.thrdPid = g_losTask.runTask->taskID;
+        g_excInfo.thrdPid = g_losTask.runTask->taskId;
     }
 
     g_excInfo.context = excBufAddr;
 
     OsDoExcHook(EXC_INTERRUPT);
     OsExcInfoDisplay(&g_excInfo);
-    ArchSysExit();
+    ArchTaskExit();
 }
 
 /* Stack protector */

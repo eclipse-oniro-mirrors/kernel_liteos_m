@@ -30,12 +30,30 @@
 
 #include "los_arch_interrupt.h"
 #include "los_debug.h"
+#include "los_hwi_pri.h"
+#include "los_exc.h"
+#include "los_interrupt.h"
 
-LITE_OS_SEC_BSS UINT32  g_intCount = 0;
+HwiHandleInfo g_hwiHandleForm[OS_HWI_MAX_NUM] = {0};
 
-UINT32 ArchIsIntActive(VOID)
+EXC_PROC_FUNC g_excRegHook = NULL;
+
+UINT32 ArchSetExcHook(EXC_PROC_FUNC excHook)
 {
-    return (g_intCount > 0);
+    UINT32 intSave;
+
+    intSave = LOS_IntLock();
+    g_excRegHook = excHook;
+    LOS_IntRestore(intSave);
+    return LOS_OK;
+}
+
+VOID *HalGetHandleForm(HWI_HANDLE_T hwiNum)
+{
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return NULL;
+    }
+    return &g_hwiHandleForm[hwiNum];
 }
 
 LITE_OS_SEC_TEXT_INIT VOID HalHwiDefaultHandler(VOID *arg)
@@ -44,60 +62,4 @@ LITE_OS_SEC_TEXT_INIT VOID HalHwiDefaultHandler(VOID *arg)
     PRINT_ERR("default handler\n");
     while (1) {
     }
-}
-
-UINT32 ArchIntTrigger(HWI_HANDLE_T hwiNum)
-{
-    HwiControllerOps *hwiOps = ArchIntOpsGet();
-    if (hwiOps->triggerIrq == NULL) {
-        return OS_ERRNO_HWI_OPS_FUNC_NULL;
-    }
-
-    return hwiOps->triggerIrq(hwiNum);
-}
-
-UINT32 ArchIntEnable(HWI_HANDLE_T hwiNum)
-{
-    HwiControllerOps *hwiOps = ArchIntOpsGet();
-    if (hwiOps->enableIrq == NULL) {
-        return OS_ERRNO_HWI_OPS_FUNC_NULL;
-    }
-
-    return hwiOps->enableIrq(hwiNum);
-}
-
-UINT32 ArchIntDisable(HWI_HANDLE_T hwiNum)
-{
-    HwiControllerOps *hwiOps = ArchIntOpsGet();
-    if (hwiOps->disableIrq == NULL) {
-        return OS_ERRNO_HWI_OPS_FUNC_NULL;
-    }
-
-    return hwiOps->disableIrq(hwiNum);
-}
-
-UINT32 ArchIntClear(HWI_HANDLE_T hwiNum)
-{
-    HwiControllerOps *hwiOps = ArchIntOpsGet();
-    if (hwiOps->clearIrq == NULL) {
-        return OS_ERRNO_HWI_OPS_FUNC_NULL;
-    }
-
-    return hwiOps->clearIrq(hwiNum);
-}
-
-UINT32 ArchIntSetPriority(HWI_HANDLE_T hwiNum, HWI_PRIOR_T priority)
-{
-    HwiControllerOps *hwiOps = ArchIntOpsGet();
-    if (hwiOps->setIrqPriority == NULL) {
-        return OS_ERRNO_HWI_OPS_FUNC_NULL;
-    }
-
-    return hwiOps->setIrqPriority(hwiNum, priority);
-}
-
-UINT32 ArchIntCurIrqNum(VOID)
-{
-    HwiControllerOps *hwiOps = ArchIntOpsGet();
-    return hwiOps->getCurIrqNum();
 }

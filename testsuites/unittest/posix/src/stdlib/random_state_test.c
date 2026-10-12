@@ -72,6 +72,16 @@ static char g_stateBufB[RANDOM_STATE_SIZE_128];
 static char g_stateBufSmall[RANDOM_STATE_SIZE_16];
 static char g_stateBufTiny[RANDOM_STATE_SIZE_TINY];
 
+/* initstate 三档分档缓冲（random.c:83,85,89）：
+ * size=64 → n=15（64<=size<128）、size=256 → n=63（size>=256）、
+ * size=40 → n=7（32<=size<64） */
+static char g_tierBuf64A[64];
+static char g_tierBuf64B[64];
+static char g_tierBuf256A[256];
+static char g_tierBuf256B[256];
+static char g_tierBuf40A[40];
+static char g_tierBuf40B[40];
+
 /* *
  * @tc.desc      : register a test suite, this suite is used to test basic flow and interface dependency
  * @param        : subsystem name is utils
@@ -222,6 +232,103 @@ LITE_TEST_CASE(PosixStdlibRandomStateTest, testStdlibInitstateDegenerate001, Fun
     return 0;
 }
 
+/* 用例简要描述: initstate 状态缓冲三档分位与序列复现 */
+LITE_TEST_CASE(PosixStdlibRandomStateTest, testStdlibInitstateTiers001, Function | MediumTest | Level1)
+{
+    char *saved = NULL;
+    char *old = NULL;
+    long a1, a2, a3;
+    long b1, b2, b3;
+
+    /* size=64 档（random.c:85，n=15）：返回旧 state 非 NULL，同 seed 同 size 序列一致 */
+    saved = initstate(7, g_tierBuf64A, sizeof(g_tierBuf64A));
+    ICUNIT_ASSERT_NOT_EQUAL(saved, NULL, 0);
+    a1 = random();
+    a2 = random();
+    a3 = random();
+    ICUNIT_ASSERT_WITHIN_EQUAL(a1, 0, 0x7fffffff, (int)a1);
+    ICUNIT_ASSERT_WITHIN_EQUAL(a2, 0, 0x7fffffff, (int)a2);
+    ICUNIT_ASSERT_WITHIN_EQUAL(a3, 0, 0x7fffffff, (int)a3);
+    old = initstate(7, g_tierBuf64B, sizeof(g_tierBuf64B));
+    ICUNIT_ASSERT_EQUAL(old, g_tierBuf64A, 0);
+    b1 = random();
+    b2 = random();
+    b3 = random();
+    ICUNIT_ASSERT_EQUAL(b1, a1, (int)b1);
+    ICUNIT_ASSERT_EQUAL(b2, a2, (int)b2);
+    ICUNIT_ASSERT_EQUAL(b3, a3, (int)b3);
+
+    /* size=256 档（random.c:89，n=63） */
+    (void)initstate(9, g_tierBuf256A, sizeof(g_tierBuf256A));
+    a1 = random();
+    a2 = random();
+    ICUNIT_ASSERT_WITHIN_EQUAL(a1, 0, 0x7fffffff, (int)a1);
+    ICUNIT_ASSERT_WITHIN_EQUAL(a2, 0, 0x7fffffff, (int)a2);
+    (void)initstate(9, g_tierBuf256B, sizeof(g_tierBuf256B));
+    b1 = random();
+    b2 = random();
+    ICUNIT_ASSERT_EQUAL(b1, a1, (int)b1);
+    ICUNIT_ASSERT_EQUAL(b2, a2, (int)b2);
+
+    /* size=40 档（random.c:83，n=7） */
+    (void)initstate(11, g_tierBuf40A, sizeof(g_tierBuf40A));
+    a1 = random();
+    a2 = random();
+    ICUNIT_ASSERT_WITHIN_EQUAL(a1, 0, 0x7fffffff, (int)a1);
+    ICUNIT_ASSERT_WITHIN_EQUAL(a2, 0, 0x7fffffff, (int)a2);
+    old = initstate(11, g_tierBuf40B, sizeof(g_tierBuf40B));
+    ICUNIT_ASSERT_NOT_EQUAL(old, NULL, 0);
+    b1 = random();
+    b2 = random();
+    ICUNIT_ASSERT_EQUAL(b1, a1, (int)b1);
+    ICUNIT_ASSERT_EQUAL(b2, a2, (int)b2);
+
+    /* 恢复进入前状态，避免影响其他用例 */
+    (void)setstate(saved);
+    return 0;
+}
+
+/* 用例简要描述: srand/srandom 播种序列确定可复现 */
+LITE_TEST_CASE(PosixStdlibRandomStateTest, testStdlibSrand001, Function | MediumTest | Level1)
+{
+    static const int loopCount = 8;
+    int seqA[8] = {0};
+    int seqB[8] = {0};
+    long randA[3] = {0};
+    long randB[3] = {0};
+    int i;
+
+    /* srand 转发 srandom（rand.c:4-6），rand 转发 random：
+     * 双次重播种序列逐个一致（补 ws63 srand/srandom 未覆盖） */
+    srand(42);
+    for (i = 0; i < loopCount; i++) {
+        seqA[i] = rand();
+        ICUNIT_ASSERT_WITHIN_EQUAL(seqA[i], 0, RAND_MAX, seqA[i]);
+    }
+    srand(42);
+    for (i = 0; i < loopCount; i++) {
+        seqB[i] = rand();
+        ICUNIT_ASSERT_EQUAL(seqB[i], seqA[i], seqB[i]);
+    }
+
+    /* srandom/random 双次重播种同样确定可复现（random.c:63-69） */
+    srandom(7);
+    randA[0] = random();
+    randA[1] = random();
+    randA[2] = random();
+    ICUNIT_ASSERT_WITHIN_EQUAL(randA[0], 0, 0x7fffffff, (int)randA[0]);
+    ICUNIT_ASSERT_WITHIN_EQUAL(randA[1], 0, 0x7fffffff, (int)randA[1]);
+    ICUNIT_ASSERT_WITHIN_EQUAL(randA[2], 0, 0x7fffffff, (int)randA[2]);
+    srandom(7);
+    randB[0] = random();
+    randB[1] = random();
+    randB[2] = random();
+    ICUNIT_ASSERT_EQUAL(randB[0], randA[0], (int)randB[0]);
+    ICUNIT_ASSERT_EQUAL(randB[1], randA[1], (int)randB[1]);
+    ICUNIT_ASSERT_EQUAL(randB[2], randA[2], (int)randB[2]);
+    return 0;
+}
+
 RUN_TEST_SUITE(PosixStdlibRandomStateTest);
 
 void PosixStdlibRandomStateFuncTest(void)
@@ -230,6 +337,8 @@ void PosixStdlibRandomStateFuncTest(void)
     RUN_ONE_TESTCASE(testStdlibInitstate001);
     RUN_ONE_TESTCASE(testStdlibSetstate001);
     RUN_ONE_TESTCASE(testStdlibInitstateDegenerate001);
+    RUN_ONE_TESTCASE(testStdlibInitstateTiers001);
+    RUN_ONE_TESTCASE(testStdlibSrand001);
 
     return;
 }

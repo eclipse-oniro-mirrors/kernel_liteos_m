@@ -1056,6 +1056,385 @@ LITE_TEST_CASE(PosixTimeFuncTestSuite, testTimeErrnoSide001, Function | MediumTe
     ICUNIT_ASSERT_EQUAL(errno, EINVAL, errno);
     return 0;
 };
+
+/* 固定 tm 构造：含 tm_yday/tm_isdst/__tm_gmtoff（INIT_TM 不含 yday，周编号类转换符必需） */
+static void TimeStrfInitTm(struct tm *tmVal, int year, int mon, int mday, int hour, int min, int sec,
+    int wday, int yday)
+{
+    (void)memset(tmVal, 0, sizeof(*tmVal));
+    tmVal->tm_year = year - 1900;
+    tmVal->tm_mon = mon;
+    tmVal->tm_mday = mday;
+    tmVal->tm_hour = hour;
+    tmVal->tm_min = min;
+    tmVal->tm_sec = sec;
+    tmVal->tm_wday = wday;
+    tmVal->tm_yday = yday;
+    tmVal->tm_isdst = 0;
+    tmVal->__tm_gmtoff = 0;
+    tmVal->__tm_zone = "";
+}
+
+/* 用例简要描述: strftime 全转换符 C locale 输出比对 */
+LITE_TEST_CASE(PosixTimeFuncTestSuite, testTimeStrftimeConv001, Function | MediumTest | Level1)
+{
+    /* 固定 tm：2024-03-10 00:00:00 周日（tm_yday=69），C locale 精确字符串比对 */
+    static const char *convTable[][2] = {
+        {"%a", "Sun"}, {"%A", "Sunday"}, {"%b", "Mar"}, {"%B", "March"}, {"%h", "Mar"},
+        {"%c", "Sun Mar 10 00:00:00 2024"},
+        {"%C", "20"}, {"%e", "10"}, {"%D", "03/10/24"}, {"%F", "2024-03-10"},
+        {"%g", "24"}, {"%G", "2024"},
+        {"%H", "00"}, {"%I", "12"}, {"%j", "070"}, {"%m", "03"}, {"%M", "00"},
+        {"%n", "\n"}, {"%p", "AM"}, {"%r", "12:00:00 AM"}, {"%R", "00:00"},
+        {"%s", "1710028800"}, {"%S", "00"}, {"%t", "\t"}, {"%T", "00:00:00"},
+        {"%u", "7"}, {"%U", "10"}, {"%V", "10"}, {"%W", "10"}, {"%w", "0"},
+        {"%x", "03/10/24"}, {"%X", "00:00:00"}, {"%y", "24"}, {"%Y", "2024"},
+        {"%z", "+0000"}, {"%Z", ""}, {"%%", "%"},
+    };
+    const size_t itemCount = sizeof(convTable) / (sizeof(convTable[0]));
+    struct tm tmVal;
+    char buffer[TIME_STR_LEN * 2];
+    size_t ret;
+    size_t i;
+
+    TimeStrfInitTm(&tmVal, 2024, 2, 10, 0, 0, 0, 0, 69);
+    for (i = 0; i < itemCount; i++) {
+        (void)memset(buffer, 0, sizeof(buffer));
+        ret = strftime(buffer, sizeof(buffer), convTable[i][0], &tmVal);
+        ICUNIT_ASSERT_EQUAL(ret, strlen(convTable[i][1]), (int)i);
+        ICUNIT_ASSERT_STRING_EQUAL(buffer, convTable[i][1], (int)i);
+    }
+    return 0;
+};
+
+/* 用例简要描述: strftime 填充标志宽度与大年份输出 */
+LITE_TEST_CASE(PosixTimeFuncTestSuite, testTimeStrftimeFlag001, Function | MediumTest | Level1)
+{
+    /* 2024-03-05（周二，yday=64）：pad 标志 '-'/'_'/'0'、'+' 与宽度组合（strftime.c:196-263）。
+     * 注: musl 宽度仅对 C/F/G/Y 生效（strftime.c:237-241），"%010e" 的宽度被丢弃；
+     * C locale 下 'E'/'O' 修饰符仅被跳过（strftime.c:243），"%Od" 输出同 "%d" */
+    static const char *flagTable[][2] = {
+        {"%-d", "5"}, {"%_d", " 5"}, {"%010e", "05"},
+        {"%+6Y", "+02024"}, {"%10Y", "0000002024"}, {"%Ey", "24"}, {"%Od", "05"},
+    };
+    const size_t itemCount = sizeof(flagTable) / (sizeof(flagTable[0]));
+    struct tm tmVal;
+    char buffer[TIME_STR_LEN * 2];
+    size_t ret;
+    size_t i;
+
+    TimeStrfInitTm(&tmVal, 2024, 2, 5, 0, 0, 0, 2, 64);
+    for (i = 0; i < itemCount; i++) {
+        (void)memset(buffer, 0, sizeof(buffer));
+        ret = strftime(buffer, sizeof(buffer), flagTable[i][0], &tmVal);
+        ICUNIT_ASSERT_EQUAL(ret, strlen(flagTable[i][1]), (int)i);
+        ICUNIT_ASSERT_STRING_EQUAL(buffer, flagTable[i][1], (int)i);
+    }
+
+    /* tm_year>=8100（日历年 >=10000）："Y" 走 "+%lld" 分支（strftime.c:168-169） */
+    TimeStrfInitTm(&tmVal, 10000, 2, 10, 0, 0, 0, 0, 69);
+    (void)memset(buffer, 0, sizeof(buffer));
+    ret = strftime(buffer, sizeof(buffer), "%Y", &tmVal);
+    ICUNIT_ASSERT_EQUAL(ret, 6, (int)ret);
+    ICUNIT_ASSERT_STRING_EQUAL(buffer, "+10000", 0);
+
+    (void)memset(buffer, 0, sizeof(buffer));
+    ret = strftime(buffer, sizeof(buffer), "%F", &tmVal);
+    ICUNIT_ASSERT_EQUAL(ret, 12, (int)ret); /* "+10000-03-10": 6+1+2+1+2 */
+    ICUNIT_ASSERT_STRING_EQUAL(buffer, "+10000-03-10", 0);
+
+    /* isdst=-1：%z/%Z 走空串分支（strftime.c:173-177/183-186） */
+    TimeStrfInitTm(&tmVal, 2024, 2, 10, 0, 0, 0, 0, 69);
+    tmVal.tm_isdst = -1;
+    (void)memset(buffer, 0, sizeof(buffer));
+    ret = strftime(buffer, sizeof(buffer), "%z", &tmVal);
+    ICUNIT_ASSERT_EQUAL(ret, 0, (int)ret);
+    ICUNIT_ASSERT_EQUAL(buffer[0], '\0', buffer[0]);
+
+    (void)memset(buffer, 0, sizeof(buffer));
+    ret = strftime(buffer, sizeof(buffer), "%Z", &tmVal);
+    ICUNIT_ASSERT_EQUAL(ret, 0, (int)ret);
+    ICUNIT_ASSERT_EQUAL(buffer[0], '\0', buffer[0]);
+    return 0;
+};
+
+/* 用例简要描述: strftime 周编号转换符边界年算法 */
+LITE_TEST_CASE(PosixTimeFuncTestSuite, testTimeStrftimeWeek001, Function | MediumTest | Level1)
+{
+    /* %U/%V/%G/%W 边界年（is_leap:11-16 + week_num:19-43 三分支：
+     * val==0→52/53、val==53→1 或保留（闰年 53 周）） */
+    static const char *weekTable[4][5] = {
+        {"%U", "00", "%V", "01", "2024"}, /* 2024-01-01 周一：年初属上年末周 */
+        {"%U", "52", "%V", "01", "2025"}, /* 2024-12-31 周二：跨年归次年第 1 周 */
+        {"%U", "52", "%V", "53", "2020"}, /* 2020-12-31 周四：闰年 53 周 */
+        {"%U", "00", "%V", "52", "2021"}, /* 2022-01-01 周六：年初属上年 52 周 */
+    };
+    static const int weekYday[4] = {0, 365, 365, 0};
+    static const int weekWday[4] = {1, 2, 4, 6};
+    struct tm tmVal;
+    char buffer[TIME_STR_LEN];
+    size_t ret;
+    size_t i;
+
+    for (i = 0; i < sizeof(weekYday) / sizeof(weekYday[0]); i++) {
+        if (i == 0) {
+            TimeStrfInitTm(&tmVal, 2024, 0, 1, 0, 0, 0, weekWday[i], weekYday[i]);
+        } else if (i == 1) {
+            TimeStrfInitTm(&tmVal, 2024, 11, 31, 0, 0, 0, weekWday[i], weekYday[i]);
+        } else if (i == 2) {
+            TimeStrfInitTm(&tmVal, 2020, 11, 31, 0, 0, 0, weekWday[i], weekYday[i]);
+        } else {
+            TimeStrfInitTm(&tmVal, 2022, 0, 1, 0, 0, 0, weekWday[i], weekYday[i]);
+        }
+
+        (void)memset(buffer, 0, sizeof(buffer));
+        ret = strftime(buffer, sizeof(buffer), weekTable[i][0], &tmVal);
+        ICUNIT_ASSERT_STRING_EQUAL(buffer, weekTable[i][1], (int)i);
+        ICUNIT_ASSERT_EQUAL(ret, strlen(weekTable[i][1]), (int)ret);
+
+        (void)memset(buffer, 0, sizeof(buffer));
+        ret = strftime(buffer, sizeof(buffer), "%V", &tmVal);
+        ICUNIT_ASSERT_STRING_EQUAL(buffer, weekTable[i][3], (int)i);
+        ICUNIT_ASSERT_EQUAL(ret, strlen(weekTable[i][3]), (int)ret);
+
+        (void)memset(buffer, 0, sizeof(buffer));
+        ret = strftime(buffer, sizeof(buffer), "%G", &tmVal);
+        ICUNIT_ASSERT_STRING_EQUAL(buffer, weekTable[i][4], (int)i);
+        ICUNIT_ASSERT_EQUAL(ret, strlen(weekTable[i][4]), (int)ret);
+    }
+
+    /* %W 补充：2024-01-01 为周一 → 01；2024-12-30/31 → 53 */
+    TimeStrfInitTm(&tmVal, 2024, 0, 1, 0, 0, 0, 1, 0);
+    (void)memset(buffer, 0, sizeof(buffer));
+    ret = strftime(buffer, sizeof(buffer), "%W", &tmVal);
+    ICUNIT_ASSERT_STRING_EQUAL(buffer, "01", 0);
+    ICUNIT_ASSERT_EQUAL(ret, 2, (int)ret);
+    return 0;
+};
+
+/* 用例简要描述: strptime 全转换符解析与失配返回 */
+LITE_TEST_CASE(PosixTimeFuncTestSuite, testTimeStrptimeConv001, Function | MediumTest | Level1)
+{
+    struct tm tmResult = {0};
+    char *ret;
+
+    /* %a/%A 大小写不敏感匹配（strncasecmp，strptime.c:182-189 symbolic_range） */
+    ret = strptime("SUNDAY", "%A", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_wday, 0, tmResult.tm_wday);
+
+    ret = strptime("March", "%B", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mon, 2, tmResult.tm_mon);
+
+    ret = strptime("Mar", "%h", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mon, 2, tmResult.tm_mon);
+
+    /* %c 递归 D_T_FMT="%a %b %e %T %Y" */
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("Sun Mar 10 12:34:56 2024", "%c", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_wday, 0, tmResult.tm_wday);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mon, 2, tmResult.tm_mon);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mday, 10, tmResult.tm_mday);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_hour, 12, tmResult.tm_hour);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_min, 34, tmResult.tm_min);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_sec, 56, tmResult.tm_sec);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_year, 124, tmResult.tm_year);
+
+    /* %p PM：小时折算 12（tm_hour%=12 后 +12） */
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("12:34:56 PM", "%I:%M:%S %p", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_hour, 12, tmResult.tm_hour);
+
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("11:22:33 AM", "%r", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_hour, 11, tmResult.tm_hour);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_min, 22, tmResult.tm_min);
+
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("12:34", "%R", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_hour, 12, tmResult.tm_hour);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_min, 34, tmResult.tm_min);
+
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("03/10/24", "%D", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mon, 2, tmResult.tm_mon);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mday, 10, tmResult.tm_mday);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_year, 124, tmResult.tm_year);
+
+    /* %U/%W 丢弃结果仅消费数字（strptime.c:113-118 dummy dest） */
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("05", "%U", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("0", "%w", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_wday, 0, tmResult.tm_wday);
+
+    /* %x/%X 递归 D_FMT/T_FMT */
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("03/10/24", "%x", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mon, 2, tmResult.tm_mon);
+
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("12:34:56", "%X", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_hour, 12, tmResult.tm_hour);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_sec, 56, tmResult.tm_sec);
+
+    /* %y 两位 reliant 年：<=68 归 21 世纪（+100），>68 归 20 世纪 */
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("24", "%y", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_year, 124, tmResult.tm_year);
+
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("99", "%y", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_year, 99, tmResult.tm_year);
+
+    /* "%%" 字面量匹配 */
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("%", "%%", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+
+    /* 失配返回 NULL：非星期名输入 %a；星期名输入 %b */
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("Xyz", "%a", &tmResult);
+    ICUNIT_ASSERT_EQUAL(ret, NULL, 0);
+
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("Sun", "%b", &tmResult);
+    ICUNIT_ASSERT_EQUAL(ret, NULL, 0);
+    return 0;
+};
+
+/* 用例简要描述: strptime 字段宽度与世纪合成语义 */
+LITE_TEST_CASE(PosixTimeFuncTestSuite, testTimeStrptimeWidth001, Function | MediumTest | Level1)
+{
+    static const char *src = "03/10/2024";
+    struct tm tmResult = {0};
+    char *ret;
+
+    /* "%2d/%2m/%4Y"：宽度消费且返回指针落在串尾（strptime.c:27-28 字段宽度） */
+    ret = strptime(src, "%2d/%2m/%4Y", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mday, 3, tmResult.tm_mday);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mon, 9, tmResult.tm_mon);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_year, 124, tmResult.tm_year);
+    ICUNIT_ASSERT_EQUAL(ret == src + strlen(src), 1, 0);
+
+    /* %n/%t 跳过输入空白 */
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("   7", "%n%d", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mday, 7, tmResult.tm_mday);
+
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("\t 8", "%t%d", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_mday, 8, tmResult.tm_mday);
+
+    /* %C+%y 世纪合成路径一（want_century&2）：24 + 20*100 - 1900 = 124 */
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("20 24", "%C %y", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_year, 124, tmResult.tm_year);
+
+    /* 世纪合成路径二（仅 %y，relyear<=68 → +100）在 Conv001 的 "24"/"%y" 已覆盖，
+     * 此处补 >=69 不加百年分支（strptime.c:200-205） */
+    (void)memset(&tmResult, 0, sizeof(tmResult));
+    ret = strptime("75", "%y", &tmResult);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, NULL, 0);
+    ICUNIT_ASSERT_EQUAL(tmResult.tm_year, 75, tmResult.tm_year);
+    return 0;
+};
+
+/* 用例简要描述: mktime 跨世纪大年份闰年规则 */
+LITE_TEST_CASE(PosixTimeFuncTestSuite, testTimeMktimeBigYear001, Function | MediumTest | Level1)
+{
+    /* __year_to_secs 大年分支（:19-35）经 strftime %s（__tm_to_secs）触达：
+     * tm_year=1（rem<0 补偿）/200（世纪扣减 rem==0）/300（rem∈[200,300)）/
+     * 400（rem>=300）/500（rem==0 顶层闰年分支） */
+    static const char *bigYearTable[][2] = {
+        {"1", "-2177452800"},
+        {"200", "4102444800"},
+        {"300", "7258118400"},
+        {"400", "10413792000"},
+        {"500", "13569465600"},
+    };
+    const size_t itemCount = sizeof(bigYearTable) / (sizeof(bigYearTable[0]));
+    struct tm tmVal;
+    char buffer[TIME_STR_LEN];
+    char bigBuf[TIME_STR_LEN * 2];
+    long long marSec;
+    long long febSec;
+    size_t ret;
+    size_t i;
+
+    for (i = 0; i < itemCount; i++) {
+        int year = atoi(bigYearTable[i][0]);
+        TimeStrfInitTm(&tmVal, year + 1900, 0, 1, 0, 0, 0, 0, 0);
+        (void)memset(buffer, 0, sizeof(buffer));
+        ret = strftime(buffer, sizeof(buffer), "%s", &tmVal);
+        ICUNIT_ASSERT_EQUAL(ret, strlen(bigYearTable[i][1]), (int)i);
+        ICUNIT_ASSERT_STRING_EQUAL(buffer, bigYearTable[i][1], (int)i);
+    }
+
+    /* 2100 非闰年：2/28 的次日即 3/1，%s 差 86400 */
+    TimeStrfInitTm(&tmVal, 2100, 1, 28, 0, 0, 0, 0, 58);
+    (void)memset(buffer, 0, sizeof(buffer));
+    ret = strftime(buffer, sizeof(buffer), "%s", &tmVal);
+    ICUNIT_ASSERT_EQUAL(ret > 0, 1, (int)ret);
+    febSec = strtoll(buffer, NULL, 10);
+
+    TimeStrfInitTm(&tmVal, 2100, 2, 1, 0, 0, 0, 0, 59);
+    (void)memset(bigBuf, 0, sizeof(bigBuf));
+    ret = strftime(bigBuf, sizeof(bigBuf), "%s", &tmVal);
+    ICUNIT_ASSERT_EQUAL(ret > 0, 1, (int)ret);
+    marSec = strtoll(bigBuf, NULL, 10);
+    ICUNIT_ASSERT_EQUAL(marSec - febSec, 86400, (int)(marSec - febSec));
+
+    /* 2400 闰年（rem==0 分支 is_leap=1）：2/28 → 3/1 跨 2/29，差 172800 */
+    TimeStrfInitTm(&tmVal, 2400, 1, 28, 0, 0, 0, 0, 58);
+    (void)memset(buffer, 0, sizeof(buffer));
+    ret = strftime(buffer, sizeof(buffer), "%s", &tmVal);
+    ICUNIT_ASSERT_EQUAL(ret > 0, 1, (int)ret);
+    febSec = strtoll(buffer, NULL, 10);
+
+    TimeStrfInitTm(&tmVal, 2400, 2, 1, 0, 0, 0, 0, 60);
+    (void)memset(bigBuf, 0, sizeof(bigBuf));
+    ret = strftime(bigBuf, sizeof(bigBuf), "%s", &tmVal);
+    ICUNIT_ASSERT_EQUAL(ret > 0, 1, (int)ret);
+    marSec = strtoll(bigBuf, NULL, 10);
+    ICUNIT_ASSERT_EQUAL(marSec - febSec, 172800, (int)(marSec - febSec));
+
+#if !defined(__LP64__)
+    /* 超出 2038 的年份按真实位宽运行时分支（同 testTimeMktime2038001 的 0912 修正：
+     * ARM32 下 time_t 亦为 64 位 time64 体系，__LP64__ 判断失效）。
+     * 64 位 time_t 下 2100 年可表示，mktime 溢出检查（time.c:783 (time_t)t!=t）
+     * 不触发，正常返回且 errno==0；32 位 time_t 下才返回 -1 并置 EOVERFLOW */
+    errno = 0;
+    TimeStrfInitTm(&tmVal, 2100, 0, 1, 0, 0, 0, 0, 0);
+    time_t timeRet = mktime(&tmVal);
+    if (sizeof(time_t) > 4) {
+        ICUNIT_ASSERT_EQUAL((timeRet != (time_t)-1), 1, (int)timeRet);
+        ICUNIT_ASSERT_EQUAL(errno, 0, errno);
+    } else {
+        ICUNIT_ASSERT_EQUAL(timeRet, (time_t)-1, (int)timeRet);
+        ICUNIT_ASSERT_EQUAL(errno, EOVERFLOW, errno);
+    }
+#endif
+    return 0;
+};
 #endif
 
 RUN_TEST_SUITE(PosixTimeFuncTestSuite);
@@ -1098,6 +1477,12 @@ void PosixTimeFuncTest(void)
     RUN_ONE_TESTCASE(testTimeMktime2038001);
     RUN_ONE_TESTCASE(testTimeLeapYear001);
     RUN_ONE_TESTCASE(testTimeErrnoSide001);
+    RUN_ONE_TESTCASE(testTimeStrftimeConv001);
+    RUN_ONE_TESTCASE(testTimeStrftimeFlag001);
+    RUN_ONE_TESTCASE(testTimeStrftimeWeek001);
+    RUN_ONE_TESTCASE(testTimeStrptimeConv001);
+    RUN_ONE_TESTCASE(testTimeStrptimeWidth001);
+    RUN_ONE_TESTCASE(testTimeMktimeBigYear001);
 #endif
     return;
 }

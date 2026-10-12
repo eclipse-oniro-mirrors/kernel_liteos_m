@@ -641,6 +641,7 @@ UINT32 ArchIntLock(VOID);
 UINT32 ArchIntUnLock(VOID);
 VOID ArchIntRestore(UINT32 intSave);
 HwiControllerOps *HwiControllerOpsGet(VOID);
+UINT32 ArchIntLocked(VOID);
 
 #define LOS_IntLock             ArchIntLock
 #define LOS_IntRestore          ArchIntRestore

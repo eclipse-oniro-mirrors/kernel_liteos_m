@@ -51,6 +51,15 @@ LosExcInfo g_excInfo;
  * (drivers/interrupt/riscv_lcmp_clic.c or riscv_himideerv200_plic.c),
  * which also provides HwiControllerOpsGet(). This file only consumes the
  * ops via HwiControllerOpsGet() in HalHwiInterruptDone. */
+UINT32 ArchIntLocked(VOID)
+{
+    UINT32 intSave;
+
+    __asm__ volatile("csrr %0, mstatus" : "=r"(intSave) : : "memory");
+
+    return !(intSave & RISCV_MSTATUS_MIE);
+}
+
 #define RISCV_EXC_TYPE_NUM 16
 #define RISCV_EXC_LOAD_MISALIGNED 4
 #define RISCV_EXC_STORE_MISALIGNED 6

@@ -2208,7 +2208,7 @@ void PosixFsFuncTest()
      * hi3322_testsuits 由 ram_lfs_backend.c 提供 RAM 盘强符号）。
      */
     if (TestFsVolumeEnsure() != 0) {
-        printf("PosixFsFuncTest: TEST_ROOT volume unavailable, skip\n");
+        dprintf("PosixFsFuncTest: TEST_ROOT volume unavailable, skip\n");
         return;
     }
     PosixFsAPITest();

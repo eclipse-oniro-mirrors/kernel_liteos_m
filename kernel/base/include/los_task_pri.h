@@ -139,7 +139,7 @@ STATIC INLINE BOOL OsTaskSuspendCheckOnRun(LosTaskCB *taskCB, UINT32 *ret)
 
 STATIC INLINE BOOL OsTaskIsExit(const LosTaskCB *taskCB)
 {
-    return ((taskCB->taskStatus & OS_TASK_STATUS_ZOMBIE) != 0);
+    return ((taskCB->taskStatus & (OS_TASK_STATUS_ZOMBIE | OS_TASK_STATUS_UNUSED)) != 0);
 }
 
 /**

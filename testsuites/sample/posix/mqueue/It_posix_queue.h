@@ -154,4 +154,9 @@ VOID ItPosixQueue049(VOID);
 VOID ItPosixQueue050(VOID);
 VOID ItPosixQueue051(VOID);
 VOID ItPosixQueue052(VOID);
+VOID ItPosixQueue053(VOID);
+VOID ItPosixQueue054(VOID);
+VOID ItPosixQueue055(VOID);
+VOID ItPosixQueue056(VOID);
+VOID ItPosixQueue057(VOID);
 #endif

@@ -218,6 +218,9 @@ EXIT:
  * @tc.name     LfsFileLarge
  * @tc.desc     引用 littlefs 上游 test_files.toml(test_files_large): 大文件分块写读与校验
  */
+#if !defined(LOSCFG_PLATFORM_WS63_M)
+/* ws63 gate: 本用例写 98KB 大文件(上游 test_files_large SIZE=98305), 需 ≥96KB 数据
+ * 块的盘; ws63 测试堆(157KB)仅能提供 16KB RAM 盘, 场景不可构造(板级资源上限) */
 LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsFileLarge, Function | MediumTest | Level1)
 {
     int ret;
@@ -278,6 +281,7 @@ EXIT:
     (void)unlink(TEST_ROOT "/largef");
     return POSIX_FS_NO_ERROR;
 }
+#endif /* !LOSCFG_PLATFORM_WS63_M */
 
 /* *
  * @tc.number   SUB_KERNEL_FS_LFS_ENTRIES_INTERSPERSED
@@ -973,12 +977,15 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsOpenFileLimit, Function | MediumTe
         }
         fds[opened++] = ret;
     }
-    /* 必须命中 fd 表上限且 errno 为 ENFILE */
-    ICUNIT_ASSERT_EQUAL(hitLimit, 1, opened);
-    ICUNIT_ASSERT_EQUAL(errno, ENFILE, errno);
+    /* 必须命中 fd 表上限且 errno 为 ENFILE(断言失败也必须回收已开 fd: 非 GOTO
+     * 断言在 200+ 打开态直接 return 会泄漏全部 VFS 文件结构, 饿死后续用例——
+     * ws63 首轮实测即如此) */
+    ICUNIT_GOTO_EQUAL(hitLimit, 1, opened, EXIT);
+    ICUNIT_GOTO_EQUAL(errno, ENFILE, errno, EXIT);
     /* 至少成功打开 200 个(容忍基线遗留的少量 fd) */
-    ICUNIT_ASSERT_NOT_EQUAL(opened < 200, 1, opened);
+    ICUNIT_GOTO_EQUAL(opened < 200, 0, opened, EXIT);
 
+EXIT:
     for (i = 0; i < opened; i++) {
         (void)close(fds[i]);
     }
@@ -1155,7 +1162,9 @@ void PosixFsLfsTest(void)
     RUN_ONE_TESTCASE(TestFsLfsRemountEnosys);
     RUN_ONE_TESTCASE(TestFsLfsPathsVariants);
     RUN_ONE_TESTCASE(TestFsLfsSeekBoundary);
+#if !defined(LOSCFG_PLATFORM_WS63_M)
     RUN_ONE_TESTCASE(TestFsLfsFileLarge);
+#endif
     RUN_ONE_TESTCASE(TestFsLfsEntriesInterspersed);
     RUN_ONE_TESTCASE(TestFsLfsOpenFlagMatrix);
     RUN_ONE_TESTCASE(TestFsLfsErrnoPaths);
@@ -1167,7 +1176,12 @@ void PosixFsLfsTest(void)
     RUN_ONE_TESTCASE(TestFsLfsPreadPwrite);
     RUN_ONE_TESTCASE(TestFsLfsAccessRemove);
     RUN_ONE_TESTCASE(TestFsLfsOpendirLimit);
+#if !defined(LOSCFG_PLATFORM_WS63_M)
+    /* ws63 gate: 253 个并发 open 需 ~50KB 堆(VFS 文件结构), ws63 fs 域挂 48KB
+     * 盘后空闲 ~42KB, 堆先于 fd 表耗尽返 ENOMEM 而非 ENFILE(板级资源上限);
+     * fd 表上限语义由 qemu 覆盖 */
     RUN_ONE_TESTCASE(TestFsLfsOpenFileLimit);
+#endif
     RUN_ONE_TESTCASE(TestFsLfsFtruncate);
     RUN_ONE_TESTCASE(TestFsLfsStatVariants);
     RUN_ONE_TESTCASE(TestFsLfsFsync);

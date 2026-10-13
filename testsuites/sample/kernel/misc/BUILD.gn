@@ -45,6 +45,8 @@ static_library("test_misc") {
     "it_los_hook_001.c",
     "it_los_backtrace_001.c",
     "it_los_init_001.c",
+    "it_los_sysclock_001.c",
+    "it_los_printf_004.c",
   ]
   include_dirs = [ "." ]
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

@@ -20,6 +20,7 @@ static_library("test_cache") {
     "it_los_cache_009.c",
     "it_los_cache_010.c",
     "it_los_cache_011.c",
+    "it_los_cache_012.c", # #78 缺陷探针(bug_isolate.h 宏门控, 缺陷修复前不执行)
   ]
 
   include_dirs = [ "." ]

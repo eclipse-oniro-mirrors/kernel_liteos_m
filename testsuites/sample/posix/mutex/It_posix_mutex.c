@@ -151,4 +151,8 @@ VOID ItSuitePosixMutex(void)
     ItPosixMux083();
     ItPosixMux084();
     ItPosixMux085();
+    ItPosixMux086();
+    ItPosixMux087();
+    ItPosixMux088();
+    ItPosixMux089();
 }

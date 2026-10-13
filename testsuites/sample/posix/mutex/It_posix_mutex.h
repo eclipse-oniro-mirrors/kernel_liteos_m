@@ -120,6 +120,11 @@ VOID ItPosixMux083(void);
 VOID ItPosixMux084(void);
 VOID ItPosixMux085(void);
 
+VOID ItPosixMux086(void);
+VOID ItPosixMux087(void);
+VOID ItPosixMux088(void);
+VOID ItPosixMux089(void);
+
 VOID ItSuitePosixMutex(void);
 
 

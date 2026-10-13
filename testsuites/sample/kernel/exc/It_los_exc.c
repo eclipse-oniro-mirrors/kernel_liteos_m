@@ -53,4 +53,12 @@ VOID ItSuiteLosExc(VOID)
     // Non-destructive: registers exc-info dump buffer only, no real fault
     ItLosExc012();
 #endif
+#if defined(LOSCFG_PLATFORM_EXC)
+    // Non-destructive: exchook node-pool fill + non-head unregister (ws63 only)
+    ItLosExc013();
+    // Non-destructive: OsDoExcHook(EXC_INTERRUPT) dump chain into g_excMsgArray
+    ItLosExc014();
+#endif
+    // Arch-level hook register/unregister, both boards
+    ItLosExc015();
 }

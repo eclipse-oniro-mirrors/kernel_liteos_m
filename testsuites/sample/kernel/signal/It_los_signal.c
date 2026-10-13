@@ -38,4 +38,6 @@ void ItSuiteLosSignal(void)
     ItLosSignal004();
     ItLosSignal005();
     ItLosSignal006(); /* SignalMask/SignalWait 防御分支 + 中断上下文拒绝 */
+    ItLosSignal007(); /* 重复同号信号复用链表节点二次投递 */
+    ItLosSignal008(); /* 中断内投递信号后等待走快速路径 */
 }

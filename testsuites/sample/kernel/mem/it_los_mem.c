@@ -77,20 +77,49 @@ UINT32 CalPow(UINT32 exp)
 }
 
 #ifdef LOSCFG_MEM_MUL_POOL_ALLOC
-UINT8 g_poolMem[TEST_POOL_MAX_NUM][TEST_EACH_POOL_SIZE] __attribute__((aligned(32)));
+/* mulpool 测试池缓冲改按需动态申请(32 对齐, 与原静态 aligned(32) 语义一致):
+ * 原 32KB 静态池常驻 .bss 挤占 SRAM 预算(覆盖率构建下 gcov 计数器已占大量
+ * .bss, 实测堆余量不足以支撑 pthread 8KB 线程栈)。生命周期由内核回调托管:
+ * OsMulPoolExpand 经 allocMemPoolFunc 取缓冲(los_multipool.c:194, 返回 0 走
+ * 回退), 池 DeInit 完成后经 freeMemPoolFunc 归还(los_multipool.c:330),
+ * 任意顺序释放均按指针匹配槽位, 套件外零占用。 */
+VOID *g_poolMem[TEST_POOL_MAX_NUM] = {NULL};
 UINT32 g_poolNum;
 
 VOID TestGetAddrSize(UINTPTR *poolAddr, UINT32 *poolSize)
 {
-    *poolAddr = (UINTPTR)g_poolMem[g_poolNum];
-    *poolSize = TEST_EACH_POOL_SIZE;
-    g_poolNum++;
+    UINT32 i;
+
+    for (i = 0; i < TEST_POOL_MAX_NUM; i++) {
+        if (g_poolMem[i] == NULL) {
+            g_poolMem[i] = LOS_MemAllocAlign(LOSCFG_SYS_HEAP_ADDR, TEST_EACH_POOL_SIZE, 32);
+            if (g_poolMem[i] == NULL) {
+                break; /* 申请失败: 以下返回 0, 内核走回退 */
+            }
+            *poolAddr = (UINTPTR)g_poolMem[i];
+            *poolSize = TEST_EACH_POOL_SIZE;
+            g_poolNum++;
+            return;
+        }
+    }
+    *poolAddr = 0;
+    *poolSize = 0;
 }
 
 VOID TestReleaseAddrSize(VOID *pool)
 {
-    (VOID)pool;
-    g_poolNum--;
+    UINT32 i;
+
+    for (i = 0; i < TEST_POOL_MAX_NUM; i++) {
+        if (g_poolMem[i] == pool) {
+            (VOID)LOS_MemFree(LOSCFG_SYS_HEAP_ADDR, pool);
+            g_poolMem[i] = NULL;
+            break;
+        }
+    }
+    if (g_poolNum > 0) {
+        g_poolNum--;
+    }
 }
 
 VOID TEST_MulPoolUnRegister(VOID)
@@ -167,7 +196,11 @@ VOID ItSuiteLosMem(void)
     ItLosMem051(); /* LOS_MemUnlockEnable (TLSF only) */
 #if (LOSCFG_MEM_LEAKCHECK == 1)
     ItLosMem052(); /* LOS_MemUsedNodeShow */
+    ItLosMem318(); /* LOS_MemUsedNodeShow NULL pool early-return (TLSF+LEAKCHECK only) */
 #endif
+    ItLosMem319(); /* LOS_MemFreeNodeShow: free-list middle-node delete + small-bucket print */
+    ItLosMem320(); /* LOS_MemAllocAlign/Free fuzz: bad gap word (TLSF only) */
+    ItLosMem321(); /* LOS_MemFree fuzz: free-node ptr.prev out of range (TLSF only) */
 #endif
 #ifdef LOSCFG_KERNEL_MEM_BESTFIT
     ItLosMem053(); /* LOS_MemPoolInit */
@@ -179,6 +212,30 @@ VOID ItSuiteLosMem(void)
 #endif
 #if defined(LOSCFG_KERNEL_MEM_BESTFIT) && (LOSCFG_MEM_MUL_MODULE == 1)
     ItLosMem057(); /* LOS_MemMalloc/MallocAlign/Mfree/Mrealloc/MusedGet */
+#endif
+#if (LOSCFG_KERNEL_MEM_SLAB_EXTENTION == 1)
+    ItLosMem322(); /* LOS_SlabSizeCfg: cross-32bit-word bitmap, 33 allocs (slab) */
+    ItLosMem323(); /* LOS_SlabSizeCfg: slab class alloc failure -> bestfit fallback (slab) */
+#endif
+#ifdef LOSCFG_KERNEL_MEM_BESTFIT
+    ItLosMem324(); /* LOS_MemPoolInit: unaligned size warning + aligned down (bestfit) */
+    ItLosMem325(); /* g_MALLOC_HOOK: hook fired once per alloc (bestfit) */
+#endif
+#if defined(LOSCFG_KERNEL_MEM_BESTFIT) && (LOSCFG_MEM_MUL_MODULE == 1)
+    ItLosMem326(); /* LOS_MemMalloc/Mfree fuzz: bad gap word (bestfit+mulmodule) */
+#endif
+#ifdef LOSCFG_KERNEL_MEM_BESTFIT
+    ItLosMem327(); /* LOS_MemAllocAlign/Free fuzz: used|aligned gap word (bestfit) */
+#endif
+#if defined(LOSCFG_KERNEL_MEM_BESTFIT) && (defined(LOSCFG_MEM_DEBUG) || defined(LOSCFG_MEM_TASK_STAT))
+    ItLosMem328(); /* LOS_MemInfoGet/PoolList fuzz: END-node magic broken (bestfit) */
+#endif
+#if defined(LOSCFG_KERNEL_MEM_BESTFIT) && (LOSCFG_BASE_MEM_NODE_INTEGRITY_CHECK == 1)
+    ItLosMem329(); /* LOS_MemIntegrityCheck fuzz: dlink head pstPrev broken (bestfit) */
+#endif
+#ifdef LOSCFG_KERNEL_MEM_BESTFIT
+    ItLosMem330(); /* LOS_MemTaskIdGet: freed-node + END-address miss branches (bestfit) */
+    ItLosMem331(); /* LOS_MemLastUsedGet: used-last-neighbor exact value (bestfit) */
 #endif
 #if (LOSCFG_KERNEL_MEM_TLSF == 1) && (LOSCFG_MEM_FREE_BY_TASKID == 1)
     ItLosMem058(); /* LOS_MemFreeByTaskID */
@@ -219,9 +276,13 @@ VOID ItSuiteLosMem(void)
     ItLosMem315();
 #endif
 #ifdef LOSCFG_MEM_MUL_POOL_ALLOC
+    ItLosMem332(); /* LOS_MulPool* unregistered-hook rejects: MUST run before ItLosMulPool001
+                      (g_poolFlag is irreversible once registered, los_multipool.c:165-184) */
     ItLosMulPool001();
     ItLosMulPool002();
     ItLosMulPool003(); /* LOS_MulPoolRealloc/LOS_MulPoolFree 分支 */
+    ItLosMulPool004(); /* LOS_MulPoolRealloc 跨池拷贝(OsMulPoolCopyToNewNode) */
+    ItLosMulPool005(); /* LOS_MulPoolShrink 有占用池跳过 */
 #endif
     MemEnd();
 }

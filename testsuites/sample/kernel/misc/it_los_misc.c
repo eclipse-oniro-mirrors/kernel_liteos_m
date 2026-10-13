@@ -51,4 +51,10 @@ VOID ItSuiteLosMisc(VOID)
 #if defined(LOSCFG_ARCH_ARM)
     ItLosInit001();
 #endif
+#if defined(LOSCFG_ARCH_RISCV)
+    ItLosSysClock001(); /* ws63 board.c LOS_SetSysClosk/LOS_GetSysClosk 回读 */
+#endif
+#if defined(LOSCFG_PLATFORM_QEMU_ARM_VIRT_CM4)
+    ItLosPrintf004(); /* qemu 板级 dprintf.c printf 错误分支 */
+#endif
 }

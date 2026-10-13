@@ -298,6 +298,91 @@ static struct FileOps g_vfsReNullFops = {
     .unlink = VfsTsUnlink,
 };
 
+/* ---- "nullumnt": mount 正常而 umount/umount2 均为 NULL(驱动 umount 的
+ *      mFs->fsMops->umount==NULL 分支) ---- */
+static struct MountOps g_vfsNullUmountMops = {
+    .mount = VfsTsMount,
+    .umount = NULL,
+    .umount2 = NULL,
+    .statfs = NULL,
+};
+
+static struct FileOps g_vfsNullUmountFops = {
+    .open = VfsTsOpen,
+    .close = VfsTsClose,
+};
+
+/* ---- "forcefs": umount2 + close 均实现(驱动 umount2(MNT_FORCE) 的
+ *      CloseFdsInMp 关闭挂载点上打开文件) ---- */
+static volatile int g_vfsForceCloseCnt = 0; /* MNT_FORCE 关闭的文件计数 */
+
+static int VfsForceMount(struct MountPoint *mp, unsigned long mountflags, const void *data)
+{
+    (void)data;
+    /* MS_REMOUNT 时归还挂载点引用(模拟不跟踪引用的强制文件系统),
+     * 使后续 umount2(MNT_FORCE) 可进入 CloseFdsInMp 分支 */
+    if ((mountflags & MS_REMOUNT) && (mp->mRefs > 0)) {
+        mp->mRefs--;
+    }
+    return 0;
+}
+
+static int VfsForceClose(struct File *file)
+{
+    /* 强制关闭: 释放路径并将 fMp 置空, 避免 umount2 释放 mp 后 fd 悬挂指针 */
+    if (file->fullPath != NULL) {
+        LOSCFG_FS_FREE_HOOK((void *)file->fullPath);
+        file->fullPath = NULL;
+    }
+    file->fMp = NULL;
+    g_vfsForceCloseCnt++;
+    return 0;
+}
+
+static struct MountOps g_vfsForceMops = {
+    .mount = VfsForceMount,
+    .umount = VfsTsUmount,
+    .umount2 = VfsTsUmount2,
+    .statfs = NULL,
+};
+
+static struct FileOps g_vfsForceFops = {
+    .open = VfsTsOpen,
+    .close = VfsForceClose,
+};
+
+/* ---- "fdiskfs": FsManagement.fdisk 非空(驱动 LOS_DiskPartition 的 fdisk 分支) ---- */
+static volatile int g_vfsFdiskCnt = 0;     /* fdisk 回调计数 */
+static volatile int g_vfsFdiskRet = 0;     /* fdisk 回调返回值(透传验证) */
+static char g_vfsFdiskDev[16];             /* 记录到的设备名 */
+static volatile int g_vfsFdiskPartNum = 0; /* 记录到的分区数 */
+
+static int VfsTsFdisk(const char *dev, int *lengthArray, int partNum)
+{
+    (void)lengthArray;
+    (void)strcpy_s(g_vfsFdiskDev, sizeof(g_vfsFdiskDev), dev);
+    g_vfsFdiskPartNum = partNum;
+    g_vfsFdiskCnt++;
+    return g_vfsFdiskRet;
+}
+
+static struct FsManagement g_vfsFdiskMgt = {
+    .fdisk = VfsTsFdisk,
+    .format = NULL,
+};
+
+static struct MountOps g_vfsFdiskMops = {
+    .mount = VfsTsMount,
+    .umount = VfsTsUmount,
+    .umount2 = NULL,
+    .statfs = NULL,
+};
+
+static struct FileOps g_vfsFdiskFops = {
+    .open = VfsTsOpen,
+    .close = VfsTsClose,
+};
+
 /* *
  * @tc.number   SUB_KERNEL_FS_VFS_REGISTER
  * @tc.name     VfsRegister
@@ -829,6 +914,113 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsVfsPreadErr, Function | MediumTest | 
     return POSIX_FS_NO_ERROR;
 }
 
+/* 用例简要描述: umount空操作自定义fs卸载返回失败 */
+/* *
+ * @tc.number   SUB_KERNEL_FS_VFS_UMOUNT_NULL_OP
+ * @tc.name     VfsUmountNullOp
+ * @tc.desc     umount空操作自定义fs卸载返回失败
+ */
+LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsVfsUmountNullOp, Function | MediumTest | Level0)
+{
+    int ret;
+
+    /* 注册 mount 正常而 umount=NULL 的自定义 fs */
+    ret = LOS_FsRegister("nullumnt", &g_vfsNullUmountMops, &g_vfsNullUmountFops, NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+
+    /* 挂载成功且无任何打开文件(mRefs==0) */
+    ret = mount(NULL, "/vfsN", "nullumnt", 0, NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+
+    /* umount: umount 操作为 NULL -> errout 返回 -1 */
+    ret = umount("/vfsN");
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+
+    /* umount2 亦失败(umount2 操作同样为 NULL) */
+    ret = umount2("/vfsN", MNT_FORCE);
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+
+    /* 该挂载点无法卸载, 保留至测试结束(先例 /vfsK); 注册表无注销接口,
+     * fsType 名称唯一不污染后续用例 */
+    return POSIX_FS_NO_ERROR;
+}
+
+/* 用例简要描述: MNT_FORCE强卸载关闭挂载点打开文件 */
+/* *
+ * @tc.number   SUB_KERNEL_FS_VFS_UMOUNT2_FORCE
+ * @tc.name     VfsUmount2Force
+ * @tc.desc     MNT_FORCE强卸载关闭挂载点打开文件
+ */
+LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsVfsUmount2Force, Function | MediumTest | Level0)
+{
+    int ret;
+    int fd;
+
+    /* 注册 umount2+close 均实现的自定义 fs */
+    ret = LOS_FsRegister("forcefs", &g_vfsForceMops, &g_vfsForceFops, NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ret = mount(NULL, "/vfsForce", "forcefs", 0, NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+
+    /* 打开文件后引用非零: umount2 失败 */
+    g_vfsForceCloseCnt = 0;
+    fd = open("/vfsForce/f0", O_CREAT | O_RDWR, 0666);
+    ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
+    ret = umount2("/vfsForce", 0);
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+
+    /* MS_REMOUNT 经 mount 操作归还引用, 使 mRefs 归零 */
+    ret = mount(NULL, "/vfsForce", "forcefs", MS_REMOUNT, NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+
+    /* MNT_FORCE: 遍历关闭挂载点上打开的文件后强卸载成功 */
+    ret = umount2("/vfsForce", MNT_FORCE);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ICUNIT_ASSERT_EQUAL(g_vfsForceCloseCnt, 1, g_vfsForceCloseCnt);
+
+    /* 强制关闭后 fd 不可用 */
+    ret = close(fd);
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    /* 挂载点已删除: umount 返回失败 */
+    ret = umount("/vfsForce");
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    return POSIX_FS_NO_ERROR;
+}
+
+/* 用例简要描述: 自定义fdisk回调被DiskPartition透传调用 */
+/* *
+ * @tc.number   SUB_KERNEL_FS_VFS_FDISK_CUSTOM
+ * @tc.name     VfsFdiskCustom
+ * @tc.desc     自定义fdisk回调被DiskPartition透传调用
+ */
+LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsVfsFdiskCustom, Function | MediumTest | Level0)
+{
+    int ret;
+    int lengthArray[1] = { VFS_TEST_BUF_LEN }; /* 1: 单分区长度 */
+    int addrArray[1] = { 0 };                  /* 1: 单分区地址 */
+
+    /* 注册含 fdisk 的 FsManagement */
+    ret = LOS_FsRegister("fdiskfs", &g_vfsFdiskMops, &g_vfsFdiskFops, &g_vfsFdiskMgt);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+
+    /* LOS_DiskPartition 走 fdisk 分支: 回调被调用且返回值透传 */
+    g_vfsFdiskCnt = 0;
+    g_vfsFdiskRet = 0;
+    ret = LOS_DiskPartition("fdiskdev", "fdiskfs", lengthArray, addrArray, 1);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ICUNIT_ASSERT_EQUAL(g_vfsFdiskCnt, 1, g_vfsFdiskCnt);
+    ret = strcmp(g_vfsFdiskDev, "fdiskdev");
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ICUNIT_ASSERT_EQUAL(g_vfsFdiskPartNum, 1, g_vfsFdiskPartNum);
+
+    /* 非零返回值同样透传; fdisk 分支不注册设备, 重复调用不受 EEXIST 影响 */
+    g_vfsFdiskRet = 0x1234; /* 透传魔数 */
+    ret = LOS_DiskPartition("fdiskdev", "fdiskfs", lengthArray, addrArray, 1);
+    ICUNIT_ASSERT_EQUAL(ret, 0x1234, ret);
+    ICUNIT_ASSERT_EQUAL(g_vfsFdiskCnt, 2, g_vfsFdiskCnt);
+    return POSIX_FS_NO_ERROR;
+}
+
 #ifdef LOSCFG_NET_LWIP_SACK
 /* *
  * @tc.number   SUB_KERNEL_FS_VFS_SOCKET_FD
@@ -886,4 +1078,7 @@ void PosixFsVfsTest(void)
     RUN_ONE_TESTCASE(TestFsVfsNullOps);
     RUN_ONE_TESTCASE(TestFsVfsRenameCross);
     RUN_ONE_TESTCASE(TestFsVfsPreadErr);
+    RUN_ONE_TESTCASE(TestFsVfsUmountNullOp);
+    RUN_ONE_TESTCASE(TestFsVfsUmount2Force);
+    RUN_ONE_TESTCASE(TestFsVfsFdiskCustom);
 }

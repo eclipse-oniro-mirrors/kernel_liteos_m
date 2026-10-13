@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2026 morpheus
  * Switch from EL2/EL3 down to EL1 (AArch64). Ported from hs-fbb
  * arch_lite/arm64/src/el_switch.S (non-secure, IRQ/FIQ routed to EL1).
  *

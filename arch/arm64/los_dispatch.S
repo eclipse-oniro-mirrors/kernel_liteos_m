@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2026 morpheus
  * AArch64 task dispatch and IRQ entry. Ported from hs-fbb
  * arch_lite/arm64/src/dispatch.S, adapted to the liteos_m contract:
  *   VOID ArchStartToRun(LosTaskCB *newTask);

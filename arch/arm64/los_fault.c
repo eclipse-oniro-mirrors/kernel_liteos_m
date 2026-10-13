@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 morpheus
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
  * AArch64 exception handling for liteos_m. Ported from hs-fbb
  * arch_lite/arm64/src/fault.c (simplified: single core, no SMP halt IPI,
  * no exc-recover), wired to the liteos_m HalExcHandleEntry contract

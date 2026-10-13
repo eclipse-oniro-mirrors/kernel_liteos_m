@@ -1,0 +1,44 @@
+#
+# RK3568 AMP board (liteos_m, AArch64 EL1 on CPU3).
+# Toolchain: OHOS clang 15 with aarch64-linux-ohos builtins.
+
+kernel_type = "liteos_m"
+kernel_version = "3.0.0"
+board_cpu = "cortex-a55"
+board_arch = ""
+
+board_toolchain = "aarch64-liteos-clang"
+board_toolchain_path = rebase_path("//prebuilts/clang/ohos/linux-x86_64/llvm/bin", "", "//")
+board_toolchain_prefix = ""
+board_toolchain_type = "clang"
+use_board_toolchain = true
+
+board_clang_rt_lib = board_toolchain_path + "/../lib/clang/15.0.4/lib/aarch64-linux-ohos/libclang_rt.builtins.a"
+
+board_opt_flags = [ "-O2" ]
+board_cflags = [
+  "--target=aarch64-linux-ohos",
+  "-mcpu=cortex-a55",
+  "-mgeneral-regs-only",
+  "-ffreestanding",
+  "-nostdlib",
+  "-Wall",
+  "-fdata-sections",
+  "-ffunction-sections",
+  "-fno-builtin",
+  "-fno-strict-aliasing",
+  "-fsigned-char",
+  "-std=c99",
+]
+board_cflags += board_opt_flags
+board_asmflags = [
+  "--target=aarch64-linux-ohos",
+  "-mcpu=cortex-a55",
+]
+board_asmflags += board_opt_flags
+board_cxx_flags = board_cflags
+board_ld_flags = []
+board_include_dirs = [ "//commonlibrary/utils_lite/include" ]
+board_adapter_dir = ""
+board_configed_sysroot = ""
+storage_type = "emmc"

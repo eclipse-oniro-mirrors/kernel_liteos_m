@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 morpheus
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
  * ArchTickTimer for AArch64 on RK3568: ARM generic EL1 physical timer
  * (CNTPCT/CNTP_CVAL/CNTP_CTL, PPI 30). Fully local: no master-side kick.
  *

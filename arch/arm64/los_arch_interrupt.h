@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 morpheus
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
  * AArch64 arch interrupt header (GICv3, EL1 non-secure view).
  * Ported from hs-fbb arch_lite/arm64 + drivers/interrupt/arm_gic_v3.h,
  * adapted to the liteos_m los_hwi contract (see gic-v2/interrupt.c).

@@ -1,38 +1,87 @@
-# Copyright (c) 2026 morpheus.
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 # Shared plumbing for the generated libmetal/libmica include sets.
 #
-# This tree's gn binary has no glob(), and exec_script() calls from
-# BUILD.gn files are blocked by the exec_script whitelist (the same
-# mechanism kernel/liteos_m/liteos.gni relies on: calls from .gni
-# files are permitted). The generator script enumerates its own input
-# headers via --list; all paths are absolute so the result does not
-# depend on the working directory.
-
-mcs_root = "//kernel/liteos_m/compat/mcs"
+# This tree's gn binary has no glob(), and exec_script() is blocked by the
+# build's exec_script allowlist (the CI gate runs a pristine build repo, so
+# an allowlist entry there is not an option). The header input list is
+# therefore maintained as a STATIC list below: it is the exact output of
+#     gen_mcs_includes.py --list <same mcs_gen_args as below>
+# and must be regenerated (paste the // form of the paths) whenever the
+# prebuilt libmetal headers (SoC repo) or the compat/mcs mica/backend
+# headers (kernel repo) change.
 
 mcs_gen_args = [
   "--metal-lib",
-  rebase_path("//third_party/libmetal/lib", ""),
+  rebase_path("//device/soc/rockchip/rk3568_m/include/libmetal", ""),
   "--metal-backend",
-  rebase_path("$mcs_root/openamp/libmetal/libmetal-system", ""),
+  rebase_path("//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos", ""),
   "--mica-lib",
-  rebase_path("$mcs_root/mica/libmica/lib", ""),
+  rebase_path("//kernel/liteos_m/compat/mcs/mica/libmica/lib", ""),
   "--mica-platform",
-  rebase_path("$mcs_root/mica/platform", ""),
+  rebase_path("//kernel/liteos_m/compat/mcs/mica/platform", ""),
 ]
 
-mcs_header_inputs = exec_script("gen_mcs_includes.py",
-                                [ "--list" ] + mcs_gen_args,
-                                "list lines")
+mcs_header_inputs = [
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/alloc.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/assert.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/cache.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/condition.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/io.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/irq.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/log.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/mutex.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/sleep.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/sys.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/barrier.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/delay.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/io.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/irq.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/log.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/macro.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/securec.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/sem.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/system/demo/barrier.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/system/demo/delay.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/system/demo/io.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/system/demo/irq.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/system/demo/log.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/system/demo/macro.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/system/demo/securec.h",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/lib/system/demo/sem.h",
+    "//kernel/liteos_m/compat/mcs/mica/platform/barrier.h",
+    "//kernel/liteos_m/compat/mcs/mica/platform/delay.h",
+    "//kernel/liteos_m/compat/mcs/mica/platform/io.h",
+    "//kernel/liteos_m/compat/mcs/mica/platform/irq.h",
+    "//kernel/liteos_m/compat/mcs/mica/platform/log.h",
+    "//kernel/liteos_m/compat/mcs/mica/platform/macro.h",
+    "//kernel/liteos_m/compat/mcs/mica/platform/securec.h",
+    "//kernel/liteos_m/compat/mcs/mica/platform/sem.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/alloc.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/assert.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/atomic.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/cache.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/compiler.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/condition.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/config.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/cpu.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/device.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/dma.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/errno.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/io.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/irq.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/irq_controller.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/list.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/log.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/mutex.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/shmem.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/sleep.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/softirq.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/spinlock.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/sys.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/time.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/utilities.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/version.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/processor/aarch64/atomic.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/processor/aarch64/cpu.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/compiler/gcc/atomic.h",
+    "//device/soc/rockchip/rk3568_m/include/libmetal/compiler/gcc/compiler.h",
+]

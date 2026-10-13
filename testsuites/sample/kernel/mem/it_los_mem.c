@@ -77,20 +77,49 @@ UINT32 CalPow(UINT32 exp)
 }
 
 #ifdef LOSCFG_MEM_MUL_POOL_ALLOC
-UINT8 g_poolMem[TEST_POOL_MAX_NUM][TEST_EACH_POOL_SIZE] __attribute__((aligned(32)));
+/* mulpool 测试池缓冲改按需动态申请(32 对齐, 与原静态 aligned(32) 语义一致):
+ * 原 32KB 静态池常驻 .bss 挤占 SRAM 预算(覆盖率构建下 gcov 计数器已占大量
+ * .bss, 实测堆余量不足以支撑 pthread 8KB 线程栈)。生命周期由内核回调托管:
+ * OsMulPoolExpand 经 allocMemPoolFunc 取缓冲(los_multipool.c:194, 返回 0 走
+ * 回退), 池 DeInit 完成后经 freeMemPoolFunc 归还(los_multipool.c:330),
+ * 任意顺序释放均按指针匹配槽位, 套件外零占用。 */
+VOID *g_poolMem[TEST_POOL_MAX_NUM] = {NULL};
 UINT32 g_poolNum;
 
 VOID TestGetAddrSize(UINTPTR *poolAddr, UINT32 *poolSize)
 {
-    *poolAddr = (UINTPTR)g_poolMem[g_poolNum];
-    *poolSize = TEST_EACH_POOL_SIZE;
-    g_poolNum++;
+    UINT32 i;
+
+    for (i = 0; i < TEST_POOL_MAX_NUM; i++) {
+        if (g_poolMem[i] == NULL) {
+            g_poolMem[i] = LOS_MemAllocAlign(LOSCFG_SYS_HEAP_ADDR, TEST_EACH_POOL_SIZE, 32);
+            if (g_poolMem[i] == NULL) {
+                break; /* 申请失败: 以下返回 0, 内核走回退 */
+            }
+            *poolAddr = (UINTPTR)g_poolMem[i];
+            *poolSize = TEST_EACH_POOL_SIZE;
+            g_poolNum++;
+            return;
+        }
+    }
+    *poolAddr = 0;
+    *poolSize = 0;
 }
 
 VOID TestReleaseAddrSize(VOID *pool)
 {
-    (VOID)pool;
-    g_poolNum--;
+    UINT32 i;
+
+    for (i = 0; i < TEST_POOL_MAX_NUM; i++) {
+        if (g_poolMem[i] == pool) {
+            (VOID)LOS_MemFree(LOSCFG_SYS_HEAP_ADDR, pool);
+            g_poolMem[i] = NULL;
+            break;
+        }
+    }
+    if (g_poolNum > 0) {
+        g_poolNum--;
+    }
 }
 
 VOID TEST_MulPoolUnRegister(VOID)

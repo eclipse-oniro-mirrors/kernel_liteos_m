@@ -326,7 +326,7 @@ VOID ItLosMem332(void);
 #ifdef LOSCFG_MEM_MUL_POOL_ALLOC
 #define TEST_POOL_MAX_NUM       4
 #define TEST_EACH_POOL_SIZE     0x2000
-extern UINT8 g_poolMem[TEST_POOL_MAX_NUM][TEST_EACH_POOL_SIZE];
+extern VOID *g_poolMem[TEST_POOL_MAX_NUM];
 extern UINT32 g_poolNum;
 VOID TestGetAddrSize(UINTPTR *poolAddr, UINT32 *poolSize);
 VOID TestReleaseAddrSize(VOID *pool);

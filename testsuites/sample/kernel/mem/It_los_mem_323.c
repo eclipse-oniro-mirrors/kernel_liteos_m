@@ -36,7 +36,6 @@
 
 #define MEM_TC323_POOL_SIZE     0x2000
 
-STATIC UINT8 g_memPoolTC323[MEM_TC323_POOL_SIZE] __attribute__((aligned(64)));
 
 /* 用例简要描述: slab类分配失败回退bestfit堆分配 */
 static UINT32 TestCase(VOID)
@@ -46,6 +45,12 @@ static UINT32 TestCase(VOID)
     UINT32 cfg[SLAB_MEM_COUNT];
     UINT32 cfgDefault[SLAB_MEM_COUNT];
     VOID *ptr = NULL;
+    VOID *pool = NULL;
+
+    /* 大池动态申请(64 对齐, 与原静态 aligned(64) 语义一致), 避免常驻 .bss
+     * 挤占 SRAM 预算(覆盖率构建下 gcov 计数器已占用大量 .bss) */
+    pool = LOS_MemAllocAlign(LOSCFG_SYS_HEAP_ADDR, MEM_TC323_POOL_SIZE, 64);
+    ICUNIT_GOTO_NOT_EQUAL(pool, NULL, 0, EXIT);
 
     /* F-Inv 前置: cfg[0]=0x8000(32KB, 远超 0x2000 池容量) -> class0 的 slab 区块
      * OsSlabAllocatorNew 内 OsMemAlloc 失败 -> PRINT_ERR "slab alloc failed"
@@ -56,37 +61,41 @@ static UINT32 TestCase(VOID)
     cfg[0] = 0x8000;
     LOS_SlabSizeCfg(cfg, SLAB_MEM_COUNT);
 
-    ret = LOS_MemInit(g_memPoolTC323, MEM_TC323_POOL_SIZE);
+    ret = LOS_MemInit(pool, MEM_TC323_POOL_SIZE);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* F-Pos: 16B 小分配 -> class0 alloc==NULL -> OsSlabMemAlloc 返回 NULL
      * -> LOS_MemAlloc 回退 bestfit 堆分配成功(OsSlabMemAlloc:353-355 路径) */
-    ptr = LOS_MemAlloc(g_memPoolTC323, 16);
+    ptr = LOS_MemAlloc(pool, 16);
     ICUNIT_GOTO_NOT_EQUAL(ptr, NULL, 0, EXIT);
 
     (VOID)memset_s(ptr, 16, 0xA5, 16);
     ICUNIT_GOTO_EQUAL(*((UINT8 *)ptr), 0xA5, 0, EXIT);
 
-    ret = LOS_MemFree(g_memPoolTC323, ptr);
+    ret = LOS_MemFree(pool, ptr);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     ptr = NULL;
 
     /* 回退堆后池持续可用(混合尺寸健康检查) */
-    ptr = LOS_MemAlloc(g_memPoolTC323, 0x100);
+    ptr = LOS_MemAlloc(pool, 0x100);
     ICUNIT_GOTO_NOT_EQUAL(ptr, NULL, 0, EXIT);
-    ret = LOS_MemFree(g_memPoolTC323, ptr);
+    ret = LOS_MemFree(pool, ptr);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     ptr = NULL;
 
-    ret = LOS_MemDeInit(g_memPoolTC323);
+    ret = LOS_MemDeInit(pool);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
 EXIT:
     if (ptr != NULL) {
-        (VOID)LOS_MemFree(g_memPoolTC323, ptr);
+        (VOID)LOS_MemFree(pool, ptr);
         ptr = NULL;
     }
-    (VOID)LOS_MemDeInit(g_memPoolTC323);
+    (VOID)LOS_MemDeInit(pool);
+    if (pool != NULL) {
+        (VOID)LOS_MemFree(LOSCFG_SYS_HEAP_ADDR, pool);
+        pool = NULL;
+    }
     /* D1: 出口恢复编译默认 cfg */
     for (i = 0; i < SLAB_MEM_COUNT; i++) {
         cfgDefault[i] = SLAB_MEM_ALLOCATOR_SIZE;

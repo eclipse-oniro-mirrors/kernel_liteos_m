@@ -53,9 +53,16 @@ static UINT32 TestCase(VOID)
     /* 清理先前 mulpool 用例遗留在全局池链上的 g_poolMem 槽位池：
      * LOS_MulPoolAlloc 按全局池链顺序找可用池, 残留池(001-004 退出只注销
      * hook 不 DeInit 池)会让本用例的分配落入旧池而不触发扩池, g_poolNum
-     * 断言失真(实测 ws63 首轮即如此)。DeInit 未注册的槽位返回错误, 忽略。 */
+     * 断言失真(实测 ws63 首轮即如此)。DeInit 未注册的槽位返回错误, 忽略。
+     * 注: DeInit 本身不回调 freeMemPoolFunc(仅 shrink/扩池失败路径回调,
+     * los_multipool.c:202/330), 池已注销成功后须显式归还动态缓冲,
+     * 否则 4 槽位 32KB 常驻堆内(覆盖率构建实测挤占 pthread 栈预算)。 */
     for (i = 0; i < TEST_POOL_MAX_NUM; i++) {
-        (VOID)LOS_MemDeInit(g_poolMem[i]);
+        if (g_poolMem[i] != NULL) {
+            if (LOS_MemDeInit(g_poolMem[i]) == LOS_OK) {
+                TestReleaseAddrSize(g_poolMem[i]);
+            }
+        }
     }
 
     /* 扩展池0 并保留一个未释放分配 */

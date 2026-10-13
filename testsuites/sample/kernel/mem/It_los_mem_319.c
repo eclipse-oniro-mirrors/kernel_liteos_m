@@ -53,26 +53,37 @@ static UINT32 TestCase(VOID)
         ICUNIT_GOTO_NOT_EQUAL(p[i], NULL, 0, EXIT);
     }
 
-    /* free p3 -> 链[p3]; free p1 -> 链[p1,p3]; free p5 -> 链[p5,p1,p3] */
+    /* free p3 -> 链[p3]; free p1 -> 链[p1,p3]; free p5 -> 链[p5,p1,p3]
+     * 每次释放成功立即置空: 后续任一断言失败走 EXIT 清理时防重复释放 */
     ret = LOS_MemFree(g_memPool, p[2]); /* p3 */
+    if (ret == LOS_OK) {
+        p[2] = NULL;
+    }
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     ret = LOS_MemFree(g_memPool, p[0]); /* p1 */
+    if (ret == LOS_OK) {
+        p[0] = NULL;
+    }
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     ret = LOS_MemFree(g_memPool, p[4]); /* p5 */
+    if (ret == LOS_OK) {
+        p[4] = NULL;
+    }
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* free p2: 合并前块 p1 时从链表中部删除 p1(非链表头且带后继 p3),
      * 覆盖 tlsf OsMemListDelete 的 node->next->prev = node->prev 分支(755) */
     ret = LOS_MemFree(g_memPool, p[1]); /* p2 */
+    if (ret == LOS_OK) {
+        p[1] = NULL;
+    }
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    p[0] = NULL;
-    p[1] = NULL;
-    p[2] = NULL;
 
     ret = LOS_MemFree(g_memPool, p[3]); /* p4, 回收剩余占用 */
+    if (ret == LOS_OK) {
+        p[3] = NULL;
+    }
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    p[3] = NULL;
-    p[4] = NULL;
 
     /* F-Pos: 孤立小空闲块后 FreeNodeShow, 覆盖小桶(index<OS_MEM_SMALL_BUCKET_COUNT)
      * 空闲节点尺寸打印分支(tlsf 1932): A/B/C 各 0x20, free B 被 A/C 隔离成 0x30 小空闲块 */

@@ -301,17 +301,6 @@ VOID TestTaskEntry(VOID)
 #ifdef LOSCFG_KERNEL_TEST
     TestKernel();
 
-#if defined(LOSCFG_TEST_KERNEL_COVERAGE) && defined(LOSCFG_ARCH_RISCV)
-    /* ws63 SRAM 预算: 覆盖率构建的堆不足以支撑 POSIX 域的 8KB 线程栈
-     * (实测 XTS pthread 处挂死, Test End 无法到达, 末尾转储丢失)。
-     * 在进入 POSIX 域前先转储已就绪的内核侧目标目录计数器
-     * (mem/exchook/drivers/arch/board); TEST_GcovDump 为 once-only,
-     * 转储后 g_gcovDumped 置位, 末尾转储为空操作。qemu(大内存)不受影响。 */
-    dprintf("\n>>> ws63 gcov checkpoint dump before posix suites...\n");
-    TEST_GcovDump();
-    dprintf(">>> ws63 gcov checkpoint dump done.\n");
-#endif
-
 #if (LOS_POSIX_TEST == 1)
     ItSuitePosix();
 #endif

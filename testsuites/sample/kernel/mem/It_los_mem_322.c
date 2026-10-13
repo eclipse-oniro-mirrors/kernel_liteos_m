@@ -38,7 +38,6 @@
 #define MEM_TC322_BLK_CNT       33  /* 33 allocs: first 32 fill bitmap word0, the 33rd crosses the word */
 #define MEM_TC322_STRIDE        (16 + 4) /* slab item = blkSz(16) + block node head(4) */
 
-STATIC UINT8 g_memPoolTC322[MEM_TC322_POOL_SIZE] __attribute__((aligned(64)));
 
 /* 用例简要描述: 跨32bit字位图连续33次分配全成功 */
 static UINT32 TestCase(VOID)
@@ -48,6 +47,12 @@ static UINT32 TestCase(VOID)
     UINT32 cfg[SLAB_MEM_COUNT];
     UINT32 cfgDefault[SLAB_MEM_COUNT];
     VOID *ptr[MEM_TC322_BLK_CNT] = {NULL};
+    VOID *pool = NULL;
+
+    /* 大池动态申请(64 对齐, 与原静态 aligned(64) 语义一致), 避免常驻 .bss
+     * 挤占 SRAM 预算(覆盖率构建下 gcov 计数器已占用大量 .bss) */
+    pool = LOS_MemAllocAlign(LOSCFG_SYS_HEAP_ADDR, MEM_TC322_POOL_SIZE, 64);
+    ICUNIT_GOTO_NOT_EQUAL(pool, NULL, 0, EXIT);
 
     /* F-Pos 前置: cfg[0]=1024(默认 512) -> class0(blkSz=16) blkCnt=64=2 个 32bit 位图字 */
     for (i = 0; i < SLAB_MEM_COUNT; i++) {
@@ -56,13 +61,13 @@ static UINT32 TestCase(VOID)
     cfg[0] = 1024; /* 1024 / 16 = 64 items = 2 bitmap words */
     LOS_SlabSizeCfg(cfg, SLAB_MEM_COUNT);
 
-    ret = LOS_MemInit(g_memPoolTC322, MEM_TC322_POOL_SIZE);
+    ret = LOS_MemInit(pool, MEM_TC322_POOL_SIZE);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* F-Pos: 连续 33 次 16B 分配, 第 33 次跳过已满的 word0 命中
      * OsAtomicBitsetFindClearAndSet 的跨字 continue 分支(los_slab.c:85) */
     for (i = 0; i < MEM_TC322_BLK_CNT; i++) {
-        ptr[i] = LOS_MemAlloc(g_memPoolTC322, 16);
+        ptr[i] = LOS_MemAlloc(pool, 16);
         ICUNIT_GOTO_NOT_EQUAL(ptr[i], NULL, i, EXIT);
     }
 
@@ -78,22 +83,26 @@ static UINT32 TestCase(VOID)
         (VOID)memset_s(ptr[i], 16, 0x5A, 16);
     }
     for (i = 0; i < MEM_TC322_BLK_CNT; i++) {
-        ret = LOS_MemFree(g_memPoolTC322, ptr[i]);
+        ret = LOS_MemFree(pool, ptr[i]);
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
         ptr[i] = NULL;
     }
 
-    ret = LOS_MemDeInit(g_memPoolTC322);
+    ret = LOS_MemDeInit(pool);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
 EXIT:
     for (i = 0; i < MEM_TC322_BLK_CNT; i++) {
         if (ptr[i] != NULL) {
-            (VOID)LOS_MemFree(g_memPoolTC322, ptr[i]);
+            (VOID)LOS_MemFree(pool, ptr[i]);
             ptr[i] = NULL;
         }
     }
-    (VOID)LOS_MemDeInit(g_memPoolTC322);
+    (VOID)LOS_MemDeInit(pool);
+    if (pool != NULL) {
+        (VOID)LOS_MemFree(LOSCFG_SYS_HEAP_ADDR, pool);
+        pool = NULL;
+    }
     /* D1: 出口恢复编译默认 cfg(OsSlabMemInit 末尾 OsSlabSizeReset 亦会复位) */
     for (i = 0; i < SLAB_MEM_COUNT; i++) {
         cfgDefault[i] = SLAB_MEM_ALLOCATOR_SIZE;

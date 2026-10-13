@@ -69,10 +69,10 @@ static UINT32 TestCase(VOID)
      * OsMemIsNodeValid -> OsMemAddrValidCheck(ptr.prev 越界) 返回 FALSE(1112),
      * OsMemFree 打印后返回 LOS_NOK, 不 panic(1176-1178) */
     ret = LOS_MemFree(g_memPool, p2);
-    ICUNIT_GOTO_EQUAL(ret, LOS_NOK, ret, EXIT);
-    if (ret == LOS_OK) { /* 防御: 非预期成功则避免 EXIT 双重释放 */
+    if (ret == LOS_OK) { /* 防御: 非预期成功则避免 EXIT 双重释放(须在断言前置空) */
         p2 = NULL;
     }
+    ICUNIT_GOTO_EQUAL(ret, LOS_NOK, ret, EXIT);
 
     /* ---- 恢复 -> 断言功能正常 ---- */
     node1->ptr.prev = prevBackup;

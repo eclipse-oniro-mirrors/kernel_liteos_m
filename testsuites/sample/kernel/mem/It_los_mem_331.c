@@ -34,8 +34,6 @@
 
 #define MEM_TC331_POOL_SIZE     0x1800
 
-STATIC UINT8 g_memPoolTC331[MEM_TC331_POOL_SIZE] __attribute__((aligned(64)));
-
 /* 用例简要描述: 大分配吃满池后LastUsedGet返回精确值 */
 static UINT32 TestCase(VOID)
 {
@@ -45,38 +43,50 @@ static UINT32 TestCase(VOID)
     UINT32 requestSize;
     UINTPTR lastUsed;
     VOID *ptr = NULL;
+    VOID *pool = NULL;
+
+    /* 大池动态申请(64 对齐, 与原静态 aligned(64) 语义一致), 避免常驻 .bss
+     * 挤占 SRAM 预算(覆盖率构建下 gcov 计数器已占用大量 .bss) */
+    pool = LOS_MemAllocAlign(LOSCFG_SYS_HEAP_ADDR, MEM_TC331_POOL_SIZE, 64);
+    ICUNIT_GOTO_NOT_EQUAL(pool, NULL, 0, EXIT);
 
     /* F-Pos: 新池一次大分配吃满首节点: 首空闲节点 =
      * poolSize - sizeof(LosMemPoolInfo) - OS_DLNK_HEAD_SIZE - 节点头(白盒偏移) */
-    ret = LOS_MemPoolInit(g_memPoolTC331, MEM_TC331_POOL_SIZE, 0);
+    ret = LOS_MemPoolInit(pool, MEM_TC331_POOL_SIZE, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    poolSize = LOS_MemPoolSizeGet(g_memPoolTC331);
+    poolSize = LOS_MemPoolSizeGet(pool);
     firstNodeSize = poolSize - sizeof(TestMemPoolInfoBF) - OS_DLNK_HEAD_SIZE - TEST_BF_NODE_HEAD_SIZE;
     /* 请求尺寸使 allocSize 恰等于首节点尺寸 -> 不发生 split, 尾节点前邻为 used */
     requestSize = firstNodeSize - TEST_BF_NODE_HEAD_SIZE;
 
-    ptr = LOS_MemAlloc(g_memPoolTC331, requestSize);
+    ptr = LOS_MemAlloc(pool, requestSize);
     ICUNIT_GOTO_NOT_EQUAL(ptr, NULL, 0, EXIT);
 
     /* LOS_MemLastUsedGet 末邻 used 分支(bestfit 2013):
      * 返回值 = 节点地址 + 节点尺寸 + 节点头大小 = ptr + 请求尺寸 + 节点头偏移 */
-    lastUsed = LOS_MemLastUsedGet(g_memPoolTC331);
+    lastUsed = LOS_MemLastUsedGet(pool);
     ICUNIT_GOTO_EQUAL(lastUsed, (UINTPTR)ptr + requestSize + TEST_BF_NODE_HEAD_SIZE, lastUsed, EXIT);
 
-    ret = LOS_MemFree(g_memPoolTC331, ptr);
+    ret = LOS_MemFree(pool, ptr);
+    if (ret == LOS_OK) {
+        ptr = NULL;
+    }
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    ptr = NULL;
 
-    ret = LOS_MemDeInit(g_memPoolTC331);
+    ret = LOS_MemDeInit(pool);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
 EXIT:
     if (ptr != NULL) {
-        (VOID)LOS_MemFree(g_memPoolTC331, ptr);
+        (VOID)LOS_MemFree(pool, ptr);
         ptr = NULL;
     }
-    (VOID)LOS_MemDeInit(g_memPoolTC331);
+    (VOID)LOS_MemDeInit(pool);
+    if (pool != NULL) {
+        (VOID)LOS_MemFree(LOSCFG_SYS_HEAP_ADDR, pool);
+        pool = NULL;
+    }
     return LOS_OK;
 }
 

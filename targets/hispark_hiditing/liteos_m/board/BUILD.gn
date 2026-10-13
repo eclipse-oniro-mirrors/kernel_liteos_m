@@ -19,6 +19,7 @@ kernel_module(module_name) {
   sources = [
     "interrupt_stub.c",
     "main.c",
+    "nand_yaffs_test_backend.c",
     "pmp_init.c",
     "ram_lfs_backend.c",
     "reset_vector.S",

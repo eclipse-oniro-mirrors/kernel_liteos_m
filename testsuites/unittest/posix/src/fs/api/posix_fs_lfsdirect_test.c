@@ -50,6 +50,7 @@
  */
 
 #include "posix_fs_test.h"
+#include "los_memory.h" /* LOS_MemAlloc/LOS_MemFree: rambd 存储缓冲按需分配 */
 #if (LOSCFG_SUPPORT_LITTLEFS == 1)
 #include "lfs.h"
 #include "lfs_rambd.h"
@@ -61,8 +62,14 @@
 #define DIRECT_BUF_LEN          1024
 #define DIRECT_FILE_NUM         5       /* 目录定位用例的文件数 */
 
-/* lfs_rambd 与 lfs 实例(全部静态, 避免占用任务栈) */
-static uint8_t g_directRambdBuf[DIRECT_MAX_BLOCKS * DIRECT_ERASE_SIZE];
+/* lfs_rambd 与 lfs 实例(全部静态, 避免占用任务栈; rambd 存储缓冲除外) */
+/*
+ * rambd 存储缓冲(容量按最大几何 64*512 = 32KB 预留)由静态 .bss 改为按需
+ * 动态申请(PosixFsLfsDirectTest 首尾托管, 套件外零占用), 同因见
+ * posix_fs_lfsram_test.c: 常驻 .bss 挤占 SRAM 预算使板级 ram_lfs 的 128KB
+ * 单块分配失败。申请失败时整族用例跳过。
+ */
+static uint8_t *g_directRambdBuf = NULL;
 static struct lfs_rambd_config g_directBdCfg;
 static lfs_rambd_t g_directRambd;
 static struct lfs_config g_directCfg;
@@ -78,7 +85,7 @@ static int LfsDirectSetup(bool format, lfs_size_t blockCount)
     g_directBdCfg.prog_size = DIRECT_IO_SIZE;
     g_directBdCfg.erase_size = DIRECT_ERASE_SIZE;
     g_directBdCfg.erase_count = blockCount;
-    g_directBdCfg.buffer = g_directRambdBuf; /* 静态缓冲, 与静态文件缓冲等价的上游用法 */
+    g_directBdCfg.buffer = g_directRambdBuf; /* 外部缓冲, 与上游传静态缓冲的用法等价 */
 
     (void)memset_s(&g_directCfg, sizeof(g_directCfg), 0, sizeof(g_directCfg));
     g_directCfg.context = &g_directRambd;
@@ -888,6 +895,15 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsDirectOpenCfgAttrs, Function | Med
 
 void PosixFsLfsDirectTest(void)
 {
+    /* rambd 存储缓冲按需申请(见 g_directRambdBuf 注释); 失败则整族跳过 */
+    g_directRambdBuf = (uint8_t *)LOS_MemAlloc(LOSCFG_SYS_HEAP_ADDR,
+                                               DIRECT_MAX_BLOCKS * DIRECT_ERASE_SIZE);
+    if (g_directRambdBuf == NULL) {
+        dprintf("PosixFsLfsDirectTest: alloc %u bytes failed, skip\n",
+                (UINT32)(DIRECT_MAX_BLOCKS * DIRECT_ERASE_SIZE));
+        return;
+    }
+
     RUN_ONE_TESTCASE(TestFsLfsDirectTruncate);
     RUN_ONE_TESTCASE(TestFsLfsDirectFilePos);
     RUN_ONE_TESTCASE(TestFsLfsDirectOpenCfg);
@@ -900,6 +916,11 @@ void PosixFsLfsDirectTest(void)
     RUN_ONE_TESTCASE(TestFsLfsDirectRambd);
     RUN_ONE_TESTCASE(TestFsLfsDirectSuperblockCfg);
     RUN_ONE_TESTCASE(TestFsLfsDirectOpenCfgAttrs);
+
+    /* 各用例自建自销实例(不经 VFS 挂载表), 断言失败退出时残留的实例无
+     * 后续访问路径, 直接归还存储即可 */
+    (void)LOS_MemFree(LOSCFG_SYS_HEAP_ADDR, g_directRambdBuf);
+    g_directRambdBuf = NULL;
 }
 #else
 void PosixFsLfsDirectTest(void)

@@ -312,6 +312,15 @@ VOID TestTaskEntry(VOID)
 #if(LOS_XTS_TEST == 1)
     XtsTestSuite();
 #endif
+
+#if (LOSCFG_FS_YAFFS == 1) && (LOS_POSIX_TEST == 1)
+    /* yaffs 套件放最后：其专用池（124KB，TestYaffsVolumeEnsure 时 malloc）
+     * 自 Ensure 起常驻到复位（卷保持挂载），若在 ItSuitePosix 内执行会饿死
+     * 其后的 CMSIS/XTS 线程栈分配（实测 pthread/CMSIS 大面积 ENOMEM）。
+     * 放在全部堆敏感套件之后，池常驻不影响任何用例。 */
+    extern VOID PosixFsYaffsTest(VOID);
+    PosixFsYaffsTest();
+#endif
 #endif
 
     /* The log is used for testing entrance guard, please do not make any changes. */

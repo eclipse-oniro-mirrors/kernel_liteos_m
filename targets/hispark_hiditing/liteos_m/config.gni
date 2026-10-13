@@ -120,16 +120,29 @@ board_nand_backend = "yaffs"
 # 3 volumes ~= +89KB plus checkpoint headroom). Board high-water prints
 # (nand_yaffs_pool_print after each mount) decide the final value.
 #
-# hi3322_testsuits (kernel test product) never mounts yaffs — the suite has no
-# yaffs cases — so it keeps only a token pool (the fmc bridge must still
-# compile) and the 288KB of DTCM goes to the kernel heap instead. Without
-# this the testsuit boot dies at LOS_TaskCreate with LOS_ERRNO_TSK_NO_MEMORY:
+# hi3322_testsuits (kernel test product) mounts ONLY /boot for the yaffs
+# POSIX suite (board/nand_yaffs_test_backend.c → TestYaffsVolumeEnsure →
+# PosixFsYaffsTest): the 288KB three-volume pool would starve the kernel
+# heap (OOM note below), so the test product gets a 96KB single-volume
+# budget — 20 caches x 2112B ≈ 42KB + dev/checkpoint/杂项 (n_caches=20 is
+# baked into the fbb archive). Raise on mount ENOMEM, then re-measure the
+# pool water level (nand_yaffs_pool_print). Without a bounded pool the
+# testsuit boot dies at LOS_TaskCreate with LOS_ERRNO_TSK_NO_MEMORY:
 # DTCM 576KB minus .bss 552KB (yaffs pool 288KB + smoke buffers 148KB + test
 # statics ~75KB) leaves a 22KB heap, of which kernel init alone takes 21KB.
-if (product_name == "hi3322_testsuits") {
-  board_nand_yaffs_pool_bytes = 4096
+if (product_name == "hispark_hiditing_testsuits") {
+  # 124KB: 池尺寸受两约束夹逼——下限 = 挂载水位 78KB + 套件增量 ~35KB；
+  # 上限 = Ensure 时系统堆最大连续块 = ram_lfs 归还的 128KB 盘体（两者错峰
+  # 复用同一大块，160KB 实测 malloc ENOMEM）。原 96KB 套件中途耗尽 →
+  # RwAppend 0xdeadbeef Oops。池已动态化（board_nand_yaffs_pool_dynamic），
+  # 加大不挤占 FS 测试窗。
+  board_nand_yaffs_pool_bytes = 126976
+  # 池改堆上按需申请（backend_init 时 malloc，不常驻 .bss，挂载保持到复位故
+  # 不释放）。yaffs 套件晚于 FS 套件执行，FS 测试窗由此获得全部堆余量。
+  board_nand_yaffs_pool_dynamic = true
 } else {
   board_nand_yaffs_pool_bytes = 294912
+  board_nand_yaffs_pool_dynamic = false
 }
 
 # yaffs trace mask for bring-up (yaffs_trace.h flags; GN has no hex literals).
@@ -159,7 +172,7 @@ board_nand_yaffs_erase_first = false
 # in main(). Prints per-case PASS/FAIL over the debug UART.
 # Off for hi3322_testsuits: smoke_bigbuf alone is 140KB of .bss and the
 # kernel test product does not exercise the file system.
-if (product_name == "hi3322_testsuits") {
+if (product_name == "hispark_hiditing_testsuits") {
   board_nand_smoke_test = false
 } else {
   board_nand_smoke_test = true

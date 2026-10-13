@@ -93,6 +93,12 @@ static_library("fs") {
     "pressure/posix_fs_pressure_test.c",
   ]
 
+  # yaffs 域用例：LOSCFG_FS_YAFFS 门控（kernel/liteos_m/fs/yaffs2/Kconfig；
+  # testsuits 产品 debug.config 已开，yaffs-off 配置不编入本源）
+  if (defined(LOSCFG_FS_YAFFS)) {
+    sources += [ "yaffs/posix_fs_yaffs_test.c" ]
+  }
+
   include_dirs = [
     ".",
     "../",

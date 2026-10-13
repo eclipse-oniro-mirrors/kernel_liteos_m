@@ -62,6 +62,17 @@
 extern int TestFsVolumeEnsure(void);
 extern int TestFsVolumeRelease(void);
 
+/*
+ * yaffs 域按需挂卷钩子（PosixFsYaffsTest 首尾直接调用，语义同上）。
+ * 弱默认实现（posix_test.c）恒返回 0：语义为 "yaffs 卷已由启动流程挂载"。
+ * hi3322_testsuits 的 nand_yaffs_test_backend.c 提供强符号覆盖：
+ * nandflash_filesystem_init(true) 挂真实 NAND /boot（51 块），mount 失败
+ * （空盘）时 nand_yaffs_remount(0, 1) 格式化兜底 —— C4 镜像每次启动整卷
+ * 重烧自愈（fmc/yaffs/nand_yaffs_c4.c），对主产品数据无永久破坏。
+ */
+extern int TestYaffsVolumeEnsure(void);
+extern int TestYaffsVolumeRelease(void);
+
 #ifdef __cplusplus
 #if __cplusplus
 #endif

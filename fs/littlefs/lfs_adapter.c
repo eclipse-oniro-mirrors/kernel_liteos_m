@@ -182,6 +182,13 @@ static const char *LfsStripMpPath(struct MountPoint *mp, const char *path)
 
 void LfsConfigAdapter(struct PartitionCfg *pCfg, struct lfs_config *lfsCfg)
 {
+    /*
+     * 每次挂载/格式化重置设备缓存: 设备表为头插(最新优先), 原实现把首次解析
+     * 永久冻结在开机设备上(qemu flash0 的起始地址是 8MB malloc 基址), 后注册
+     * 的 addr=0 设备(如测试用例的 flash9/ram0)永远选不中, 块回调收到越界
+     * 偏移导致 mount 全量失败。单设备平台重解析结果不变。
+     */
+    g_lfsDevice = NULL;
     lfsCfg->context = (void *)pCfg->partNo;
 
     lfsCfg->read_size = pCfg->readSize;

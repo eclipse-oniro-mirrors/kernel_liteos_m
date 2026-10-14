@@ -61,6 +61,7 @@ SECTIONS
         . = ALIGN(8);
     } > FLASH_PROGRAM
 
+    __sys_mem_start = ORIGIN(ITCM);
     /*
      * ITCM-resident code (SFC flash write/erase): while the SFC executes
      * a command the XIP window cannot fetch, so that path must run from
@@ -85,6 +86,12 @@ SECTIONS
         *(.got)
         *(.got.plt)
         *(.got.*)
+        . = ALIGN(8);
+        /* Place marker-based HAL tables explicitly; lld+LTO SORT() ordering is unreliable. */
+        KEEP(*(.liteos.table.dynload_gsymbol.begin))
+        KEEP(*(.liteos.table.dynload_gsymbol.data))
+        KEEP(*(.liteos.table.dynload_gsymbol.finish))
+        KEEP(*(SORT(.liteos.table.*)))
         . = ALIGN(8);
         __data_end = .;
     } > DTCM AT > FLASH_PROGRAM
@@ -133,6 +140,7 @@ SECTIONS
         . = ORIGIN(DTCM) + LENGTH(DTCM);
         __heap_end__ = .;
     } > DTCM
+    __sys_mem_end = ORIGIN(ITCM) + LENGTH(ITCM) + LENGTH(DTCM);
 
     _gp_ = . + 0x800;
     __global_pointer$ = _gp_;

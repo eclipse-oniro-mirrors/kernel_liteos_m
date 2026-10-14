@@ -172,6 +172,10 @@ group("testsuites") {
   if (defined(LOSCFG_DYNLINK)) {
     deps += [ "sample/kernel/dynlink:test_dynlink" ]
   }
+  if (defined(LOSCFG_KERNEL_DYNLOAD) &&
+      (defined(LOSCFG_ARCH_ARM_AARCH32) || defined(LOSCFG_ARCH_RISCV))) {
+    deps += [ "sample/kernel/dynload:test_dynload" ]
+  }
   if (defined(LOSCFG_KERNEL_LMS)) {
     deps += [ "sample/kernel/lms:test_lms" ]
   }

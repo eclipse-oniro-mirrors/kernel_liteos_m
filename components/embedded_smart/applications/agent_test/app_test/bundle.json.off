@@ -1,0 +1,35 @@
+{
+  "name": "@openharmony/agent_test",
+  "description": "Three-stage voice agent test app (ASR -> agent -> TTS) for hispark_taurus.",
+  "version": "1.0",
+  "license": "Apache License 2.0",
+  "publishAs": "code-segment",
+  "segment": {
+    "destPath": "kernel/liteos_m/components/embedded_smart/applications/agent_test/app_test"
+  },
+  "dirs": {},
+  "scripts": {},
+  "component": {
+    "name": "agent_test",
+    "subsystem": "applications",
+    "syscap": [],
+    "features": [],
+    "adapted_system_type": [
+      "mini",
+      "small"
+    ],
+    "rom": "",
+    "ram": "",
+    "deps": {
+      "components": [],
+      "third_party": []
+    },
+    "build": {
+      "sub_component": [
+        "//kernel/liteos_m/components/embedded_smart/applications/agent_test/app_test:agent_test_group"
+      ],
+      "inner_kits": [],
+      "test": []
+    }
+  }
+}

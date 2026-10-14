@@ -1,0 +1,72 @@
+import("//build/lite/config/component/lite_component.gni")
+
+# WiFi 守护(40行启动壳, 链外部构建产出的 libwpa.so)
+executable("wifi_wpa") {
+  sources = [ "wifi_wpa.c" ]
+  include_dirs = [ "//third_party/wpa_supplicant/wpa_supplicant-2.9_standard/build/include" ]
+  deps = [ "//third_party/wpa_supplicant/wpa_supplicant-2.9:wpa_supplicant-2.9" ]
+  lib_dirs = [
+    rebase_path("//third_party/wpa_supplicant/wpa_supplicant-2.9/build", root_build_dir),
+    "$root_out_dir",
+  ]
+  libs = [ "wpa" ]
+}
+
+# 客户验收示例(静态链 + 系统 libmbedtls.so)
+# v1.3 流式: 库源改取同级 llm_stream 拷贝(llm_client.c+llm_stream.c, 含
+# llm_chat_stream 流式接口), 源码直编; 本目录预编译 libllmclient.a(v1.1,
+# 无流式)保留不动, 仅不再被链接。llm_stream 目录须与本目录同级放置,
+# 拷贝交付时两个文件夹一起拷。
+# 头文件搜索顺序: ../llm_stream 在前(llm_client.h 取 v1.3), 本目录在后
+# (wifi_client.h)。
+# .a 用绝对路径直传链接器(带路径的 libs 项 GN 原样传递, 免 -L 解析)
+_stream = "../llm_stream"
+_wifi_a = rebase_path("libwificlient.a")
+
+executable("customer_test") {
+  sources = [
+    "customer_test.c",
+    "$_stream/llm_client.c",
+    "$_stream/llm_stream.c",
+  ]
+  include_dirs = [
+    "$_stream",
+    "//applications/llm_sdk",
+  ]
+  ldflags = [ "-nostdlib++" ]
+  libs = [ _wifi_a ]
+  deps = [ "//third_party/mbedtls:mbedtls_shared" ]
+}
+
+# 全接口串口交互测试工具(llm_test), 覆盖 wifi/llm 全部公开接口 + /dev/uartdev-N 透传桥
+# gw chat / gw direct 走 llm_chat_stream(SSE 流式, 串口打字机输出)
+executable("llm_test") {
+  sources = [
+    "llm_test.c",
+    "$_stream/llm_client.c",
+    "$_stream/llm_stream.c",
+  ]
+  include_dirs = [
+    "$_stream",
+    "//applications/llm_sdk",
+  ]
+  ldflags = [ "-nostdlib++" ]
+  libs = [ _wifi_a ]
+  deps = [ "//third_party/mbedtls:mbedtls_shared" ]
+}
+
+group("llm_sdk_group") {
+  deps = [
+    ":wifi_wpa",
+    ":customer_test",
+    ":llm_test",
+  ]
+}
+
+lite_component("llm_sdk") {
+  features = [
+    ":wifi_wpa",
+    ":customer_test",
+    ":llm_test",
+  ]
+}

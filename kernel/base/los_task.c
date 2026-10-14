@@ -132,6 +132,14 @@ STATIC VOID OsTaskJoinPost(LosTaskCB *taskCB)
         OsTaskAdd2TimerList(taskCB->joinner, 1); /* Wake up by 1 tick */
     }
 }
+
+STATIC VOID OsTaskCancelJoin(LosTaskCB *taskCB)
+{
+    if (OS_TASK_IS_JOINING(taskCB)) {
+        taskCB->joined->joinner = NULL;
+        taskCB->joined = NULL;
+    }
+}
 #endif /* LOSCFG_TASK_JOINABLE */
 
 VOID LOS_TaskResRecycle(VOID)
@@ -1486,20 +1494,18 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsTaskDelete(UINT32 taskId, UINTPTR retVal)
         }
     }
 
-    OsHookCall(LOS_HOOK_TYPE_TASK_DELETE, taskCB);
-#ifdef LOSCFG_TASK_JOINABLE
-    if (OS_TASK_IS_JOINABLE(taskCB)) {
-        OsTaskJoinPost(taskCB);
-        taskCB->taskRetval = (VOID *)retVal;
-    }
-#endif
-
     if (tempStatus & OS_TASK_STATUS_READY) {
         (VOID)OsSchedReadyTaskRemove(taskCB);
-    } else if (tempStatus & OS_TASK_STATUS_PEND) {
+    } else if ((tempStatus & OS_TASK_STATUS_PEND) && (!OS_TASK_IS_JOINING(taskCB))) {
         LOS_ListDelete(&taskCB->pendList);
         taskCB->taskStatus &= ~OS_TASK_STATUS_PEND;
     }
+
+    OsHookCall(LOS_HOOK_TYPE_TASK_DELETE, taskCB);
+
+#ifdef LOSCFG_TASK_JOINABLE
+    OsTaskCancelJoin(taskCB);
+#endif
 
     if (taskCB->taskStatus & (OS_TASK_STATUS_DELAY | OS_TASK_STATUS_PEND_TIME)) {
         OsTimerListDelete(taskCB);
@@ -1515,6 +1521,13 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsTaskDelete(UINT32 taskId, UINTPTR retVal)
         OsTaskResourceReclaim(taskCB, &intSave);
     }
 
+#ifdef LOSCFG_TASK_JOINABLE
+    if (OS_TASK_IS_JOINABLE(taskCB)) {
+        OsTaskJoinPost(taskCB);
+        taskCB->taskRetval = (VOID *)retVal;
+    }
+#endif
+
     if (taskCB->taskStatus & OS_TASK_STATUS_RUNNING) {
         if (OS_TASK_IS_DETACHED(taskCB)) {
             OsTaskDelActionOnRun(taskCB);
@@ -1523,17 +1536,10 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsTaskDelete(UINT32 taskId, UINTPTR retVal)
         OsTaskReSched();
         SCHEDULER_UNLOCK(intSave);
         goto LOS_RETURN;
+    } else if (OS_TASK_IS_DETACHED(taskCB)) {
+        taskCB->taskStatus = OS_TASK_STATUS_UNUSED;
+        OsTaskStackFree(taskCB);
     }
-
-#ifdef LOSCFG_TASK_JOINABLE
-    if (OS_TASK_IS_JOINABLE(taskCB)) {
-        SCHEDULER_UNLOCK(intSave);
-        goto LOS_RETURN;
-    }
-#endif
-
-    taskCB->taskStatus = OS_TASK_STATUS_UNUSED;
-    OsTaskStackFree(taskCB);
 
 LOS_UNLOCK:
     SCHEDULER_UNLOCK(intSave);

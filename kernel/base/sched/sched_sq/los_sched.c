@@ -81,6 +81,7 @@ VOID OsSchedResched(VOID)
 
 #if defined(LOSCFG_SCHED_LATENCY) && (LOSCFG_KERNEL_SIGNAL == 1)
     if (OsSignalRestorePending()) {
+        OsSchedTaskDeQueue(runTask);
         ArchTaskSchedule(runTask, runTask);
         return;
     }
@@ -148,15 +149,7 @@ VOID OsSchedPreempt(VOID)
      */
     OsTimeSliceUpdate(runTask, OsGetCurrSchedTimeCycle());
 
-    /*
-     * Skip enqueue if already READY: in latency mode, signal restore path
-     * in OsSchedResched returns before OsSchedTaskDeQueue, leaving the
-     * task with READY set. Without this check the next OsSchedTaskEnQueue
-     * would assert on the double-enqueue.
-     */
-    if (!(runTask->taskStatus & OS_TASK_STATUS_READY)) {
-        OsSchedTaskEnQueue(runTask);
-    }
+    OsSchedTaskEnQueue(runTask);
 
     /* reschedule to new thread */
     OsSchedResched();

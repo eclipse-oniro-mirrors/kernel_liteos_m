@@ -107,16 +107,13 @@ executable("agent_test") {
     ":agent_core_lib",
     "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_stream:llmclient_stream",
     "//kernel/liteos_m/components/embedded_smart/applications/agent_test/wake_sdk:wake_audio_core",
+    # SDK 库改为源码直编(dep), 不再链预编译 .a
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_sdk:wificlient",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/pca9685_sdk:pca9685",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/key_sdk:keydriver",
     "//third_party/mbedtls:mbedtls_shared",
     # pca9685_sdk/key_sdk 用户态 HDI 实现(板上 /usr/lib/libhdf_platform.so)
     "//drivers/hdf_core/adapter/uhdf/platform:hdf_platform",
-  ]
-  libs = [
-    # LLM 库改为 dep llmclient_stream 源码直编(见文件头说明),
-    # 原 libllmclient.a 移除 —— 与新库符号重复, 不能同时链接
-    rebase_path("//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_sdk/libwificlient.a"),
-    rebase_path("//kernel/liteos_m/components/embedded_smart/applications/agent_test/pca9685_sdk/libpca9685.a"),
-    rebase_path("//kernel/liteos_m/components/embedded_smart/applications/agent_test/key_sdk/libkeydriver.a"),
   ]
   # MPP 静态库(同 my_wake: rootfs 不带 libmpi.so, 必须静态链) + -ldl(AO 重采样
   # dlopen) + C++ 运行时(TFLM)

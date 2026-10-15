@@ -5,13 +5,12 @@ import("//build/lite/config/component/lite_component.gni")
 # 来源: 交付包_UIDISPLAY_v1/SDK库包(源码+assets 全量拷贝), 在包版基础上增加:
 #   - 板上实体按键接管表情切换: key1(GPIO0_2)=上一个表情, key2(GPIO0_1)=下一个表情,
 #     所有表情循环(SetEmotionByIndex 自带回绕)。
-#     链 applications/key_sdk 预编译 libkeydriver.a; GPIO 事件只能被一个进程消费,
+#     dep applications/agent_test/key_sdk 源码直编的 keydriver 库;
+#     GPIO 事件只能被一个进程消费,
 #     app_test 的 KeySvcStart() 已停用自启(见 app_test/main/app_test.c)。
 #
 # 表情资产经 emoji_assets copy 目标打进 userfs data/emoji/(板上 /storage/data/emoji);
 # 字体/断行规则由 ui_lite 自带 BUILD.gn 打包(无需处理)。
-
-_key_a = rebase_path("//kernel/liteos_m/components/embedded_smart/applications/agent_test/key_sdk/libkeydriver.a")
 
 _hdf_include = [
   "//drivers/hdf_core/framework/include/core",
@@ -34,7 +33,8 @@ executable("ui_display") {
 
   include_dirs = [
     "//foundation/arkui/ui_lite/frameworks",
-    "//applications/key_sdk",
+    # key_driver.h 在本包 key_sdk(原 //applications/key_sdk 壳仅存 bundle.json)
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/key_sdk",
   ] + _hdf_include
 
   ldflags = [
@@ -43,13 +43,13 @@ executable("ui_display") {
     "-Wl,-rpath-link=$ohos_root_path/$root_out_dir",
   ]
 
-  libs = [ _key_a ]
-
   deps = [
     "//foundation/arkui/ui_lite:ui_lite",
     "//foundation/graphic/graphic_utils_lite:lite_graphic_hals",
     "//foundation/window/window_manager_lite:wms_client",
     "//third_party/freetype:freetype",
+    # key_sdk 源码直编库(替代预编译 libkeydriver.a)
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/key_sdk:keydriver",
     # key_sdk 用户态 HDI 实现(板上 /usr/lib/libhdf_platform.so)
     "//drivers/hdf_core/adapter/uhdf/platform:hdf_platform",
     ":emoji_assets",
@@ -68,29 +68,30 @@ copy("bg_assets") {
 }
 
 # 表情资产打包进 userfs data/emoji/(板上路径 /storage/data/emoji)
+# 资源头文件放 vendor/hisilicon/hispark_taurus/data/emoji/(资产随产品走,同 bg_assets)
 copy("emoji_assets") {
   sources = [
-    "assets/emoji/angry.gif",
-    "assets/emoji/confident.gif",
-    "assets/emoji/confused.gif",
-    "assets/emoji/cool.gif",
-    "assets/emoji/crying.gif",
-    "assets/emoji/delicious.gif",
-    "assets/emoji/embarrassed.gif",
-    "assets/emoji/funny.gif",
-    "assets/emoji/happy.gif",
-    "assets/emoji/kissy.gif",
-    "assets/emoji/laughing.gif",
-    "assets/emoji/loving.gif",
-    "assets/emoji/neutral.gif",
-    "assets/emoji/relaxed.gif",
-    "assets/emoji/sad.gif",
-    "assets/emoji/shocked.gif",
-    "assets/emoji/silly.gif",
-    "assets/emoji/sleepy.gif",
-    "assets/emoji/surprised.gif",
-    "assets/emoji/thinking.gif",
-    "assets/emoji/winking.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/angry.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/confident.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/confused.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/cool.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/crying.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/delicious.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/embarrassed.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/funny.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/happy.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/kissy.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/laughing.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/loving.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/neutral.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/relaxed.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/sad.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/shocked.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/silly.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/sleepy.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/surprised.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/thinking.gif",
+    "//vendor/hisilicon/hispark_taurus/data/emoji/winking.gif",
   ]
   outputs = [ "$root_out_dir/data/emoji/{{source_file_part}}" ]
 }

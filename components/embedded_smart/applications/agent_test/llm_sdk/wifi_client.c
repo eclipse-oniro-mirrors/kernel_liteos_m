@@ -5,6 +5,12 @@
  * 监控线程每轮重发守护而不杀旧的, 几十只 supplicant 同时扫同一网卡,
  * CPU 耗尽(整机 UI 卡死)且热点恢复后互相抢网卡永远连不上。
  */
+/* musl 的 struct ifreq/IFNAMSIZ 藏在 _GNU_SOURCE/_BSD_SOURCE 门后,
+ * GN 构建(-std=c99)不带该宏, 源码直编时必须先补(原预编译 .a 用
+ * liteos_a sysroot 编, 无此问题) */
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

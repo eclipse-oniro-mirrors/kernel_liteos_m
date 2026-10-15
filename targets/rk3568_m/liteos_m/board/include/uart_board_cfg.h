@@ -55,7 +55,7 @@
 /* ---- UART3: m0 (GPIO1_A0/A1 func2) - pins currently held by I2C3 on
  *      DAYU200, data kept for other boards ---- */
 #define BOARD_UART3_EN          1
-#define BOARD_UART3_PINMUX      RK3568_UART3_PINMUX_M0
+#define BOARD_UART3_PINMUX      RK3568_UART3_PINMUX_M1
 #define BOARD_UART3_RS485_ECHO  0
 
 /* ---- UART4: WARNING (legacy). The original profile value kept below

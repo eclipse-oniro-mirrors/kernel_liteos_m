@@ -3,7 +3,7 @@
  * RK3568 AMP main entry (liteos_m, AArch64 EL1, CPU3).
  *
  * Boot flow (MICA deployment): Linux loads this ELF via remoteproc,
- * PSCI CPU_ON brings CPU3 to arm64_entry (reset_vector.S), which sets up
+ * PSCI CPU_ON brings CPU3 to reset_vector (reset_vector.S), which sets up
  * EL1/SP/MMU and jumps here. The flow follows the seven-stage pattern:
  *   board_init -> LOS_KernelInit (GICv3+timer inside ArchInit/tick init)
  *   -> shell -> mica/rpmsg task (LOSCFG_MCS) -> app tasks -> LOS_Start

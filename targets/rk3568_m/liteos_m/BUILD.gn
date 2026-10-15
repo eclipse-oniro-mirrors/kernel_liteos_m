@@ -3,7 +3,10 @@
 import("//kernel/liteos_m/liteos.gni")
 
 group("liteos_m") {
-  deps = [ "board" ]
+  deps = [
+    "arch/arm64",
+    "board",
+  ]
 }
 
 config("public") {

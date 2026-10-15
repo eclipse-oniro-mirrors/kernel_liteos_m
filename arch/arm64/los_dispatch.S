@@ -1,6 +1,8 @@
 /*
- * AArch64 task dispatch and IRQ entry. Ported from hs-fbb
- * arch_lite/arm64/src/dispatch.S, adapted to the liteos_m contract:
+ * AArch64 task dispatch and IRQ entry (liteos_m contract):
+ * context switch (LOS_Schedule/OS_TASK schedule tail), IRQ entry with the
+ * EXC_CONTEXT_S frame contract and the interrupt lock/unlock family
+ * (ArchIntLock/ArchIntUnLock/ArchIntRestore/ArchIntLocked).
  *   VOID ArchStartToRun(LosTaskCB *newTask);
  *   VOID ArchTaskSchedule(LosTaskCB *newTask, LosTaskCB *runTask);
  *   _osExceptIrqHdl: IRQ vector entry -> HalInterrupt (GICv3 ICC_IAR1_EL1).
@@ -26,6 +28,7 @@
     .global ArchIntLock
     .global ArchIntUnLock
     .global ArchIntRestore
+    .global ArchIntLocked
 
 /* ---- interrupt lock/unlock (DAIF), cortex_a_r-compatible contract ---- */
     .align  5
@@ -43,6 +46,15 @@ ArchIntUnLock:
     .align  5
 ArchIntRestore:
     msr     daif, x0
+    ret
+
+/* ArchIntLocked: non-zero when the IRQ mask (DAIF.I) is set. Global like
+ * the siblings above - the prototype lives in los_interrupt.h and other
+ * archs implement it the same way (out-of-line in their los_interrupt.c). */
+    .align  5
+ArchIntLocked:
+    mrs     x0, daif
+    and     w0, w0, #0x80          /* PSR_I_BIT */
     ret
 
     .macro  PUSH reg1, reg2

@@ -1,5 +1,5 @@
 /*
- * RK3568 AMP boot entry (arm64_entry). Entered at EL1 (PSCI CPU_ON from
+ * RK3568 AMP boot entry (reset_vector). Entered at EL1 (PSCI CPU_ON from
  * Linux/MICA via TF-A) or EL2/EL3 (QEMU -kernel / direct load).
  *
  * Flow (plan section 2.1):
@@ -18,9 +18,9 @@
 
     .section .text.entry, "ax"
     .align  4
-    .global arm64_entry
-    .type   arm64_entry, %function
-arm64_entry:
+    .global reset_vector
+    .type   reset_vector, %function
+reset_vector:
     /* interrupts/faults off until we are ready */
     msr     daifset, #0xf
 
@@ -80,4 +80,4 @@ hang:
     wfe
     b       hang
 
-    .size arm64_entry, . - arm64_entry
+    .size reset_vector, . - reset_vector

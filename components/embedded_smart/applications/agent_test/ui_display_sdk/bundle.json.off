@@ -1,0 +1,35 @@
+{
+  "name": "@openharmony/ui_display_sdk",
+  "description": "Companion LCD UI app for HiSpark AI Camera: emoji GIF library (21 pcs) + touch widgets, based on ui_lite + wms_client.",
+  "version": "1.0",
+  "license": "Apache License 2.0",
+  "publishAs": "code-segment",
+  "segment": {
+    "destPath": "kernel/liteos_m/components/embedded_smart/applications/agent_test/ui_display_sdk"
+  },
+  "dirs": {},
+  "scripts": {},
+  "component": {
+    "name": "ui_display_sdk",
+    "subsystem": "applications",
+    "syscap": [],
+    "features": [],
+    "adapted_system_type": [
+      "mini",
+      "small"
+    ],
+    "rom": "",
+    "ram": "",
+    "deps": {
+      "components": [],
+      "third_party": []
+    },
+    "build": {
+      "sub_component": [
+        "//kernel/liteos_m/components/embedded_smart/applications/agent_test/ui_display_sdk:ui_display_group"
+      ],
+      "inner_kits": [],
+      "test": []
+    }
+  }
+}

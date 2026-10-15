@@ -1,0 +1,35 @@
+{
+  "name": "@openharmony/llm_sdk",
+  "description": "LLM client and WiFi client libraries for in-image modules.",
+  "version": "1.0",
+  "license": "Apache License 2.0",
+  "publishAs": "code-segment",
+  "segment": {
+    "destPath": "kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_sdk"
+  },
+  "dirs": {},
+  "scripts": {},
+  "component": {
+    "name": "llm_sdk",
+    "subsystem": "applications",
+    "syscap": [],
+    "features": [],
+    "adapted_system_type": [
+      "mini",
+      "small"
+    ],
+    "rom": "",
+    "ram": "",
+    "deps": {
+      "components": [],
+      "third_party": []
+    },
+    "build": {
+      "sub_component": [
+        "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_sdk:llm_sdk_group"
+      ],
+      "inner_kits": [],
+      "test": []
+    }
+  }
+}

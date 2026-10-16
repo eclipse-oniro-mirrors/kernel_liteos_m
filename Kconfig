@@ -199,7 +199,7 @@ orsource "../../device/board/*/Kconfig.liteos_m.shields"
 orsource "../../device/board/$(BOARD_COMPANY)/Kconfig.liteos_m.defconfig.boards"
 
 choice
-    prompt "Board Selection"
+    bool "Board Selection"
 
 orsource "../../device/board/$(BOARD_COMPANY)/Kconfig.liteos_m.boards"
 
@@ -207,12 +207,7 @@ endchoice
 
 orsource "../../device/soc/*/Kconfig.liteos_m.defconfig"
 
-choice
-    prompt "SoC Series Selection"
-
 orsource "../../device/soc/*/Kconfig.liteos_m.series"
-
-endchoice
 
 orsource "../../device/soc/*/Kconfig.liteos_m.soc"
 

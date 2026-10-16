@@ -433,7 +433,7 @@ config BASE_CORE_TSK_DEFAULT_STACK_SIZE
 
 config BASE_CORE_TSK_SWTMR_STACK_SIZE
     int "Swtmr Task Stack Size"
-    default LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE
+    default BASE_CORE_TSK_DEFAULT_STACK_SIZE
     default 1024  if KERNEL_RAM_PRESET_STANDARD
     help
       This represents the swtmr task stack size. Defaults to the task
@@ -654,5 +654,11 @@ endmenu
 config BASE_CORE_SYS_RES_CHECK
    bool "Enable System Resource Check"
    default y
+
+config BASE_CORE_SWTMR
+    bool "Enable Software Timer"
+    default y
+    help
+      Answer Y to enable the software timer (swtmr) module.
 
 endmenu

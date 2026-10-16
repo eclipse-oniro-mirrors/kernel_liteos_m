@@ -90,7 +90,12 @@ STATIC UINT32 CreateAppTask(VOID)
  * (a half-dead slave would stay "ON" and block the next mica_start). */
 VOID SlavePoweroff(VOID)
 {
-    PRINTK("[mica] slave poweroff: PSCI CPU_OFF\n");
+    /* No PRINTK here on purpose: this runs in the IPI interrupt context and
+     * the shared UART is owned by the master console; a log write can wedge
+     * (or stall on TX FIFO contention with the master's console traffic),
+     * the SMC below never executes, the IPI stays masked, and the master's
+     * wait_cpu_off times out leaving the core on - which then gets its image
+     * overwritten by the next load. Power-off must be print-free. */
     __asm__ volatile (
         "dsb  sy\n"
         "mov  x0, %0\n"
@@ -135,7 +140,9 @@ STATIC VOID TtyShellExecTask(UINT32 arg)
     (VOID)arg;
     for (;;) {
         (VOID)LOS_SemPend(g_ttyExecSem, LOS_WAIT_FOREVER);
+        (VOID)mica_tty_printf("[tty] exec: '%s'\n", g_ttyExecBuf);
         (VOID)ExecCmdline(g_ttyExecBuf);
+        (VOID)mica_tty_printf("[tty] exec done\n");
         g_ttyExecSeqOut++;
     }
 }
@@ -334,6 +341,31 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
         ret = NetTestTaskInit();
         if (ret != LOS_OK) {
             PRINT_ERR("[boot] NetTestTaskInit failed: 0x%x\n", ret);
+        }
+    }
+#endif
+
+#ifdef LOSCFG_MCS_CAN
+    /* Real-time CAN user demo (classic CAN 2.0B data plane; master
+     * mcs_can.ko must have handed CAN1 over first - see can_test.c) */
+    {
+        extern UINT32 CanTestTaskInit(VOID);
+        ret = CanTestTaskInit();
+        if (ret != LOS_OK) {
+            PRINT_ERR("[boot] CanTestTaskInit failed: 0x%x\n", ret);
+        }
+    }
+#endif
+
+#ifdef LOSCFG_MCS_RPC
+    /* mica RPC service validation + BSD-socket proxy demo: the slave app
+     * calls np_* APIs that travel over the rpmsg-rpc endpoint and execute
+     * on the master Linux stack (see netproxy_test.c + netproxy_demo.c). */
+    {
+        extern UINT32 NetProxyTestTaskInit(VOID);
+        ret = NetProxyTestTaskInit();
+        if (ret != LOS_OK) {
+            PRINT_ERR("[boot] NetProxyTestTaskInit failed: 0x%x\n", ret);
         }
     }
 #endif

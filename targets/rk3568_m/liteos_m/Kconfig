@@ -42,6 +42,23 @@ config MCS_NET
       RX, sending numbered 0x88B5 test frames and printing statistics
       once a second (see the NIC user guide).
 
+config MCS_CAN
+    bool "Real-time CAN data plane on CAN1 (slave side)"
+    default n
+    depends on MCS
+    help
+      Slave-side data plane for the real-time CAN endpoints: the Linux
+      master mcs_can.ko performs the hand-over before this core touches
+      the hardware (baudclk retarget to 100MHz + clock hold, CRU reset
+      pulse, can1m1 pinmux) and this core runs the classic CAN 2.0B data
+      path against the protocol-agnostic can.h contract (rx mode, work
+      mode and bit timing are runtime CanConfig options, not build
+      switches). There is no runtime handshake with the master - the ko
+      must simply be loaded first (see board/DRIVER_GUIDE.md). A user demo task
+      (can_test.c) is compiled in: internal loopback phases
+      (irq/poll rx, 125k/250k/500k/1M bit timing, ext-id/rtr/dlc sweep)
+      printing statistics once a second (see the CAN user guide).
+
 config RK3568_UART
     bool "Enable the RK3568 UART driver (Modbus-RTU oriented, uart_drv.h API)"
     default n
@@ -57,3 +74,19 @@ config RK3568_UART
       shared with the Linux master console, caller-owned risk (§4.2).
       RS485 direction control is out of scope (auto-direction
       transceiver); the optional RX echo suppression is a profile flag.
+
+config MCS_RPC
+    bool "mica rpc service + socket proxy demo (slave side)"
+    default n
+    depends on MCS
+    help
+      mica service-framework probe plus the socket proxy data path: the
+      rpmsg-rpc endpoint is brought up by libmica (rpc_service.c, both
+      client and server roles) and this core registers an RPC_PING echo
+      handler so the master can verify the slave service framework. On
+      top of the rpc channel the np_* socket proxy API (netproxy_test.c)
+      forwards BSD socket calls to the master netproxy worker, which
+      executes them on the Linux network stack (socket RPC proxy mode,
+      the UniProton proxy model). Shell commands: rpctest [len] runs a
+      client round-trip through the master; nptest <ip> [port] runs a
+      UDP and a TCP probe against <ip>.

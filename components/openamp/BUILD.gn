@@ -97,6 +97,7 @@ kernel_module(module_name) {
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/mica_service.c",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/pedestals/baremetal.c",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/pedestals/ped_rsc_table.c",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/rpc_service.c",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/tty_service.c",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/umt_service.c",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/echo_service.c",

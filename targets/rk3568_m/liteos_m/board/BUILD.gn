@@ -31,18 +31,39 @@ kernel_module(module_name) {
 
   # Real-time NIC data plane on GMAC1 (bring-up done by the master-side
   # mcs_net.ko; this is the slave data path + the net self-test task).
+  # Driver source: net/net_dwmac.c against the protocol-agnostic net.h
+  # contract (runtime-configurable mode, link policy and rx filter).
   if (defined(LOSCFG_MCS_NET)) {
-    # the NIC data-plane driver lives in the SoC repo; depend on its
-    # module_group entry (//device/soc/rockchip/rk3568_m:rk3568_m) which
-    # aggregates driver/net - groups carry no kernel_module visibility
-    # restrictions and still propagate the module's public config.
-    deps += [ "//device/soc/rockchip/rk3568_m" ]
-    sources += [ "net_test.c" ]
+    sources += [
+      "net/net_dwmac.c",
+      "net_test.c",
+    ]
+  }
+
+  # Real-time CAN data plane on CAN1 (bring-up is done by the
+  # master-side mcs_can.ko; this is the slave data path + the can
+  # self-test task). Driver source: can/can_rk3568.c against the
+  # protocol-agnostic can.h contract (runtime-configurable rx mode, work
+  # mode and bit timing).
+  if (defined(LOSCFG_MCS_CAN)) {
+    sources += [
+      "can/can_rk3568.c",
+      "can_test.c",
+    ]
+  }
+
+  # mica rpc service probe + socket proxy demo (netproxy_test.c): the
+  # rpmsg-rpc endpoint (libmica rpc_service.c) plus the np_* socket
+  # proxy API forwarding BSD socket calls to the master netproxy worker.
+  if (defined(LOSCFG_MCS_RPC)) {
+    sources += [ "netproxy_test.c" ]
   }
 
   include_dirs = [
     "include",
     ".",
+    "can",
+    "net",
     "//kernel/liteos_m/testsuites/include",
   ]
 }

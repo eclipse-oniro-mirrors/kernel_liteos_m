@@ -80,18 +80,10 @@ static UINT32 Testcase(VOID)
 
     g_testCount = 0;
 
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)Case3, &swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case3, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     // 2, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)Case2, &swtmrId2, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case2, &swtmrId2, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_HwiCreate(HWI_NUM_INT11, 1, 0, (HWI_PROC_FUNC)Case1, 0);

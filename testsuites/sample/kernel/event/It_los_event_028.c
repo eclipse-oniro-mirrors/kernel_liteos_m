@@ -119,13 +119,8 @@ static UINT32 Testcase(VOID)
     ret = LOS_QueueCreate("EventTsk28_Queue", QUEUE_MAX_LEN, &g_testQueueID01, 0, QUEUE_MAX_NODE_SIZE);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
     /* 4, Timeout interval of a periodic software timer. */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0xffff,
-        OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE);
-#else
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0xffff); // 4, Timeout interval of a periodic software timer.
-#endif
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT2);
 
     LOS_SwtmrStart(swTmrID);

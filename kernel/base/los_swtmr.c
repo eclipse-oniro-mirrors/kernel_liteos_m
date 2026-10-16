@@ -504,19 +504,20 @@ LITE_OS_SEC_TEXT STATIC UINT32 OsSwtmrTimeGet(const LosSwtmrCB *swtmr)
     return OsSwtmrRollToTick(time);
 }
 
-STATIC LITE_OS_SEC_TEXT_INIT UINT32 OsSwtmrCreate(UINT32 interval,
-                                                   UINT8 mode,
-                                                   SWTMR_PROC_FUNC handler,
-                                                   UINT32 *swtmrId,
-                                                   UINTPTR arg
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-                                                   , UINT8 rouses, UINT8 sensitive
-#endif
-                                                   )
+LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
+                                             UINT8 mode,
+                                             SWTMR_PROC_FUNC handler,
+                                             UINT32 *swtmrId,
+                                             UINTPTR arg)
 {
     LosSwtmrCB *swtmr = NULL;
     UINT32 intSave;
     SortLinkList *sortList = NULL;
+
+#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
+    UINT8 originalMode = mode;
+    mode &= ~LOS_SWTMR_ALIGN_FLAG;
+#endif
 
     if (interval == 0) {
         return LOS_ERRNO_SWTMR_INTERVAL_NOT_SUITED;
@@ -556,9 +557,10 @@ STATIC LITE_OS_SEC_TEXT_INIT UINT32 OsSwtmrCreate(UINT32 interval,
     SET_SORTLIST_VALUE(&swtmr->sortList, OS_SORT_LINK_INVALID_TIME);
 
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    (VOID)rouses;
-    if ((sensitive == OS_SWTMR_ALIGN_INSENSITIVE) && (mode == LOS_SWTMR_MODE_PERIOD)) {
+    if ((originalMode & LOS_SWTMR_ALIGN_FLAG) && (mode == LOS_SWTMR_MODE_PERIOD)) {
         swtmr->alignEnable = TRUE;
+    } else {
+        swtmr->alignEnable = FALSE;
     }
     swtmr->isAligned = FALSE;
 #endif
@@ -576,37 +578,6 @@ STATIC LITE_OS_SEC_TEXT_INIT UINT32 OsSwtmrCreate(UINT32 interval,
     OsHookCall(LOS_HOOK_TYPE_SWTMR_CREATE, swtmr);
 
     return LOS_OK;
-}
-
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
-                                             UINT8 mode,
-                                             SWTMR_PROC_FUNC handler,
-                                             UINT32 *swtmrId,
-                                             UINTPTR arg,
-                                             UINT8 rouses,
-                                             UINT8 sensitive)
-#else
-LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
-                                             UINT8 mode,
-                                             SWTMR_PROC_FUNC handler,
-                                             UINT32 *swtmrId,
-                                             UINTPTR arg)
-#endif
-{
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    if ((rouses != OS_SWTMR_ROUSES_IGNORE) && (rouses != OS_SWTMR_ROUSES_ALLOW)) {
-        return OS_ERRNO_SWTMR_ROUSES_INVALID;
-    }
-
-    if ((sensitive != OS_SWTMR_ALIGN_INSENSITIVE) && (sensitive != OS_SWTMR_ALIGN_SENSITIVE)) {
-        return OS_ERRNO_SWTMR_ALIGN_INVALID;
-    }
-
-    return OsSwtmrCreate(interval, mode, handler, swtmrId, arg, rouses, sensitive);
-#else
-    return OsSwtmrCreate(interval, mode, handler, swtmrId, arg);
-#endif
 }
 
 #ifdef LOSCFG_BASE_CORE_SYS_RES_CHECK

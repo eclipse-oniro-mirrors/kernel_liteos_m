@@ -157,11 +157,7 @@ int timer_create(clockid_t clockID, struct sigevent *restrict evp, timer_t *rest
     }
 
     ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)evp->sigev_notify_function,
-                          &swtmrId, (UINT32)(UINTPTR)evp->sigev_value.sival_ptr
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-                          , OS_SWTMR_ROUSES_IGNORE, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+                          &swtmrId, (UINT32)(UINTPTR)evp->sigev_value.sival_ptr);
     if (ret != LOS_OK) {
         errno = (ret == LOS_ERRNO_SWTMR_MAXSIZE) ? EAGAIN : EINVAL;
         return -1;

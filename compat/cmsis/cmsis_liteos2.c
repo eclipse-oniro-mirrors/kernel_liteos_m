@@ -761,16 +761,9 @@ osTimerId_t osTimerNew(osTimerFunc_t func, osTimerType_t type, void *argument, c
         return NULL;
     }
 
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    if (LOS_SwtmrCreate(1, mode, (SWTMR_PROC_FUNC)func, &swtmrId, (UINTPTR)argument,
-        osTimerRousesAllow, osTimerAlignIgnore) != LOS_OK) {
-        return (osTimerId_t)NULL;
-    }
-#else
     if (LOS_SwtmrCreate(1, mode, (SWTMR_PROC_FUNC)func, &swtmrId, (UINTPTR)argument) != LOS_OK) {
         return (osTimerId_t)NULL;
     }
-#endif
     return (osTimerId_t)OS_SWT_FROM_SWTID(swtmrId);
 }
 
@@ -779,6 +772,7 @@ osTimerId_t osTimerExtNew(osTimerFunc_t func, osTimerType_t type, void *argument
     osTimerRouses_t rouses, osTimerAlign_t sensitive)
 {
     UNUSED(attr);
+    UNUSED(rouses);
     UINT32 usSwTmrID;
     UINT8 mode;
 
@@ -791,8 +785,10 @@ osTimerId_t osTimerExtNew(osTimerFunc_t func, osTimerType_t type, void *argument
     } else {
         mode = LOS_SWTMR_MODE_PERIOD;
     }
-    if (LOS_OK != LOS_SwtmrCreate(1, mode, (SWTMR_PROC_FUNC)func, &usSwTmrID,
-        (UINTPTR)argument, rouses, sensitive)) {
+    if (sensitive == osTimerAlignAllow) {
+        mode |= LOS_SWTMR_ALIGN_FLAG;
+    }
+    if (LOS_OK != LOS_SwtmrCreate(1, mode, (SWTMR_PROC_FUNC)func, &usSwTmrID, (UINTPTR)argument)) {
         return (osTimerId_t)NULL;
     }
 

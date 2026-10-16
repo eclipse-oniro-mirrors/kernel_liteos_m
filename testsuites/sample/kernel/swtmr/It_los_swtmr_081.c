@@ -52,11 +52,7 @@ static UINT32 Testcase(VOID)
     UINT64 deltaTicks;
 
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(SWTMR_PERIODIC, LOS_SWTMR_MODE_ONCE, Case1, &g_swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(SWTMR_PERIODIC, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &g_swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     g_timeRecordNS = LOS_CurrNanosec();

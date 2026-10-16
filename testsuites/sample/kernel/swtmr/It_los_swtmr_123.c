@@ -37,12 +37,7 @@ static UINT32 TestCase(VOID)
     UINT32 ret;
     UINT32 swtmrId;
 
-    ret = LOS_SwtmrCreate(0x7FFFFFFF, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrFunc123,
-                          &swtmrId, 0
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-                          , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-                         );
+    ret = LOS_SwtmrCreate(0x7FFFFFFF, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrFunc123, &swtmrId, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     /* F-Pos: 启动超长周期定时器 → rollnum 超限钳位分支(OsAdd2SortLink) */

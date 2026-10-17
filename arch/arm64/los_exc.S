@@ -1,164 +1,223 @@
 /*
- * AArch64 exception vector table (VBAR_EL1, 16-slot layout) and sync
- * exception entry. Ported from hs-fbb arch_lite/arm64/src/exception.S,
- * adapted to the liteos_m exception contract (HalExcHandleEntry).
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * Vector layout (0x80 bytes per slot, 0x200 total):
- *   0x000 cur EL SP0  sync   0x200 lower EL AArch64 sync
- *   0x080 cur EL SP0  irq    0x280 lower EL AArch64 irq
- *   0x100 cur EL SP0  fiq    0x300 lower EL AArch64 fiq
- *   0x180 cur EL SP0  serror 0x380 lower EL AArch64 serror
- *   0x400 cur EL SPx  sync   0x600 lower EL AArch32 sync
- *   0x480 cur EL SPx  irq    0x680 lower EL AArch32 irq
- *   0x500 cur EL SPx  fiq    0x700 lower EL AArch32 fiq
- *   0x580 cur EL SPx  serror 0x780 lower EL AArch32 serror
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-    .arch armv8-a
+/* AArch64 hardware exception implementation (VBAR_EL1 vector table). */
 
-    .extern OsArm64SyncExcHandler
+    .extern OsExceptSyncExcHdl
+    .extern OsCurrentELGet
     .extern _osExceptIrqHdl
+    .extern _osExceptFiqHdl
+
+#include "arch/regs.h"
 
 #define ALIGN .align
+#define ORG .org
+#define MACRO   .macro
+#define ENDM    .endm
 
     LR  .req    x30
 
-/* Save the integer exception frame on the current SP.
- * Layout must match EXC_CONTEXT_S in los_arch_interrupt.h:
- *   X0-X29 (0x000-0x0EF), LR (0x0F0), scratch (0x0F8),
- *   ELR_EL1 (0x100), SPSR_EL1 (0x108). Total 0x110 bytes. */
-    .macro  push_all
-    sub     sp, sp, #32
-    stp     x28, x29, [sp, #-16]!
-    stp     x26, x27, [sp, #-16]!
-    stp     x24, x25, [sp, #-16]!
-    stp     x22, x23, [sp, #-16]!
-    stp     x20, x21, [sp, #-16]!
-    stp     x18, x19, [sp, #-16]!
-    stp     x16, x17, [sp, #-16]!
-    stp     x14, x15, [sp, #-16]!
-    stp     x12, x13, [sp, #-16]!
-    stp     x10, x11, [sp, #-16]!
-    stp     x8, x9, [sp, #-16]!
-    stp     x6, x7, [sp, #-16]!
-    stp     x4, x5, [sp, #-16]!
-    stp     x2, x3, [sp, #-16]!
-    stp     x0, x1, [sp, #-16]!
-    mrs     x1, elr_el1
-    mrs     x2, spsr_el1
-    stp     lr, xzr, [sp, #0xf0]
-    stp     x1, x2, [sp, #0xf0 + 16]
-    .endm
+    .arch armv8-a
+    .text
+    ALIGN 12
 
-    .macro  pop_all
-    ldp     x1, x2, [sp, #0xf0 + 16]
-    msr     elr_el1, x1
-    msr     spsr_el1, x2
-    ldp     lr, xzr, [sp, #0xf0]
-    ldp     x0, x1, [sp], #16
-    ldp     x2, x3, [sp], #16
-    ldp     x4, x5, [sp], #16
-    ldp     x6, x7, [sp], #16
-    ldp     x8, x9, [sp], #16
-    ldp     x10, x11, [sp], #16
-    ldp     x12, x13, [sp], #16
-    ldp     x14, x15, [sp], #16
-    ldp     x16, x17, [sp], #16
-    ldp     x18, x19, [sp], #16
-    ldp     x20, x21, [sp], #16
-    ldp     x22, x23, [sp], #16
-    ldp     x24, x25, [sp], #16
-    ldp     x26, x27, [sp], #16
-    ldp     x28, x29, [sp], #16
-    add     sp, sp, #32
-    .endm
+MACRO push_reg reg1, reg2
+    STP   \reg1, \reg2, [SP,#-16]!
+ENDM
 
-/* Slot we never expect to take: park the core. */
-    .macro  exc_hang slot
-\slot:
-    msr     daifset, #0xf
-    b       .
-    .endm
+MACRO pop_reg reg1, reg2
+    LDP   \reg1, \reg2, [SP], #16
+ENDM
 
-/* ---------------------------------------------------------------
- * Vector table: placed in .vectors (2KB-aligned, see board.ld).
- * --------------------------------------------------------------- */
-    .section .vectors, "ax"
-    .align  11
+MACRO push_all
+    SUB  SP, SP, #32
+    push_reg X28, X29
+    push_reg X26, X27
+    push_reg X24, X25
+    push_reg X22, X23
+    push_reg X20, X21
+    push_reg X18, X19
+    push_reg X16, X17
+    push_reg X14, X15
+    push_reg X12, X13
+    push_reg X10, X11
+    push_reg X8, X9
+    push_reg X6, X7
+    push_reg X4, X5
+    push_reg X2, X3
+    push_reg X0, X1
+    MOV  X0, X0  //STANDBY
+    MRS  X1, ELR_ELx
+    MRS  X2, SPSR_ELx
+    STP  LR, X0, [SP, #0xf0]
+    STP  X1, X2, [SP, #0xf0 + 16]
+ENDM
+
+MACRO pop_all
+    LDP  LR, X0, [SP, #0xf0]
+    LDP  X1, X2, [SP, #0xf0 + 16]
+    MSR  ELR_ELx, X1
+    MSR  SPSR_ELx, X2
+    pop_reg X0, X1
+    pop_reg X2, X3
+    pop_reg X4, X5
+    pop_reg X6, X7
+    pop_reg X8, X9
+    pop_reg X10, X11
+    pop_reg X12, X13
+    pop_reg X14, X15
+    pop_reg X16, X17
+    pop_reg X18, X19
+    pop_reg X20, X21
+    pop_reg X22, X23
+    pop_reg X24, X25
+    pop_reg X26, X27
+    pop_reg X28, X29
+    ADD SP, SP, #32
+ENDM
+
     .global arm64_exception_handlers
-    .type   arm64_exception_handlers, %function
+    .type   arm64_exception_handlers,function
 arm64_exception_handlers:
-    /* 0x000: current EL, SP0, sync */
-    exc_hang arm64_exc_cur_sp0_sync
-    .org    0x080
-    /* 0x080: current EL, SP0, irq */
-    exc_hang arm64_exc_cur_sp0_irq
-    .org    0x100
-    /* 0x100: current EL, SP0, fiq */
-    exc_hang arm64_exc_cur_sp0_fiq
-    .org    0x180
-    /* 0x180: current EL, SP0, serror */
-    exc_hang arm64_exc_cur_sp0_serror
-    .org    0x200
-    /* 0x200: current EL, SPx, sync */
-    .type   arm64_sync_exc_cur_spx, %function
-arm64_sync_exc_cur_spx:
-    push_all
-    msr     daifset, #0xf
-    mov     x0, sp
-    bl      OsArm64SyncExcHandler
-    /* never returns; fall back to restore in case it does */
-    b       arm64_exc_pop_all
-    .org    0x280
-    /* 0x280: current EL, SPx, irq */
-    .type   arm64_irq_cur_spx, %function
-arm64_irq_cur_spx:
-    b       _osExceptIrqHdl
-    .org    0x300
-    /* 0x300: current EL, SPx, fiq */
-    exc_hang arm64_exc_cur_spx_fiq
-    .org    0x380
-    /* 0x380: current EL, SPx, serror */
-    .type   arm64_serror_cur_spx, %function
-    exc_hang arm64_serror_cur_spx_1
-arm64_serror_cur_spx:
-    push_all
-    msr     daifset, #0xf
-    mov     x0, sp
-    bl      OsArm64SyncExcHandler
-    b       arm64_exc_pop_all
-    .org    0x400
-    /* 0x400: lower EL, AArch64, sync */
-    exc_hang arm64_exc_lower_a64_sync
-    .org    0x480
-    exc_hang arm64_exc_lower_a64_irq
-    .org    0x500
-    exc_hang arm64_exc_lower_a64_fiq
-    .org    0x580
-    exc_hang arm64_exc_lower_a64_serror
-    .org    0x600
-    /* 0x600: lower EL, AArch32, sync */
-    exc_hang arm64_exc_lower_a32_sync
-    .org    0x680
-    exc_hang arm64_exc_lower_a32_irq
-    .org    0x700
-    exc_hang arm64_exc_lower_a32_fiq
-    .org    0x780
-    exc_hang arm64_exc_lower_a32_serror
+    .type   arm64_exc_cur_el_SP0,function
+arm64_exc_cur_el_SP0:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
 
-/* ---------------------------------------------------------------
- * Re-usable save/restore helpers (callable).
- * --------------------------------------------------------------- */
-    .section .text
-    .align  5
-    .global arm64_exc_push_all
-    .type   arm64_exc_push_all, %function
+    ORG 0x080
+    .type arm64_irq_cur_el_SP0,function
+arm64_irq_cur_el_SP0:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    ORG 0x100
+    .type arm64_fiq_cur_el_SP0,function
+arm64_fiq_cur_el_SP0:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    ORG 0x180
+    .type arm64_err_exc_cur_el_SP0,function
+arm64_err_exc_cur_el_SP0:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    ORG 0x200
+    .type arm64_sync_exc_cur_el_SPx,function
+arm64_sync_exc_cur_el_SPx:
+    push_all
+    MSR   DAIFSET, #3
+    MRS   X0, CurrentEL
+    BL    OsCurrentELGet
+    MOV   X0, SP
+    BL    OsExceptSyncExcHdl
+    B     arm64_exc_pop_all
+
+    ORG 0x280
+    .type arm64_irq_cur_el_SPx,function
+arm64_irq_cur_el_SPx:
+    B _osExceptIrqHdl
+
+    ORG 0x300
+    .type arm64_fiq_cur_el_SPx,function
+arm64_fiq_cur_el_SPx:
+#ifdef LOSCFG_ARCH_SECURE_MONITOR_MODE
+    B _osExceptFiqHdl
+#else
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+#endif
+
+    ORG 0x380
+    .type arm64_err_exc_cur_el_SPx,function
+arm64_err_exc_cur_el_SPx:
+    push_all
+    MSR   DAIFSET, #7
+    MRS   X0, CurrentEL
+    BL    OsCurrentELGet
+    MOV   X0, SP
+    BL    OsExceptSyncExcHdl
+    B     arm64_exc_pop_all
+
+    ORG 0x400
+    .type arm64_sync_exc_lower_el_64,function
+arm64_sync_exc_lower_el_64:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    ORG 0x480
+    .type arm64_irq_lower_el_64,function
+arm64_irq_lower_el_64:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    ORG 0x500
+    .type arm64_fiq_lower_el_64,function
+arm64_fiq_lower_el_64:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    ORG 0x580
+    .type arm64_err_exc_lower_el_64,function
+arm64_err_exc_lower_el_64:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    ORG 0x600
+    .type arm64_sync_exc_lower_el_32,function
+arm64_sync_exc_lower_el_32:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    ORG 0x680
+    .type arm64_irq_lower_el_32,function
+arm64_irq_lower_el_32:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    ORG 0x700
+    .type arm64_fiq_lower_el_32,function
+arm64_fiq_lower_el_32:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    ORG 0x780
+    .type arm64_err_exc_lower_el_32,function
+arm64_err_exc_lower_el_32:
+    MRS X0, CurrentEL
+    BL  OsCurrentELGet
+    B   .
+
+    .type arm64_exc_push_all,function
 arm64_exc_push_all:
     push_all
-    ret
+    RET
 
-    .global arm64_exc_pop_all
-    .type   arm64_exc_pop_all, %function
+    .type arm64_exc_pop_all,function
 arm64_exc_pop_all:
     pop_all
-    eret
+    ERET

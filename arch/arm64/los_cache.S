@@ -105,7 +105,7 @@ FUNCTION(ArchDCacheClean)
     cache_setway_op dc, csw
     ret
 
-FUNCTION(ArchDCacheInvalid)
+FUNCTION(ArchDCacheInvalidate)
     cache_setway_op dc, isw
     ret
 

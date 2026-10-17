@@ -1,8 +1,7 @@
 /*
  * Copyright (c) 2026 Huawei Device Co., Ltd.
- * AArch64 arch interrupt header (GICv3, EL1 non-secure view).
- * Ported from hs-fbb arch_lite/arm64 + drivers/interrupt/arm_gic_v3.h,
- * adapted to the liteos_m los_hwi contract (see gic-v2/interrupt.c).
+ * AArch64 arch interrupt header (GICv3, EL1 non-secure view),
+ * implementing the liteos_m los_hwi contract (see gic-v2/interrupt.c).
  */
 
 #ifndef _LOS_ARCH_INTERRUPT_H
@@ -215,18 +214,11 @@ STATIC INLINE VOID GiccSetSgi1r(UINT64 val)
 
 /* ============================================================================
  * Interrupt lock/unlock (DAIF).
- * ArchIntLock/ArchIntUnlock/ArchIntRestore are declared in
+ * ArchIntLock/ArchIntUnlock/ArchIntRestore/ArchIntLocked are declared in
  * los_interrupt.h and implemented in los_dispatch.S.
  * ==========================================================================*/
 #define PSR_I_BIT                             0x00000080U
 #define PSR_F_BIT                             0x00000040U
-
-STATIC INLINE UINT32 ArchIntLocked(VOID)
-{
-    UINT64 intSave;
-    __asm__ __volatile__("mrs %0, daif" : "=r"(intSave) : : "memory");
-    return (UINT32)(intSave & PSR_I_BIT);
-}
 
 /* ============================================================================
  * Exception context and info (must match push_all in los_exc.S).

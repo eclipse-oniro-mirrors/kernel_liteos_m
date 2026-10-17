@@ -11,13 +11,13 @@
  *                   master-allocated openamp vrings, do not place code
  *                   or static data there)
  *   - region size : 63MB (0x74100000 .. 0x78000000)
- *   - entry       : arm64_entry at image offset 0 (PSCI CPU_ON entry)
+ *   - entry       : reset_vector at image offset 0 (PSCI CPU_ON entry)
  *   - .resource_table must stay a loaded section: the master-side
  *                   remoteproc loader parses it from the ELF and writes
  *                   the allocated vring device addresses back into it.
  */
 
-ENTRY(arm64_entry)
+ENTRY(reset_vector)
 
 OUTPUT_FORMAT("elf64-littleaarch64", "elf64-littleaarch64", "elf64-littleaarch64")
 OUTPUT_ARCH(aarch64)
@@ -46,7 +46,11 @@ SECTIONS
         __vectors_end = .;
     } > RTOS_RAM
 
-    .sysinitcall : ALIGN(0x40) {
+    /* Init tables + hwi form block: run-time data (ArchInit fills the
+     * g_hwiForm interrupt table). Kept page-aligned in one block between
+     * the entry page and .text so the dynamic MMU regions can map it
+     * RW+NX while code stays RO+X. */
+    .sysinitcall : ALIGN(0x1000) {
         __sysinitcall0_start = .;
         KEEP(*(SORT(.sysinitcall_level*)))
         __sysinitcall_end = .;
@@ -59,6 +63,18 @@ SECTIONS
         __sysinitcall7_start = .;
     } > RTOS_RAM
     __sysinitcall_start = __sysinitcall0_start;
+
+    /* hwi form (LITE_OS_SEC_VEC, written by ArchInit) + inert compiler
+     * init arrays: explicit placement, same RW block as sysinitcall. */
+    .hwi_vector : ALIGN(0x40) {
+        __hwi_vector_start = .;
+        KEEP(*(.vector))
+        __hwi_vector_end = .;
+    } > RTOS_RAM
+
+    .init_array : ALIGN(0x40) {
+        KEEP(*(.init_array*))
+    } > RTOS_RAM
 
     /* ---- .text ---- */
     .text : ALIGN(0x1000) {

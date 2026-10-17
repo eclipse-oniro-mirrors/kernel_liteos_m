@@ -1,9 +1,8 @@
 /*
  * Copyright (c) 2026 Huawei Device Co., Ltd.
- * AArch64 exception handling for liteos_m. Ported from hs-fbb
- * arch_lite/arm64/src/fault.c (simplified: single core, no SMP halt IPI,
- * no exc-recover), wired to the liteos_m HalExcHandleEntry contract
- * (see cortex_a_r/fault.c).
+ * AArch64 exception handling for liteos_m (simplified: single core, no
+ * SMP halt IPI, no exc-recover), wired to the liteos_m HalExcHandleEntry
+ * contract (see cortex_a_r/fault.c).
  */
 
 #include "los_typedef.h"
@@ -13,6 +12,7 @@
 #include "los_memory.h"
 #include "los_exc.h"
 #include "los_debug.h"
+#include "los_printf_pri.h"
 
 ExcInfo g_excInfo = {0};
 UINT32 g_curNestCount = 0;
@@ -227,4 +227,26 @@ LITE_OS_SEC_TEXT VOID OsArm64SyncExcHandler(EXC_CONTEXT_S *frame)
     for (;;) {
         __asm__ volatile("wfe");
     }
+}
+
+/* ****************************************************************************
+ * Function    : OsCurrentELGet
+ * Description : helper called by the los_exc.S vector slots: the
+ *               CurrentEL value is passed in reg; print the EL before the
+ *               slot parks (NBIT above has the bit-field semantics).
+ * **************************************************************************** */
+VOID OsCurrentELGet(UINT32 reg)
+{
+    PRINT_EXC("The current exception level is EL%u\n", NBIT(reg, 3, 2));
+}
+
+/* ****************************************************************************
+ * Function    : OsExceptSyncExcHdl
+ * Description : sync/serror entry name used by los_exc.S; the frame
+ *               contract is identical (EXC_CONTEXT_S layout), so wire it
+ *               straight onto this tree's handler.
+ * **************************************************************************** */
+VOID OsExceptSyncExcHdl(EXC_CONTEXT_S *frame)
+{
+    OsArm64SyncExcHandler(frame);
 }

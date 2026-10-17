@@ -1,191 +1,700 @@
 /*
- * Minimal identity-mapped MMU for the RK3568 AMP slave core (LiteOS-M).
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * PSCI hands this core over with the MMU off, which makes ALL memory
- * Device-nGnRnE. On Device memory every unaligned wide access raises an
- * alignment fault (ESR DFSC=0x21): compiler-merged stores in los_task.c,
- * 4-byte-aligned heap nodes from the memalign gap-node path in
- * los_memory.c, ... all kill the kernel mid-init. Mapping the firmware
- * image as Normal memory makes unaligned accesses architecturally legal
- * again - this is what the UniProton port on this board has always done.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Policy: D-cache ON (Normal WB for the whole RTOS runtime - image, heap,
- * stacks; the runtime space is "normal cache" as required for real-time
- * performance). Regions that must bypass the D-cache get their own
- * attributes: the openamp shared window stays Device (the master
- * polls/DMAs it without going through our caches) and the EtherCAT DMA
- * pools are Normal Non-Cacheable (the GMAC is not IO-coherent).
- *
- * Layout (PA == VA identity, 4K granule):
- *   0x74000000-0x74100000  Device nGnRE  shared window (openamp vrings
- *                                           + net ctrl @ 0x740ff000)
- *   0x74100000-0x74A00000  Normal WB    image: text/data/bss/heap/stack
- *   0x76000000-0x76200000  Normal NC    net DMA pools (descriptors
- *                                           + frame buffers; see
- *                                           gmac1_profile.h NET_DMA_*)
- *   0x77E00000-0x78000000  Device nGnRE  boot-probe scratch area
- *   0xFD000000-0xFF000000  Device nGnRE  GIC-600 + UART2
- *
- * The page tables live in .bss as 4K-aligned static arrays: startup.S
- * zeroes .bss before calling LosMmuInit(), so the tables start clean and
- * this function only has to fill them in (runs with the MMU still off -
- * keep this file strict-align clean, no wide unaligned accesses).
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-typedef unsigned long u64;
+/*
+ * Generic dynamic MMU framework (region-driven page tables). Replaces
+ * the previous static identity-map tables on rk3568_m; the board now
+ * registers its regions through ArchMmuAppRegionReg() (see
+ * targets/rk3568_m/liteos_m/arch/arm64/los_mmu.c) and
+ * ArchMmuPageTablesCreate() expands them into the dynamically allocated
+ * page-table pool.
+ *
+ * Design notes (see the header block of include/arch/mmu.h):
+ *   - TABLE_BSS_SECTION is empty (pool in plain .bss, zeroed by
+ *     reset_vector.S before LosMmuInit).
+ *   - ArchMmuDefaultRegionReg() is WEAK-empty: every region comes from
+ *     the board's ArchMmuAppRegionReg() instead.
+ *   - ArchMmuAppRegionReg() gets a WEAK-empty default so the framework
+ *     links standalone; the board overrides it.
+ */
 
-/* MAIR_EL1 attribute indices */
-#define ATTR_DEVICE    0UL
-#define ATTR_NORMAL    1UL   /* WB RA/WA: RTOS runtime (image/heap/stacks) */
-#define ATTR_NORMAL_NC 2UL   /* non-cacheable: net DMA pools */
+#include "arch/mmu.h"
+#include "arch/mmu_pri.h"
+#include "pagetable_manager.h"
+#include "los_spinlock.h"
+#include "los_task.h"
+#include "los_memory_pri.h"
+#include <string.h>
 
-/* net DMA pool window (descriptors + frame buffers). Must match
- * NET_DMA_BASE in device/board/rockchip/rk3568/liteos_m/board/
- * driver/net/gmac1_profile.h. One 2MB L2 block, outside the image
- * region, far from the 4MB heap so it cannot collide with heap growth. */
-#define NET_DMA_BASE  0x76000000UL
+STATIC SPIN_LOCK_INIT(g_mmuSpin);
 
-/* ARMv8 AArch64 stage-1 descriptor bits */
-#define PTE_VALID      (1UL << 0)
-#define PTE_TABLE      (3UL << 0)  /* valid + table descriptor */
-#define PTE_BLOCK      (1UL << 0)  /* valid + block descriptor */
-#define PTE_PAGE       (3UL << 0)  /* valid + page descriptor (level 3) */
-#define PTE_ATTRIDX(x) ((u64)(x) << 2)
-#define PTE_SH_ISH     (3UL << 8)  /* inner shareable */
-#define PTE_AF         (1UL << 10)
+/* Pointing to first page table, which is usually L0 or L1 page table */
+TABLE_BSS_SECTION UINTPTR *g_firstPageTable = NULL;
 
-#define L1_INDEX(va)  (((va) >> 30) & 0x1FF)
-#define L2_INDEX(va)  (((va) >> 21) & 0x1FF)
-
-#define DEVICE_PTE(pa) \
-    ((pa) | PTE_BLOCK | PTE_ATTRIDX(ATTR_DEVICE) | PTE_SH_ISH | PTE_AF)
-#define NORMAL_PTE(pa) \
-    ((pa) | PTE_BLOCK | PTE_ATTRIDX(ATTR_NORMAL) | PTE_SH_ISH | PTE_AF)
-#define NC_PTE(pa) \
-    ((pa) | PTE_BLOCK | PTE_ATTRIDX(ATTR_NORMAL_NC) | PTE_SH_ISH | PTE_AF)
-#define DEVICE_PAGE(pa) \
-    ((pa) | PTE_PAGE | PTE_ATTRIDX(ATTR_DEVICE) | PTE_SH_ISH | PTE_AF)
-#define NORMAL_PAGE(pa) \
-    ((pa) | PTE_PAGE | PTE_ATTRIDX(ATTR_NORMAL) | PTE_SH_ISH | PTE_AF)
-
-/* 4K granule: 512 entries of 8 bytes per table level */
-static volatile u64 g_l1[512]        __attribute__((aligned(4096)));
-static volatile u64 g_l2_low[512]    __attribute__((aligned(4096)));  /* 0x40000000-0x7FFFFFFF */
-static volatile u64 g_l2_high[512]   __attribute__((aligned(4096)));  /* 0xC0000000-0xFFFFFFFF */
-static volatile u64 g_l3_shared[512] __attribute__((aligned(4096)));  /* 0x74000000-0x74200000 */
-
-/* Invalidate the whole D-cache by set/way before enabling C. The slave
- * is entered via PSCI CPU_ON (architecturally invalidated L1), so this
- * is defence in depth for warm paths (QEMU -kernel, direct load) where
- * the previous world may have left dirty lines that would otherwise be
- * evicted on top of our freshly written .bss/page tables.
- * Operand format (same as Linux/TF-A cache maintenance):
- *   level << 1 | set << log2(line) | way << clz32(assoc-1) */
-static void dcache_invalidate_all(void)
+/* Set pte pointing to next page table */
+STATIC INLINE VOID MmuSetPteToNextTbl(UINT64 *pte, UINT64 *table)
 {
-    u64 clidr;
-    int level, loc;
+    /* Caller make sure that pte is not NULL */
+    *pte = MMU_PTE_L012_DESCRIPTOR_TABLE | (UINTPTR)table;
+}
 
-    __asm__ volatile("mrs %0, clidr_el1" : "=r"(clidr));
-    loc = (int)((clidr >> 24) & 7UL);   /* CLIDR_EL1.LoC */
-    for (level = 0; (level < loc) && (level < 7); level++) {
-        u64 ctype = (clidr >> (3 * level)) & 7UL;
-        u64 ccsidr;
-        int lshift, sets, ways, wshift, set, way;
+/* Check pte is pointing to next page table */
+STATIC INLINE BOOL MmuPteIsNextTable(UINT64 pte, UINT32 level)
+{
+    return (level != LAST_TABLE_LEVEL_INDEX) && ((pte & MMU_PTE_DESC_TYPE_MASK) == MMU_PTE_L012_DESCRIPTOR_TABLE);
+}
 
-        if (ctype < 2) {                /* 2 = D-only, 3/4 = have D cache */
+/* Set pte to block or page mapping */
+STATIC INLINE VOID MmuSetPteToBlkPage(UINT64 *pte, UINT64 pAddr, UINT64 props, UINT32 level)
+{
+    /* Caller make sure that pte is not NULL */
+    UINT64 tmp = props;
+    tmp |= (level == LAST_TABLE_LEVEL_INDEX) ? MMU_PTE_L3_DESCRIPTOR_PAGE : MMU_PTE_L012_DESCRIPTOR_BLOCK;
+    *pte = tmp | pAddr;
+}
+
+/* Check pte is block or page mapping */
+STATIC INLINE BOOL MmuPteIsBlkPage(UINT64 pte)
+{
+    return (pte & MMU_PTE_DESC_TYPE_MASK) == MMU_PTE_L012_DESCRIPTOR_BLOCK;
+}
+
+/* Set pte to invalid */
+STATIC INLINE VOID MmuSetPteToInvalid(UINT64 *pte)
+{
+    /* Caller make sure that pte is not NULL */
+    *pte = 0;
+}
+
+/* Check pte is invalid */
+STATIC INLINE BOOL MmuPteIsInvalid(UINT64 pte)
+{
+    return (pte & MMU_PTE_DESC_TYPE_MASK) == MMU_PTE_DESCRIPTOR_INVALID;
+}
+
+/* Translating cur level page table entry properties to next level */
+STATIC INLINE UINT64 MmuGetNextLevelProps(UINT64 desc, UINT32 level)
+{
+    (VOID)level;
+    /*
+     * arm32 mmu: block and page descriptor properties format is different, so decoding desc to get props is needed.
+     * arm64 mmu: block and page descriptor properties format is same, just assign it directly.
+     */
+    return desc & MMU_PTE_ATTR_MASK;
+}
+
+/***************** Mmu log module *****************/
+STATIC UINT32 g_mmuLogLevel = LOS_ERR_LEVEL; /* origine is LOS_ERR_LEVEL */
+
+BOOL MmuLogLevelIsOk(UINT32 level)
+{
+    if (level <= g_mmuLogLevel) {
+        return TRUE;
+    }
+    return FALSE;
+}
+
+VOID ArchMmuLogLevelCfg(UINT32 level)
+{
+    if (level > LOS_DEBUG_LEVEL) {
+        return;
+    }
+    g_mmuLogLevel = level;
+}
+
+STATIC const CHAR *MmuDecodeRwAttr(const UINT64 *pte)
+{
+    const CHAR *ptr = NULL;
+
+    switch (*pte & MMU_PTE_ATTR_AP_MASK)  {
+        case MMU_PTE_ATTR_AP_P_RW_U_NA:
+            ptr = "PRW-UNA";
+            break;
+        case MMU_PTE_ATTR_AP_P_RW_U_RW:
+            ptr = "PRW-URW";
+            break;
+        case MMU_PTE_ATTR_AP_P_RO_U_NA:
+            ptr = "PRO-UNA";
+            break;
+        case MMU_PTE_ATTR_AP_P_RO_U_RO:
+            ptr = "PRO-URO";
+            break;
+        default:
+            ptr = "UNDEF";
+            break;
+    }
+    return ptr;
+}
+
+STATIC const CHAR *MmuDecodeMemType(const UINT64 *pte)
+{
+    const CHAR *ptr = NULL;
+
+    switch (*pte & MMU_PTE_ATTR_MAIR_INDEX_MASK)  {
+        case MMU_PTE_ATTR_DEVICE_nGnRnE:
+            ptr = "Device-nGnRnE";
+            break;
+        case MMU_PTE_ATTR_DEVICE_nGnRE:
+            ptr = "Device-nGnRE";
+            break;
+        case MMU_PTE_ATTR_DEVICE_WB:
+            ptr = "NORMAL-CACHE";
+            break;
+        case MMU_PTE_ATTR_DEVICE_NC:
+            ptr = "NORMAL-NonCACHE";
+            break;
+        default:
+            ptr = "UNDEF";
+            break;
+    }
+    return ptr;
+}
+
+STATIC INLINE UINT64 MmuDecodeAddr(UINT64 entry)
+{
+    return (entry & ~(MMU_PTE_ATTR_MASK | MMU_PTE_DESC_TYPE_MASK));
+}
+
+STATIC INLINE VOID MmuShowBlockPageDesc(UINT64 *pte, UINT64 vAddr)
+{
+    if (MmuPteIsBlkPage(*pte)) {
+        MMU_LOG(LOS_DEBUG_LEVEL, "[Block] ");
+    } else {
+        MMU_LOG(LOS_DEBUG_LEVEL, "[Page] ");
+    }
+    MMU_LOG(LOS_DEBUG_LEVEL, "[Vaddr:0x%llx->Paddr:0x%llx] ", vAddr, MmuDecodeAddr(*pte));
+
+    MMU_LOG(LOS_DEBUG_LEVEL, "[Attrs:0x%llx %s", *pte & MMU_PTE_ATTR_MASK, MmuDecodeMemType(pte));
+    MMU_LOG(LOS_DEBUG_LEVEL, "-%s", MmuDecodeRwAttr(pte));
+    if (*pte & MMU_PTE_ATTR_PXN) {
+        MMU_LOG(LOS_DEBUG_LEVEL, "-PXN");
+    } else {
+        MMU_LOG(LOS_DEBUG_LEVEL, "-PX");
+    }
+
+    if (*pte & MMU_PTE_ATTR_UXN) {
+        MMU_LOG(LOS_DEBUG_LEVEL, "-UXN");
+    } else {
+        MMU_LOG(LOS_DEBUG_LEVEL, "-UX");
+    }
+    MMU_LOG(LOS_DEBUG_LEVEL, "]\n");
+}
+
+STATIC INLINE VOID MmuShowTableDesc(UINT64 *pte, UINT64 vAddr)
+{
+    UINT64 *table = MmuGetNextTableAddr(*pte);
+    table = (UINTPTR*)MMU_PA_TO_VA(table);
+    MMU_LOG(LOS_DEBUG_LEVEL, "[Table] [Tab:0x%llx->NextTab:[%u]0x%lx] [VAddr:0x%llx] [Attrs:0x%llx] \n",
+        MmuDecodeAddr((UINTPTR)pte), PageTableGetIdx(table), (UINTPTR)table, vAddr, *pte & MMU_PTE_ATTR_MASK);
+}
+
+STATIC VOID MmuPrintPte(UINT64 vAddr, UINT64 *pte, UINT32 level)
+{
+    UINT32 i = level;
+
+    while (i > FIRST_TABLE_LEVEL_INDEX) {
+        MMU_LOG(LOS_DEBUG_LEVEL, "%s", "  ");
+        i--;
+    }
+    MMU_LOG(LOS_DEBUG_LEVEL, "[%u][*0x%lx:0x%llx] [L%u] ", PageTableGetIdx(pte), (UINTPTR)pte, *pte, level);
+
+    if (MmuPteIsInvalid(*pte)) {
+        MMU_LOG(LOS_DEBUG_LEVEL, "VAddr:0x%llx invalid\n", vAddr);
+        return;
+    }
+
+    if (MmuPteIsNextTable(*pte, level)) {
+        MmuShowTableDesc(pte, vAddr);
+        return;
+    }
+
+    MmuShowBlockPageDesc(pte, vAddr);
+}
+
+/***************** Mmu region module *****************/
+#define MMU_MAP_REGION_NUM 50U
+STATIC TABLE_BSS_SECTION struct {
+    MmuMapRegion area[MMU_MAP_REGION_NUM];
+    UINT32 usedCnt;
+} g_regionInfo __attribute__((aligned(0x10)));
+
+STATIC INLINE BOOL MmuRegionIsOverlapped(UINTPTR vAddr1, UINTPTR size1, UINTPTR vAddr2, UINTPTR size2)
+{
+    if (((vAddr1 + size1) <= vAddr2) || (vAddr1 >= (vAddr2 + size2))) {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+STATIC INLINE BOOL MmuAddrIsOverMaxBits(UINTPTR addr, UINTPTR maxBitsNum)
+{
+    if (addr & ~((1ULL << maxBitsNum) - 1)) {
+        return TRUE;
+    }
+    return FALSE;
+}
+
+#define MMU_UINTPTR_MAX    ((UINTPTR)-1)
+STATIC INLINE UINT32 MmuCheckAddrParam(UINTPTR vAddr, UINTPTR pAddr, UINTPTR size, UINT32 flag)
+{
+    UINTPTR bitsNum;
+
+    if (size == 0) {
+        return LOS_ERRNO_MMU_INPUT_ZERO;
+    }
+#ifndef LOSCFG_ARCH_MMU_VA_MANAGE
+    if (vAddr != pAddr) {
+        MMU_LOG(LOS_ERR_LEVEL, "The vAddr[0x%lx] must be equal to the pAddr[0x%lx].\n", vAddr, pAddr);
+        return LOS_ERRNO_MMU_INPUT_ADDR_INV;
+    }
+#endif
+
+    if ((vAddr > (MMU_UINTPTR_MAX - size)) || (pAddr > (MMU_UINTPTR_MAX - size))) {
+        return LOS_ERRNO_MMU_INPUT_OVERFLOW;
+    }
+
+    bitsNum = (LOSCFG_ARCH_ARM64_VA_BITS > LOSCFG_ARCH_ARM64_PA_BITS) ?
+        LOSCFG_ARCH_ARM64_PA_BITS : LOSCFG_ARCH_ARM64_VA_BITS;
+
+    if (MmuAddrIsOverMaxBits(vAddr + size, bitsNum) ||
+        MmuAddrIsOverMaxBits(pAddr + size, bitsNum)) {
+        return LOS_ERRNO_MMU_INPUT_OVERFLOW;
+    }
+
+    switch (flag) {
+        case MMU_RW_NX_NORMAL_NC:
+        case MMU_RO_X_NORMAL_WB:
+        case MMU_RO_NX_NORMAL_WB:
+        case MMU_RW_NX_NORMAL_WB:
+        case MMU_RW_NX_DEVICE_MAP:
+        case MMU_RW_NX_DEVICE_STRONGLY_ORDERED:
+            break;
+        default:
+            return LOS_ERRNO_MMU_INPUT_FLAG_INV;
+    }
+    return LOS_OK;
+}
+
+UINT32 ArchMmuRegionInsert(MmuMapRegion *rgn)
+{
+    UINT32 idx;
+    UINTPTR alignVAddr = ALIGN_DOWN(rgn->vAddr, LOSCFG_ARCH_ARM64_PAGE_SIZE);
+    UINTPTR alignPAddr = ALIGN_DOWN(rgn->pAddr, LOSCFG_ARCH_ARM64_PAGE_SIZE);
+    UINTPTR alignSize = ALIGN_UP(rgn->vAddr + rgn->size, LOSCFG_ARCH_ARM64_PAGE_SIZE) - alignVAddr;
+    UINT32 ret = MmuCheckAddrParam(alignVAddr, alignPAddr, alignSize, rgn->flags);
+    if (ret != LOS_OK) {
+        return ret;
+    }
+
+    if (g_regionInfo.usedCnt >= MMU_MAP_REGION_NUM) {
+        return LOS_ERRNO_MMU_REGION_NOT_ENOUGH;
+    }
+
+    for (idx = 0; idx < g_regionInfo.usedCnt; idx++) {
+        if (MmuRegionIsOverlapped(alignVAddr, alignSize, g_regionInfo.area[idx].vAddr, g_regionInfo.area[idx].size)) {
+            MMU_LOG(LOS_ERR_LEVEL, "Conflict with region:%s.\n", g_regionInfo.area[idx].name);
+            return LOS_ERRNO_MMU_REGION_OVERLAPPED;
+        }
+    }
+
+    g_regionInfo.area[g_regionInfo.usedCnt].name = rgn->name;
+    g_regionInfo.area[g_regionInfo.usedCnt].pAddr = alignPAddr;
+    g_regionInfo.area[g_regionInfo.usedCnt].vAddr = alignVAddr;
+    g_regionInfo.area[g_regionInfo.usedCnt].size = alignSize;
+    g_regionInfo.area[g_regionInfo.usedCnt].flags = rgn->flags;
+    g_regionInfo.usedCnt++;
+    return LOS_OK;
+}
+
+/***************** Mmu map/unmap module *****************/
+STATIC INLINE VOID MmuPrintPageItems(UINTPTR vAddr, UINTPTR *pte, UINT32 level)
+{
+    /* Log system active when debug or info level */
+    if (MmuLogLevelIsOk(LOS_DEBUG_LEVEL)) {
+        MmuPrintPte(vAddr, pte, level);
+    }
+}
+
+/* Set pte pointing to next page table */
+STATIC INLINE VOID MmuSetNextTableAddr(UINTPTR vAddr, UINTPTR *pte, UINTPTR *table, UINT32 level, INT32 cnt)
+{
+    MmuSetPteToNextTbl(pte, table);
+    (VOID)PageTableModifyEntryUsedCnt(PageTableGetIdx(pte), cnt);
+    MmuPrintPageItems(vAddr, pte, level);
+}
+
+/* Set pte to block(section) or page mapping */
+STATIC INLINE VOID MmuSetBlkPageMapping(UINTPTR vAddr, UINTPTR *pte, UINTPTR pAddr, UINTPTR attrs, UINT32 level)
+{
+    MmuSetPteToBlkPage(pte, pAddr, attrs, level);
+    (VOID)PageTableModifyEntryUsedCnt(PageTableGetIdx(pte), 1);
+    MmuPrintPageItems(vAddr, pte, level);
+}
+
+/* Clear pte to invalid descriptor */
+STATIC INLINE VOID MmuClearPteInvalid(UINTPTR vAddr, UINTPTR *pte, UINT32 level)
+{
+    MmuSetPteToInvalid(pte);
+    (VOID)PageTableModifyEntryUsedCnt(PageTableGetIdx(pte), -1);
+    MmuPrintPageItems(vAddr, pte, level);
+}
+
+/* Copy current level pte info to next table */
+STATIC UINTPTR *MmuCopyToNextPte(UINTPTR vAddr, UINTPTR *pte, UINT32 level)
+{
+    UINTPTR desc = *pte;
+    UINTPTR i, step;
+    UINTPTR pAddr = MmuGetPAddrFromPte(desc);
+    UINTPTR nextLevelProps = MmuGetNextLevelProps(desc, level);
+    UINTPTR *table = PageTableAlloc();
+    if (table == NULL) {
+        return NULL;
+    }
+
+    MMU_LOG(LOS_DEBUG_LEVEL, "Copy cur table[%u] [L%u] pte[*0x%lx:0x%016lx] to next table[%u]0x%lx\n",
+        PageTableGetIdx(pte), level, (UINTPTR)pte, desc, PageTableGetIdx(table), (UINTPTR)table);
+
+    step = LN_TABLE_BITS_SHIFT(level + 1);
+    for (i = 0; i < LN_TABLE_ENTRY_NUM; i++) {
+        MmuSetBlkPageMapping(vAddr | (i << step), table + i, pAddr | (i << step), nextLevelProps, level + 1);
+    }
+
+    /* Caller make sure that level is L0~L2, instead of L3 */
+    MmuSetNextTableAddr(vAddr, pte, (UINTPTR*)MMU_VA_TO_PA(table), level, 0);
+
+    return table;
+}
+
+STATIC UINT32 MmuCreateMapNoLock(UINTPTR *ptrTbl, const CHAR *name, UINTPTR pAddr,
+    UINTPTR vAddr, UINTPTR size, UINT32 flags)
+{
+    UINTPTR attrs = MmuDecodeFlags(flags);
+    UINTPTR levelSize;
+    UINTPTR *pte = NULL;
+    UINTPTR *table = ptrTbl;
+    UINTPTR pa = pAddr;
+    UINTPTR va = vAddr;
+    UINTPTR sz = size;
+    UINT32 level = FIRST_TABLE_LEVEL_INDEX;
+    MMU_LOG(LOS_INFO_LEVEL, "Mapping [%s]: vAddr 0x%lx pAddr 0x%lx size 0x%lx attr 0x%lx\n",
+            name, va, pa, sz, attrs);
+
+    while (sz > 0) {
+        pte = &table[LN_TABLE_ENTRY_INDEX(va, level)];
+        /* Skip next table desc to block/page/invalid mapping */
+        if (MmuPteIsNextTable(*pte, level)) {
+            level++;
+            table = MmuGetNextTableAddr(*pte);
+            table = (UINTPTR*)MMU_PA_TO_VA(table);
             continue;
         }
-        __asm__ volatile("msr csselr_el1, %0" :: "r"((u64)(level << 1)));
-        __asm__ volatile("isb");
-        __asm__ volatile("mrs %0, ccsidr_el1" : "=r"(ccsidr));
-        lshift = (int)((ccsidr & 7UL) + 4UL);              /* log2(line) */
-        sets   = (int)(((ccsidr >> 13) & 0x7FFFUL) + 1UL);
-        ways   = (int)(((ccsidr >> 3) & 0x3FFUL) + 1UL);
-        wshift = (ways > 1) ? __builtin_clz((unsigned int)(ways - 1)) : 32;
-        for (way = ways - 1; way >= 0; way--) {
-            for (set = sets - 1; set >= 0; set--) {
-                u64 sw = ((u64)way << wshift) |
-                         ((u64)set << lshift) |
-                         ((u64)level << 1);
-                __asm__ volatile("dc isw, %0" :: "r"(sw) : "memory");
+        /* PTE is already used to mapping before */
+        if (!MmuPteIsInvalid(*pte)) {
+            MMU_LOG(LOS_ERR_LEVEL, "Pte already mapped: level %u pte 0x%lx *pte 0x%016lx\n", level, (UINTPTR)pte, *pte);
+            return LOS_ERRNO_MMU_PTE_BUSY;
+        }
+        levelSize = 1ULL << LN_TABLE_BITS_SHIFT(level);
+        if (!IS_ALIGNED(va | pa, levelSize) || (sz < levelSize)) {
+            table = PageTableAlloc();
+            if (table == NULL) {
+                return LOS_ERRNO_MMU_PAGETABLE_OOM;
             }
+            MmuSetNextTableAddr(va, pte, (UINTPTR*)MMU_VA_TO_PA(table), level, 1);
+            level++;
+            continue;
+        }
+
+        /* Create block/page mapping */
+        MmuSetBlkPageMapping(va, pte, pa, attrs, level);
+
+        table = ptrTbl;
+        level = FIRST_TABLE_LEVEL_INDEX;
+        va += levelSize;
+        pa += levelSize;
+        sz -= levelSize;
+    }
+    return LOS_OK;
+}
+
+STATIC UINT32 MmuDestroyMapNoLock(UINTPTR *ptrTbl, UINTPTR vAddr, UINTPTR size)
+{
+    UINTPTR *pte = NULL;
+    UINTPTR *table = ptrTbl;
+    UINTPTR *pathPtes[MAX_PAGE_TABLE_LEVELS] = {NULL};
+    UINTPTR levelSize, nextAddr;
+    UINTPTR va = vAddr;
+    UINTPTR sz = size;
+    UINT32 level = FIRST_TABLE_LEVEL_INDEX;
+
+    MMU_LOG(LOS_INFO_LEVEL, "Unmapping: vAddr 0x%lx size 0x%lx\n", va, sz);
+
+    while (sz > 0) {
+        pte = &table[LN_TABLE_ENTRY_INDEX(va, level)];
+        pathPtes[level] = pte;
+
+        /* Skip L0/1/2 table desc until block/page/invalid mapping */
+        if (MmuPteIsNextTable(*pte, level)) {
+            level++;
+            table = MmuGetNextTableAddr(*pte);
+            table = (UINTPTR*)MMU_PA_TO_VA(table);
+            continue;
+        }
+
+        levelSize = 1ULL << LN_TABLE_BITS_SHIFT(level);
+        MMU_LOG(LOS_DEBUG_LEVEL, "[Loop] vAddr 0x%lx size 0x%lx\n", va, sz);
+
+        if (MmuPteIsInvalid(*pte)) {
+            MMU_LOG(LOS_DEBUG_LEVEL, "IsPteInvalid [level%u] pte[0x%lx]:0x%lx\n", level, (UINTPTR)pte, *pte);
+            nextAddr = ALIGN_DOWN(va, levelSize) + levelSize;
+            if ((va + sz) < nextAddr) {
+                /* No need to unmap repeatedly when the pte is already invalid */
+                return LOS_OK;
+            }
+            /* Get gap between vAddr and nextAddr */
+            levelSize = nextAddr - va;
+            goto nextLoop;
+        }
+
+        if (!IS_ALIGNED(va, levelSize) || (sz < levelSize)) {
+            /* Current mapping is superset, just unmapping part of it */
+            table = MmuCopyToNextPte(va, pte, level);
+            if (table == NULL) {
+                return LOS_ERRNO_MMU_PAGETABLE_OOM;
+            }
+            level++;
+            continue;
+        }
+
+        /* Set current pte invalid */
+        MmuClearPteInvalid(va, pte, level);
+
+        /* Free parent even grandparent table if unused */
+        while ((level != FIRST_TABLE_LEVEL_INDEX) && PageTableIsReady(PageTableGetIdx(pte))) {
+            PageTableFree(pte);
+            pte = pathPtes[--level];
+            MmuClearPteInvalid(va, pte, level);
+        }
+
+nextLoop:
+        table = ptrTbl;
+        level = FIRST_TABLE_LEVEL_INDEX;
+        va += levelSize;
+        sz -= levelSize;
+    }
+
+    return LOS_OK;
+}
+
+STATIC INLINE UINT32 MmuCreateMap(const CHAR *name, UINTPTR pAddr, UINTPTR vAddr, UINTPTR size, UINT32 attrs)
+{
+    return MmuCreateMapNoLock(g_firstPageTable, name, pAddr, vAddr, size, attrs);
+}
+
+STATIC INLINE UINT32 MmuDestroyMap(UINTPTR vAddr, UINTPTR size)
+{
+    return MmuDestroyMapNoLock(g_firstPageTable, vAddr, size);
+}
+
+UINT32 ArchMmuMap(UINTPTR vAddr, UINTPTR pAddr, UINTPTR size, UINT32 attrs)
+{
+    UINTPTR alignVAddr, alignPAddr, alignSize;
+    UINT32 intSave;
+
+    UINT32 ret = MmuCheckAddrParam(vAddr, pAddr, size, attrs);
+    if (ret != LOS_OK) {
+        goto ERR_OUT;
+    }
+
+    alignVAddr = ALIGN_DOWN(vAddr, LOSCFG_ARCH_ARM64_PAGE_SIZE);
+    alignPAddr = ALIGN_DOWN(pAddr, LOSCFG_ARCH_ARM64_PAGE_SIZE);
+    alignSize = ALIGN_UP(vAddr + size, LOSCFG_ARCH_ARM64_PAGE_SIZE) - alignVAddr;
+
+    LOS_SpinLockSave(&g_mmuSpin, &intSave);
+    ret = MmuCreateMap("usr name", alignPAddr, alignVAddr, alignSize, attrs);
+    LOS_SpinUnlockRestore(&g_mmuSpin, intSave);
+    if (ret != LOS_OK) {
+        goto ERR_OUT;
+    }
+
+    MmuInvalidLocalTLB();
+
+    return LOS_OK;
+
+ERR_OUT:
+    MMU_LOG(LOS_ERR_LEVEL, "ArchMmuMap() returned 0x%x.\n", ret);
+    return ret;
+}
+
+UINT32 ArchMmuUnmap(UINTPTR vAddr, UINTPTR size)
+{
+    UINTPTR alignVAddr, alignSize;
+    UINT32 intSave;
+
+    /* Second vAddr and MMU_RW_NX_NORMAL_NC just make it OK, not checked yet */
+    UINT32 ret = MmuCheckAddrParam(vAddr, vAddr, size, MMU_RW_NX_NORMAL_NC);
+    if (ret != LOS_OK) {
+        goto ERR_OUT;
+    }
+
+    alignVAddr = ALIGN_DOWN(vAddr, LOSCFG_ARCH_ARM64_PAGE_SIZE);
+    alignSize = ALIGN_UP(vAddr + size, LOSCFG_ARCH_ARM64_PAGE_SIZE) - alignVAddr;
+
+    LOS_SpinLockSave(&g_mmuSpin, &intSave);
+    ret = MmuDestroyMap(alignVAddr, alignSize);
+    LOS_SpinUnlockRestore(&g_mmuSpin, intSave);
+    if (ret != LOS_OK) {
+        goto ERR_OUT;
+    }
+
+    MmuInvalidLocalTLB();
+    return LOS_OK;
+
+ERR_OUT:
+    MMU_LOG(LOS_ERR_LEVEL, "ArchMmuUnmap() returned 0x%x.\n", ret);
+    return ret;
+}
+
+STATIC VOID MmuWalkTableNoLock(UINTPTR *ptrTbl, UINTPTR vAddr, UINTPTR size)
+{
+    UINTPTR *pte = NULL;
+    UINTPTR *table = ptrTbl;
+    UINTPTR levelSize;
+    UINTPTR va = vAddr;
+    UINTPTR sz = size;
+    UINT32 level = FIRST_TABLE_LEVEL_INDEX;
+    UINT8 visited[LOSCFG_ARCH_MMU_PAGE_TBL_NUM] = {0};
+    UINT32 pageTblIdx;
+
+    MMU_LOG(LOS_DEBUG_LEVEL, "[LiteOS] --- walk table begin ---\n");
+    MMU_LOG(LOS_DEBUG_LEVEL, "Walk range: pagetable:0x%lx, vAddr:0x%lx, size:0x%lx\n", (UINTPTR)ptrTbl, va, sz);
+
+    while (sz > 0) {
+        pte = &table[LN_TABLE_ENTRY_INDEX(va, level)];
+        /* Skip L0/1/2 table desc to block/page/invalid mapping */
+        if (MmuPteIsNextTable(*pte, level)) {
+            pageTblIdx = PageTableGetIdx(pte);
+            if (visited[pageTblIdx] == 0) {
+                MmuPrintPageItems(va, pte, level);
+                visited[pageTblIdx] = 1;
+            }
+            level++;
+            table = MmuGetNextTableAddr(*pte);
+            table = (UINTPTR*)MMU_PA_TO_VA(table);
+            continue;
+        }
+
+        levelSize = 1ULL << LN_TABLE_BITS_SHIFT(level);
+
+        MmuPrintPageItems(va, pte, level);
+
+        table = ptrTbl;
+        level = FIRST_TABLE_LEVEL_INDEX;
+        va += levelSize;
+        sz -= levelSize;
+    }
+
+    MMU_LOG(LOS_DEBUG_LEVEL, "[LiteOS] --- walk table end ---\n");
+}
+
+UINT32 ArchMmuTableWalk(UINTPTR vAddr, UINTPTR size)
+{
+    UINT32 intSave;
+
+    UINTPTR alignVAddr = ALIGN_DOWN(vAddr, LOSCFG_ARCH_ARM64_PAGE_SIZE);
+    UINTPTR alignSize = ALIGN_UP(vAddr + size, LOSCFG_ARCH_ARM64_PAGE_SIZE) - alignVAddr;
+    UINT32 ret = MmuCheckAddrParam(alignVAddr, 0, alignSize, MMU_RW_NX_NORMAL_NC);
+    if (ret != LOS_OK) {
+        MMU_LOG(LOS_ERR_LEVEL, "ArchMmuTableWalk() returned 0x%x.\n", ret);
+        return ret;
+    }
+    LOS_SpinLockSave(&g_mmuSpin, &intSave);
+    MmuWalkTableNoLock(g_firstPageTable, alignVAddr, alignSize);
+    LOS_SpinUnlockRestore(&g_mmuSpin, intSave);
+    return LOS_OK;
+}
+
+UINT32 ArchMmuTableStatistics(PageTablesStat *usage)
+{
+    UINT32 i, intSave;
+
+    if (usage == NULL) {
+        return LOS_ERRNO_MMU_INPUT_NULL;
+    }
+
+    LOS_SpinLockSave(&g_mmuSpin, &intSave);
+    usage->pageTotal = LOSCFG_ARCH_MMU_PAGE_TBL_NUM;
+    usage->pteTotal = LOSCFG_ARCH_MMU_PAGE_TBL_NUM * LN_TABLE_ENTRY_NUM;
+    usage->pteUsed = 0;
+    usage->pageUsed = 0;
+    for (i = 0; i < LOSCFG_ARCH_MMU_PAGE_TBL_NUM; i++) {
+        if (!PageTableIsFree(i)) {
+            usage->pageUsed++;
+            usage->pteUsed += (UINT32)PageTableModifyEntryUsedCnt(i, 0);
+            MMU_LOG(LOS_DEBUG_LEVEL, "Page table index[%u], pte use counts:%u\n",
+                    i, (UINT32)PageTableModifyEntryUsedCnt(i, 0));
         }
     }
-    __asm__ volatile("msr csselr_el1, %0" :: "r"(0UL));
-    __asm__ volatile("dsb sy" ::: "memory");
-    __asm__ volatile("isb" ::: "memory");
+    LOS_SpinUnlockRestore(&g_mmuSpin, intSave);
+
+    MMU_LOG(LOS_INFO_LEVEL, "Total page num:%u and pte num:%u, used page num:%u and pte num:%u\n",
+        usage->pageTotal, usage->pteTotal, usage->pageUsed, usage->pteUsed);
+
+    return LOS_OK;
 }
 
-static void MmuEnable(u64 ttbr0)
+/*
+ * The board provides every region through ArchMmuAppRegionReg()
+ * (see targets/rk3568_m/liteos_m/arch/arm64/los_mmu.c).
+ */
+WEAK VOID ArchMmuDefaultRegionReg(VOID)
 {
-    const u64 mair = (0x04UL << (ATTR_DEVICE * 8)) |
-                     (0xFFUL << (ATTR_NORMAL * 8)) |
-                     (0x44UL << (ATTR_NORMAL_NC * 8));
-    /* TCR_EL1: IPS=32bit, TG0=4K, SH0=inner, ORGN0/IRGN0=WBWA (page-walk
-     * cacheable), EPD1=1 (TTBR1 walks disabled), T0SZ=32 */
-    const u64 tcr = (1UL << 23) | (3UL << 12) | (1UL << 10) | (1UL << 8) | 32UL;
-    u64 sctlr;
-
-    __asm__ volatile("dsb    sy" : : : "memory");
-    __asm__ volatile("tlbi   vmalle1" : : : "memory");
-    __asm__ volatile("dsb    sy" : : : "memory");
-    __asm__ volatile("msr    mair_el1, %0" : : "r"(mair) : "memory");
-    __asm__ volatile("msr    tcr_el1,  %0" : : "r"(tcr) : "memory");
-    __asm__ volatile("msr    ttbr0_el1, %0" : : "r"(ttbr0) : "memory");
-    __asm__ volatile("isb" : : : "memory");
-    __asm__ volatile("ic     iallu" : : : "memory");
-    __asm__ volatile("dsb    sy; isb" : : : "memory");
-    __asm__ volatile("mrs    %0, sctlr_el1" : "=r"(sctlr) : : "memory");
-    /* D-cache ON (C, bit 2) with the runtime space Normal-WB: invalidate
-     * first so no stale line from the previous world can hit DDR later.
-     * Keep A (bit 1) off as before. */
-    dcache_invalidate_all();
-    sctlr = (sctlr & ~2UL) | 1UL | 4UL | 4096UL;
-    __asm__ volatile("msr    sctlr_el1, %0" : : "r"(sctlr) : "memory");
-    __asm__ volatile("isb" : : : "memory");
 }
 
-void LosMmuInit(void)
+/* WEAK-empty default so the framework links standalone; the board glue
+ * overrides this with its region table. */
+WEAK VOID ArchMmuAppRegionReg(VOID)
 {
-    u64 pa;
-    int i;
+}
 
+STATIC VOID MmuRegionRegister(VOID)
+{
+    ArchMmuDefaultRegionReg();
+    ArchMmuAppRegionReg();
+}
 
-    /* level 1: point the two 1GB slots we use at their level-2 tables */
-    g_l1[L1_INDEX(0x74100000UL)] = PTE_TABLE | (u64)(unsigned long)g_l2_low;
-    g_l1[L1_INDEX(0xFD400000UL)] = PTE_TABLE | (u64)(unsigned long)g_l2_high;
+VOID ArchMmuPageTablesCreate(VOID)
+{
+    const MmuMapRegion *region = NULL;
+    UINT32 index;
+    UINT32 ret;
 
-    /* image region 0x74200000-0x74A00000 as 2MB Normal blocks (the first
-     * 2MB of the image comes from g_l3_shared below) */
-    for (pa = 0x74200000UL; pa < 0x74A00000UL; pa += 0x200000UL) {
-        g_l2_low[L2_INDEX(pa)] = NORMAL_PTE(pa);
+    (VOID)memset(&g_regionInfo, 0, sizeof(g_regionInfo));
+
+    PageTableInitManager();
+
+    g_firstPageTable = PageTableAlloc();
+
+    MmuRegionRegister();
+
+    /* Setup mmu map regions, they cannot be overlapped with each other */
+    for (index = 0U; index < g_regionInfo.usedCnt; index++) {
+        region = &g_regionInfo.area[index];
+
+        ret = MmuCreateMap(region->name, region->pAddr, region->vAddr, region->size, region->flags);
+        if (ret != LOS_OK) {
+            LOS_Panic("CreateMapNoLock returned:0x%x.\n", ret);
+        }
     }
-
-
-    /* boot-probe scratch area 0x77E00000-0x78000000 */
-    g_l2_low[L2_INDEX(0x77E00000UL)] = DEVICE_PTE(0x77E00000UL);
-
-    /* net DMA pools: one 2MB Normal Non-Cacheable block at 0x76000000
-     * (GMAC descriptors + frame buffers; slave-private but DMA-coherent
-     * by attribute, so the D-cache enable above needs no per-packet
-     * maintenance in the driver). See gmac1_profile.h NET_DMA_*. */
-    g_l2_low[L2_INDEX(NET_DMA_BASE)] = NC_PTE(NET_DMA_BASE);
-
-    /* first 2MB split at the 1MB contract boundary: shared window is
-     * Device, image head is Normal */
-    g_l2_low[L2_INDEX(0x74000000UL)] = PTE_TABLE | (u64)(unsigned long)g_l3_shared;
-    for (i = 0; i < 256; i++) {
-        g_l3_shared[i] = DEVICE_PAGE(0x74000000UL + ((u64)i << 12));
-    }
-    for (i = 256; i < 512; i++) {
-        g_l3_shared[i] = NORMAL_PAGE(0x74100000UL + ((u64)(i - 256) << 12));
-    }
-    /* peripherals: GIC-600 (GICD 0xFD400000 / GICR 0xFD580000) and
-     * UART2 0xFE660000, covered as Device 2MB blocks */
-    for (pa = 0xFD000000UL; pa < 0xFF000000UL; pa += 0x200000UL) {
-        g_l2_high[L2_INDEX(pa)] = DEVICE_PTE(pa);
-    }
-
-    MmuEnable((u64)(unsigned long)g_l1);
 }

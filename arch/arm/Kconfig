@@ -10,20 +10,44 @@ config ARCH_ARM_AARCH32
       32-bit ARM architecture implementations, Except the M-profile.
       It is not limited to ARMv7-A but also ARMv7-R, ARMv8-A 32-bit and etc.
 
+config ARCH_ARM_CORTEX_M
+    bool
+    help
+      ARM Cortex-M series (M0+/M3/M4/M7/M33/M55).
+      Auto-selected by ARCH_ARM_V6M / V7M / V8M.
+      Used for code-level #if guards (e.g. FPB, NVIC).
+
+config ARCH_CORTEX_M_UNIFIED
+    bool "Use unified cortex_m arch directory"
+    default n
+    depends on ARCH_ARM_CORTEX_M
+    help
+      When enabled, the build system routes arch sources to the unified
+      arch/arm/cortex_m/ directory instead of the per-cpu directory
+      (cortex-m4/gcc, cortex-m0plus/gcc, etc.).
+
+      This is the new merged codebase where M0+ and M4 (and future
+      variants) share a single set of source files with Kconfig guards.
+
+      Leave disabled to keep using the original per-cpu directories.
+
 #
 # Architecture Versions
 #
 config ARCH_ARM_V6M
     bool
+    select ARCH_ARM_CORTEX_M
 
 config ARCH_ARM_V7M
     bool
+    select ARCH_ARM_CORTEX_M
 
 config ARCH_ARM_V7A
     bool
 
 config ARCH_ARM_V8M
     bool
+    select ARCH_ARM_CORTEX_M
 
 config ARCH_ARM_V5TE
     bool

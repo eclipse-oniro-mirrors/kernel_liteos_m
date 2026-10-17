@@ -32,7 +32,6 @@
 #include "It_los_swtmr.h"
 
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-
 /* 用例简要描述: 对齐扫描跳过非对齐节点。先启动一个"不对齐"周期定时器
  * （SENSITIVE，alignEnable=FALSE，运行中 isAligned=0），再启动一个"需对齐"
  * 周期定时器（INSENSITIVE，alignEnable=TRUE）→ OsSwtmrStart 触发
@@ -51,8 +50,7 @@ static UINT32 Testcase(VOID)
     UINT32 idAlign;
 
     /* 非对齐定时器：SENSITIVE 语义为"不需对齐"（alignEnable=FALSE）。 */
-    ret = LOS_SwtmrCreate(5, LOS_SWTMR_MODE_PERIOD, CaseFunc032, &idNonAlign, 0xffff,
-                          OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_SENSITIVE);
+    ret = LOS_SwtmrCreate(5, LOS_SWTMR_MODE_PERIOD, CaseFunc032, &idNonAlign, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_SwtmrStart(idNonAlign);
@@ -60,8 +58,7 @@ static UINT32 Testcase(VOID)
 
     /* 需对齐定时器：INSENSITIVE 语义为"需对齐"（alignEnable=TRUE），
      * 启动时触发 FindAlignTime 遍历，跳过运行中的非对齐节点。 */
-    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_PERIOD, CaseFunc032, &idAlign, 0xffff,
-                          OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE);
+    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, CaseFunc032, &idAlign, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(idAlign);

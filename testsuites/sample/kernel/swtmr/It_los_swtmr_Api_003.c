@@ -33,7 +33,6 @@
 #include "It_los_swtmr.h"
 
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-
 static VOID SwtmrApi003Func(UINTPTR arg)
 {
     ICUNIT_ASSERT_EQUAL_VOID(arg, 0xffff, arg);
@@ -48,8 +47,7 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     /* Create with OS_SWTMR_ROUSES_ALLOW + OS_SWTMR_ALIGN_INSENSITIVE */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi003Func, &swTmrID, 0xffff,
-        OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE);
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi003Func, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(swTmrID);
@@ -71,5 +69,4 @@ VOID ItLosSwtmrApi003(VOID)
 {
     TEST_ADD_CASE("ItLosSwtmrApi003", Testcase, TEST_LOS, TEST_SWTMR, TEST_LEVEL1, TEST_FUNCTION);
 }
-
 #endif

@@ -45,43 +45,23 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     /* interval == 0 */
-    ret = LOS_SwtmrCreate(0, LOS_SWTMR_MODE_ONCE, SwtmrApi002Func, &swTmrID, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(0, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi002Func, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_SWTMR_INTERVAL_NOT_SUITED, ret);
 
     /* invalid mode */
-    ret = LOS_SwtmrCreate(4, 3, SwtmrApi002Func, &swTmrID, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(4, 3, SwtmrApi002Func, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_SWTMR_MODE_INVALID, ret);
 
     /* NULL handler */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, NULL, &swTmrID, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, NULL, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_SWTMR_PTR_NULL, ret);
 
     /* NULL swtmrId */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi002Func, NULL, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi002Func, NULL, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_SWTMR_RET_PTR_NULL, ret);
 
     /* valid creation after errors */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi002Func, &swTmrID, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi002Func, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_SwtmrDelete(swTmrID);

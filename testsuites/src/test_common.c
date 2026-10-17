@@ -65,16 +65,9 @@ VOID OsTestCalibrateBusyDelay(VOID)
     g_calibCount = 0;
     g_itersPerTick = 0;
 
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_PERIOD,
-                          (SWTMR_PROC_FUNC)OsTestCalibSwtmrHandler,
-                          &swTmrID, 0,
-                          OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE);
-#else
-    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_PERIOD,
+    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG,
                           (SWTMR_PROC_FUNC)OsTestCalibSwtmrHandler,
                           &swTmrID, 0);
-#endif
     if (ret != LOS_OK) {
         PRINTK("[calibrate] swtmr create failed, fallback to g_sysClock\n");
         return;

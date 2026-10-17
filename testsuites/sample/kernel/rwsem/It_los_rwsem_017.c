@@ -70,11 +70,7 @@ static UINT32 TestCase(VOID)
 
     /* 3 F-Pos: swtmr 回调(系统任务)中 PendRead → 告警分支 */
     g_rwsemCbDone017 = 0;
-    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrFunc017, &swtmrId, 0
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-                          , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-                         );
+    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrFunc017, &swtmrId, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_SwtmrStart(swtmrId);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);

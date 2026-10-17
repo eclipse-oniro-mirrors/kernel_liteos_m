@@ -32,6 +32,6 @@ import("//kernel/liteos_m/liteos.gni")
 module_group("risc-v") {
   modules = [
     "common",
-    "riscv32/gcc",
+    "src",
   ]
 }

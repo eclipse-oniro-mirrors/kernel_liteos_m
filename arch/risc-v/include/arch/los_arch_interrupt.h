@@ -150,13 +150,11 @@ extern UINT32 ArchSetExcHook(EXC_PROC_FUNC excHook);
  */
 #define OS_USER_HWI_MIN        OS_HWI_MIN
 
-extern HWI_HANDLE_FORM_S g_hwiForm[OS_HWI_MAX_NUM];
-
 extern VOID HalHwiInit(VOID);
 extern UINT32 HalGetHwiFormCnt(HWI_HANDLE_T hwiNum);
-extern HWI_HANDLE_FORM_S *HalGetHwiForm(VOID);
 extern VOID HalHwiInterruptDone(HWI_HANDLE_T hwiNum);
-/* Arch trap entry (defined in los_exc.S); installed into mtvec by HalHwiInit. */
+/* Arch trap entry (defined in los_trap.S; LinxCore131: linx131/trap.S);
+ * installed into mtvec by HalHwiInit. */
 extern VOID HalTrapVector(VOID);
 
 extern UINT32 HalUnalignedAccessFix(UINTPTR mcause, UINTPTR mepc, UINTPTR mtval, VOID *sp);

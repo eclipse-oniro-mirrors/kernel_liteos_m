@@ -1,0 +1,34 @@
+# -march/-mabi are owned by the board-level config.gni (OHOS convention,
+# e.g. ws63: rv32imfc / ilp32f); the arch module must not inject them.
+
+import("../../../liteos.gni")
+
+kernel_module("arch") {
+  sources = [
+    "los_context.c",
+    "los_dispatch.S",
+    "los_exc.S",
+    "los_interrupt.c",
+    "los_trap.S",
+  ]
+  if (!defined(LOSCFG_ARCH_TIMER_VENDOR)) {
+    sources += [ "los_timer.c" ]
+  }
+
+  # Core-specific trap replacement: LinxCore131 has its own trap entry
+  # with hardware interrupt nesting (0xBFE/0x7ED CSR), replacing the
+  # default los_trap.S.
+  if (defined(LOSCFG_ARCH_LINXCORE_131)) {
+    sources -= [ "los_trap.S" ]
+    sources += [ "linx131/trap.S" ]
+  }
+  configs += [ "$LITEOSTOPDIR:warn_config" ]
+}
+
+config("public") {
+  include_dirs = [
+    ".",
+    "../include",
+    "../include/arch",
+  ]
+}

@@ -1,0 +1,126 @@
+# RISC-V Architecture
+# Only LinxCore131 (ws63) and LinxCore170 (3322) cores are adapted here.
+# Note: config names omit the LOSCFG_ prefix; genconfig adds it automatically,
+# so GN checks use defined(LOSCFG_ARCH_LINXCORE_131) etc.
+
+config ARCH_RISCV_RV32IMC
+    bool
+    help
+      32-bit RISCV RV32IMC base ISA.
+
+config ARCH_RISCV_ISA_F
+    bool
+    help
+      "F" Standard Extension for Single-Precision Floating-Point.
+
+config ARCH_RISCV_ISA_D
+    bool
+    select ARCH_RISCV_ISA_F
+    help
+      "D" Standard Extension for Double-Precision Floating-Point.
+
+config LCMP_CUSTOM_INST16_EXTENSIONS
+    bool
+    help
+      Extra custom 16-bit extension for RISC-V C-extension. Depends on ARCH_LINX_M.
+      Includes arithmetic logic, byte/half-word sign/zero-extension, store-zero, push/pop.
+
+config LCMP_CUSTOM_INST16_SUB_EXTENSIONS
+    bool
+    help
+      Another custom 16-bit extension. Has encoding conflicts with standard C-extension.
+      Cannot be enabled when C-extension and D-extension are both configured.
+
+config LCMP_CUSTOM_INST32_EXTENSIONS
+    bool
+    help
+      32-bit custom instructions for code size and performance optimization.
+      Includes pre-shift ALU, immediate compare-branch, bit manipulation,
+      load/store multiple, conditional move, half-precision FP convert,
+      pre/post-index load/store, load/store pair, FP round-to-int,
+      interrupt nest enable/disable, large-offset jump, gp-based load/store,
+      multiply-add/sub, prefetch, stop-for-security.
+
+config LCMP_CUSTOM_INST48_EXTENSIONS
+    bool
+    help
+      48-bit custom extension that reduces cost of encoding large immediates, saving two bytes.
+
+config ARCH_LINX_M
+    bool
+    select ARCH_RISCV_RV32IMC
+    select ARCH_RISCV32
+    select RISCV_LCMP_CLIC if !ARCH_INTERRUPT_VENDOR
+    help
+      General setup for LinxCore m-profile. Specific processor cores select this
+      option directly.
+
+# Supported Processor Cores
+
+config ARCH_QEMU_RISCV32_VIRT
+    bool
+    select ARCH_RISCV_RV32IMC
+    select ARCH_RISCV32
+    help
+      QEMU virt platform RISC-V 32-bit (rv32imac). Uses the standard
+      RISC-V CLINT timer and memory-mapped PLIC. No custom instructions.
+
+config ARCH_LINXCORE_131
+    bool
+    select ARCH_RISCV_RV32IMC
+    select ARCH_RISCV32
+    select RISCV_HIMIDEERV200_PLIC if !ARCH_INTERRUPT_VENDOR
+    help
+      HiSilicon LinxCore131 (ws63). Does not belong to LinxCore m-profile,
+      so does not select ARCH_LINX_M.
+
+config ARCH_LINXCORE_170
+    bool
+    select ARCH_LINX_M
+
+config ARCH_RISCV_EPMP
+    bool
+    help
+      RISC-V PMP enhancements extension.
+
+config ARCH_RISCV_TES
+    bool
+    select ARCH_RISCV_EPMP
+    help
+      RISC-V Trusted Execution State Extension.
+
+config ARCH_RISCV_INT_AUTO_STACK
+    bool
+    help
+      RISC-V interrupt hardware stacking.
+
+# LinxCore170 configuration variants
+config ARCH_LINXCORE_170_CONFIG61
+    bool
+    select ARCH_LINX_M
+    select ARCH_RISCV_ISA_D
+    select LCMP_CUSTOM_INST16_EXTENSIONS
+    select LCMP_CUSTOM_INST32_EXTENSIONS
+    select ARCH_RISCV_TES
+
+config ARCH_LINXCORE_170_CONFIG41
+    bool
+    select ARCH_LINX_M
+    select ARCH_RISCV_ISA_D
+    select LCMP_CUSTOM_INST16_EXTENSIONS
+    select LCMP_CUSTOM_INST32_EXTENSIONS
+
+config ARCH_LINXCORE_170_CONFIG32
+    bool
+    select ARCH_LINX_M
+    select ARCH_RISCV_ISA_F
+    select LCMP_CUSTOM_INST16_EXTENSIONS
+    select LCMP_CUSTOM_INST32_EXTENSIONS
+
+config ARCH_LINXCORE_170_CONFIG60
+    bool
+    select ARCH_LINX_M
+    select ARCH_RISCV_ISA_D
+    select LCMP_CUSTOM_INST16_EXTENSIONS
+    select LCMP_CUSTOM_INST32_EXTENSIONS
+    select ARCH_RISCV_EPMP

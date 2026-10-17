@@ -43,6 +43,8 @@ config ARCH_RISCV_HW_ATOMIC
 config ARCH_XTENSA
    bool
 
+rsource "risc-v/Kconfig"
+
 comment "Extra Configurations"
 
 config ARCH_FPU_DISABLE
@@ -80,11 +82,3 @@ config ARCH_TIMER_VENDOR
       Select this if the board has a custom timer (not SiFive CLINT).
       The board must provide its own ArchSysTickTimerGet() and ArchEnterSleep().
 
-config ARCH_INTERRUPT_VENDOR
-    bool "Use vendor-provided interrupt controller instead of arch default"
-    default n
-    help
-      Select this if the board has a custom interrupt controller (not the
-      default liteos_m g_hwiForm dispatch). The board must provide its own
-      g_hwiForm, HalHwiInterruptDone, LOS_HwiCreate, HalExcEntry, HalHwiInit,
-      and all symbols that los_interrupt.c would normally provide.

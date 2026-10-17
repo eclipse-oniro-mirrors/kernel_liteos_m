@@ -215,6 +215,13 @@ ArchTaskSchedule:
 
     SREG ra, 17 * REGBYTES(sp)
 
+#ifdef LOSCFG_LCMP_CUSTOM_INST16_EXTENSIONS
+    /* Clear UOP cause bits in mcause (LinxCore170 LCMP custom instruction
+     * extension). LOS_MCAUSE_UOP = 0x0100F000. */
+    li   t0, 0x0100F000
+    csrrc zero, mcause, t0
+#endif
+
     // a0=newTask, a1=runTask
     sw   sp, TASK_CB_KERNEL_SP(a1)
 

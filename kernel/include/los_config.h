@@ -472,6 +472,12 @@ extern UINT8 *m_aucSysMem0;
 
 /**
  * @ingroup los_config
+ * The end address of system memory.
+ */
+extern UINTPTR g_sys_mem_addr_end;
+
+/**
+ * @ingroup los_config
  * Configure whether the kernel uses external heap memory
  */
 #ifndef LOSCFG_SYS_EXTERNAL_HEAP

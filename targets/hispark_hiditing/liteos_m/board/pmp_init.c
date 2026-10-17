@@ -46,6 +46,7 @@
 #define CSR_PMPCFG7    0x3A7
 
 #define CSR_PMPADDR18  0x3C2
+#define CSR_PMPADDR19  0x3C3
 #define CSR_PMPADDR22  0x3C6
 #define CSR_PMPADDR23  0x3C7
 #define CSR_PMPADDR26  0x3CA
@@ -56,6 +57,7 @@
 #define CSR_PMPADDR31  0x3CF
 
 #define CSR_MEMATTR18  0xBD2
+#define CSR_MEMATTR19  0xBD3
 #define CSR_MEMATTR22  0xBD6
 #define CSR_MEMATTR23  0xBD7
 #define CSR_MEMATTR26  0xBDA
@@ -116,7 +118,7 @@ void pmp_init(void)
     /* Mirror hs-fbb's src/drivers/chips/3322/config/acore/normal/pmp_config.c
      * region table (REE app's pmp_init). hs-fbb configures entries 17-31
      * (skipping 16 which is reserved for SSB's ITCM startup vector, and 20/21
-     * which are left at default). Entries 17/19/24/25 (PSRAM) are omitted
+     * which are left at default). Entries 17/24/25 (PSRAM) are omitted
      * since hi3322 doesn't use PSRAM. All other entries match hs-fbb. */
 
     /* Entry 18: norflash 32MB @ 0x26000000, cacheable, R+X */
@@ -158,5 +160,34 @@ void pmp_init(void)
     set_pmp_entry(CSR_PMPADDR31, CSR_MEMATTR31, CSR_PMPCFG7, 3,
                   0x22000000, 0x01000000, MEM_ATTR_NON_CACHEABLE, RWX_RW);
 
+    /* Entry 19: dynload DSO pool, ITCM 64KB @ 0x40000; must stay below entry 22. */
+    set_pmp_entry(CSR_PMPADDR19, CSR_MEMATTR19, CSR_PMPCFG4, 3,
+                  HI3322_DYNLOAD_POOL_BASE, HI3322_DYNLOAD_POOL_SIZE,
+                  MEM_ATTR_NON_CACHEABLE, RWX_RW);
+
     __asm__ volatile("fence" ::: "memory");
+}
+
+/* Loader hooks: flip entry 19 RW while loading, RX while loaded (W^X). */
+UINT32 ArchDynloadPrepare(VOID)
+{
+    set_pmp_entry(CSR_PMPADDR19, CSR_MEMATTR19, CSR_PMPCFG4, 3,
+                  HI3322_DYNLOAD_POOL_BASE, HI3322_DYNLOAD_POOL_SIZE,
+                  MEM_ATTR_NON_CACHEABLE, RWX_RW);
+    __asm__ volatile("fence" ::: "memory");
+    return 0; /* LOS_OK */
+}
+
+UINT32 ArchDynloadFinish(UINTPTR codeAddrStart, UINTPTR codeAddrEnd,
+                         UINTPTR dataAddrStart, UINTPTR dataAddrEnd)
+{
+    (VOID)codeAddrStart;
+    (VOID)codeAddrEnd;
+    (VOID)dataAddrStart;
+    (VOID)dataAddrEnd;
+    set_pmp_entry(CSR_PMPADDR19, CSR_MEMATTR19, CSR_PMPCFG4, 3,
+                  HI3322_DYNLOAD_POOL_BASE, HI3322_DYNLOAD_POOL_SIZE,
+                  MEM_ATTR_NON_CACHEABLE, RWX_RX);
+    __asm__ volatile("fence" ::: "memory");
+    return 0; /* LOS_OK */
 }

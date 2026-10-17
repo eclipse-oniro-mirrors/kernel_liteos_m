@@ -78,6 +78,10 @@
 #include "los_dynlink.h"
 #endif
 
+#if (LOSCFG_KERNEL_DYNLOAD == 1)
+extern UINT32 OsDynloadInit(VOID);
+#endif
+
 #ifdef LOSCFG_KERNEL_LMS
 #include "los_lms_pri.h"
 #endif
@@ -110,6 +114,8 @@
 #if (LOSCFG_BASE_CORE_SWTMR == 1) && !defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR)
 LITE_OS_SEC_BSS STATIC UINTPTR g_swtmrExpiryBuf[LOSCFG_KERNEL_CORE_NUM][LOSCFG_BASE_CORE_SWTMR_LIMIT];
 #endif
+
+__attribute__((section(".data.init"))) UINTPTR g_sys_mem_addr_end;
 
 /*****************************************************************************
  Function    : LOS_Reboot
@@ -382,6 +388,14 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_KernelInit(VOID)
 #if (LOSCFG_DYNLINK == 1)
     ret = LOS_DynlinkInit();
     if (ret != LOS_OK) {
+        return ret;
+    }
+#endif
+
+#if (LOSCFG_KERNEL_DYNLOAD == 1)
+    ret = OsDynloadInit();
+    if (ret != LOS_OK) {
+        PRINT_ERR("Dynload init failed!\n");
         return ret;
     }
 #endif

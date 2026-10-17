@@ -199,6 +199,9 @@ void TestKernel(void)
 #if (LOS_KERNEL_DYNLINK_TEST == 1)
     ItSuiteLosDynlink();
 #endif
+#if (LOS_KERNEL_DYNLOAD_TEST == 1)
+    ItSuiteLosDynload();
+#endif
 
 #if (LOS_KERNEL_LMS_TEST == 1)
     ItSuiteLosLms();

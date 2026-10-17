@@ -215,6 +215,61 @@ config KERNEL_DYNLINK
     help
       If you wish to build LiteOS with support for dynamic link.
 
+config KERNEL_DYNLOAD
+    bool "Enable Dynamic Load Feature"
+    default n
+    depends on KERNEL_EXTKERNEL && (ARCH_ARM_AARCH32 || ARCH_RISCV32)
+    select BASE_IPC_MUX
+    select KERNEL_MEM_ALLOC
+    help
+      If you wish to build LiteOS with support for dynamic load.
+
+menu "Dynamic Load Options"
+    depends on KERNEL_DYNLOAD
+
+config KERNEL_DYNLOAD_DYN
+    bool "Enable Dynamic Load Shared object file"
+    default y
+
+menu "Dynamic Load Shared object file Options"
+    depends on KERNEL_DYNLOAD_DYN
+
+config DYNLOAD_DYN_FROM_FS
+    bool "Enable Dynamic Load Shared object file from FS"
+    default y
+    depends on FS_VFS
+
+config DYNLOAD_DYN_FROM_MEM
+    bool "Enable Dynamic Load Shared object file from memory"
+    default y
+
+endmenu
+
+config KERNEL_DYNLOAD_REL
+    bool "Enable Dynamic Load Relocatable file"
+    default y
+
+menu "Dynamic Load Relocatable file Options"
+    depends on KERNEL_DYNLOAD_REL
+
+config DYNLOAD_REL_FROM_FS
+    bool "Enable Dynamic Load Relocatable file from FS"
+    default y
+    depends on FS_VFS
+
+config DYNLOAD_REL_FROM_MEM
+    bool "Enable Dynamic Load Relocatable file from memory"
+    default y
+
+endmenu
+
+config KERNEL_DYNLOAD_MODULE_NUM
+    int "Maximum loadable module number"
+    range 1 65535
+    default 10
+
+endmenu
+
 config KERNEL_PM
     bool "Enable Power Management"
     default n

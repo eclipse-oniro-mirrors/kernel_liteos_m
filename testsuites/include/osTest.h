@@ -99,6 +99,12 @@ extern "C" {
 #define LOS_KERNEL_CORE_CPUP_TEST 0
 #endif
 #define LOS_KERNEL_DYNLINK_TEST 0
+/* DSO test images are generated at build time; suite runs on AARCH32/RISC-V only. */
+#if (LOSCFG_KERNEL_DYNLOAD == 1) && (defined(LOSCFG_ARCH_ARM_AARCH32) || defined(LOSCFG_ARCH_RISCV))
+#define LOS_KERNEL_DYNLOAD_TEST 1
+#else
+#define LOS_KERNEL_DYNLOAD_TEST 0
+#endif
 #define LOS_KERNEL_TICKLESS_TEST 0
 #if (LOSCFG_KERNEL_PM == 1)
 #define LOS_KERNEL_PM_TEST 1
@@ -471,6 +477,9 @@ extern VOID ItSuiteLosMem(void);
 extern VOID ItSuiteLosTrace(void);
 extern VOID ItSuiteLosCpup(void);
 extern VOID ItSuiteLosDynlink(void);
+#if (LOSCFG_KERNEL_DYNLOAD == 1)
+extern VOID ItSuiteLosDynload(void);
+#endif
 extern VOID ItSuite_Los_FatFs(void);
 extern VOID ItSuiteLosLms(void);
 extern VOID ItSuiteLosPm(void);

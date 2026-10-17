@@ -70,6 +70,19 @@ extern MALLOC_HOOK g_MALLOC_HOOK;
 #define LOS_MEM_INIT_ATTR_SLAB_MSK       0x1U
 #endif
 
+/**
+ * @ingroup los_memory
+ * The start address of exception interaction dynamic memory pool address, when the exception
+ * interaction feature not support, m_aucSysMem0 equals to m_aucSysMem1.
+ */
+extern UINT8 *m_aucSysMem0;
+
+/**
+ * @ingroup los_memory
+ * The start address of system dynamic memory pool address.
+ */
+extern UINT8 *m_aucSysMem1;
+
 #if (LOSCFG_MEM_LEAKCHECK == 1)
 /**
  * @ingroup los_memory

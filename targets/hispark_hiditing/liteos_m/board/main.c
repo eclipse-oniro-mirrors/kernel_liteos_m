@@ -8,6 +8,8 @@
 #include "los_task.h"
 #include "los_debug.h"
 #include "los_interrupt.h"
+#include "los_memory.h"
+#include "los_ld_elflib.h"
 #include "cmsis_os2.h"
 #include "soc.h"
 #include "pmp_init.h"
@@ -65,6 +67,15 @@ extern UINT32 __stack_chk_guard;
 static VOID *app_task(UINT32 arg)
 {
     (VOID)arg;
+
+#ifdef LOSCFG_KERNEL_DYNLOAD
+    /* Register the DSO pool with the loader (needs the scheduler up). */
+    if (!LOS_DynMemPoolSet((VOID *)HI3322_DYNLOAD_POOL_BASE)) {
+        PRINT_ERR("dynload pool set failed\n");
+    } else {
+        PRINTK("dynload pool ok: 0x%x/0x%x\n", HI3322_DYNLOAD_POOL_BASE, HI3322_DYNLOAD_POOL_SIZE);
+    }
+#endif
 
 #if !defined(LOSCFG_TEST)
     /* File-system bring-up and the tight 10s watchdog re-arm run only on the
@@ -147,6 +158,8 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
     PRINTK("main: pmp_init ok\n");
 
     hi3322_board_init();
+
+    g_sys_mem_addr_end = SYS_MEM_BASE + SYS_MEM_SIZE_DEFAULT;
     /*
      * Enable the hardware watchdog (reset_vector disabled it during init).
      * Boot budget first (see WDT_TIMEOUT_BOOT_SEC above); app_task re-arms
@@ -169,6 +182,17 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
 
 #ifdef LOSCFG_SHELL_DMESG
     (VOID)OsDmesgInit();
+#endif
+
+#ifdef LOSCFG_KERNEL_DYNLOAD
+    /* DSO load pool: 64KB ITCM window (pmp_init.h); registered in app_task. */
+    ret = LOS_MemInit((VOID *)HI3322_DYNLOAD_POOL_BASE, HI3322_DYNLOAD_POOL_SIZE);
+    if (ret != LOS_OK) {
+        PRINT_ERR("dynload pool init failed: 0x%x\n", ret);
+    } else {
+        /* Unlink the private pool from the global multipool list. */
+        (VOID)LOS_MemDeInit((VOID *)HI3322_DYNLOAD_POOL_BASE);
+    }
 #endif
 
 #if defined(LOSCFG_TEST)

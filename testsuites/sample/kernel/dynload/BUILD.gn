@@ -1,0 +1,169 @@
+# Copyright (c) 2026-2026 Huawei Device Co., Ltd. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of
+#    conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list
+#    of conditions and the following disclaimer in the documentation and/or other materials
+#    provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its contributors may be used
+#    to endorse or promote products derived from this software without specific prior written
+#    permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import("//kernel/liteos_m/config.gni")
+import("//kernel/liteos_m/liteos.gni")
+
+# Generate the DSO/REL images from lib/*.c into dso/<arch>/ at build time; shell.sh comes from lib/.
+if (defined(LOSCFG_ARCH_RISCV)) {
+  _dso_arch = "riscv"
+  # riscv32 arch/ABI flags; must match the board toolchain config.
+  _dso_arch_flags = "--target=riscv32 -march=rv32imfdc -mabi=ilp32d"
+  _objcopy_output_target = "elf32-littleriscv"
+  _objcopy_binary_arch = "riscv"
+  # EF_RISCV_FLOAT_ABI_DOUBLE: must match the kernel ABI (ilp32d).
+  _elf_flags = "0x4"
+} else if (defined(LOSCFG_ARCH_ARM_AARCH64)) {
+  # Reserved arm64 layout; dynload has no aarch64 relocation support yet.
+  _dso_arch = "arm64"
+  _dso_arch_flags = "-march=armv8-a"
+  _objcopy_output_target = "elf64-littleaarch64"
+  _objcopy_binary_arch = "aarch64"
+  _elf_flags = "0x0"
+} else {
+  _dso_arch = "arm"
+  _dso_arch_flags = "-mcpu=$LOSCFG_ARCH_CPU -mthumb"
+  if (defined(LOSCFG_ARCH_FPU) && LOSCFG_ARCH_FPU != "" &&
+      !defined(LOSCFG_ARCH_FPU_DISABLE)) {
+    _dso_arch_flags += " -mfpu=$LOSCFG_ARCH_FPU -mfloat-abi=hard"
+  }
+  _objcopy_output_target = "elf32-littlearm"
+  _objcopy_binary_arch = "arm"
+  _elf_flags = "0x0"
+}
+
+_dso_out_dir = "$target_out_dir/dso/$_dso_arch"
+
+# Images built by the dynload_dso_bins action.
+_dso_bins = [
+  "basic.so",
+  "dep_a.so",
+  "dep_b.so",
+  "exec.so",
+  "ossym.so",
+  "objbasic.o",
+  "objmovwt.o",
+  "objossym.o",
+  "objundef.o",
+]
+_dso_srcs = [
+  "lib/dynld_basic.c",
+  "lib/dynld_dep_a.c",
+  "lib/dynld_dep_b.c",
+  "lib/dynld_objbasic.c",
+  "lib/dynld_objmovwt.c",
+  "lib/dynld_objossym.c",
+  "lib/dynld_objundef.c",
+  "lib/dynld_ossym.c",
+]
+
+action("dynload_dso_bins") {
+  script = "gen_dso_bin.py"
+  sources = _dso_srcs
+  outputs = []
+  foreach(_bin, _dso_bins) {
+    outputs += [ "$_dso_out_dir/$_bin" ]
+  }
+  args = [
+    "--cc",
+    ohos_current_cc_command,
+    "--arch",
+    _dso_arch,
+    "--src-dir",
+    rebase_path("lib", root_build_dir),
+    "--out-dir",
+    rebase_path(_dso_out_dir, root_build_dir),
+    "--arch-flags",
+    _dso_arch_flags,
+  ]
+}
+
+_dso_files = [
+  "basic.so",
+  "dep_a.so",
+  "dep_b.so",
+  "exec.so",
+  "ossym.so",
+  "shell.sh",
+  "objbasic.o",
+  "objmovwt.o",
+  "objossym.o",
+  "objundef.o",
+]
+_dso_objs = []
+foreach(_dso, _dso_files) {
+  _dso_objs += [ "$target_gen_dir/dso_obj/$_dso.o" ]
+}
+
+action("dynload_dso_objs") {
+  script = "gen_dso_obj.py"
+  sources = [ "lib/shell.sh" ]
+  inputs = []
+  foreach(_bin, _dso_bins) {
+    inputs += [ "$_dso_out_dir/$_bin" ]
+  }
+  outputs = _dso_objs
+  deps = [ ":dynload_dso_bins" ]
+  args = [
+    "--objcopy",
+    toochain_config_objcopy,
+    "--out-dir",
+    rebase_path("$target_gen_dir/dso_obj", root_build_dir),
+    "--output-target",
+    _objcopy_output_target,
+    "--binary-architecture",
+    _objcopy_binary_arch,
+    "--elf-flags",
+    _elf_flags,
+  ]
+  foreach(_dso, _dso_files) {
+    if (_dso == "shell.sh") {
+      args += [ rebase_path("lib/$_dso", root_build_dir) ]
+    } else {
+      args += [ rebase_path("$_dso_out_dir/$_dso", root_build_dir) ]
+    }
+  }
+}
+
+static_library("test_dynload") {
+  sources = [
+    "It_los_dynload.c",
+    "It_los_dynload_dso.c",
+    "It_los_dynload_001.c",
+    "It_los_dynload_002.c",
+    "It_los_dynload_003.c",
+    "It_los_dynload_004.c",
+    "It_los_dynload_005.c",
+    "It_los_dynload_006.c",
+    "It_los_dynload_007.c",
+    "It_los_dynload_008.c",
+  ] + _dso_objs
+  deps = [ ":dynload_dso_objs" ]
+  include_dirs = [ "$LITEOSTOPDIR/kernel/extended/dynload/include" ]
+  configs += [ "$LITEOSTOPDIR/testsuites:include" ]
+}

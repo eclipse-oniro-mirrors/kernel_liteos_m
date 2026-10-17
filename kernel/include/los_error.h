@@ -217,6 +217,7 @@ enum LOS_MODULE_ID {
     LOS_MOD_PM               = 0x20,
     LOS_MOD_LMK              = 0x21,
     LOS_MOD_RWSEM            = 0x22,
+    LOS_MOD_DYNLOAD          = 0x26,
     LOS_MOD_SHELL            = 0x31,
     LOS_MOD_SIGNAL           = 0x32,
     LOS_MOD_BUTT

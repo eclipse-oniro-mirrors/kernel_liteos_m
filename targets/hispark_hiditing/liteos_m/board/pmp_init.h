@@ -10,4 +10,8 @@
 
 void pmp_init(void);
 
+/* Dynload DSO pool in the unused ITCM tail; NAPOT needs power-of-two size and alignment. */
+#define HI3322_DYNLOAD_POOL_BASE 0x40000u
+#define HI3322_DYNLOAD_POOL_SIZE 0x10000u /* 64KB */
+
 #endif /* _PMP_INIT_H_ */

@@ -161,7 +161,8 @@ group("posix_test") {
     ":posix_time_test",
   ]
 
-  if (defined(LOSCFG_SUPPORT_FATFS) || defined(LOSCFG_SUPPORT_LITTLEFS)) {
+  if (defined(LOSCFG_SUPPORT_FATFS) || defined(LOSCFG_SUPPORT_LITTLEFS) ||
+      defined(LOSCFG_FS_YAFFS)) {
     deps += [ "src/fs" ]
   }
 

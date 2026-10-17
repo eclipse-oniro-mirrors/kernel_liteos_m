@@ -87,10 +87,6 @@ int TestFsVolumeEnsure(void)
             return -1;
         }
     }
-    /* TEMP bring-up: staged progress prints — the 2026-09-24 board log shows a
-     * silent 60 s WDT hang inside this function (no ram_lfs output at all);
-     * these markers pinpoint the step. Remove once the hang is located. */
-    PRINTK("ram_lfs: disk ok @0x%x\n", (UINT32)(UINTPTR)g_ramLfsDisk);
 
     /* 干净盘：全 0xFF → 无 superblock → LfsMount 内部 format 兜底后挂载成功 */
     if (memset_s(g_ramLfsDisk, RAM_LFS_DISK_BYTES, 0xFF, RAM_LFS_DISK_BYTES) != EOK) {
@@ -101,7 +97,6 @@ int TestFsVolumeEnsure(void)
         lengths[0] = (int)RAM_LFS_DISK_BYTES;
         addrs[0] = 0; /* 分区起始偏移：块回调直接以 offset 索引盘体 */
         ret = LOS_DiskPartition(RAM_LFS_DEV_NAME, "littlefs", lengths, addrs, 1);
-        PRINTK("ram_lfs: diskpart ret=%d\n", ret); /* TEMP bring-up */
         if (ret != 0) {
             return ret;
         }
@@ -127,9 +122,7 @@ int TestFsVolumeEnsure(void)
     cfg.lookaheadSize = 16; /* 16, qemu fs_init.c 同款 */
     cfg.blockCycles = 1000; /* 1000, RAM 盘无磨损语义，取 qemu 同款 */
 
-    PRINTK("ram_lfs: mounting %s...\n", RAM_LFS_MOUNT_POINT); /* TEMP bring-up */
     ret = mount(NULL, RAM_LFS_MOUNT_POINT, "littlefs", 0, &cfg);
-    PRINTK("ram_lfs: mount ret=%d errno=%d\n", ret, errno); /* TEMP bring-up */
     if (ret != 0) {
         return -1;
     }

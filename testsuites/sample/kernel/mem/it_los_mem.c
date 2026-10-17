@@ -126,6 +126,21 @@ VOID TEST_MulPoolUnRegister(VOID)
 {
     extern UINT32 g_poolFlag;
     extern UINT32 g_mulPoolMux;
+    UINT32 i;
+
+    /* 补偿 OsMulPoolShrink 对 slab 池的静默跳过：扩展池经 LOS_MemInit 创建
+     * （bestfit 硬编码 SLAB 属性，池 init 即划走 slab 类 = 永久 used 节点），
+     * OsCheckPoolNoUsed 恒 FALSE，shrink 无法移除链上扩展池、钩子缓冲永不
+     * 归还。注销时按槽位 DeInit 摘链并显式归还动态缓冲，保证每个用例结束
+     * 后链与槽位恢复干净，后续用例的扩展落槽可确定性预期（与 mulpool_005
+     * 入口清理同款；DeInit 不回调 freeMemPoolFunc，须显式归还）。 */
+    for (i = 0; i < TEST_POOL_MAX_NUM; i++) {
+        if (g_poolMem[i] != NULL) {
+            if (LOS_MemDeInit(g_poolMem[i]) == LOS_OK) {
+                TestReleaseAddrSize(g_poolMem[i]);
+            }
+        }
+    }
 
     (VOID)LOS_MuxDelete(g_mulPoolMux);
     g_poolFlag = 0;

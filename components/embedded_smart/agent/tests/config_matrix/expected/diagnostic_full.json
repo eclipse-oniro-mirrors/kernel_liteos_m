@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "source_revision": "c18da842b38ce58f143439b9e463e4500be2d588",
+  "profile": "legacy_diagnostic_full",
+  "tests": {
+    "passed": 20,
+    "failed": 0
+  },
+  "artifact": {
+    "text": 279722,
+    "data": 21912,
+    "bss": 3326536,
+    "public_symbol_count": 196,
+    "sha256": "c1dacef667859f38af8b43e66042b266122cd11568f039218c8163c8472ca8a4"
+  },
+  "notes": "Host baseline only; target-board budgets require target toolchains and hardware."
+}

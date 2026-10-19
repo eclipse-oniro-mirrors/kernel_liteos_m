@@ -1,0 +1,64 @@
+mainmenu "LiteCrab Configuration"
+
+config LITECRAB_PRODUCT_ID
+    string "Product identifier"
+
+choice LITECRAB_PLATFORM
+    prompt "Target platform"
+config LITECRAB_PLATFORM_POSIX
+    bool "POSIX host"
+config LITECRAB_PLATFORM_HI3516
+    bool "Hi3516 embedded platform"
+endchoice
+
+choice LITECRAB_ARTIFACT
+    prompt "Artifact type"
+config LITECRAB_ARTIFACT_EXECUTABLE
+    bool "Standalone executable"
+config LITECRAB_ARTIFACT_STATIC_LIBRARY
+    bool "Embedded static library"
+endchoice
+
+config LITECRAB_CAP_OBSERVABILITY
+    bool "Observability"
+    default n
+
+config LITECRAB_CAP_MEMORY
+    bool "Memory"
+    default n
+
+config LITECRAB_CAP_SKILLS
+    bool "Skills"
+    default n
+
+config LITECRAB_CAP_WORKSPACE_TOOLS
+    bool "Workspace tools"
+    default n
+
+config LITECRAB_CAP_PROCESS_TOOLS
+    bool "Process tools"
+    default n
+
+config LITECRAB_CAP_TCP_GATEWAY
+    bool "TCP Gateway"
+    default n
+
+config LITECRAB_CAP_ALARM
+    bool "Alarm ingress"
+    default n
+
+config LITECRAB_CAP_MCP_CLIENT
+    bool "MCP client"
+    default n
+
+config LITECRAB_CAP_EMBEDDED_AGENT_API
+    bool "Embedded Agent API"
+    default n
+
+config LITECRAB_CAP_ROBOT_TOOLS
+    bool "Robot tools"
+    default n
+
+config LITECRAB_CAP_TTS_OUTPUT
+    bool "TTS output"
+    default n

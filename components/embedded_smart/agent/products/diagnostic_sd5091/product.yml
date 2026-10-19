@@ -1,0 +1,7 @@
+schema: 1
+id: diagnostic_sd5091
+display_name: LiteCrab Diagnostic Agent
+defconfig: defconfigs/diagnostic_sd5091.defconfig
+prompt: products/diagnostic_sd5091/prompt.md
+artifact_name: litecrab_server
+runtime_config_schema: config/base_config.example.json

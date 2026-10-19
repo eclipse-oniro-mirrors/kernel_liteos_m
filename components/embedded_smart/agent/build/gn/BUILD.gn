@@ -1,0 +1,9 @@
+import("//third_party/litecrab/generated/litecrab_sources.gni")
+
+static_library("litecrab_agent") {
+  sources = litecrab_sources
+  include_dirs = [
+    "//third_party/litecrab/include",
+    "//third_party/litecrab/generated/include",
+  ]
+}

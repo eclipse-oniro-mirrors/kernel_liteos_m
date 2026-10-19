@@ -1,0 +1,30 @@
+{
+    "name": "@openharmony/agent",
+    "description": "Robot control agent (LiteCrab core + ASR/TTS interface + robot tool relay).",
+    "version": "1.0",
+    "license": "Apache License 2.0",
+    "publishAs": "code-segment",
+    "segment": {
+        "destPath": "device/soc/hisilicon/common/platform/agent"
+    },
+    "component": {
+        "name": "agent",
+        "subsystem": "agent",
+        "syscap": [],
+        "features": [],
+        "adapted_system_type": ["small"],
+        "rom": "",
+        "ram": "",
+        "deps": {
+            "components": ["network"],
+            "third_party": []
+        },
+        "build": {
+            "sub_component": [
+                "//device/soc/hisilicon/common/platform/agent:agent_group"
+            ],
+            "inner_kits": [],
+            "test": []
+        }
+    }
+}

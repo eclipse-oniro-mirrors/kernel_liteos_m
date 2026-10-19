@@ -1,0 +1,7 @@
+schema: 1
+id: energy_inspection
+display_name: Energy Inspection Agent
+defconfig: defconfigs/energy_inspection.defconfig
+prompt: products/energy_inspection/prompt.md
+artifact_name: litecrab_energy_inspection
+runtime_config_schema: config/base_config.example.json

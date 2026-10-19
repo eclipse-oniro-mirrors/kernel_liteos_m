@@ -1,0 +1,10 @@
+schema: 1
+profiles:
+  diagnostic_sd5091:
+    host_baseline_only:
+      text_bytes: 279722
+      data_bytes: 21912
+      bss_bytes: 3326536
+    target_budget_status: pending_sd5091_toolchain_measurement
+  robot_hi3516:
+    target_budget_status: pending_hi3516_toolchain_and_board_measurement

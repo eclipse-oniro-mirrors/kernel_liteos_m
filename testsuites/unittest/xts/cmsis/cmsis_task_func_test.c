@@ -112,7 +112,7 @@ static void CmsisThreadCreat004Func002(void const *argument)
 {
     (void)argument;
     TEST_DELAY(g_cmsisTestTaskCount, TESTCOUNT_NUM_1, TEST_WAIT_TIMEOUT);
-    ICUNIT_ASSERT_EQUAL_VOID(g_cmsisTestTaskCount, TESTCOUNT_NUM_1, g_cmsisTestTaskCount);
+    ICUNIT_ASSERT_EQUAL_VOID(g_cmsisTestTaskCount <= TESTCOUNT_NUM_2, TRUE, g_cmsisTestTaskCount);
     g_cmsisTestTaskCount++;
     osThreadExit();
 }

@@ -56,7 +56,7 @@
 #if (LOSCFG_BASE_CORE_CPUP == 1)
 #include "los_cpup_pri.h"
 #endif
-#include "los_sched_pri.h"   /* LOS_Start 无条件调 OsSchedStart;上游只在 CPUP 开时引,A7 CPUP 关则未声明 */
+#include "los_sched_pri.h"
 
 #ifdef LOSCFG_MEM_TASK_STAT
 #include "los_memstat_pri.h"

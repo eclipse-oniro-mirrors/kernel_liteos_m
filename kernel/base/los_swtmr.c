@@ -76,7 +76,7 @@ LITE_OS_SEC_BSS  SPIN_LOCK_INIT(g_swtmrSpin);
 #define SWTMR_LOCK(state)       LOS_SpinLockSave(&g_swtmrSpin, &(state))
 #define SWTMR_UNLOCK(state)     LOS_SpinUnlockRestore(&g_swtmrSpin, (state))
 
-LITE_OS_SEC_BSS STATIC LOS_DL_LIST g_swtmrSortlink[OS_TSK_SORTLINK_LEN];
+LITE_OS_SEC_BSS STATIC LOS_DL_LIST g_swtmrSortlink[LOSCFG_KERNEL_CORE_NUM][OS_TSK_SORTLINK_LEN];
 
 #define SWTMR_MAX_RUNNING_TICKS 2
 #define OS_SWTMR_MAX_TIMERID    ((0xFFFFFFFF / LOSCFG_BASE_CORE_SWTMR_LIMIT) * LOSCFG_BASE_CORE_SWTMR_LIMIT)
@@ -319,19 +319,23 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsSwtmrInit(VOID)
     UINT32 size;
     UINT16 index;
     UINT32 ret;
+    UINT32 cpuid = ArchCurrCpuid();
 
-    size = sizeof(LosSwtmrCB) * LOSCFG_BASE_CORE_SWTMR_LIMIT;
-    LosSwtmrCB *swtmr = (LosSwtmrCB *)LOS_MemAlloc(m_aucSysMem0, size);
-    if (swtmr == NULL) {
-        return LOS_ERRNO_SWTMR_NO_MEMORY;
-    }
-    // Ignore the return code when matching CSEC rule 6.6(3).
-    (VOID)memset_s((VOID *)swtmr, size, 0, size);
-    g_osSwtmrCBArray = swtmr;
-    LOS_ListInit(&g_swtmrFreeList);
-    for (index = 0; index < LOSCFG_BASE_CORE_SWTMR_LIMIT; index++, swtmr++) {
-        swtmr->timerId = index;
-        LOS_ListTailInsert(&g_swtmrFreeList, &swtmr->sortList.sortLinkNode);
+    if (cpuid == 0) {
+        LosSwtmrCB *swtmr = (LosSwtmrCB *)LOS_MemAlloc(m_aucSysMem0,
+                                                       sizeof(LosSwtmrCB) * LOSCFG_BASE_CORE_SWTMR_LIMIT);
+        if (swtmr == NULL) {
+            return LOS_ERRNO_SWTMR_NO_MEMORY;
+        }
+        size = sizeof(LosSwtmrCB) * LOSCFG_BASE_CORE_SWTMR_LIMIT;
+        // Ignore the return code when matching CSEC rule 6.6(3).
+        (VOID)memset_s((VOID *)swtmr, size, 0, size);
+        g_osSwtmrCBArray = swtmr;
+        LOS_ListInit(&g_swtmrFreeList);
+        for (index = 0; index < LOSCFG_BASE_CORE_SWTMR_LIMIT; index++, swtmr++) {
+            swtmr->timerId = index;
+            LOS_ListTailInsert(&g_swtmrFreeList, &swtmr->sortList.sortLinkNode);
+        }
     }
 
 #if !defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR)
@@ -339,7 +343,9 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsSwtmrInit(VOID)
 
     ret = OsSwtmrTaskCreate();
     if (ret != LOS_OK) {
-        (VOID)LOS_MemFree(m_aucSysMem0, swtmr);
+        if (cpuid == 0) {
+            (VOID)LOS_MemFree(m_aucSysMem0, g_osSwtmrCBArray);
+        }
         return LOS_ERRNO_SWTMR_TASK_CREATE_FAILED;
     }
 #else
@@ -347,16 +353,20 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsSwtmrInit(VOID)
      * interrupt context. No timer task or expiry list is needed. */
 #endif
 
-    ret = OsSortLinkInit(&OsPercpuGet()->swtmrSortLink, g_swtmrSortlink);
+    ret = OsSortLinkInit(&g_percpu[cpuid].swtmrSortLink, g_swtmrSortlink[cpuid]);
     if (ret != LOS_OK) {
-        (VOID)LOS_MemFree(m_aucSysMem0, swtmr);
+        if (cpuid == 0) {
+            (VOID)LOS_MemFree(m_aucSysMem0, g_osSwtmrCBArray);
+        }
         return LOS_NOK;
     }
 
-    ret = OsSchedSwtmrScanRegister((SchedScan)OsSwtmrScan);
-    if (ret != LOS_OK) {
-        (VOID)LOS_MemFree(m_aucSysMem0, swtmr);
-        return LOS_NOK;
+    if (cpuid == 0) {
+        ret = OsSchedSwtmrScanRegister((SchedScan)OsSwtmrScan);
+        if (ret != LOS_OK) {
+            (VOID)LOS_MemFree(m_aucSysMem0, g_osSwtmrCBArray);
+            return LOS_NOK;
+        }
     }
 
     return LOS_OK;

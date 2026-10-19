@@ -1,5 +1,31 @@
 /*
- * Copyright (c) 2024 morpheus
+ * Copyright (c) 2020-2022 Huawei Device Co., Ltd. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this list of
+ *    conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
+ *    of conditions and the following disclaimer in the documentation and/or other materials
+ *    provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
+ *    to endorse or promote products derived from this software without specific prior written
+ *    permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef _LOS_ARCH_INTERRUPT_H
@@ -29,17 +55,9 @@ typedef INT32 IRQn_Type;
 
 #define PSR_MODE_SVC_ARM   (0x13U | 0xC0U) /* SVC mode | I | F */
 
-/*
- * GIC register definitions now live in the driver-level headers:
- *   drivers/interrupt/include/gic_common.h  — struct GicDistributor + GICD ptr
- *   drivers/interrupt/include/gic_v2.h     — struct GicCpuInterface + GICC ptr
- * The board's soc.h provides GIC_BASE_ADDR, GICD_OFFSET, GICC_OFFSET.
- * Include gic_v2.h from the GICv2 driver source to access these registers.
- */
 
 extern VOID HalIrqInitPercpu(VOID);
 
-/* ARM Generic Timer (physical) PPI IRQ number */
 #define OS_GIC_TIMER_IRQ                       29
 
 extern VOID HalInterrupt(VOID);
@@ -102,7 +120,6 @@ typedef struct TagExcInfo {
 } ExcInfo;
 
 extern ExcInfo g_excInfo;
-extern UINT32 g_curNestCount;
 
 #ifdef __cplusplus
 #if __cplusplus

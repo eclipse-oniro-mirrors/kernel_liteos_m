@@ -88,17 +88,17 @@ STATIC UINT32 OsHwiCreate(HwiHandleInfo *hwiForm, HWI_MODE_T hwiMode, HWI_PROC_F
     UINT32 intSave;
 
     (VOID)hwiMode;
-    intSave = LOS_IntLock();
+    LOS_SpinLockSave(&g_hwiSpin, &intSave);
     if (hwiForm->hook == NULL) {
         hwiForm->hook = hwiHandler;
         hwiForm->registerInfo = (irqParam != NULL) ? (HWI_ARG_T)(UINTPTR)irqParam->pDevId : 0;
         hwiForm->respCount = 0;
         hwiForm->next = NULL;
     } else {
-        LOS_IntRestore(intSave);
+        LOS_SpinUnlockRestore(&g_hwiSpin, intSave);
         return OS_ERRNO_HWI_ALREADY_CREATED;
     }
-    LOS_IntRestore(intSave);
+    LOS_SpinUnlockRestore(&g_hwiSpin, intSave);
     return LOS_OK;
 }
 
@@ -106,16 +106,14 @@ STATIC UINT32 OsHwiDel(HwiHandleInfo *hwiForm, HWI_HANDLE_T hwiNum)
 {
     UINT32 intSave;
 
-    intSave = LOS_IntLock();
-    /* Disable IRQ first — prevents a racing interrupt from dispatching
-     * via a NULL hook after the fields below are cleared. */
     (VOID)LOS_HwiDisable(hwiNum);
+    LOS_SpinLockSave(&g_hwiSpin, &intSave);
     hwiForm->hook = NULL;
     hwiForm->registerInfo = 0;
     hwiForm->respCount = 0;
     hwiForm->shareMode = 0;
     hwiForm->next = NULL;
-    LOS_IntRestore(intSave);
+    LOS_SpinUnlockRestore(&g_hwiSpin, intSave);
     return LOS_OK;
 }
 

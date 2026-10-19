@@ -39,6 +39,7 @@
 #include "los_memory.h"
 #include "los_sched.h"
 #include "los_sched_pri.h"
+#include "los_mp_pri.h"
 #include "los_exc.h"
 
 #if (LOSCFG_BASE_IPC_RWSEM == 1)
@@ -342,6 +343,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_RwsemPostRead(UINT32 semHandle)
     /* rwsemPosted->rwsemCount = RWSEM_INITIAL  && rwsemPosted->waitList is not empty */
     RwsemTaskWakeup(rwsemPosted, RWSEM_WRITE);
     SCHEDULER_UNLOCK(intSave);
+    LOS_MpSchedule(OS_MP_CPU_ALL);
     LOS_Schedule();
     return ret;
 
@@ -385,6 +387,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_RwsemPostWrite(UINT32 semHandle)
     resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&rwsemPosted->waitList));
     RwsemTaskWakeup(rwsemPosted, resumedTask->waitType);
     SCHEDULER_UNLOCK(intSave);
+    LOS_MpSchedule(OS_MP_CPU_ALL);
     LOS_Schedule();
 
     return ret;
@@ -435,6 +438,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_RwsemDowngradeWrite(UINT32 semHandle)
     SCHEDULER_UNLOCK(intSave);
 
     if (wakeup == TRUE) {
+        LOS_MpSchedule(OS_MP_CPU_ALL);
         LOS_Schedule();
     }
 

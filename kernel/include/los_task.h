@@ -252,6 +252,9 @@ extern "C" {
  */
 #define LOS_ERRNO_TSK_OPERATE_SYSTEM_TASK           LOS_ERRNO_OS_ERROR(LOS_MOD_TSK, 0x14)
 #define LOS_ERRNO_TSK_OPERATE_IDLE                  LOS_ERRNO_TSK_OPERATE_SYSTEM_TASK
+#ifdef LOSCFG_KERNEL_SMP
+#define LOS_ERRNO_TSK_CPU_AFFINITY_MASK_ERR         LOS_ERRNO_OS_FATAL(LOS_MOD_TSK, 0x23)
+#endif
 
 /**
  * @ingroup los_task
@@ -634,6 +637,9 @@ typedef struct tagTskInitParam {
     UINT32               uwStackSize;               /**< Task stack size                        */
     CHAR                 *pcName;                   /**< Task name                              */
     UINT32               uwResved;                  /**< Reserved                               */
+#ifdef LOSCFG_KERNEL_SMP
+    UINT16               usCpuAffiMask;             /**< CPU affinity mask                      */
+#endif
 } TSK_INIT_PARAM_S;
 
 /**

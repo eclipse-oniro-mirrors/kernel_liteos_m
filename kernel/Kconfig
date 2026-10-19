@@ -402,6 +402,7 @@ config KERNEL_TICK_PERIODIC
 
 config KERNEL_TICKLESS_GLOBAL
     bool "Tickless Global Mode"
+    depends on !KERNEL_SMP
     help
       Use one-shot timer with tickless global mode. Timer is
       reloaded per event. Sortlink uses cycle-granularity delta.

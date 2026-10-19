@@ -194,7 +194,7 @@ static int PthreadCreateAttrInit(const pthread_attr_t *attr, void *(*startRoutin
     }
 #ifdef LOSCFG_KERNEL_SMP
     if (threadAttr->cpuset.__bits[0] > 0) {
-        taskInitParam->usCpuAffi = (UINT16)threadAttr->cpuset.__bits[0];
+        taskInitParam->usCpuAffiMask = (UINT16)threadAttr->cpuset.__bits[0];
     }
 #endif
 
@@ -255,13 +255,13 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
     }
 
     PthreadData *pthreadData = (PthreadData *)(UINTPTR)taskInitParam.uwArg;
-    intSave = LOS_IntLock();
+    SCHEDULER_LOCK(intSave);
     if (g_pthreadListHead.pstNext == NULL) {
         LOS_ListInit(&g_pthreadListHead);
     }
 
     LOS_ListAdd(&g_pthreadListHead, &pthreadData->threadList);
-    LOS_IntRestore(intSave);
+    SCHEDULER_UNLOCK(intSave);
 
     *thread = (pthread_t)(UINTPTR)taskId;
 
@@ -578,10 +578,10 @@ void pthread_exit(void *retVal)
         pthreadData->cancelbuf = pthreadData->cancelbuf->next;
     }
 
-    intSave = LOS_IntLock();
+    SCHEDULER_LOCK(intSave);
     LOS_ListDelete(&pthreadData->threadList);
     tcb->taskName = PTHREAD_DEFAULT_NAME;
-    LOS_IntRestore(intSave);
+    SCHEDULER_UNLOCK(intSave);
     free(pthreadData);
     (void)OsTaskDelete(tcb->taskId, (UINTPTR)retVal);
 EXIT:

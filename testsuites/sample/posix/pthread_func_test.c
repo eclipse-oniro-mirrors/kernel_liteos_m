@@ -43,18 +43,6 @@
 
 static INT32 g_pthreadSem = 0;
 
-#define TEST_STR(func) ItLos##func
-#define TEST_TO_STR(x) #x
-#define TEST_HEAD_TO_STR(x) TEST_TO_STR(x)
-/* POSIX 兼容用例: layer=TEST_LIB, module=TEST_POSIX */
-#define ADD_TEST_CASE(func) \
-    TEST_ADD_CASE(TEST_HEAD_TO_STR(TEST_STR(func)), func, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION)
-
-#define Function   0
-#define MediumTest 0
-#define Level1     0
-#define LITE_TEST_CASE(module, function, flag) static int function(void)
-
 static VOID *PthreadJoinF01(void *argument)
 {
     g_testCount++;
@@ -68,7 +56,7 @@ static VOID *PthreadJoinF01(void *argument)
  * @tc.name      : event operation for join
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread001, Function | MediumTest | Level1)
+static UINT32 TestPthread001(VOID)
 {
     pthread_attr_t attr;
     pthread_t newTh;
@@ -113,7 +101,7 @@ static VOID *PthreadJoinF02(void *argument)
  * @tc.name      : event operation for join
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread002, Function | MediumTest | Level1)
+static UINT32 TestPthread002(VOID)
 {
     pthread_attr_t attr;
     pthread_t newTh;
@@ -161,7 +149,7 @@ EXIT:
  * @tc.name      : event operation for deatch
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread003, Function | MediumTest | Level1)
+static UINT32 TestPthread003(VOID)
 {
     pthread_attr_t attr;
     pthread_t newTh;
@@ -208,7 +196,7 @@ EXIT:
  * @tc.name      : event operation for deatch
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread004, Function | MediumTest | Level1)
+static UINT32 TestPthread004(VOID)
 {
     pthread_attr_t attr;
     pthread_t newTh;
@@ -257,7 +245,7 @@ EXIT:
  * @tc.name      : event operation for deatch
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread005, Function | MediumTest | Level1)
+static UINT32 TestPthread005(VOID)
 {
     pthread_attr_t attr;
     pthread_t newTh;
@@ -397,7 +385,7 @@ EXIT:
  * @tc.name      : event operation for deatch
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread006, Function | MediumTest | Level1)
+static UINT32 TestPthread006(VOID)
 {
     pthread_attr_t attr;
     pthread_t newTh;
@@ -532,7 +520,7 @@ EXIT:
  * @tc.name      : event operation for deatch
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread007, Function | MediumTest | Level1)
+static UINT32 TestPthread007(VOID)
 {
     pthread_attr_t attr;
     pthread_t newTh;
@@ -627,7 +615,7 @@ EXIT:
  * @tc.name      : event operation for deatch
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread008, Function | MediumTest | Level1)
+static UINT32 TestPthread008(VOID)
 {
     pthread_attr_t attr;
     pthread_t newTh1, newTh2;
@@ -688,7 +676,7 @@ static VOID *PthreadPrioFunc01(void *argument)
  * @tc.name      : event operation for set priority
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread009, Function | MediumTest | Level1)
+static UINT32 TestPthread009(VOID)
 {
     pthread_attr_t attr;
     pthread_t thread[TEST_THREAD_COUNT];
@@ -739,7 +727,7 @@ static VOID PthreadOnceFunc01(void)
  * @tc.name      : event operation for pthread_once
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread010, Function | MediumTest | Level1)
+static UINT32 TestPthread010(VOID)
 {
     pthread_attr_t attr;
     struct sched_param schedParam = { 0 };
@@ -788,7 +776,7 @@ EXIT:
  * @tc.name      : event operation for pthread_cancel
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread011, Function | MediumTest | Level1)
+static UINT32 TestPthread011(VOID)
 {
     pthread_attr_t attr;
     pthread_t thread;
@@ -859,7 +847,7 @@ EXIT:
  * @tc.name      : event operation for testcancel
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread012, Function | MediumTest | Level1)
+static UINT32 TestPthread012(VOID)
 {
     pthread_attr_t attr;
     pthread_t thread;
@@ -906,7 +894,7 @@ LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread012, Function | MediumTest | Lev
  * @tc.name      : event operation for set/get clock
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread013, Function | MediumTest | Level1)
+static UINT32 TestPthread013(VOID)
 {
     INT32 ret;
     clockid_t clk;
@@ -937,7 +925,7 @@ LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread013, Function | MediumTest | Lev
     ret = pthread_condattr_setclock(&condattr, invalidClock);
     ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
 
-    return 0;
+    return LOS_OK;
 }
 
 /**
@@ -945,7 +933,7 @@ LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread013, Function | MediumTest | Lev
  * @tc.name      : event operation for setpshared
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread014, Function | MediumTest | Level1)
+static UINT32 TestPthread014(VOID)
 {
     INT32 ret;
     pthread_condattr_t attr;
@@ -961,7 +949,7 @@ LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread014, Function | MediumTest | Lev
     ret = pthread_condattr_destroy(&attr);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
-    return 0;
+    return LOS_OK;
 }
 
 /**
@@ -969,7 +957,7 @@ LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread014, Function | MediumTest | Lev
  * @tc.name      : event operation for getpshared
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread015, Function | MediumTest | Level1)
+static UINT32 TestPthread015(VOID)
 {
     INT32 ret;
     INT32 pshared;
@@ -988,7 +976,7 @@ LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread015, Function | MediumTest | Lev
     ret = pthread_condattr_destroy(&attr);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
-    return 0;
+    return LOS_OK;
 }
 
 /**
@@ -996,7 +984,7 @@ LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread015, Function | MediumTest | Lev
  * @tc.name      : event operation for get/set mutex attr
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread016, Function | MediumTest | Level1)
+static UINT32 TestPthread016(VOID)
 {
     pthread_mutexattr_t mutexAttr;
     int mutexType;
@@ -1032,7 +1020,7 @@ static void *PthreadStackTest(void *argument)
  * @tc.name      : set thread stack
  * @tc.desc      : [C- SOFTWARE -0200]
  */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread017, Function | MediumTest | Level1)
+static UINT32 TestPthread017(VOID)
 {
     pthread_attr_t attr;
     pthread_t thread;
@@ -1072,7 +1060,7 @@ EXIT:
  *   NULL attr: 实现不解引用 attr(:65 (VOID)attr), 按 shared 值返回, 不崩溃
  *   (:66-68 的 EINVAL 分支已由 TestPthread014 覆盖)
  * getpshared 往返: setpshared(PRIVATE) 后 getpshared == PRIVATE(:52-61) */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread018, Function | MediumTest | Level1)
+static UINT32 TestPthread018(VOID)
 {
     INT32 ret;
     INT32 pshared = -1;
@@ -1105,7 +1093,7 @@ EXIT:
     ret = pthread_condattr_destroy(&attr);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
-    return 0;
+    return LOS_OK;
 }
 
 /**
@@ -1126,7 +1114,7 @@ EXIT:
  *   :743-757  key_delete 正常路径: 置 UNUSED 并遍历清理各线程槽位
  *   :356-358  setcancelstate 非法状态值(5 非 ENABLE/DISABLE) → EINVAL
  *   :368-372  setcancelstate 正常路径: oldState 回读改前状态 */
-LITE_TEST_CASE(PthreadFuncTestSuite, TestPthread019, Function | MediumTest | Level1)
+static UINT32 TestPthread019(VOID)
 {
     pthread_key_t key = (pthread_key_t)128; /* 128: PTHREAD_KEYS_MAX, 越界哨兵值, EXIT 补删无害 */
     pthread_t invalidThread;
@@ -1200,25 +1188,25 @@ EXIT:
 
 static void PosixTestCase(void)
 {
-    ADD_TEST_CASE(TestPthread001);
-    ADD_TEST_CASE(TestPthread002);
-    ADD_TEST_CASE(TestPthread003);
-    ADD_TEST_CASE(TestPthread004);
-    ADD_TEST_CASE(TestPthread005);
-    ADD_TEST_CASE(TestPthread006);
-    ADD_TEST_CASE(TestPthread007);
-    ADD_TEST_CASE(TestPthread008);
-    ADD_TEST_CASE(TestPthread009);
-    ADD_TEST_CASE(TestPthread010);
-    ADD_TEST_CASE(TestPthread011);
-    ADD_TEST_CASE(TestPthread012);
-    ADD_TEST_CASE(TestPthread013);
-    ADD_TEST_CASE(TestPthread014);
-    ADD_TEST_CASE(TestPthread015);
-    ADD_TEST_CASE(TestPthread016);
-    ADD_TEST_CASE(TestPthread017);
-    ADD_TEST_CASE(TestPthread018);
-    ADD_TEST_CASE(TestPthread019);
+    TEST_ADD_CASE("ItLosTestPthread001", TestPthread001, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread002", TestPthread002, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread003", TestPthread003, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread004", TestPthread004, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread005", TestPthread005, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread006", TestPthread006, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread007", TestPthread007, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread008", TestPthread008, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread009", TestPthread009, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread010", TestPthread010, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread011", TestPthread011, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread012", TestPthread012, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread013", TestPthread013, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread014", TestPthread014, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread015", TestPthread015, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread016", TestPthread016, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread017", TestPthread017, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread018", TestPthread018, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread019", TestPthread019, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
     return;
 }
 
@@ -1251,6 +1239,6 @@ int PthreadFuncTestSuite(void)
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     pthread_join(newTh, NULL);
-    return 0;
+    return LOS_OK;
 }
 

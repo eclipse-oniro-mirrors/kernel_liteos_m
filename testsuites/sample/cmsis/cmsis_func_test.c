@@ -33,21 +33,6 @@
 #include "cmsis_os.h"
 #include "kal.h"
 
-#define TEST_STR(func) ItLos##func
-#define TEST_TO_STR(x) #x
-#define TEST_HEAD_TO_STR(x) TEST_TO_STR(x)
-/* CMSIS 兼容层用例: layer=TEST_COMPAT, module=TEST_CMSIS */
-#define ADD_TEST_CASE(func) \
-    TEST_ADD_CASE(TEST_HEAD_TO_STR(TEST_STR(func)), func, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION)
-
-#define Function   0
-#define MediumTest 0
-#define Level0     0
-#define Level1     0
-#define Level2     0
-#define Level3     0
-#define LITE_TEST_CASE(module, function, flag) static int function(void)
-
 #define STATCI_BUFF_SIZE   32
 #define READ_BUFFER_SIZIE  7
 #define QUEUE_WAIT_TIMEOUT 3
@@ -71,7 +56,7 @@ static void CmsisLowFreqTimerCb(void *argument)
     g_cmsisLowFreqTimerRan++;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsis001, Function | MediumTest | Level1)
+static UINT32 TestCmsis001(VOID)
 {
     osThreadId_t threadId;
     osThreadAttr_t attr = {0};
@@ -102,7 +87,7 @@ EXIT:
  * @tc.type: FUNC
  * @tc.require: issueI5LBE8
  */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsis007, Function | MediumTest | Level1)
+static UINT32 TestCmsis007(VOID)
 {
     osMessageQueueId_t msgQueueId;
     osMessageQueueAttr_t attr = {0};
@@ -225,7 +210,7 @@ static INT32 ThreadReadWriteTest(VOID)
     ret = osMessageQueueDelete(g_msgQueueId2);
     ICUNIT_ASSERT_EQUAL(ret, osOK, ret);
 
-    return 0;
+    return LOS_OK;
 }
 
 /**
@@ -234,7 +219,7 @@ static INT32 ThreadReadWriteTest(VOID)
  * @tc.type: FUNC
  * @tc.require: issueI5LBE8
  */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsis006, Function | MediumTest | Level1)
+static UINT32 TestCmsis006(VOID)
 {
     INT32 ret;
 
@@ -251,7 +236,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsis006, Function | MediumTest | Level1)
  * @tc.type: FUNC
  * @tc.require: issueI5LBE8
  */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsis005, Function | MediumTest | Level1)
+static UINT32 TestCmsis005(VOID)
 {
     osMessageQueueId_t msgQueueId;
     CHAR strbuff[] = "hello world";
@@ -323,7 +308,7 @@ EXIT:
  * @tc.type: FUNC
  * @tc.require: issueI5LBE8
  */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsis004, Function | MediumTest | Level1)
+static UINT32 TestCmsis004(VOID)
 {
     osMessageQueueId_t msgQueueId;
     CHAR strbuff[] = "hello world";
@@ -380,7 +365,7 @@ EXIT:
  * @tc.type: FUNC
  * @tc.require: issueI5LBE8
  */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsis003, Function | MediumTest | Level1)
+static UINT32 TestCmsis003(VOID)
 {
     osMessageQueueId_t msgQueueId;
     CHAR strbuff[] = "hello world";
@@ -424,7 +409,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsis003, Function | MediumTest | Level1)
  * @tc.type: FUNC
  * @tc.require: issueI5LBE8
  */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsis002, Function | MediumTest | Level1)
+static UINT32 TestCmsis002(VOID)
 {
     osMessageQueueId_t msgQueueId;
     CHAR strbuff[] = "hello world";
@@ -470,7 +455,7 @@ static VOID timerCallback(void *arg)
  * @tc.type: FUNC
  * @tc.require: issueI5TQ0T
  */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisTimer001, Function | MediumTest | Level1)
+static UINT32 TestCmsisTimer001(VOID)
 {
     osTimerId_t time_id;
     const char *timerGetName = NULL;
@@ -512,7 +497,7 @@ static VOID CmsisSatFunc001(VOID)
     return;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation001, Function | MediumTest | Level1)
+static UINT32 TestCmsisSaturation001(VOID)
 {
     osThreadId_t threadId;
     osThreadAttr_t attr = {0};
@@ -527,7 +512,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation001, Function | MediumTest
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation002, Function | MediumTest | Level1)
+static UINT32 TestCmsisSaturation002(VOID)
 {
     osThreadId_t threadId;
     osThreadAttr_t attr = {0};
@@ -539,7 +524,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation002, Function | MediumTest
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation003, Function | MediumTest | Level1)
+static UINT32 TestCmsisSaturation003(VOID)
 {
     osThreadId_t threadId;
     osThreadAttr_t attr = {0};
@@ -551,7 +536,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation003, Function | MediumTest
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation004, Function | MediumTest | Level1)
+static UINT32 TestCmsisSaturation004(VOID)
 {
     osThreadId_t threadId;
     osThreadAttr_t attr = {0};
@@ -563,7 +548,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation004, Function | MediumTest
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation005, Function | MediumTest | Level1)
+static UINT32 TestCmsisSaturation005(VOID)
 {
     osThreadId_t threadId;
     osThreadAttr_t attr = {0};
@@ -580,7 +565,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation005, Function | MediumTest
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation006, Function | MediumTest | Level1)
+static UINT32 TestCmsisSaturation006(VOID)
 {
     osThreadId_t threadId;
     osThreadAttr_t attr = {0};
@@ -596,14 +581,14 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSaturation006, Function | MediumTest
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisExt001, Function | MediumTest | Level1)
+static UINT32 TestCmsisExt001(VOID)
 {
     uint64_t ms = osKernelGetTick2ms();
     ICUNIT_ASSERT_NOT_EQUAL(ms, 0, ms);
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisExt002, Function | MediumTest | Level1)
+static UINT32 TestCmsisExt002(VOID)
 {
     uint64_t ticks = osMs2Tick(1000);
     ICUNIT_ASSERT_EQUAL(ticks, LOSCFG_BASE_CORE_TICK_PER_SECOND, ticks);
@@ -620,7 +605,7 @@ static VOID CmsisExtArgFunc(void *arg)
     return;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisExt003, Function | MediumTest | Level1)
+static UINT32 TestCmsisExt003(VOID)
 {
     osThreadId_t threadId;
     osThreadAttr_t attr = {0};
@@ -636,7 +621,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisExt003, Function | MediumTest | Leve
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisExt004, Function | MediumTest | Level1)
+static UINT32 TestCmsisExt004(VOID)
 {
     osThreadId_t threadId;
     osThreadAttr_t attr = {0};
@@ -651,7 +636,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisExt004, Function | MediumTest | Leve
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisExt005, Function | MediumTest | Level1)
+static UINT32 TestCmsisExt005(VOID)
 {
     osThreadId_t threadId;
     osThreadAttr_t attr = {0};
@@ -667,7 +652,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisExt005, Function | MediumTest | Leve
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueueLimit001, Function | MediumTest | Level1)
+static UINT32 TestCmsisQueueLimit001(VOID)
 {
     osMessageQueueId_t msgQueueId;
     msgQueueId = osMessageQueueNew(0x10000, 4, NULL);
@@ -675,7 +660,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueueLimit001, Function | MediumTest
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueueLimit002, Function | MediumTest | Level1)
+static UINT32 TestCmsisQueueLimit002(VOID)
 {
     osMessageQueueId_t msgQueueId;
     msgQueueId = osMessageQueueNew(1, 0x10000, NULL);
@@ -683,7 +668,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueueLimit002, Function | MediumTest
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutexGetName001, Function | MediumTest | Level1)
+static UINT32 TestCmsisMutexGetName001(VOID)
 {
     osMutexId_t mutexId;
     const char *name;
@@ -719,7 +704,7 @@ static VOID CmsisThreadFlagsFunc(VOID)
     g_testCount++;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThreadFlags001, Function | MediumTest | Level1)
+static UINT32 TestCmsisThreadFlags001(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -739,7 +724,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThreadFlags001, Function | MediumTes
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThreadFlags002, Function | MediumTest | Level1)
+static UINT32 TestCmsisThreadFlags002(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -758,7 +743,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThreadFlags002, Function | MediumTes
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThreadFlags003, Function | MediumTest | Level1)
+static UINT32 TestCmsisThreadFlags003(VOID)
 {
     uint32_t flags;
     osThreadId_t tid = osThreadGetId();
@@ -774,7 +759,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThreadFlags003, Function | MediumTes
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThreadFlags004, Function | MediumTest | Level1)
+static UINT32 TestCmsisThreadFlags004(VOID)
 {
     uint32_t ret = osThreadFlagsSet(NULL, 0x1);
     ICUNIT_ASSERT_EQUAL(ret, (uint32_t)osFlagsErrorParameter, ret);
@@ -783,7 +768,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThreadFlags004, Function | MediumTes
 
 /* ==== Memory Pool ==== */
 #if (LOSCFG_KERNEL_MEMBOX_STATIC == 1) /* membox dyn 下 CMSIS osMemoryPool* 无实现, 用例隔离(测试侧适配) */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool001, Function | MediumTest | Level1)
+static UINT32 TestCmsisMemPool001(VOID)
 {
     osMemoryPoolId_t mp;
     void *block;
@@ -796,7 +781,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool001, Function | MediumTest | 
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool002, Function | MediumTest | Level1)
+static UINT32 TestCmsisMemPool002(VOID)
 {
     osMemoryPoolId_t mp;
     mp = osMemoryPoolNew(4, 32, NULL);
@@ -813,7 +798,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool002, Function | MediumTest | 
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool003, Function | MediumTest | Level1)
+static UINT32 TestCmsisMemPool003(VOID)
 {
     osMemoryPoolId_t mp;
     void *blocks[4];
@@ -834,7 +819,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool003, Function | MediumTest | 
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool004, Function | MediumTest | Level1)
+static UINT32 TestCmsisMemPool004(VOID)
 {
     osMemoryPoolId_t mp;
     mp = osMemoryPoolNew(4, 32, NULL);
@@ -845,7 +830,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool004, Function | MediumTest | 
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool005, Function | MediumTest | Level1)
+static UINT32 TestCmsisMemPool005(VOID)
 {
     ICUNIT_ASSERT_EQUAL(osMemoryPoolNew(0, 32, NULL), NULL, 0);
     ICUNIT_ASSERT_EQUAL(osMemoryPoolNew(4, 0, NULL), NULL, 0);
@@ -856,7 +841,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool005, Function | MediumTest | 
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool006, Function | MediumTest | Level1)
+static UINT32 TestCmsisMemPool006(VOID)
 {
     osMemoryPoolId_t mp;
     osMemoryPoolAttr_t attr = {0};
@@ -883,7 +868,7 @@ EXIT:
 #endif /* LOSCFG_KERNEL_MEMBOX_STATIC */
 
 /* ==== Event Flags ==== */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags001, Function | MediumTest | Level1)
+static UINT32 TestCmsisEventFlags001(VOID)
 {
     osEventFlagsId_t ef;
     uint32_t ret;
@@ -900,7 +885,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags001, Function | MediumTest
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags002, Function | MediumTest | Level1)
+static UINT32 TestCmsisEventFlags002(VOID)
 {
     osEventFlagsId_t ef;
     uint32_t ret;
@@ -913,7 +898,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags002, Function | MediumTest
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags003, Function | MediumTest | Level1)
+static UINT32 TestCmsisEventFlags003(VOID)
 {
     osEventFlagsId_t ef;
     uint32_t ret;
@@ -929,7 +914,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags003, Function | MediumTest
 }
 
 /* ==== Mutex ==== */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutex001, Function | MediumTest | Level1)
+static UINT32 TestCmsisMutex001(VOID)
 {
     osMutexId_t mid;
     osStatus_t ret;
@@ -944,7 +929,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutex001, Function | MediumTest | Le
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutex002, Function | MediumTest | Level1)
+static UINT32 TestCmsisMutex002(VOID)
 {
     osMutexId_t mid;
     osThreadId_t owner;
@@ -958,7 +943,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutex002, Function | MediumTest | Le
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutex003, Function | MediumTest | Level1)
+static UINT32 TestCmsisMutex003(VOID)
 {
     ICUNIT_ASSERT_EQUAL(osMutexAcquire(NULL, 0), osErrorParameter, 0);
     ICUNIT_ASSERT_EQUAL(osMutexRelease(NULL), osErrorParameter, 0);
@@ -967,7 +952,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutex003, Function | MediumTest | Le
 }
 
 /* ==== Semaphore ==== */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSem001, Function | MediumTest | Level1)
+static UINT32 TestCmsisSem001(VOID)
 {
     osSemaphoreId_t sid;
     osStatus_t ret;
@@ -982,7 +967,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSem001, Function | MediumTest | Leve
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSem002, Function | MediumTest | Level1)
+static UINT32 TestCmsisSem002(VOID)
 {
     osSemaphoreId_t sid;
     sid = osSemaphoreNew(3, 1, NULL);
@@ -996,7 +981,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSem002, Function | MediumTest | Leve
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSem003, Function | MediumTest | Level1)
+static UINT32 TestCmsisSem003(VOID)
 {
     ICUNIT_ASSERT_EQUAL(osSemaphoreNew(0, 0, NULL), NULL, 0);
     ICUNIT_ASSERT_EQUAL(osSemaphoreNew(1, 2, NULL), NULL, 0);
@@ -1007,14 +992,14 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSem003, Function | MediumTest | Leve
 }
 
 /* ==== Kernel ==== */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel001, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel001(VOID)
 {
     osKernelState_t state = osKernelGetState();
     ICUNIT_ASSERT_EQUAL(state, osKernelRunning, state);
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel002, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel002(VOID)
 {
     int32_t lock1 = osKernelLock();
     ICUNIT_ASSERT_EQUAL(lock1, 0, lock1);
@@ -1024,7 +1009,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel002, Function | MediumTest | L
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel003, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel003(VOID)
 {
     uint32_t freq = osKernelGetTickFreq();
     ICUNIT_ASSERT_NOT_EQUAL(freq, 0, freq);
@@ -1036,7 +1021,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel003, Function | MediumTest | L
 }
 
 /* ==== Thread (supplement) ==== */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread001, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread001(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -1051,7 +1036,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread001, Function | MediumTest | L
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread002, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread002(VOID)
 {
     osThreadId_t tid = osThreadGetId();
     ICUNIT_ASSERT_NOT_EQUAL(tid, NULL, tid);
@@ -1060,21 +1045,21 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread002, Function | MediumTest | L
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread003, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread003(VOID)
 {
     uint32_t count = osThreadGetCount();
     ICUNIT_ASSERT_NOT_EQUAL(count, 0, count);
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread004, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread004(VOID)
 {
     osStatus_t ret = osThreadYield();
     ICUNIT_ASSERT_EQUAL(ret, osOK, ret);
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread005, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread005(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -1100,7 +1085,7 @@ static VOID CmsisTimerCallback(void *arg)
     g_timerCount++;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisTimer002, Function | MediumTest | Level1)
+static UINT32 TestCmsisTimer002(VOID)
 {
     osTimerId_t tid;
     osStatus_t ret;
@@ -1118,7 +1103,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisTimer002, Function | MediumTest | Le
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisTimer003, Function | MediumTest | Level1)
+static UINT32 TestCmsisTimer003(VOID)
 {
     osTimerId_t tid;
     uint32_t running;
@@ -1184,7 +1169,7 @@ static VOID CmsisSupplementPrioThread(VOID)
     osDelay(20);
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel004, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel004(VOID)
 {
     osVersion_t ver = {0};
     CHAR id_buf[32] = {0};
@@ -1212,7 +1197,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel004, Function | MediumTest | L
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel005, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel005(VOID)
 {
     UINT32 start = osKernelGetTickCount();
     UINT32 target = start + 5;
@@ -1229,7 +1214,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel005, Function | MediumTest | L
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueueAttr001, Function | MediumTest | Level1)
+static UINT32 TestCmsisQueueAttr001(VOID)
 {
     osMessageQueueId_t mq;
     CHAR msg[4] = "abc";
@@ -1266,7 +1251,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueueAttr001, Function | MediumTest 
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread006, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread006(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -1308,7 +1293,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread006, Function | MediumTest | L
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread007, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread007(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -1342,7 +1327,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread007, Function | MediumTest | L
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread008, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread008(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -1369,7 +1354,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread008, Function | MediumTest | L
 /* ==== Batch 1 supplement: Kernel Lock state machine / Delay / Timer boundary / Thread misc ==== */
 
 /* 用例简要描述: Lock/Unlock/RestoreLock 状态机往返 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel006, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel006(VOID)
 {
     int32_t lockBefore, lockNested, unlockRet, restoreLocked, restoreUnlocked;
 
@@ -1403,7 +1388,7 @@ EXIT:
 }
 
 /* 用例简要描述: Lock 禁止调度:lock 下 osDelay 立即返回错误 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel007, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel007(VOID)
 {
     int32_t lockBefore;
     osKernelState_t state;
@@ -1448,9 +1433,9 @@ EXIT:
 /* 用例简要描述: osKernelInitialize Running 态负面:期望 osError(guard)
  * 【BUG_01】仅 qemu/ARM 隔离(osKernelInitialize Running 态重入 guard 失效):
  * 定义无条件编译(unused 属性防未注册告警, 仓库既有惯用法), 隔离点在套件
- * 注册处(ADD_TEST_CASE)—— 外层架构条件, 内层 BUG 宏守卫单独一行(见 bug_isolate.h)。 */
-static int TestCmsisKernel008(void) __attribute__((unused));
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel008, Function | MediumTest | Level1)
+ * 注册处(TEST_ADD_CASE)—— 外层架构条件, 内层 BUG 宏守卫单独一行(见 bug_isolate.h)。 */
+static UINT32 TestCmsisKernel008(VOID) __attribute__((unused));
+static UINT32 TestCmsisKernel008(VOID)
 {
     osKernelState_t state;
     osStatus_t ret;
@@ -1503,7 +1488,7 @@ static VOID HwiFIsr001(VOID)
 
 
 /* 用例简要描述: ISR 综合用例:EventFlagsSet/SemRelease/QueuePut(timeout=0)/MemPoolFree/ThreadFlagsSet 在 ISR 内 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisIsr001, Function | MediumTest | Level1)
+static UINT32 TestCmsisIsr001(VOID)
 {
     uint32_t ret;
     char rbuf[8] = {0};
@@ -1576,7 +1561,7 @@ EXIT:
 
 
 /* 用例简要描述: osKernelGetTickCount 单调契约(tc1>0+delay 后 tc2>tc1) */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel009, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel009(VOID)
 {
     /* 设计 §5.1.2 行 008: osKernelGetTickCount F-Pos/BVA 单调性契约
        (实现编号 008 已被 osKernelInitialize 负面占用,本用例按语义对应设计 008 行;
@@ -1599,7 +1584,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel009, Function | MediumTest | L
 }
 
 /* 用例简要描述: osDelay BVA:0 立即/1 tick 经时 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisDelay001, Function | MediumTest | Level1)
+static UINT32 TestCmsisDelay001(VOID)
 {
     osStatus_t sZero, sFive;
     uint32_t start, end, diff;
@@ -1623,7 +1608,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisDelay001, Function | MediumTest | Le
 }
 
 /* 用例简要描述: Start 边界 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisTimer004, Function | MediumTest | Level1)
+static UINT32 TestCmsisTimer004(VOID)
 {
     osTimerId_t tid;
     osStatus_t ret;
@@ -1656,7 +1641,7 @@ EXIT:
 }
 
 /* 用例简要描述: Stop 后再 Start */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisTimer005, Function | MediumTest | Level1)
+static UINT32 TestCmsisTimer005(VOID)
 {
     osTimerId_t tid;
     osStatus_t ret;
@@ -1700,7 +1685,7 @@ EXIT:
 }
 
 /* 用例简要描述: Delete 边界 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisTimer006, Function | MediumTest | Level1)
+static UINT32 TestCmsisTimer006(VOID)
 {
     osTimerId_t tid;
     osStatus_t ret;
@@ -1732,7 +1717,7 @@ EXIT:
 }
 
 /* 用例简要描述: SetPolicy */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread009, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread009(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -1761,7 +1746,7 @@ EXIT:
 }
 
 /* 用例简要描述: GetArgument */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread010, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread010(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -1786,7 +1771,7 @@ EXIT:
 }
 
 /* 用例简要描述: GetName */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread011, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread011(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -1817,7 +1802,7 @@ EXIT:
 }
 
 /* 用例简要描述: Join */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread012, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread012(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -1846,7 +1831,7 @@ EXIT:
 }
 
 /* 用例简要描述: SetPriority 往返 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread013, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread013(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -1937,7 +1922,7 @@ static VOID CmsisMqConsumer(void *arg)
 
 /* ---- EventFlags ---- */
 /* 用例简要描述: Wait OR+Clear */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags004, Function | MediumTest | Level1)
+static UINT32 TestCmsisEventFlags004(VOID)
 {
     osEventFlagsId_t ef = NULL;
     uint32_t ret;
@@ -1968,7 +1953,7 @@ EXIT:
 }
 
 /* 用例简要描述: 跨线程阻塞唤醒 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags005, Function | MediumTest | Level1)
+static UINT32 TestCmsisEventFlags005(VOID)
 {
     osEventFlagsId_t ef = NULL;
     osThreadId_t tid = NULL;
@@ -2009,7 +1994,7 @@ EXIT:
 }
 
 /* 用例简要描述: AND vs OR 决策表 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags006, Function | MediumTest | Level1)
+static UINT32 TestCmsisEventFlags006(VOID)
 {
     osEventFlagsId_t ef = NULL;
     uint32_t ret;
@@ -2068,7 +2053,7 @@ EXIT:
 
 /* ---- Mutex ---- */
 /* 用例简要描述: Acquire 超时 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutex004, Function | MediumTest | Level1)
+static UINT32 TestCmsisMutex004(VOID)
 {
     osMutexId_t mid = NULL;
     osThreadId_t tid = NULL;
@@ -2111,7 +2096,7 @@ EXIT:
 }
 
 /* 用例简要描述: GetOwner 持锁归属 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutex005, Function | MediumTest | Level0)
+static UINT32 TestCmsisMutex005(VOID)
 {
     osMutexId_t mid;
     osThreadId_t owner;
@@ -2148,7 +2133,7 @@ EXIT:
 
 /* ---- Semaphore ---- */
 /* 用例简要描述: Acquire 超时 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSem004, Function | MediumTest | Level1)
+static UINT32 TestCmsisSem004(VOID)
 {
     osSemaphoreId_t sid;
     osStatus_t ret;
@@ -2177,7 +2162,7 @@ EXIT:
 }
 
 /* 用例简要描述: GetCount BVA */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSem005, Function | MediumTest | Level1)
+static UINT32 TestCmsisSem005(VOID)
 {
     osSemaphoreId_t sid;
     osStatus_t ret;
@@ -2209,7 +2194,7 @@ EXIT:
 
 /* ---- MessageQueue ---- */
 /* 用例简要描述: 满队超时 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueue002, Function | MediumTest | Level1)
+static UINT32 TestCmsisQueue002(VOID)
 {
     osMessageQueueId_t mq = NULL;
     uint32_t msg = 0xAA;
@@ -2244,7 +2229,7 @@ EXIT:
 }
 
 /* 用例简要描述: 空队超时 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueue003, Function | MediumTest | Level1)
+static UINT32 TestCmsisQueue003(VOID)
 {
     osMessageQueueId_t mq = NULL;
     uint32_t msg = 0xBB;
@@ -2275,7 +2260,7 @@ EXIT:
 }
 
 /* 用例简要描述: 内容一致 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueue004, Function | MediumTest | Level0)
+static UINT32 TestCmsisQueue004(VOID)
 {
     osMessageQueueId_t mq = NULL;
     uint32_t sendData[] = {0xAA, 0xBB, 0xCC, 0xDD};
@@ -2311,7 +2296,7 @@ EXIT:
 }
 
 /* 用例简要描述: 多生产者消费者 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueue005, Function | MediumTest | Level2)
+static UINT32 TestCmsisQueue005(VOID)
 {
     osMessageQueueId_t mq = NULL;
     osThreadId_t prod[2] = {NULL};
@@ -2367,7 +2352,7 @@ EXIT:
 /* ---- MemoryPool ---- */
 /* 用例简要描述: GetCount+Space */
 #if (LOSCFG_KERNEL_MEMBOX_STATIC == 1) /* membox dyn 下 CMSIS osMemoryPool* 无实现, 用例隔离(测试侧适配) */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool007, Function | MediumTest | Level0)
+static UINT32 TestCmsisMemPool007(VOID)
 {
     osMemoryPoolId_t mp;
     void *p1 = NULL;
@@ -2401,7 +2386,7 @@ EXIT:
     return LOS_OK;
 }
 
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool008, Function | MediumTest | Level3)
+static UINT32 TestCmsisMemPool008(VOID)
 {
     osMemoryPoolId_t mp = NULL;
     void *blocks[16] = {NULL};
@@ -2451,7 +2436,7 @@ EXIT:
  * osSemaphoreGetName / osEventFlagsGetName（恒 NULL 查询接口）、osTimerExtNew
  * （对齐扩展定时器创建：周期/单次成功 + NULL func/非法 type 负路径）。
  * 所有断言走 EXIT 统一回收定时器，异常路径不泄漏资源。 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisLowFreq001, Function | MediumTest | Level1)
+static UINT32 TestCmsisLowFreq001(VOID)
 {
     const char *name;
     osTimerId_t timerId = NULL;
@@ -2523,7 +2508,7 @@ EXIT:
 /* ==== Batch 3: 覆盖率补充——错误分支/边界(目标 cmsis_liteos2.c 行/函数 100%) ==== */
 
 /* 用例简要描述: osKernelGetInfo 负路径: id_size 过小触发 memcpy_s 失败 + NULL 参数 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel010, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel010(VOID)
 {
     osVersion_t ver = {0};
     CHAR idBuf[32] = {0};
@@ -2546,7 +2531,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel010, Function | MediumTest | L
 }
 
 /* 用例简要描述: 嵌套任务锁下 osKernelUnlock/RestoreLock 错误分支(LOS_TaskLock/Unlock 为对外接口) */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel011, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel011(VOID)
 {
     int32_t ret;
 
@@ -2586,7 +2571,7 @@ EXIT:
 }
 
 /* 用例简要描述: 调度锁下 osDelayUntil → LOS_TaskDelay 返回 DELAY_IN_LOCK → osError (覆盖 730 行) */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisKernel012, Function | MediumTest | Level1)
+static UINT32 TestCmsisKernel012(VOID)
 {
     osStatus_t ret;
     uint32_t now = osKernelGetTickCount();
@@ -2603,7 +2588,7 @@ EXIT:
 
 /* 用例简要描述: 线程错误分支: detach 非 joinable/重复 suspend/resume 未挂起/重复 terminate/
  * join 自身/已删线程 SetPriority/GetPriority/GetStackSpace/FlagsSet */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread014, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread014(VOID)
 {
     osThreadId_t tid;
     osThreadAttr_t attr = {0};
@@ -2671,7 +2656,7 @@ LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread014, Function | MediumTest | L
 }
 
 /* 用例简要描述: 调度锁下 osThreadYield → YIELD_IN_LOCK → osError (覆盖 527 行) */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThread015, Function | MediumTest | Level1)
+static UINT32 TestCmsisThread015(VOID)
 {
     osStatus_t ret;
 
@@ -2685,7 +2670,7 @@ EXIT:
 }
 
 /* 用例简要描述: ThreadFlags 错误分支: 含错误位 flags Set/等待超时/锁下等待 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisThreadFlags005, Function | MediumTest | Level1)
+static UINT32 TestCmsisThreadFlags005(VOID)
 {
     osThreadId_t tid = osThreadGetId();
     uint32_t ret;
@@ -2710,7 +2695,7 @@ EXIT:
 }
 
 /* 用例简要描述: EventFlags 错误分支: 含错误位 flags Set/锁下等待 READ_IN_LOCK */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisEventFlags007, Function | MediumTest | Level1)
+static UINT32 TestCmsisEventFlags007(VOID)
 {
     osEventFlagsId_t ef = NULL;
     uint32_t ret;
@@ -2825,7 +2810,7 @@ static VOID HwiFIsr002(VOID)
 }
 
 /* 用例简要描述: ISR 负路径: 适配层 OS_INT_ACTIVE 保护分支(只调保护分支, 不触内核危险路径) */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisIsr002, Function | MediumTest | Level1)
+static UINT32 TestCmsisIsr002(VOID)
 {
     uint32_t ret;
     HWI_PRIOR_T hwiPrio = 3;
@@ -2911,7 +2896,7 @@ EXIT:
 }
 
 /* 用例简要描述: Mutex 错误分支: 未持锁 release/锁下 acquire/删除被持有锁 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMutex006, Function | MediumTest | Level1)
+static UINT32 TestCmsisMutex006(VOID)
 {
     osMutexId_t mid = NULL;
     osStatus_t ret;
@@ -2967,7 +2952,7 @@ static VOID CmsisSemPendHelper(VOID)
 }
 
 /* 用例简要描述: Semaphore 错误分支: 删除有等待者的信号量/已删信号量 GetCount */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisSem006, Function | MediumTest | Level1)
+static UINT32 TestCmsisSem006(VOID)
 {
     osSemaphoreId_t sid = NULL;
     osThreadId_t tid = NULL;
@@ -3055,7 +3040,7 @@ static VOID CmsisMqGetHelper(VOID)
 }
 
 /* 用例简要描述: MessageQueue 错误分支: 满队+锁下 Put/删除有阻塞读者的队列 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisQueue006, Function | MediumTest | Level1)
+static UINT32 TestCmsisQueue006(VOID)
 {
     osMessageQueueId_t mq = NULL;
     osThreadId_t tid = NULL;
@@ -3113,7 +3098,7 @@ EXIT:
 }
 
 /* 用例简要描述: Timer 错误分支: 已删定时器 Start/伪造 id(timerId 越界) Start */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisTimer007, Function | MediumTest | Level1)
+static UINT32 TestCmsisTimer007(VOID)
 {
     osTimerId_t tid = NULL;
     osStatus_t ret;
@@ -3152,7 +3137,7 @@ EXIT:
 }
 
 /* 用例简要描述: MemoryPool: 静态 cb/mem 创建/越界 free/删后 free/重复删/超大 size 分配失败回退 */
-LITE_TEST_CASE(CmsisFuncTestSuite, TestCmsisMemPool009, Function | MediumTest | Level1)
+static UINT32 TestCmsisMemPool009(VOID)
 {
     static UINT32 cbMem[32];      /* 静态控制块(>= sizeof(MemPoolCB)) */
     static UINT32 mpMem[32];      /* 静态池内存(4*32=128 字节, 4 字节对齐) */
@@ -3217,123 +3202,123 @@ void CmsisFuncTestSuite(void)
 {
     dprintf("***********************BEGIN CMSIS TEST**********************\n");
 
-    ADD_TEST_CASE(TestCmsis001);
-    ADD_TEST_CASE(TestCmsis002);
-    ADD_TEST_CASE(TestCmsis003);
-    ADD_TEST_CASE(TestCmsis004);
-    ADD_TEST_CASE(TestCmsis005);
+    TEST_ADD_CASE("ItLosTestCmsis001", TestCmsis001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsis002", TestCmsis002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsis003", TestCmsis003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsis004", TestCmsis004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsis005", TestCmsis005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 
 #if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
-    ADD_TEST_CASE(TestCmsis006);
+    TEST_ADD_CASE("ItLosTestCmsis006", TestCmsis006, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 #endif
 
-    ADD_TEST_CASE(TestCmsis007);
+    TEST_ADD_CASE("ItLosTestCmsis007", TestCmsis007, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 
-    ADD_TEST_CASE(TestCmsisTimer001);
+    TEST_ADD_CASE("ItLosTestCmsisTimer001", TestCmsisTimer001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 
-    ADD_TEST_CASE(TestCmsisSaturation001);
-    ADD_TEST_CASE(TestCmsisSaturation002);
-    ADD_TEST_CASE(TestCmsisSaturation003);
-    ADD_TEST_CASE(TestCmsisSaturation004);
-    ADD_TEST_CASE(TestCmsisSaturation005);
-    ADD_TEST_CASE(TestCmsisSaturation006);
-    ADD_TEST_CASE(TestCmsisExt001);
-    ADD_TEST_CASE(TestCmsisExt002);
-    ADD_TEST_CASE(TestCmsisExt003);
-    ADD_TEST_CASE(TestCmsisExt004);
-    ADD_TEST_CASE(TestCmsisExt005);
-    ADD_TEST_CASE(TestCmsisQueueLimit001);
-    ADD_TEST_CASE(TestCmsisQueueLimit002);
-    ADD_TEST_CASE(TestCmsisMutexGetName001);
-    ADD_TEST_CASE(TestCmsisThreadFlags001);
-    ADD_TEST_CASE(TestCmsisThreadFlags002);
-    ADD_TEST_CASE(TestCmsisThreadFlags003);
-    ADD_TEST_CASE(TestCmsisThreadFlags004);
+    TEST_ADD_CASE("ItLosTestCmsisSaturation001", TestCmsisSaturation001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSaturation002", TestCmsisSaturation002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSaturation003", TestCmsisSaturation003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSaturation004", TestCmsisSaturation004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSaturation005", TestCmsisSaturation005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSaturation006", TestCmsisSaturation006, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisExt001", TestCmsisExt001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisExt002", TestCmsisExt002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisExt003", TestCmsisExt003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisExt004", TestCmsisExt004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisExt005", TestCmsisExt005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisQueueLimit001", TestCmsisQueueLimit001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisQueueLimit002", TestCmsisQueueLimit002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMutexGetName001", TestCmsisMutexGetName001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThreadFlags001", TestCmsisThreadFlags001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThreadFlags002", TestCmsisThreadFlags002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThreadFlags003", TestCmsisThreadFlags003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThreadFlags004", TestCmsisThreadFlags004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 #if (LOSCFG_KERNEL_MEMBOX_STATIC == 1) /* membox dyn 下 CMSIS osMemoryPool* 无实现, 用例隔离(测试侧适配) */
-    ADD_TEST_CASE(TestCmsisMemPool001);
-    ADD_TEST_CASE(TestCmsisMemPool002);
-    ADD_TEST_CASE(TestCmsisMemPool003);
-    ADD_TEST_CASE(TestCmsisMemPool004);
-    ADD_TEST_CASE(TestCmsisMemPool005);
-    ADD_TEST_CASE(TestCmsisMemPool006);
+    TEST_ADD_CASE("ItLosTestCmsisMemPool001", TestCmsisMemPool001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMemPool002", TestCmsisMemPool002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMemPool003", TestCmsisMemPool003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMemPool004", TestCmsisMemPool004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMemPool005", TestCmsisMemPool005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMemPool006", TestCmsisMemPool006, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 #endif /* LOSCFG_KERNEL_MEMBOX_STATIC */
-    ADD_TEST_CASE(TestCmsisEventFlags001);
-    ADD_TEST_CASE(TestCmsisEventFlags002);
-    ADD_TEST_CASE(TestCmsisEventFlags003);
-    ADD_TEST_CASE(TestCmsisMutex001);
-    ADD_TEST_CASE(TestCmsisMutex002);
-    ADD_TEST_CASE(TestCmsisMutex003);
-    ADD_TEST_CASE(TestCmsisSem001);
-    ADD_TEST_CASE(TestCmsisSem002);
-    ADD_TEST_CASE(TestCmsisSem003);
-    ADD_TEST_CASE(TestCmsisKernel001);
-    ADD_TEST_CASE(TestCmsisKernel002);
-    ADD_TEST_CASE(TestCmsisKernel003);
-    ADD_TEST_CASE(TestCmsisThread001);
-    ADD_TEST_CASE(TestCmsisThread002);
-    ADD_TEST_CASE(TestCmsisThread003);
-    ADD_TEST_CASE(TestCmsisThread004);
-    ADD_TEST_CASE(TestCmsisThread005);
-    ADD_TEST_CASE(TestCmsisTimer002);
-    ADD_TEST_CASE(TestCmsisTimer003);
+    TEST_ADD_CASE("ItLosTestCmsisEventFlags001", TestCmsisEventFlags001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisEventFlags002", TestCmsisEventFlags002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisEventFlags003", TestCmsisEventFlags003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMutex001", TestCmsisMutex001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMutex002", TestCmsisMutex002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMutex003", TestCmsisMutex003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSem001", TestCmsisSem001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSem002", TestCmsisSem002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSem003", TestCmsisSem003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisKernel001", TestCmsisKernel001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisKernel002", TestCmsisKernel002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisKernel003", TestCmsisKernel003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread001", TestCmsisThread001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread002", TestCmsisThread002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread003", TestCmsisThread003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread004", TestCmsisThread004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread005", TestCmsisThread005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisTimer002", TestCmsisTimer002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisTimer003", TestCmsisTimer003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
     /* supplement: cover uncalled kernel/queue/thread APIs */
-    ADD_TEST_CASE(TestCmsisKernel004);
-    ADD_TEST_CASE(TestCmsisKernel005);
-    ADD_TEST_CASE(TestCmsisQueueAttr001);
-    ADD_TEST_CASE(TestCmsisThread006);
-    ADD_TEST_CASE(TestCmsisThread007);
-    ADD_TEST_CASE(TestCmsisThread008);
+    TEST_ADD_CASE("ItLosTestCmsisKernel004", TestCmsisKernel004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisKernel005", TestCmsisKernel005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisQueueAttr001", TestCmsisQueueAttr001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread006", TestCmsisThread006, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread007", TestCmsisThread007, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread008", TestCmsisThread008, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
     /* Batch 1 supplement: Kernel lock/delay, Timer boundary, Thread misc */
-    ADD_TEST_CASE(TestCmsisKernel006);
-    ADD_TEST_CASE(TestCmsisKernel007);
+    TEST_ADD_CASE("ItLosTestCmsisKernel006", TestCmsisKernel006, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisKernel007", TestCmsisKernel007, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 #if !defined(LOSCFG_ARCH_ARM) /* 外层: 非 ARM 平台 */
 #if defined(CMSIS_BUG_01_KERNELINIT_GUARD) && CMSIS_BUG_01_KERNELINIT_GUARD == 1
     /* BUG_01 修复后恢复注册; BUG 宏守卫单独一行, 最里层 */
-    ADD_TEST_CASE(TestCmsisKernel008);
+    TEST_ADD_CASE("ItLosTestCmsisKernel008", TestCmsisKernel008, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 #endif
 #endif
-    ADD_TEST_CASE(TestCmsisKernel009);
-    ADD_TEST_CASE(TestCmsisIsr001);
-    ADD_TEST_CASE(TestCmsisDelay001);
-    ADD_TEST_CASE(TestCmsisTimer004);
-    ADD_TEST_CASE(TestCmsisTimer005);
-    ADD_TEST_CASE(TestCmsisTimer006);
-    ADD_TEST_CASE(TestCmsisThread009);
-    ADD_TEST_CASE(TestCmsisThread010);
-    ADD_TEST_CASE(TestCmsisThread011);
-    ADD_TEST_CASE(TestCmsisThread012);
-    ADD_TEST_CASE(TestCmsisThread013);
+    TEST_ADD_CASE("ItLosTestCmsisKernel009", TestCmsisKernel009, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisIsr001", TestCmsisIsr001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisDelay001", TestCmsisDelay001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisTimer004", TestCmsisTimer004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisTimer005", TestCmsisTimer005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisTimer006", TestCmsisTimer006, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread009", TestCmsisThread009, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread010", TestCmsisThread010, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread011", TestCmsisThread011, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread012", TestCmsisThread012, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread013", TestCmsisThread013, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
     /* Batch 2: EventFlags/Mutex/Semaphore/MessageQueue/MemoryPool gap tests */
-    ADD_TEST_CASE(TestCmsisEventFlags004);
-    ADD_TEST_CASE(TestCmsisEventFlags005);
-    ADD_TEST_CASE(TestCmsisEventFlags006);
-    ADD_TEST_CASE(TestCmsisMutex004);
-    ADD_TEST_CASE(TestCmsisMutex005);
-    ADD_TEST_CASE(TestCmsisSem004);
-    ADD_TEST_CASE(TestCmsisSem005);
-    ADD_TEST_CASE(TestCmsisQueue002);
-    ADD_TEST_CASE(TestCmsisQueue003);
-    ADD_TEST_CASE(TestCmsisQueue004);
-    ADD_TEST_CASE(TestCmsisQueue005);
+    TEST_ADD_CASE("ItLosTestCmsisEventFlags004", TestCmsisEventFlags004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisEventFlags005", TestCmsisEventFlags005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisEventFlags006", TestCmsisEventFlags006, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMutex004", TestCmsisMutex004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMutex005", TestCmsisMutex005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSem004", TestCmsisSem004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSem005", TestCmsisSem005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisQueue002", TestCmsisQueue002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisQueue003", TestCmsisQueue003, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisQueue004", TestCmsisQueue004, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisQueue005", TestCmsisQueue005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 #if (LOSCFG_KERNEL_MEMBOX_STATIC == 1) /* membox dyn 下 CMSIS osMemoryPool* 无实现, 用例隔离(测试侧适配) */
-    ADD_TEST_CASE(TestCmsisMemPool007);
-    ADD_TEST_CASE(TestCmsisMemPool008);
+    TEST_ADD_CASE("ItLosTestCmsisMemPool007", TestCmsisMemPool007, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMemPool008", TestCmsisMemPool008, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 #endif /* LOSCFG_KERNEL_MEMBOX_STATIC */
-    ADD_TEST_CASE(TestCmsisLowFreq001);
+    TEST_ADD_CASE("ItLosTestCmsisLowFreq001", TestCmsisLowFreq001, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
     /* Batch 3: 覆盖率补充——错误分支/边界 */
-    ADD_TEST_CASE(TestCmsisKernel010);
-    ADD_TEST_CASE(TestCmsisKernel011);
-    ADD_TEST_CASE(TestCmsisKernel012);
-    ADD_TEST_CASE(TestCmsisThread014);
-    ADD_TEST_CASE(TestCmsisThread015);
-    ADD_TEST_CASE(TestCmsisThreadFlags005);
-    ADD_TEST_CASE(TestCmsisEventFlags007);
-    ADD_TEST_CASE(TestCmsisIsr002);
-    ADD_TEST_CASE(TestCmsisMutex006);
-    ADD_TEST_CASE(TestCmsisSem006);
-    ADD_TEST_CASE(TestCmsisQueue006);
-    ADD_TEST_CASE(TestCmsisTimer007);
+    TEST_ADD_CASE("ItLosTestCmsisKernel010", TestCmsisKernel010, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisKernel011", TestCmsisKernel011, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisKernel012", TestCmsisKernel012, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread014", TestCmsisThread014, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThread015", TestCmsisThread015, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisThreadFlags005", TestCmsisThreadFlags005, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisEventFlags007", TestCmsisEventFlags007, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisIsr002", TestCmsisIsr002, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisMutex006", TestCmsisMutex006, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisSem006", TestCmsisSem006, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisQueue006", TestCmsisQueue006, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestCmsisTimer007", TestCmsisTimer007, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 #if (LOSCFG_KERNEL_MEMBOX_STATIC == 1)
-    ADD_TEST_CASE(TestCmsisMemPool009);
+    TEST_ADD_CASE("ItLosTestCmsisMemPool009", TestCmsisMemPool009, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 #endif
 }

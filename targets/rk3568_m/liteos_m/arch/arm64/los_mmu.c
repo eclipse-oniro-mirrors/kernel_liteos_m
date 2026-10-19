@@ -34,8 +34,13 @@
  *       text   __text_start .. ALIGN_UP(__text_end, 4K)             RO+X WB
  *       data   ALIGN_UP(__text_end, 4K) .. ALIGN_UP(__heap_end, 2M) RW+NX WB
  *              (rodata/data/resource_table/bss/stacks/heap)
- *       shared window 0x74000000 + 1M                     RW+NX  Device nGnRE
- *              (openamp vrings + net ctrl; the master polls/DMAs it)
+ *       shared window 0x74000000 + 1M                     RW+NX  Normal NC
+ *              (openamp vrings + rpmsg buffers + net ctrl; master-
+ *              allocated, NO side does cache maintenance on it, so it
+ *              must not be Normal-WB. Device was wrong too: rpmsg
+ *              payloads sit at 4-byte-aligned offsets inside the 512B
+ *              buffers and 8-byte memcpy block copies (len >= 8) fault
+ *              on Device mappings)
  *       net DMA pool 0x76000000 + 2M                      RW+NX  Normal NC
  *              (GMAC descriptors + frames, not IO-coherent)
  *       boot-probe scratch 0x77E00000 + 2M                RW+NX  Device nGnRE
@@ -104,7 +109,7 @@ VOID ArchMmuAppRegionReg(VOID)
         {"initdata", entryEnd, entryEnd, textStart - entryEnd, MMU_RW_NX_NORMAL_WB},
         {"text", textStart, textStart, textEnd - textStart, MMU_RO_X_NORMAL_WB},
         {"data", textEnd, textEnd, dataEnd - textEnd, MMU_RW_NX_NORMAL_WB},
-        {"shmem", SHMEM_BASE, SHMEM_BASE, SHMEM_SIZE, MMU_RW_NX_DEVICE_MAP},
+        {"shmem", SHMEM_BASE, SHMEM_BASE, SHMEM_SIZE, MMU_RW_NX_NORMAL_NC},
         {"netdma", NET_DMA_BASE, NET_DMA_BASE, NET_DMA_SIZE, MMU_RW_NX_NORMAL_NC},
         {"scratch", SCRATCH_BASE, SCRATCH_BASE, SCRATCH_SIZE, MMU_RW_NX_DEVICE_MAP},
         {"periph", PERIPH_BASE, PERIPH_BASE, PERIPH_SIZE, MMU_RW_NX_DEVICE_MAP},

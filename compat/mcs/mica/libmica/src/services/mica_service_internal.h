@@ -31,11 +31,12 @@ struct rpmsg_device *mica_get_rpdev(void);
 struct mica_config *mica_get_config(void);
 
 /* ========== Service init entry points ========== */
-int mica_rpc_init_service(void);
+int mica_rpc_init_service(pthread_attr_t *attr);
 int mica_tty_init_service(pthread_attr_t *attr);
 int mica_umt_init_service(pthread_attr_t *attr);
 int mica_echo_init_service(pthread_attr_t *attr);
 
+void *rpc_service_thread(void *arg);
 void *tty_service_thread(void *arg);
 void *umt_service_thread(void *arg);
 void *echo_service_thread(void *arg);

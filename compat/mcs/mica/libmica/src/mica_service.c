@@ -65,10 +65,9 @@ int mica_service_is_ready(enum mica_service_type type)
 {
     switch (type)
     {
-#ifdef SUPPORT_RPC
     case MICA_SERVICE_RPC:
         return mica_rpc_is_ready();
-#endif
+
     case MICA_SERVICE_TTY:
         return mica_tty_is_ready();
 
@@ -143,7 +142,7 @@ int mica_create_all_services(void)
 {
     pthread_attr_t attr;
     pthread_t tty_thread, umt_thread, receiver_thread;
-    int ret_tty, ret_umt, ret_rcv, ret_echo;
+    int ret_tty, ret_umt, ret_rcv, ret_echo, ret_rpc;
     int ret;
 
     /* init thread attr (shared) */
@@ -172,6 +171,14 @@ int mica_create_all_services(void)
 
     mica_log("Creating ECHO thread...\n");
     ret_echo = mica_echo_init_service(&attr);
+
+    /* RPC service: rpmsg-rpc endpoint (client + server dispatch). Built as
+     * part of the openamp component (rpc_service.c is always compiled);
+     * failure here is non-fatal for the legacy tty/umt/echo services. */
+    mica_log("Creating RPC thread...\n");
+    ret_rpc = mica_rpc_init_service(&attr);
+    if (ret_rpc != 0)
+        mica_log("WARN: RPC service init failed: %d\n", ret_rpc);
 
     pthread_attr_destroy(&attr);
 

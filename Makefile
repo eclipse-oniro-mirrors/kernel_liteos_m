@@ -87,6 +87,8 @@ Targets:
     cleanall:   clean all build outputs
     all:        do build (Default target)
     update_config:  update product kernel config (use menuconfig)
+    allnoconfig: run allnoconfig preserving platform choice from $(CONFIG), result in .config
+    savemenuconfig: allnoconfig + menuconfig + savedefconfig back to $(CONFIG)
     xxconfig:   invoke xxconfig command of kconfiglib (xxconfig is one of $(KCONFIG_CMDS))
 
 Parameters:
@@ -103,8 +105,26 @@ all:
 help:
 	$(HIDE)echo "$$HELP"
 
-$(filter-out menuconfig,$(KCONFIG_CMDS)):
+# allnoconfig uses the two-step approach (is_allnoconfig_y + load_allconfig) so
+# the platform choice member from the vendor config is preserved. The generic
+# kconfiglib allnoconfig drops LOSCFG_PLATFORM_<board> and falls back to the
+# Kconfig default platform (QEMU), making the result unusable for hb build.
+allnoconfig:
+	$(HIDE)test -f "$(CONFIG)" || { echo "no vendor config at $(CONFIG)"; exit 1; }
+	$(HIDE)env CONFIG_=$(CONFIG_) srctree=$(srctree) BOARD_COMPANY=$(BOARD_COMPANY) \
+		KCONFIG_CONFIG=.config KCONFIG_ALLCONFIG=$(CONFIG) \
+		python3 $(LITEOSTOPDIR)/tools/allnoconfig.py
+
+# Non-menuconfig kconfig commands (defconfig, allyesconfig, savedefconfig, ...)
+# excluding menuconfig and allnoconfig which have dedicated rules above.
+$(filter-out menuconfig allnoconfig,$(KCONFIG_CMDS)):
 	$(HIDE)$@ $(args)
+
+# allnoconfig + menuconfig + write back to vendor config in one shot.
+savemenuconfig:
+	$(HIDE)test -f "$(CONFIG)" && cp -v "$(CONFIG)" .config && menuconfig $(args) && \
+		env CONFIG_=$(CONFIG_) srctree=$(srctree) python3 $(LITEOSTOPDIR)/tools/apply_preset.py && \
+		savedefconfig --out "$(CONFIG)"
 
 $(LITEOS_CONFIG_FILE): $(KCONFIG_CONFIG)
 	$(HIDE)env KCONFIG_CONFIG=$< genconfig --config-out $@ --header-path $(LITEOS_MENUCONFIG_H)
@@ -119,4 +139,5 @@ clean:
 cleanall: clean
 	$(HIDE)echo "clean all done"
 
-.PHONY: all clean cleanall help update_config $(KCONFIG_CMDS) $(KCONFIG_CONFIG)
+.PHONY: all clean cleanall help update_config $(KCONFIG_CMDS) $(KCONFIG_CONFIG) \
+    allnoconfig savemenuconfig

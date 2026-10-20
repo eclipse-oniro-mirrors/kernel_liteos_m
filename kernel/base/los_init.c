@@ -205,7 +205,7 @@ LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsRegister(VOID)
 /* OsIpcInit: consolidate sem/mux/queue/rwsem init into one initcall */
 LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsIpcInit(VOID)
 {
-    UINT32 ret;
+    UINT32 ret = LOS_OK;
 
 #if (LOSCFG_BASE_IPC_SEM == 1)
     ret = OsSemInit();
@@ -237,7 +237,7 @@ LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsIpcInit(VOID)
     }
 #endif
 
-    return LOS_OK;
+    return ret;
 }
 LOS_SYS_INIT(OsIpcInit, SYS_INIT_LEVEL_KERNEL, SYS_INIT_SYNC_2);
 

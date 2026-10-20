@@ -314,6 +314,95 @@ config KERNEL_LMK_DEBUG
     help
       Configuration item forlow memory killer debug tailoring.
 
+######################### config options of hpl #####################
+
+config KERNEL_HPL
+    bool "Enable High Performance Log System"
+    default n
+    depends on KERNEL_EXTKERNEL && LIB_LIBC
+    select KERNEL_HPL_TASK_LOCK_FREE if !KERNEL_HPL_SCRIPT_PREPROCESSOR
+    help
+      Select y to enable LiteOS high performance log system. Only static
+      information of a log is recorded once and only arguments are packed
+      in the recording path. Readable logs are restored offline by the
+      host decompressor tool. Requires the GCC toolchain (CLZLL).
+
+config KERNEL_HPL_PARAM_MAX_SIZE
+    int "Total Bytes Size Of Parameters"
+    default 728
+    range 1 65536
+    depends on KERNEL_HPL
+    help
+      It determines the byte size of parameters buffer which take up stack space.
+
+config KERNEL_HPL_CORE_BIT
+    int "Core Bit Number"
+    default 32
+    range 32 64
+    depends on KERNEL_HPL
+    help
+      Core bit number determines pointer length, 32 or 64.
+
+config KERNEL_HPL_SCRIPT_PREPROCESSOR
+    bool "Enable Script Preprocessor"
+    default n
+    depends on KERNEL_HPL
+    help
+      Use Python script preprocessor to inject format ids at build time.
+      The script toolchain (GN wrapper, per-board .hpl_metadata linker
+      section) is planned for a later phase, keep this disabled to use
+      the runtime C preprocessor.
+
+config KERNEL_HPL_TASK_LOCK_FREE
+    bool "Enable Task Lock-Free"
+    default n
+    depends on KERNEL_HPL
+    help
+      Use task independent staging buffer to improve performance which
+      may increase memory consumption.
+
+config KERNEL_HPL_COMPRESS_TASK_PRIORITY
+    int "Compress Task Priority"
+    default 2
+    range 2 31
+    depends on KERNEL_HPL_TASK_LOCK_FREE
+    help
+      The priority of compress task, The larger the value, the lower the priority.
+
+config KERNEL_HPL_IDLE_TASK_COMPRESSION
+    bool "Enable Idle Task Compress Log"
+    default n
+    depends on KERNEL_HPL_TASK_LOCK_FREE
+    help
+      If the log recorded function has probability to block which may trigger dispatch,
+      idle task compression should be forbidden.
+      When idle task compression is enable, ensure the idle task stack size is 2KB at least.
+
+config KERNEL_HPL_STATIC_INFO
+    bool "Enable Decompressor Print Static Info"
+    default n
+    depends on KERNEL_HPL
+    help
+      Print static info, such as filename and linenum.
+
+config KERNEL_HPL_AUTO_LINEFEED
+    bool "Enable Decompressor Auto Linefeed"
+    default n
+    depends on KERNEL_HPL
+    help
+      Auto linefeed.
+
+config DEBUG_HPL_EMULATION
+    bool "Enable HPL On-Board Decompression Emulation"
+    default n
+    depends on KERNEL_HPL
+    select BASE_IPC_RINGBUF
+    help
+      Decompress the compressed log on board and print readable log
+      directly (uses the generic ringbuf component). Debug-only feature:
+      adds ~26KB RAM (shared buffer + decompression task stack). Keep
+      disabled for product builds, enable for on-board log debugging.
+
 ######################### config options of trace #########################
 rsource "extended/trace/Kconfig"
 
@@ -654,6 +743,14 @@ config BASE_IPC_RWSEM_LIMIT
       This represents the maximum number of read-write semaphores.
 
 endif # BASE_IPC_RWSEM
+
+config BASE_IPC_RINGBUF
+    bool "Enable Ringbuf"
+    default n
+    help
+      Enable the generic ring buffer component (LOS_Ringbuf* APIs, ported
+      from liteos_a). When disabled, los_ringbuf.c is not compiled into
+      the image. Currently consumed by the HPL emulation channel.
 
 endmenu
 

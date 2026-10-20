@@ -50,6 +50,20 @@ exec_script("//build/lite/run_shell_cmd.py",
 
 import("$root_out_dir/config.gni")
 
+if (defined(board_toolchain_path) &&
+    board_toolchain_path == rebase_path("$root_out_dir/hpl/toolchain")) {
+  exec_script("//kernel/liteos_m/build/scripts/hpl/log_hpl_preprocessor.py",
+              [
+                "--gen-toolchain",
+                rebase_path(root_out_dir),
+              ],
+              "",
+              [])
+} else if (defined(LOSCFG_KERNEL_HPL_SCRIPT_PREPROCESSOR)) {
+  assert(false,
+         "LOSCFG_KERNEL_HPL_SCRIPT_PREPROCESSOR requires the HPL wrapper toolchain: build with hpl_use_wrapper=true in gn args")
+}
+
 LITEOSTOPDIR = "//kernel/liteos_m"
 HDFTOPDIR = "//drivers/hdf_core/adapter/khdf/liteos"
 THIRDPARTY_BOUNDS_CHECKING_FUNCTION_DIR =

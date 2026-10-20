@@ -220,7 +220,9 @@ typedef struct LosTaskCB {
     UINT32                      syncSignal;               /**< Synchronization for signal handling */
 #endif
 #endif
-
+#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
+    VOID                        *hpl;                     /* High performance log handle */
+#endif
 
 #ifdef LOSCFG_TASK_STRUCT_EXTENSION
     LOSCFG_TASK_STRUCT_EXTENSION;                         /**< Task extension field */

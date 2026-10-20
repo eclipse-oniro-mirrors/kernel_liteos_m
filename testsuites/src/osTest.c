@@ -202,6 +202,9 @@ void TestKernel(void)
 #if (LOS_KERNEL_DYNLOAD_TEST == 1)
     ItSuiteLosDynload();
 #endif
+#if (LOS_KERNEL_HPL_TEST == 1)
+    ItSuiteLosHpl();
+#endif
 
 #if (LOS_KERNEL_LMS_TEST == 1)
     ItSuiteLosLms();

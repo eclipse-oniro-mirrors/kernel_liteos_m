@@ -49,6 +49,9 @@
 #endif
 #include "los_hwi_pri.h"
 #include "los_arch.h"
+#ifdef LOSCFG_KERNEL_HPL
+#include "los_hpl_pri.h"
+#endif
 
 #define ARM_EXCEPTION_SYSTICK      15
 

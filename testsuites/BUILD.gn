@@ -215,6 +215,9 @@ group("testsuites") {
   if (defined(LOSCFG_KERNEL_LMS)) {
     deps += [ "sample/kernel/lms:test_lms" ]
   }
+  if (defined(LOSCFG_KERNEL_HPL)) {
+    deps += [ "sample/kernel/hpl:test_hpl" ]
+  }
   if (defined(LOSCFG_KERNEL_TRACE)) {
     deps += [ "sample/kernel/trace:test_trace" ]
   }

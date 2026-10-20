@@ -1,5 +1,5 @@
 # Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
-# Copyright (c) 2020-2022 Huawei Device Co., Ltd. All rights reserved.
+# Copyright (c) 2026-2026 Huawei Device Co., Ltd. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
@@ -37,6 +37,7 @@ group("extended") {
     "dynlink",
     "dynload",
     "exchook",
+    "hpl",
     "lmk",
     "lms",
     "power",
@@ -46,6 +47,7 @@ group("extended") {
 }
 
 config("public") {
+  include_dirs = [ "include" ]
   configs = [
     "backtrace:public",
     "cppsupport:public",
@@ -53,6 +55,7 @@ config("public") {
     "dynlink:public",
     "dynload:public",
     "exchook:public",
+    "hpl:public",
     "power:public",
     "trace:public",
     "lmk:public",

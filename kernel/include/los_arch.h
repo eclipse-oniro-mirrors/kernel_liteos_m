@@ -63,6 +63,13 @@ STATIC INLINE UINTPTR ArchMspGet(VOID)
     return msp;
 }
 
+STATIC INLINE UINT32 ArchGetIpsr(VOID)
+{
+    UINT32 ipsr;
+    __asm("mrs %0, ipsr" : "=r" (ipsr));
+    return ipsr;
+}
+
 #define ArchGetLr()                           \
 ({                                              \
     UINTPTR lr;                                 \
@@ -89,6 +96,13 @@ STATIC INLINE UINTPTR ArchMspGet(VOID)
     UINTPTR msp;
     __asm volatile("mrs %0, msp" : "=r" (msp));
     return msp;
+}
+
+STATIC INLINE UINT32 ArchGetIpsr(VOID)
+{
+    UINT32 ipsr;
+    __asm volatile("mrs %0, ipsr" : "=r" (ipsr));
+    return ipsr;
 }
 
 #define ArchGetLr()                           \

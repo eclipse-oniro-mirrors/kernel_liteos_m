@@ -48,6 +48,9 @@
 #include "los_exc_pri.h"
 #endif
 #include "los_hwi_pri.h"
+#include "los_arch.h"
+
+#define ARM_EXCEPTION_SYSTICK      15
 
 /* ArchIntLocked: read PRIMASK to report whether interrupts are masked.
  * The NVIC interrupt controller driver (HwiControllerOps, HalInterrupt,
@@ -244,6 +247,13 @@ STATIC VOID OsExcInfoDisplay(const ExcInfo *excInfo)
 #endif
 }
 
+LITE_OS_SEC_TEXT_INIT BOOL ArchExcActive(VOID)
+{
+    UINT32 ipsr = ArchGetIpsr();
+    /* 15: SysTick interrupt number and less than this number is exception. */
+    return (ipsr < ARM_EXCEPTION_SYSTICK) && (ipsr > 0);
+}
+
 LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, UINT32 pid, EXC_CONTEXT_S *excBufAddr)
 {
     UINT16 tmpFlag = (excType >> 16) & OS_NULL_SHORT; /* 16: Get Exception Type */
@@ -291,6 +301,9 @@ LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, U
     if (dumpFunc != NULL) {
         dumpFunc(OsGetExcInfoDumpAddr(), OsGetExcInfoLen(), 0, OsGetExcInfoBuf());
     }
+#endif
+#ifdef LOSCFG_KERNEL_HPL
+    OsHplExceptionHandle();
 #endif
     ArchTaskExit();
 }

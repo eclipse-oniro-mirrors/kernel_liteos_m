@@ -1,22 +1,40 @@
 # Interrupt controller drivers.
-# Each board selects the controller(s) for its platform explicitly
-# (LOSCFG_<CONTROLLER>=y in kernel_configs/debug.config); only the
-# selected driver source is compiled into the interrupt module (see
-# BUILD.gn). One controller per platform — co-selection would be a
-# duplicate-symbol link error (each driver defines its own
-# g_hwiControllerOps + HwiControllerOpsGet).
+# Controllers are promptless — they are selected by the core select
+# chain (e.g. ARCH_LINXCORE_131 selects RISCV_HIMIDEERV200_PLIC) or
+# directly by a board's platform select in the top-level Kconfig;
+# never set from a kernel config line. ARCH_INTERRUPT_VENDOR is the
+# escape hatch: when a board sets it, core-level auto-select is
+# skipped and the board must either select an in-tree controller from
+# its platform Kconfig or provide its own controller driver in board
+# code. Only the selected driver source is compiled (see BUILD.gn).
+# One controller per platform — co-selection is a duplicate-symbol
+# link error (each driver defines its own g_hwiControllerOps +
+# HwiControllerOpsGet).
+
+config ARCH_INTERRUPT_VENDOR
+    bool "Use vendor-provided interrupt controller (skip core auto-select)"
+    depends on ARCH_RISCV
+    help
+      Platform takes over interrupt controller driver selection.
+      When set, core-level auto-select of interrupt controllers is
+      skipped (the "if !ARCH_INTERRUPT_VENDOR" guard on core select
+      lines), and the board must select an in-tree controller from
+      its platform Kconfig or provide its own controller driver in
+      board code. Reserved for platforms that use a fully
+      vendor-specific interrupt controller not covered by the core
+      select chain.
 
 config RISCV_LCMP_CLIC
-    bool "RISC-V LCMP CLIC interrupt controller"
-    depends on ARCH_RISCV
+    bool
+    depends on ARCH_LINX_M
     select ARCH_INTERRUPT_TAKEOVER
     help
       RISC-V Core-Local Interrupt Controller (CLIC) for LinxCore.
       Used by HI3322. Does not auto-clear pending bits (unlike PLIC).
 
 config RISCV_HIMIDEERV200_PLIC
-    bool "HiSilicon himideerv200 PLIC interrupt controller"
-    depends on ARCH_RISCV
+    bool
+    depends on ARCH_LINXCORE_131
     select ARCH_INTERRUPT_TAKEOVER
     help
       HiSilicon himideerv200 Platform Level Interrupt Controller for

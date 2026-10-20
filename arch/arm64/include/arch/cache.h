@@ -15,7 +15,7 @@
 
 /* AArch64 cache maintenance API (implemented in arch/arm64/los_cache.S).
  * The naming follows the liteos_m arch convention shared with the other
- * arches (see arch/risc-v/riscv32/gcc/include/arch/cache.h). */
+ * arches (see arch/risc-v/include/arch/cache.h). */
 
 #ifndef _ARCH_CACHE_H
 #define _ARCH_CACHE_H

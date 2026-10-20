@@ -192,5 +192,5 @@ LITE_OS_SEC_TEXT_INIT VOID HalIrqInit(VOID)
         clic_w8(&CLIC_REG->intCtrl[i].ctl, CLIC_INTCTL_DEF);
     }
     /* mtvec is CPU-level trap configuration — set by the arch HalHwiInit
-     * (see arch/risc-v/riscv32/gcc/los_interrupt.c), not by this driver. */
+     * (see arch/risc-v/src/los_interrupt.c), not by this driver. */
 }

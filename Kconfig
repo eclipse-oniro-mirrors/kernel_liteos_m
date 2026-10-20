@@ -121,7 +121,7 @@ config PLATFORM_QEMU_ARM_VIRT_CM55
 
 config PLATFORM_QEMU_RISCV32_VIRT
     bool "qemu_riscv32_virt"
-    select ARCH_RISCV32
+    select ARCH_QEMU_RISCV32_VIRT
     help
         QEMU RISCV Virtual Platform using riscv32 CPU.
 
@@ -139,7 +139,7 @@ config PLATFORM_QEMU_XTENSA_ESP32
 
 config PLATFORM_WS63_M
     bool "ws63_m"
-    select ARCH_RISCV32
+    select ARCH_LINXCORE_131
     help
         HiSilicon WS63 NearLink DK 3863 board (RISC-V LinxCore131).
 
@@ -151,9 +151,9 @@ config PLATFORM_NRF52832
 
 config PLATFORM_HI3322
     bool "hi3322"
-    select ARCH_RISCV32
+    select ARCH_LINXCORE_170
     help
-        HiSilicon HI3322 wearable SoC (RISC-V LinxCore).
+        HiSilicon HI3322 wearable SoC (RISC-V LinxCore170).
 
 config PLATFORM_RK3568_M
     bool "rk3568_m"

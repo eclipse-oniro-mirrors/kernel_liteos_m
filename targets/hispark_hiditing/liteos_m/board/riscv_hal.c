@@ -2,8 +2,9 @@
  * Copyright (c) 2026 HiSilicon (Shanghai) Technologies Co., Ltd.
  * Description: HI3322 RISC-V HAL glue. CLIC init is in
  *              kernel/liteos_m/drivers/interrupt/riscv_lcmp_clic.c
- *              (function ArchHwiInitClic, called by HalHwiInit in
- *              arch/risc-v/riscv32/gcc/los_interrupt.c). This file provides
+ *              (function HalIrqInit, called by HalPlicInit below; the arch
+ *              HalHwiInit in arch/risc-v/src/los_interrupt.c only points
+ *              mtvec at HalTrapVector). This file provides
  *              the board-level HAL wrappers (HalIrqEnable/Disable,
  *              HalBackTraceFpCheck, HalPlicInit) that
  *              main.c and the system tick timer call.

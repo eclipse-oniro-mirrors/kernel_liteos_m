@@ -47,16 +47,11 @@
 #endif
 
 LosExcInfo g_excInfo;
-/* g_hwiControllerOps lives in the selected interrupt-controller driver
- * (drivers/interrupt/riscv_lcmp_clic.c or riscv_himideerv200_plic.c),
- * which also provides HwiControllerOpsGet(). This file only consumes the
- * ops via HwiControllerOpsGet() in HalHwiInterruptDone. */
+
 UINT32 ArchIntLocked(VOID)
 {
     UINT32 intSave;
-
     __asm__ volatile("csrr %0, mstatus" : "=r"(intSave) : : "memory");
-
     return !(intSave & RISCV_MSTATUS_MIE);
 }
 
@@ -83,46 +78,11 @@ const CHAR g_excInformation[RISCV_EXC_TYPE_NUM][50] = {
 };
 
 LITE_OS_SEC_BSS UINT32 g_hwiFormCnt[OS_HWI_MAX_NUM];
-LITE_OS_SEC_DATA_INIT HWI_HANDLE_FORM_S g_hwiForm[OS_HWI_MAX_NUM] = {
-    { .pfnHook = NULL, .uwParam = 0 }, // 0 User software interrupt handler
-    { .pfnHook = NULL, .uwParam = 0 }, // 1 Supervisor software interrupt handler
-    { .pfnHook = NULL, .uwParam = 0 }, // 2 Reserved
-    { .pfnHook = HalHwiDefaultHandler, .uwParam = 0 }, // 3 Machine software interrupt handler
-    { .pfnHook = NULL, .uwParam = 0 }, // 4 User timer interrupt handler
-    { .pfnHook = NULL, .uwParam = 0 }, // 5 Supervisor timer interrupt handler
-    { .pfnHook = NULL, .uwParam = 0 }, // 6  Reserved
-    { .pfnHook = HalHwiDefaultHandler, .uwParam = 0 }, // 7 Machine timer interrupt handler
-    { .pfnHook = NULL, .uwParam = 0 }, // 8  User external interrupt handler
-    { .pfnHook = NULL, .uwParam = 0 }, // 9 Supervisor external interrupt handler
-    { .pfnHook = NULL, .uwParam = 0 }, // 10 Reserved
-    { .pfnHook = HalHwiDefaultHandler, .uwParam = 0 }, // 11 Machine external interrupt handler
-    { .pfnHook = HalHwiDefaultHandler, .uwParam = 0 }, // 12 NMI handler
-    { .pfnHook = NULL, .uwParam = 0 }, // 13 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 14 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 15 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 16 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 17 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 18 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 19 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 20 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 21 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 22 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 23 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 24 Reserved
-    { .pfnHook = NULL, .uwParam = 0 }, // 25 Reserved
-};
 
 LITE_OS_SEC_TEXT_INIT VOID HalHwiInit(VOID)
 {
-    UINT32 index;
-    for (index = OS_RISCV_SYS_VECTOR_CNT; index < OS_HWI_MAX_NUM; index++) {
-        g_hwiForm[index].pfnHook = HalHwiDefaultHandler;
-        g_hwiForm[index].uwParam = 0;
-    }
-    /* Point mtvec at the arch trap entry (HalTrapVector, los_exc.S).
-     * mtvec is CPU-level trap configuration — an arch concern (moved from
-     * the CLIC driver). Idempotent for boards whose reset code already
-     * sets it (ws63 reset_vector.S). WRITE_CSR: asm/soc_common.h. */
+    /* Point mtvec at the arch trap entry (HalTrapVector, los_trap.S).
+     * mtvec is CPU-level trap configuration — an arch concern. */
     WRITE_CSR(mtvec, (UINT32)(UINTPTR)HalTrapVector);
 }
 
@@ -143,11 +103,6 @@ LITE_OS_SEC_TEXT UINT32 HalGetHwiFormCnt(HWI_HANDLE_T hwiNum)
     }
 
     return LOS_NOK;
-}
-
-LITE_OS_SEC_TEXT HWI_HANDLE_FORM_S *HalGetHwiForm(VOID)
-{
-    return g_hwiForm;
 }
 
 #ifdef LOSCFG_KERNEL_BACKTRACE

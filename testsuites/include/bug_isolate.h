@@ -154,6 +154,48 @@
                                                    * 套件(A~D 数据安全契约断言+F 千次全序列回归)。同族:
                                                    * 003 全量轮 009 区冻结系 BUG_11/12(PM), 与本宏无关 */
 
+#define KERNEL_BUG_14_DYNLOAD_SHN_COMMON 0 /* ItLosDynload016(!1194 dynload 新模块): 加载含 SHN_COMMON
+                                            * 符号的 ET_REL 对象越界崩溃。【现象】LOS_MemLoad 加载带
+                                            * COMMON 符号(gcc -fcommon 未初始化全局变量)的 .o 时板级
+                                            * Load access fault 复位(mepc=LD_ElfSymTypeGet, a3=0xfff2=
+                                            * SHN_COMMON, mtval=0xcf3f10 野指针)。【根因】los_ld_commlib.c:72
+                                            * LD_ElfSymTypeGet 仅特判 SHN_ABS, 对 SHN_COMMON/SHN_UNDEF 等
+                                            * 保留索引(>=0xff00)直接 scnHdrTbl+stShndx 越界索引(0xfff2*40
+                                            * ≈6.5MB 偏移), 无错误码路径。【修复方向】保留索引统一处理:
+                                            * COMMON 按 BSS 分配(配合 elflib.c LD_SHN_COMMON 分支)或返回
+                                            * LD_SYM_UNDF。【恢复方法】修复后置 1, ItLosDynload016 以
+                                            * "加载成功+common_inc 可用"为回归验收; 隔离点在 It_los_dynload.c
+                                            * 聚合注册点; 关联 MAINTEST_1194/问题记录/20261020_002000 */
+
+#define KERNEL_BUG_15_DYNLOAD_PCREL_LO12 0 /* ItLosDynload017(!1194 dynload 新模块): PCREL_LO12 重定位
+                                            * 低 12 位计算系统性错误。【现象】加载含 PCREL_HI20+LO12_I/S
+                                            * 重定位对的 ET_REL 对象后, pcrel 取址/存储结果页内偏移
+                                            * (013 轮7 实测 pcrel_get_target()=0xa74354 != &g_rel_target,
+                                            * pcrel_store 写错地址)。【根因】arch/risc-v/common/dynload.c
+                                            * ELF_RiscvPcrelLow12IReloc/Low12SReloc 直接
+                                            * offset=symAddr+addend-position; PCREL_LO12 的 sym 是 AUIPC
+                                            * 处局部标签(.L1^B1, 值=AUIPC 地址), 按 RISC-V psABI 应回溯
+                                            * 该 AUIPC 处 PCREL_HI20 条目的目标符号与 offset 取低 12 位;
+                                            * 现实现得到 offset=标签地址-本指令地址(如 -4), lo12 全错,
+                                            * 高 20 位正确故偏差仅在页内。【修复方向】PCREL_LO12 处理器
+                                            * 按规范实现: 取 sym(AUIPC 标签)处 PCREL_HI20 条目的
+                                            * (目标符号+addend-AUIPC地址) 低 12 位。【恢复方法】修复后
+                                            * 置 1, ItLosDynload017 以"取址==目标地址/存储写到目标"为
+                                            * 回归验收; 隔离点在 It_los_dynload.c 聚合注册点;
+                                            * 关联 MAINTEST_1194/问题记录/20261020_002100 */
+
+#define KERNEL_BUG_16_DYNLOAD_REL_REFCNT 0 /* ItLosDynload018(!1194 dynload 新模块): ET_REL 同名二次
+                                            * 加载不递增引用计数。【现象】LOS_MemLoad/LOS_ObjLoad 同名
+                                            * 二次加载返回原句柄但 refCnt 不加, 卸载一次即真正释放,
+                                            * 另一持有者句柄悬空(013 轮12 实测: 二次加载后 unload 一次,
+                                            * LOS_FindSymByName(handle) 返回 NULL)。【根因】los_ld_elflib.c
+                                            * LOS_ObjLoadInternal taken 分支直接 goto LOS_END 返回, 无
+                                            * refCnt++(对照 ET_SO 路径 dllib taken 分支有 RefCntInc,
+                                            * 行为不对称)。【修复方向】taken+IS_LOADED 分支 refCnt 递增后
+                                            * 返回。【恢复方法】修复后置 1, ItLosDynload018 以"卸载一次后
+                                            * 句柄仍可查符号"为回归验收; 隔离点在 It_los_dynload.c 聚合
+                                            * 注册点; 关联 MAINTEST_1194/问题记录/20261020_002200 */
+
 /* ==================== fuzz 探针隔离宏(每用例一个) ====================
  * 探针为 sample/fuzz 各模块目录下的正常用例文件 it_<接口描述>_fuzz.c,
  * 用例文件头注释含完整根因分析; 语义同上(0=隔离/1=恢复)。 */

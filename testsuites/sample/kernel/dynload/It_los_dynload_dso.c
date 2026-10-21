@@ -48,7 +48,31 @@
 /* Kernel-side value exported to loaded modules through the OS symbol table. */
 INT32 g_dynload_os_export = 4242;
 
-/* OS symbol table entries must stay sorted by name (binary search). */
+/* Kernel-side write targets for relocation-store verification: on W^X boards
+ * (hi3322, PMP entry19) the module window is either RW (loading) or RX (running),
+ * never both, so a module writing its own data after ArchDynloadFinish faults.
+ * Store-family relocations (LO12_S stores, JAL/BRANCH targets) therefore write
+ * these kernel-side globals (DTCM, RW) resolved through the OS symbol table.
+ * OS symbol table entries must stay sorted by name (binary search). */
+INT32 g_dynload_krel_branch_hit = 0;
+INT32 g_dynload_krel_jal_hit = 0;
+INT32 g_dynload_krel_store = 0;
+
+STATIC LDSymbol g_dynloadKrelBranchHitSym LOS_HAL_TABLE_ENTRY(dynload_gsymbol) = {
+    .name = "g_dynload_krel_branch_hit",
+    .addr = (const INT8 *)&g_dynload_krel_branch_hit,
+};
+
+STATIC LDSymbol g_dynloadKrelJalHitSym LOS_HAL_TABLE_ENTRY(dynload_gsymbol) = {
+    .name = "g_dynload_krel_jal_hit",
+    .addr = (const INT8 *)&g_dynload_krel_jal_hit,
+};
+
+STATIC LDSymbol g_dynloadKrelStoreSym LOS_HAL_TABLE_ENTRY(dynload_gsymbol) = {
+    .name = "g_dynload_krel_store",
+    .addr = (const INT8 *)&g_dynload_krel_store,
+};
+
 STATIC LDSymbol g_dynloadOsSymEntry LOS_HAL_TABLE_ENTRY(dynload_gsymbol) = {
     .name = "g_dynload_os_export",
     .addr = (const INT8 *)&g_dynload_os_export,
@@ -75,6 +99,10 @@ extern const UINT8 _binary_objossym_o_start[];
 extern const UINT8 _binary_objossym_o_end[];
 extern const UINT8 _binary_objundef_o_start[];
 extern const UINT8 _binary_objundef_o_end[];
+extern const UINT8 _binary_reloc_o_start[];
+extern const UINT8 _binary_reloc_o_end[];
+extern const UINT8 _binary_relocc_o_start[];
+extern const UINT8 _binary_relocc_o_end[];
 
 typedef struct {
     const CHAR *fileName;
@@ -93,6 +121,8 @@ STATIC const DsoImage g_dsoImages[] = {
     { "objmovwt.o", _binary_objmovwt_o_start, _binary_objmovwt_o_end },
     { "objossym.o", _binary_objossym_o_start, _binary_objossym_o_end },
     { "objundef.o", _binary_objundef_o_start, _binary_objundef_o_end },
+    { "reloc.o", _binary_reloc_o_start, _binary_reloc_o_end },
+    { "relocc.o", _binary_relocc_o_start, _binary_relocc_o_end },
 };
 
 /* Write the embedded DSO images into DSO_PATH so the cases can load them. */

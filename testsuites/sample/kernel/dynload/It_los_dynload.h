@@ -50,6 +50,21 @@ extern "C" {
     (VOID)wxFinish(0, 0, 0, 0);                                                  \
 } while (0)
 
+/* Boards whose only executable region for dynamically loaded modules is a dedicated
+ * W^X pool window (hi3322: 64KB ITCM window at 0x40000, PMP entry19, registered by
+ * board main.c via LOS_DynMemPoolSet at boot; see targets/hispark_hiditing/
+ * liteos_m/board/pmp_init.h HI3322_DYNLOAD_POOL_BASE). LOS_LdDestroy() resets the
+ * loader heap to the non-executable system heap, so the window must be re-registered
+ * before any later "load + call" sequence, otherwise module calls raise an
+ * instruction access fault. */
+#if defined(LOSCFG_PLATFORM_HI3322)
+#define IT_DYNLOAD_WX_POOL_BASE 0x40000u /* keep in sync with HI3322_DYNLOAD_POOL_BASE */
+#define IT_DYNLOAD_EXEC_POOL_SET() \
+    (VOID)LOS_DynMemPoolSet((VOID *)IT_DYNLOAD_WX_POOL_BASE)
+#else
+#define IT_DYNLOAD_EXEC_POOL_SET() ((VOID)0)
+#endif
+
 #ifndef PATH_MAX
 #define PATH_MAX 256
 #endif
@@ -63,6 +78,16 @@ VOID ItLosDynload005(VOID);
 VOID ItLosDynload006(VOID);
 VOID ItLosDynload007(VOID);
 VOID ItLosDynload008(VOID);
+VOID ItLosDynload009(VOID);
+VOID ItLosDynload010(VOID);
+VOID ItLosDynload011(VOID);
+VOID ItLosDynload012(VOID);
+VOID ItLosDynload013(VOID);
+VOID ItLosDynload014(VOID);
+VOID ItLosDynload015(VOID);
+VOID ItLosDynload016(VOID);
+VOID ItLosDynload017(VOID);
+VOID ItLosDynload018(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

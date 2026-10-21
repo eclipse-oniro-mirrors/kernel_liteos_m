@@ -44,12 +44,18 @@ SO_RULES = [
     ("dep_a.so", ["dep_b.so", "dynld_dep_a.c"], []),
 ]
 
-# Relocatable-object recipes: output -> source file.
+# Relocatable-object recipes: output -> (source, extra flags).
 OBJ_RULES = [
-    ("objbasic.o", "dynld_objbasic.c"),
-    ("objossym.o", "dynld_objossym.c"),
-    ("objundef.o", "dynld_objundef.c"),
-    ("objmovwt.o", "dynld_objmovwt.c"),
+    ("objbasic.o", "dynld_objbasic.c", []),
+    ("objossym.o", "dynld_objossym.c", []),
+    ("objundef.o", "dynld_objundef.c", []),
+    ("objmovwt.o", "dynld_objmovwt.c", []),
+    # SHN_COMMON variant: guarded by KERNEL_BUG_14_DYNLOAD_SHN_COMMON (It_los_dynload_016).
+    # -fcommon keeps the tentative definition a real SHN_COMMON symbol: gcc<=10 defaults
+    # to it, but clang (hispark BiSheng) defaults to -fno-common which would silently
+    # place g_rel_common in .bss and defeat the purpose of this asset.
+    ("relocc.o", "dynld_reloc.c", ["-DRELOC_WITH_COMMON", "-fcommon"]),
+    ("reloc.o", "dynld_reloc.c", []),
 ]
 
 SO_FLAGS = [
@@ -125,7 +131,7 @@ def main():
     out_dir = os.path.abspath(args.out_dir)
     so_outputs = {output for output, _, _ in SO_RULES}
     for src in [s for _, inputs, _ in SO_RULES for s in inputs if s not in so_outputs] + \
-               [s for _, s in OBJ_RULES]:
+               [s for _, s, _ in OBJ_RULES]:
         if not os.path.isfile(os.path.join(src_dir, src)):
             print("source not found: %s" % os.path.join(src_dir, src),
                   file=sys.stderr)
@@ -154,8 +160,9 @@ def main():
                out_dir, "exec.so"):
         return 1
 
-    for output, src in OBJ_RULES:
-        extra = movwt_extra if output == "objmovwt.o" else []
+    for output, src, extra in OBJ_RULES:
+        if output == "objmovwt.o":
+            extra = extra + movwt_extra
         if not run(cc_cmd, OBJ_FLAGS + extra + arch_flags +
                    [os.path.join(src_dir, src), "-o", output],
                    out_dir, output):

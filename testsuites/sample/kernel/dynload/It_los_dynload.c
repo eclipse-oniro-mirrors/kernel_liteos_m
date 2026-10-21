@@ -61,6 +61,22 @@ VOID ItSuiteLosDynload(VOID)
     ItLosDynload006();
     ItLosDynload007();
     ItLosDynload008();
+    ItLosDynload009();
+    ItLosDynload010();
+    ItLosDynload011();
+    ItLosDynload012();
+    ItLosDynload013();
+    ItLosDynload014();
+    ItLosDynload015();
+#if defined(KERNEL_BUG_14_DYNLOAD_SHN_COMMON) && KERNEL_BUG_14_DYNLOAD_SHN_COMMON == 1
+    ItLosDynload016();
+#endif
+#if defined(KERNEL_BUG_15_DYNLOAD_PCREL_LO12) && KERNEL_BUG_15_DYNLOAD_PCREL_LO12 == 1
+    ItLosDynload017();
+#endif
+#if defined(KERNEL_BUG_16_DYNLOAD_REL_REFCNT) && KERNEL_BUG_16_DYNLOAD_REL_REFCNT == 1
+    ItLosDynload018();
+#endif
 
     (VOID)TestFsVolumeRelease();
 }

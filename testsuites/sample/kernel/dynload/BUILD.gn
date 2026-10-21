@@ -32,7 +32,8 @@ import("//kernel/liteos_m/liteos.gni")
 # Generate the DSO/REL images from lib/*.c into dso/<arch>/ at build time; shell.sh comes from lib/.
 if (defined(LOSCFG_ARCH_RISCV)) {
   _dso_arch = "riscv"
-  # riscv32 arch/ABI flags; must match the board toolchain config.
+  # riscv32 arch/ABI flags; must match the board toolchain config
+  # (hispark_hiditing, BiSheng clang driver: ilp32d double-float ABI).
   _dso_arch_flags = "--target=riscv32 -march=rv32imfdc -mabi=ilp32d"
   _objcopy_output_target = "elf32-littleriscv"
   _objcopy_binary_arch = "riscv"
@@ -70,6 +71,8 @@ _dso_bins = [
   "objmovwt.o",
   "objossym.o",
   "objundef.o",
+  "reloc.o",
+  "relocc.o",
 ]
 _dso_srcs = [
   "lib/dynld_basic.c",
@@ -80,6 +83,7 @@ _dso_srcs = [
   "lib/dynld_objossym.c",
   "lib/dynld_objundef.c",
   "lib/dynld_ossym.c",
+  "lib/dynld_reloc.c",
 ]
 
 action("dynload_dso_bins") {
@@ -114,6 +118,8 @@ _dso_files = [
   "objmovwt.o",
   "objossym.o",
   "objundef.o",
+  "reloc.o",
+  "relocc.o",
 ]
 _dso_objs = []
 foreach(_dso, _dso_files) {
@@ -162,6 +168,16 @@ static_library("test_dynload") {
     "It_los_dynload_006.c",
     "It_los_dynload_007.c",
     "It_los_dynload_008.c",
+    "It_los_dynload_009.c",
+    "It_los_dynload_010.c",
+    "It_los_dynload_011.c",
+    "It_los_dynload_012.c",
+    "It_los_dynload_013.c",
+    "It_los_dynload_014.c",
+    "It_los_dynload_015.c",
+    "It_los_dynload_016.c",
+    "It_los_dynload_017.c",
+    "It_los_dynload_018.c",
   ] + _dso_objs
   deps = [ ":dynload_dso_objs" ]
   include_dirs = [ "$LITEOSTOPDIR/kernel/extended/dynload/include" ]

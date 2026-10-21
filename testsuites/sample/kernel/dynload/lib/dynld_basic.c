@@ -30,6 +30,10 @@
 
 int g_basic_val = 100;
 
+/* static pair: the .data pointer yields an R_RISCV_RELATIVE relocation. */
+static int g_rel_ptr_target = 5;
+static int *g_rel_ptr = &g_rel_ptr_target;
+
 int get_basic_value(void)
 {
     return g_basic_val;
@@ -38,4 +42,15 @@ int get_basic_value(void)
 int add_basic(int a, int b)
 {
     return a + b + g_basic_val;
+}
+
+int rel_ptr_target_set(int v)
+{
+    g_rel_ptr_target = v;
+    return 0;
+}
+
+int rel_ptr_deref(void)
+{
+    return *g_rel_ptr;
 }

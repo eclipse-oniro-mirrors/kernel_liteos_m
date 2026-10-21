@@ -50,10 +50,11 @@ static UINT32 Testcase(VOID)
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     LOS_HwiDisable(HWI_NUM_TEST);
-    TestHwiTrigger(HWI_NUM_TEST);
+    LOS_HwiTrigger(HWI_NUM_TEST);
     ICUNIT_GOTO_EQUAL(g_testCount, 0, g_testCount, EXIT); // Compare wiht the expected value 0.
 
     LOS_HwiEnable(HWI_NUM_TEST);
+    TestHwiSync();
     ICUNIT_GOTO_EQUAL(g_testCount, 1, g_testCount, EXIT); // Compare wiht the expected value 1.
 
     TestHwiDelete(HWI_NUM_TEST);

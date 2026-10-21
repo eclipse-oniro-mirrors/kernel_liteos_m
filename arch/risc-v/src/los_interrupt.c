@@ -1,0 +1,252 @@
+/*
+ * Copyright (c) 2013-2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2023 Huawei Device Co., Ltd. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this list of
+ *    conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
+ *    of conditions and the following disclaimer in the documentation and/or other materials
+ *    provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
+ *    to endorse or promote products derived from this software without specific prior written
+ *    permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#include <stdio.h>
+#include <stdarg.h>
+#include "los_arch.h"
+#include "los_arch_interrupt.h"
+#include "los_arch_context.h"
+#include "los_hwi_pri.h"
+#include "los_task_pri.h"
+#include "los_sched.h"
+#include "los_sched_pri.h"
+#include "los_debug.h"
+#include "los_hook.h"
+#include "riscv_hal.h"
+#include "los_hwi_pri.h"
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+#include "los_exc_pri.h"
+#endif
+
+LosExcInfo g_excInfo;
+
+UINT32 ArchIntLocked(VOID)
+{
+    UINT32 intSave;
+    __asm__ volatile("csrr %0, mstatus" : "=r"(intSave) : : "memory");
+    return !(intSave & RISCV_MSTATUS_MIE);
+}
+
+#define RISCV_EXC_TYPE_NUM 16
+#define RISCV_EXC_LOAD_MISALIGNED 4
+#define RISCV_EXC_STORE_MISALIGNED 6
+const CHAR g_excInformation[RISCV_EXC_TYPE_NUM][50] = {
+    { "Instruction address misaligned!" },
+    { "Instruction access fault!" },
+    { "Illegal instruction" },
+    { "Breakpoint!" },
+    { "Load address misaligned!" },
+    { "Load access fault!" },
+    { "Store/AMO address misaligned!" },
+    { "Store/AMO access fault!" },
+    { "Environment call form U-mode!" },
+    { "Environment call form S-mode!" },
+    { "Reserved!" },
+    { "Environment call form M-mode!" },
+    { "Instruction page fault!" },
+    { "Load page fault!" },
+    { "Reserved!" },
+    { "Store/AMO page fault!" },
+};
+
+LITE_OS_SEC_BSS UINT32 g_hwiFormCnt[OS_HWI_MAX_NUM];
+
+LITE_OS_SEC_TEXT_INIT VOID HalHwiInit(VOID)
+{
+    /* Point mtvec at the arch trap entry (HalTrapVector, los_trap.S).
+     * mtvec is CPU-level trap configuration — an arch concern. */
+    WRITE_CSR(mtvec, (UINT32)(UINTPTR)HalTrapVector);
+}
+
+typedef VOID (*HwiProcFunc)(VOID *arg);
+__attribute__((section(".interrupt.text"))) VOID HalHwiInterruptDone(HWI_HANDLE_T hwiNum)
+{
+    HwiControllerOps *ops = HwiControllerOpsGet();
+    if ((ops != NULL) && (ops->clearIrq != NULL)) {
+        ops->clearIrq(hwiNum);
+    }
+    OsIntHandle(hwiNum, &g_hwiHandleForm[hwiNum]);
+}
+
+LITE_OS_SEC_TEXT UINT32 HalGetHwiFormCnt(HWI_HANDLE_T hwiNum)
+{
+    if (hwiNum < OS_HWI_MAX_NUM) {
+        return g_hwiFormCnt[hwiNum];
+    }
+
+    return LOS_NOK;
+}
+
+#ifdef LOSCFG_KERNEL_BACKTRACE
+STATIC VOID ExcBackTrace(UINTPTR fp)
+{
+    UINTPTR LR[LOSCFG_BACKTRACE_DEPTH] = { 0 };
+    UINT32 index;
+
+    OsBackTraceHookCall(LR, LOSCFG_BACKTRACE_DEPTH, 0, fp);
+
+    PRINTK("----- traceback start -----\n");
+    for (index = 0; index < LOSCFG_BACKTRACE_DEPTH; index++) {
+        if (LR[index] == 0) {
+            break;
+        }
+        PRINTK("traceback %d -- lr = 0x%x\n", index, LR[index]);
+    }
+    PRINTK("----- traceback end -----\n");
+}
+#endif
+
+STATIC VOID ExcInfoDisplayContext(const LosExcInfo *exc)
+{
+    const TaskContext *taskContext = &(exc->context->taskContext);
+
+    PRINTK("mepc       = 0x%x\n", taskContext->mepc);
+    PRINTK("mstatus    = 0x%x\n", taskContext->mstatus);
+    PRINTK("mtval      = 0x%x\n", exc->context->mtval);
+    PRINTK("mcause     = 0x%x\n", exc->context->mcause);
+    PRINTK("ra         = 0x%x\n", taskContext->ra);
+    PRINTK("sp         = 0x%x\n", taskContext->sp);
+    PRINTK("gp         = 0x%x\n", exc->context->gp);
+    PRINTK("tp         = 0x%x\n", taskContext->tp);
+    PRINTK("t0         = 0x%x\n", taskContext->t0);
+    PRINTK("t1         = 0x%x\n", taskContext->t1);
+    PRINTK("t2         = 0x%x\n", taskContext->t2);
+    PRINTK("s0         = 0x%x\n", taskContext->s0);
+    PRINTK("s1         = 0x%x\n", taskContext->s1);
+    PRINTK("a0         = 0x%x\n", taskContext->a0);
+    PRINTK("a1         = 0x%x\n", taskContext->a1);
+    PRINTK("a2         = 0x%x\n", taskContext->a2);
+    PRINTK("a3         = 0x%x\n", taskContext->a3);
+    PRINTK("a4         = 0x%x\n", taskContext->a4);
+    PRINTK("a5         = 0x%x\n", taskContext->a5);
+    PRINTK("a6         = 0x%x\n", taskContext->a6);
+    PRINTK("a7         = 0x%x\n", taskContext->a7);
+    PRINTK("s2         = 0x%x\n", taskContext->s2);
+    PRINTK("s3         = 0x%x\n", taskContext->s3);
+    PRINTK("s4         = 0x%x\n", taskContext->s4);
+    PRINTK("s5         = 0x%x\n", taskContext->s5);
+    PRINTK("s6         = 0x%x\n", taskContext->s6);
+    PRINTK("s7         = 0x%x\n", taskContext->s7);
+    PRINTK("s8         = 0x%x\n", taskContext->s8);
+    PRINTK("s9         = 0x%x\n", taskContext->s9);
+    PRINTK("s10        = 0x%x\n", taskContext->s10);
+    PRINTK("s11        = 0x%x\n", taskContext->s11);
+    PRINTK("t3         = 0x%x\n", taskContext->t3);
+    PRINTK("t4         = 0x%x\n", taskContext->t4);
+    PRINTK("t5         = 0x%x\n", taskContext->t5);
+    PRINTK("t6         = 0x%x\n", taskContext->t6);
+
+#ifdef LOSCFG_KERNEL_BACKTRACE
+    ExcBackTrace(taskContext->s0);
+#endif
+}
+
+STATIC VOID ExcInfoDisplay(VOID)
+{
+    PRINTK("\nException Information     \n");
+
+    if (g_excInfo.type < RISCV_EXC_TYPE_NUM) {
+        PRINTK("Exc  type : Oops  - %s\n", g_excInformation[g_excInfo.type]);
+    } else {
+        PRINTK("Exc  type : Oops  - Invalid\n");
+    }
+
+    if (LOS_TaskIsScheduled()) {
+    PRINTK("taskName = %s\n", g_runTask->taskName);
+    PRINTK("taskID = %u\n", g_runTask->taskId);
+    } else {
+        PRINTK("The exception occurs during system startup!\n");
+    }
+    PRINTK("system mem addr:0x%x\n", (UINTPTR)LOSCFG_SYS_HEAP_ADDR);
+    ExcInfoDisplayContext(&g_excInfo);
+}
+
+WEAK UINT32 HalUnalignedAccessFix(UINTPTR mcause, UINTPTR mepc, UINTPTR mtval, VOID *sp)
+{
+    (VOID)mcause;
+    (VOID)mepc;
+    (VOID)mtval;
+    (VOID)sp;
+
+    /* Unaligned access fixes are not supported by default */
+    PRINTK("Unaligned access fixes are not supported by default!\n");
+    return LOS_NOK;
+}
+
+VOID HalExcEntry(const LosExcContext *excBufAddr)
+{
+    UINT32 ret;
+    g_excInfo.type = excBufAddr->mcause & 0x1FF;
+    g_excInfo.context = (LosExcContext *)excBufAddr;
+    if (g_excInfo.nestCnt > 2) { /* 2: Number of layers of exception nesting */
+        PRINTK("hard fault!\n");
+        goto SYSTEM_DEATH;
+    }
+
+    if ((g_excInfo.type == RISCV_EXC_LOAD_MISALIGNED) ||
+        (g_excInfo.type == RISCV_EXC_STORE_MISALIGNED)) {
+        ret = HalUnalignedAccessFix(excBufAddr->mcause, excBufAddr->taskContext.mepc, excBufAddr->mtval,
+                                    (VOID *)excBufAddr);
+        if (!ret) {
+            return;
+        }
+    }
+
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+    LogReadWriteFunc dumpFunc = OsGetExcInfoRW();
+    if (dumpFunc != NULL) {
+        OsSetExcInfoOffset(0);
+    }
+#endif
+
+    if (g_excRegHook != NULL) {
+        g_excRegHook(g_excInfo.type, g_excInfo.context);
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+        if (dumpFunc != NULL) {
+            dumpFunc(OsGetExcInfoDumpAddr(), OsGetExcInfoLen(), 0, OsGetExcInfoBuf());
+        }
+#endif
+        while (1) {
+        }
+    }
+
+    ExcInfoDisplay();
+
+    if (LOS_TaskIsScheduled()) {
+        PRINTK("----------------All Task information ------------\n");
+        OsGetAllTskInfo();
+    }
+
+SYSTEM_DEATH:
+    OsDoExcHook(EXC_INTERRUPT);
+    while (1) {
+    }
+}

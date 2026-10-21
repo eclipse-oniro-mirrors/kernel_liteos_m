@@ -33,7 +33,7 @@
 #include "It_los_swtmr.h"
 
 
-static VOID SwtmrF01(UINT32 arg)
+static VOID SwtmrF01(UINTPTR arg)
 {
     if (arg != TIMER_LOS_HANDLER_PARAMETER) {
         return;
@@ -50,12 +50,7 @@ static UINT32 Testcase(VOID)
     UINT32 tick = 0;
     g_testCount = 0;
 
-    ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION1, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID,
-        TIMER_LOS_HANDLER_PARAMETER
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION1, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, TIMER_LOS_HANDLER_PARAMETER);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(swTmrID);
@@ -63,7 +58,8 @@ static UINT32 Testcase(VOID)
 
     ret = LOS_SwtmrTimeGet(swTmrID, &tick);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    ICUNIT_GOTO_EQUAL(tick, TIMER_LOS_EXPIRATION1 - 1, tick, EXIT);
+    // unlike old absolute time model, no need to -1
+    ICUNIT_GOTO_WITHIN_EQUAL(tick, TIMER_LOS_EXPIRATION1 - 1, TIMER_LOS_EXPIRATION1, tick, EXIT);
 
     ret = LOS_TaskDelay(10); // 10, set delay time.
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);

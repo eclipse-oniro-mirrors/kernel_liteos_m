@@ -87,4 +87,13 @@
 #define POSIX_FS_IS_ERROR               (-1)          /* -1, common data for test, no special meaning */
 #define POSIX_FS_NO_ERROR               0             /* 0, common data for test, no special meaning */
 
+/* FS 压测规模开关:LOSCFG_KERNEL_TEST_PRESSURE(testsuites/Kconfig,默认关)。
+ * 开 = 压测用例原规模;关 = 最小规模(单轮/最小目录项),代码路径覆盖不变。
+ * 置于文件尾:不改任何 .c 行号,保证开启态 __LINE__ 断言行号与原实现一致。 */
+#ifdef LOSCFG_KERNEL_TEST_PRESSURE
+#define FS_PRESSURE_ON 1
+#else
+#define FS_PRESSURE_ON 0
+#endif
+
 #endif /* __POSIX_FS_TEST_H */

@@ -52,7 +52,7 @@ VOID TestAssertWaitDelay(UINT32 *testCount, UINT32 flag)
 
 VOID ItSuitePosixMqueue(void)
 {
-    printf("*********** BEGIN SAMPLE POSIX MQUEUE TEST ************\n");
+    dprintf("*********** BEGIN SAMPLE POSIX MQUEUE TEST ************\n");
     ItPosixQueue001();
     ItPosixQueue002();
     ItPosixQueue003();
@@ -105,4 +105,9 @@ VOID ItSuitePosixMqueue(void)
     ItPosixQueue050();
     ItPosixQueue051();
     ItPosixQueue052();
+    ItPosixQueue053();
+    ItPosixQueue054();
+    ItPosixQueue055();
+    ItPosixQueue056();
+    ItPosixQueue057();
 }

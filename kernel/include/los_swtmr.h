@@ -38,13 +38,14 @@
 #define _LOS_SWTMR_H
 
 #include "los_config.h"
-#include "los_sortlink.h"
 
 #ifdef __cplusplus
 #if __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 #endif /* __cplusplus */
+
+typedef struct tagSwtmrCB SWTMR_CTRL_S;
 
 /**
  * @ingroup los_swtmr
@@ -242,49 +243,32 @@ enum EnSwTmrType {
 };
 
 /**
-* @ingroup  los_swtmr
-* @brief Define the type of a callback function that handles software timer timeout.
-*
-* @par Description:
-* This API is used to define the type of a callback function that handles software timer timeout, so that it can be
-* called when software timer timeout.
-*
-* @attention
-* <ul>
-* <li>None.</li>
-* </ul>
-*
-* @param  para     [IN] the parameter of the callback function that handles software timer timeout.
-*
-* @retval None.
-* @par Dependency:
-* <ul><li>los_swtmr.h: the header file that contains the API declaration.</li></ul>
-* @see None.
-*/
-typedef VOID (*SWTMR_PROC_FUNC)(UINT32 para);
+ * @ingroup los_swtmr
+ * Software timer align flag, this bit is used with enum EnSwTmrType
+ */
+#define LOS_SWTMR_ALIGN_FLAG  0x80
 
 /**
- * @ingroup los_swtmr
- * Software timer control structure
+ * @ingroup  los_swtmr
+ * @brief Define the type of a callback function that handles software timer timeout.
+ *
+ * @par Description:
+ * This API is used to define the type of a callback function that handles software timer timeout, so that it can be
+ * called when software timer timeout.
+ *
+ * @attention
+ * <ul>
+ * <li>None.</li>
+ * </ul>
+ *
+ * @param  para     [IN] the parameter of the callback function that handles software timer timeout.
+ *
+ * @retval None.
+ * @par Dependency:
+ * <ul><li>los_swtmr.h: the header file that contains the API declaration.</li></ul>
+ * @see None.
  */
-typedef struct tagSwTmrCtrl {
-    struct tagSwTmrCtrl *pstNext;       /* Pointer to the next software timer                    */
-    UINT8               ucState;        /* Software timer state                                  */
-    UINT8               ucMode;         /* Software timer mode                                   */
-    UINT8               ucOverrun;      /* Times that a software timer repeats timing            */
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    UINT8               ucRouses;       /* wake up enable                                        */
-    UINT8               ucSensitive;    /* align enable                                          */
-#endif
-    UINT32              usTimerID;      /* Software timer ID                                     */
-    UINT32              uwInterval;     /* Timeout interval of a periodic software timer         */
-    UINT32              uwArg;          /* Parameter passed in when the callback function
-                                           that handles software timer timeout is called         */
-    SWTMR_PROC_FUNC     pfnHandler;     /* Callback function that handles software timer timeout */
-    SortLinkList        stSortList;
-    UINT64              startTime;
-} SWTMR_CTRL_S;
-
+typedef VOID (*SWTMR_PROC_FUNC)(UINTPTR arg);
 
 /**
  * @ingroup los_swtmr
@@ -372,10 +356,12 @@ extern UINT32 LOS_SwtmrTimeGet(UINT32 swtmrID, UINT32 *tick);
  * <li>There are LOSCFG_BASE_CORE_SWTMR_LIMIT timers available, change it's value when necessary.</li>
  * </ul>
  *
- * @param  interval     [IN] Timing duration of the software timer to be created (unit: ms).
+ * @param  interval     [IN] Timing duration of the software timer to be created (unit: tick).
  * @param  mode         [IN] Software timer mode. Pass in one of the modes specified by EnSwTmrType. There are three
  * types of modes, one-off, periodic, and continuously periodic after one-off, of which the third mode is not
- * supported temporarily.
+ * supported temporarily. Optionally OR'd with LOS_SWTMR_ALIGN_FLAG to request timer alignment; only effective
+ * for LOS_SWTMR_MODE_PERIOD, ignored for other modes. Requires LOSCFG_BASE_CORE_SWTMR_ALIGN to be enabled.
+ * When LOSCFG_BASE_CORE_SWTMR_ALIGN is disabled, the flag is silently ignored and no error is returned.
  * @param  handler      [IN] Callback function that handles software timer timeout.
  * @param  swtmrID      [OUT] Software timer ID created by LOS_SwtmrCreate.
  * @param  arg          [IN] Parameter passed in when the callback function that handles software timer timeout is
@@ -392,21 +378,11 @@ extern UINT32 LOS_SwtmrTimeGet(UINT32 swtmrID, UINT32 *tick);
  * <ul><li>los_swtmr.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_SwtmrDelete
  */
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
 extern UINT32 LOS_SwtmrCreate(UINT32 interval,
                               UINT8 mode,
                               SWTMR_PROC_FUNC handler,
                               UINT32 *swtmrID,
-                              UINT32 arg,
-                              UINT8 rouses,
-                              UINT8 sensitive);
-#else
-extern UINT32 LOS_SwtmrCreate(UINT32 interval,
-                              UINT8 mode,
-                              SWTMR_PROC_FUNC handler,
-                              UINT32 *swtmrID,
-                              UINT32 arg);
-#endif
+                              UINTPTR arg);
 
 /**
  * @ingroup los_swtmr
@@ -430,31 +406,6 @@ extern UINT32 LOS_SwtmrCreate(UINT32 interval,
  * @see LOS_SwtmrCreate
  */
 extern UINT32 LOS_SwtmrDelete(UINT32 swtmrID);
-
-/**
- * @ingroup los_swtmr
- * Software timer state
- */
-enum SwtmrState {
-    OS_SWTMR_STATUS_UNUSED,             /**< The software timer is not used. */
-    OS_SWTMR_STATUS_CREATED,            /**< The software timer is created. */
-    OS_SWTMR_STATUS_TICKING             /**< The software timer is timing. */
-};
-
-/**
- * @ingroup los_swtmr
- * Structure of the callback function that handles software timer timeout
- */
-typedef struct {
-    SWTMR_PROC_FUNC     handler;        /**< Callback function that handles software timer timeout */
-    UINT32              arg;            /**< Parameter passed in when the callback function
-                                             that handles software timer timeout is called */
-    UINT32              swtmrID;        /**< The id used to obtain the software timer handle */
-} SwtmrHandlerItem;
-
-extern SWTMR_CTRL_S *g_swtmrCBArray;
-
-#define OS_SWT_FROM_SID(swtmrId)    ((SWTMR_CTRL_S *)g_swtmrCBArray + ((swtmrId) % LOSCFG_BASE_CORE_SWTMR_LIMIT))
 
 /**
  * @ingroup los_swtmr
@@ -500,7 +451,7 @@ extern UINT32 OsSwtmrInit(VOID);
  */
 extern UINT32 OsSwtmrGetNextTimeout(VOID);
 
-extern VOID OsSwtmrResponseTimeReset(UINT64 startTime);
+extern VOID OsSwtmrResponseTimeReset(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

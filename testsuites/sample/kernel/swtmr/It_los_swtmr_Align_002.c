@@ -32,9 +32,8 @@
 #include "osTest.h"
 #include "It_los_swtmr.h"
 
-
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     ICUNIT_ASSERT_EQUAL_VOID(arg, 0xffff, arg);
     g_testCount++;
@@ -46,12 +45,10 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     UINT32 swtmrId1, swtmrId2;
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD, Case1, &swtmrId1, 0xffff, OS_SWTMR_ROUSES_ALLOW,
-        OS_SWTMR_ALIGN_SENSITIVE);
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD, Case1, &swtmrId1, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD, Case1, &swtmrId2, 0xffff, OS_SWTMR_ROUSES_ALLOW,
-        OS_SWTMR_ALIGN_INSENSITIVE);
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &swtmrId2, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
 EXIT:

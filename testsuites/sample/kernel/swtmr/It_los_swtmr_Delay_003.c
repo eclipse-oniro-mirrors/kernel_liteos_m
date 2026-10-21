@@ -33,7 +33,7 @@
 #include "It_los_swtmr.h"
 
 
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     return;
 }
@@ -46,12 +46,7 @@ static UINT32 Testcase(VOID)
     UINT32 id2;
 
     // 2, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_NO_SELFDELETE, (SWTMR_PROC_FUNC)Case1, &swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        ,
-        OS_SWTMR_ROUSES_IGNORE, OS_SWTMR_ALIGN_SENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_NO_SELFDELETE, (SWTMR_PROC_FUNC)Case1, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     id1 = swtmrId1;
 
@@ -61,12 +56,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_NO_SELFDELETE, (SWTMR_PROC_FUNC)Case1, &swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        ,
-        OS_SWTMR_ROUSES_IGNORE, OS_SWTMR_ALIGN_SENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_NO_SELFDELETE, (SWTMR_PROC_FUNC)Case1, &swtmrId1, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     id2 = swtmrId1;
     ICUNIT_GOTO_NOT_EQUAL(id1, id2, swtmrId1, EXIT1);

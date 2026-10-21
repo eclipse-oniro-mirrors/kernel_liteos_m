@@ -1,0 +1,40 @@
+kernel_type = "liteos_m"
+kernel_version = "3.0.0"
+board_cpu = "cortex-a7"
+board_arch = ""
+
+board_toolchain = "arm-liteos-clang"
+board_toolchain_path = rebase_path("//prebuilts/clang/ohos/linux-x86_64/llvm/bin", "", "//")
+board_toolchain_prefix = ""
+board_toolchain_type = "clang"
+use_board_toolchain = true
+
+board_clang_rt_lib = board_toolchain_path + "/../lib/clang/15.0.4/lib/arm-liteos-ohos/a7_soft/libclang_rt.builtins.a"
+
+board_opt_flags = [ "-O2" ]
+board_cflags = [
+  "--target=armv7-unknown-liteos",
+  "-mcpu=cortex-a7",
+  "-marm",
+  "-mfloat-abi=soft",
+  "-Wall",
+  "-fdata-sections",
+  "-ffunction-sections",
+  "-fno-builtin",
+  "-fno-strict-aliasing",
+  "-fsigned-char",
+  "-std=c99",
+]
+board_cflags += board_opt_flags
+board_asmflags = [
+  "-mcpu=cortex-a7",
+  "-marm",
+  "-mfloat-abi=soft",
+]
+board_asmflags += board_opt_flags
+board_cxx_flags = board_cflags
+board_ld_flags = []
+board_include_dirs = [ "//commonlibrary/utils_lite/include" ]
+board_adapter_dir = ""
+board_configed_sysroot = ""
+storage_type = "emmc"

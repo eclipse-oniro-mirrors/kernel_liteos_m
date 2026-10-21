@@ -40,6 +40,37 @@
 #include "target_config.h"
 #include "los_compiler.h"
 
+
+/**
+ * Version number
+ */
+#define _VT(x)                                   x
+#define HW_LITEOS_SYSNAME                       "Huawei LiteOS"
+#define HW_LITEOS_SEP                           " "
+#define _V(v)                                   _VT(HW_LITEOS_SYSNAME)_VT(HW_LITEOS_SEP)_VT(v)
+
+#define HW_LITEOS_VERSION                       "2.1.0"
+#define HW_LITEOS_VER                           _V(HW_LITEOS_VERSION)
+
+#define MAJ_V                                   2
+#define MIN_V                                   1
+#define REL_V                                   0
+
+#define EXTRA_V                                 0
+
+#define VERSION_NUM(a, b, c)                    (((a) << 16) | ((b) << 8) | (c))
+#define HW_LITEOS_OPEN_VERSION_NUM              VERSION_NUM(MAJ_V, MIN_V, REL_V)
+
+#define STRINGIFY_1(x)                          #x
+#define STRINGIFY(x)                            STRINGIFY_1(x)
+
+#define HW_LITEOS_OPEN_VERSION_STRING           STRINGIFY(MAJ_V) "." STRINGIFY(MIN_V) "." STRINGIFY(REL_V)
+#if (EXTRA_V != 0)
+#define HW_LITEOS_KERNEL_VERSION_STRING         HW_LITEOS_OPEN_VERSION_STRING "-rc" STRINGIFY(EXTRA_V)
+#else
+#define HW_LITEOS_KERNEL_VERSION_STRING         HW_LITEOS_OPEN_VERSION_STRING
+#endif
+
 #ifdef __cplusplus
 #if __cplusplus
 extern "C" {
@@ -266,6 +297,8 @@ extern "C" {
  * Define a usable task priority.Lowest task priority.
  */
 #ifndef LOS_TASK_PRIORITY_LOWEST
+#define LOSCFG_KERNEL_LOWPOWER
+
 #define LOS_TASK_PRIORITY_LOWEST                            31
 #endif
 
@@ -273,6 +306,17 @@ extern "C" {
  * @ingroup los_config
  * Configuration item for task stack independent
  */
+/**
+ * @ingroup los_config
+ * Derived task module constants (kernel_lite naming).
+ * KERNEL_TSK_LIMIT reserves one extra slot for the IDLE task,
+ * same accounting as g_taskMaxNum = LOSCFG_BASE_CORE_TSK_LIMIT + 1.
+ */
+#define KERNEL_TSK_LIMIT                  (LOSCFG_BASE_CORE_TSK_LIMIT + 1)
+#define KERNEL_TSK_MIN_STACK_SIZE         LOSCFG_BASE_CORE_TSK_MIN_STACK_SIZE
+#define KERNEL_TSK_DEFAULT_STACK_SIZE     LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE
+#define KERNEL_TSK_IDLE_STACK_SIZE        LOSCFG_BASE_CORE_TSK_IDLE_STACK_SIZE
+
 #ifndef LOSCFG_BASE_CORE_TASKSTACK_INDEPENDENT
 #define LOSCFG_BASE_CORE_TASKSTACK_INDEPENDENT              0
 #endif
@@ -293,7 +337,7 @@ extern "C" {
  * Configuration item for semaphore module tailoring
  */
 #ifndef LOSCFG_BASE_IPC_SEM
-#define LOSCFG_BASE_IPC_SEM                                 1
+#define LOSCFG_BASE_IPC_SEM                                 0
 #endif
 
 /**
@@ -309,7 +353,7 @@ extern "C" {
  * Maximum number of semaphores.
  */
 #ifndef OS_SEM_COUNTING_MAX_COUNT
-#define OS_SEM_COUNTING_MAX_COUNT                           0xFFFF
+#define OS_SEM_COUNTING_MAX_COUNT                           0xFFFE
 #endif
 
 /* =============================================================================
@@ -320,7 +364,7 @@ extern "C" {
  * Configuration item for mutex module tailoring
  */
 #ifndef LOSCFG_BASE_IPC_MUX
-#define LOSCFG_BASE_IPC_MUX                                 1
+#define LOSCFG_BASE_IPC_MUX                                 0
 #endif
 
 /**
@@ -339,7 +383,7 @@ extern "C" {
  * Configuration item for queue module tailoring
  */
 #ifndef LOSCFG_BASE_IPC_QUEUE
-#define LOSCFG_BASE_IPC_QUEUE                               1
+#define LOSCFG_BASE_IPC_QUEUE                               0
 #endif
 
 /**
@@ -367,7 +411,7 @@ extern "C" {
  * Configuration item for software timer module tailoring
  */
 #ifndef LOSCFG_BASE_CORE_SWTMR
-#define LOSCFG_BASE_CORE_SWTMR                              1
+#define LOSCFG_BASE_CORE_SWTMR                              0
 #endif
 
 /**
@@ -428,6 +472,12 @@ extern UINT8 *m_aucSysMem0;
 
 /**
  * @ingroup los_config
+ * The end address of system memory.
+ */
+extern UINTPTR g_sys_mem_addr_end;
+
+/**
+ * @ingroup los_config
  * Configure whether the kernel uses external heap memory
  */
 #ifndef LOSCFG_SYS_EXTERNAL_HEAP
@@ -463,7 +513,7 @@ extern UINT8 *m_aucSysMem0;
  * Configuration module tailoring of more memory pool checking
  */
 #ifndef LOSCFG_MEM_MUL_POOL
-#define LOSCFG_MEM_MUL_POOL                                 1
+#define LOSCFG_MEM_MUL_POOL                                 0
 #endif
 
 /**
@@ -604,6 +654,15 @@ extern UINT8 *m_aucSysMem0;
 #define LOSCFG_KERNEL_PRINTF                                1
 #endif
 
+/* Dynamic buffer extension for long outputs (>256 bytes).
+ * Default ON, matching self_src. When OsVprintf buffer is not enough,
+ * LOS_MemAlloc doubles the buffer. NULL guard prevents infinite loop
+ * if LOS_MemAlloc fails (e.g. during early boot before OsMemSystemInit). 
+ */
+#ifndef LOSCFG_KERNEL_PRINTF_SIZE_EXTEND
+/* #define LOSCFG_KERNEL_PRINTF_SIZE_EXTEND  -- default off; enable in target_config.h if needed */
+#endif
+
 /* =============================================================================
                                        misc configuration
 ============================================================================= */
@@ -625,14 +684,6 @@ extern UINT8 *m_aucSysMem0;
  */
 #ifndef LOSCFG_TASK_MEM_USED
 #define LOSCFG_TASK_MEM_USED                                 0
-#endif
-
-/* *
- * @ingroup los_interrupt
- * Configuration item for interrupt with argument
- */
-#ifndef LOSCFG_PLATFORM_HWI_WITH_ARG
-#define LOSCFG_PLATFORM_HWI_WITH_ARG                       0
 #endif
 
 /**
@@ -685,6 +736,14 @@ extern UINT8 *m_aucSysMem0;
  */
 #ifndef LOSCFG_SHELL_STACK_SIZE
 #define LOSCFG_SHELL_STACK_SIZE                         0x1000
+#endif
+
+/*
+ * TODO: Temporary‌ use only. When all boards support initcall, we can delete it.
+ * Set to 1 to use initcall mechanism (OsMain), 0 to use flat LOS_KernelInit
+ */
+#ifndef LOSCFG_KERNEL_INITCALL
+#define LOSCFG_KERNEL_INITCALL                          0
 #endif
 
 #ifdef __cplusplus

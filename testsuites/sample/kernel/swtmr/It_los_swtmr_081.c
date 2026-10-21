@@ -38,7 +38,7 @@ static UINT64 g_timeUpdateNS = 0;
 
 #define SWTMR_PERIODIC 4
 
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     g_testCount1++;
     g_timeUpdateNS = LOS_CurrNanosec();
@@ -52,11 +52,7 @@ static UINT32 Testcase(VOID)
     UINT64 deltaTicks;
 
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(SWTMR_PERIODIC, LOS_SWTMR_MODE_ONCE, Case1, &g_swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(SWTMR_PERIODIC, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &g_swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     g_timeRecordNS = LOS_CurrNanosec();
@@ -68,7 +64,11 @@ static UINT32 Testcase(VOID)
     LOS_TaskDelay(10);
 
     deltaTicks = (g_timeUpdateNS - g_timeRecordNS) * LOSCFG_BASE_CORE_TICK_PER_SECOND / OS_SYS_NS_PER_SECOND;
+#ifdef LOSCFG_KERNEL_TICKLESS_GLOBAL
     ICUNIT_ASSERT_EQUAL(deltaTicks, SWTMR_PERIODIC, deltaTicks);
+#else
+    ICUNIT_ASSERT_WITHIN_EQUAL(deltaTicks, SWTMR_PERIODIC - 1, SWTMR_PERIODIC + 1, deltaTicks);
+#endif
 
 EXIT:
     LOS_SwtmrDelete(g_swtmrId1);

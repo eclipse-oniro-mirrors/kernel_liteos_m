@@ -1,0 +1,107 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# MCS AMP interface test suites:
+#   - It_McsCan_*  board CAN driver (targets/rk3568_m .../board/can/can.h),
+#                  fully self-contained: internal controller loopback, no
+#                  bus wiring needed
+#   - It_McsNet_*  board NIC driver (.../board/net/net.h); Net010 needs a
+#                  host pinging the slave IP on the GMAC1 segment
+#   - It_McsRpc_* / It_McsNp_* / It_McsSvc_*  mica service framework
+#                  (compat/mcs/mica) and np_* socket proxy: need the master
+#                  netproxy worker running; Np006/007 additionally need the
+#                  PC echo server (UDP 9000 / TCP 9001, see It_mcs.h)
+
+import("//kernel/liteos_m/liteos.gni")
+
+static_library("test_mcs") {
+  sources = [
+    "It_mcs.c",
+    "It_mcs_can.c",
+    "It_mcs_net.c",
+    "It_mcs_np.c",
+    "It_mcs_rpc.c",
+    "It_mcs_svc.c",
+  ]
+
+  if (defined(LOSCFG_MCS_CAN)) {
+    sources += [
+    "It_McsCan_001.c",
+    "It_McsCan_002.c",
+    "It_McsCan_003.c",
+    "It_McsCan_004.c",
+    "It_McsCan_005.c",
+    "It_McsCan_006.c",
+    "It_McsCan_007.c",
+    "It_McsCan_008.c",
+    "It_McsCan_009.c",
+    "It_McsCan_010.c",
+    "It_McsCan_011.c",
+    "It_McsCan_012.c",
+    "It_McsCan_013.c",
+    "It_McsCan_014.c",
+    "It_McsCan_015.c",
+    "It_McsCan_016.c",
+    ]
+  }
+
+  if (defined(LOSCFG_MCS_NET)) {
+    sources += [
+    "It_McsNet_001.c",
+    "It_McsNet_002.c",
+    "It_McsNet_003.c",
+    "It_McsNet_004.c",
+    "It_McsNet_005.c",
+    "It_McsNet_006.c",
+    "It_McsNet_007.c",
+    "It_McsNet_008.c",
+    "It_McsNet_009.c",
+    "It_McsNet_010.c",
+    ]
+  }
+
+  if (defined(LOSCFG_MCS_RPC)) {
+    sources += [
+    "It_McsRpc_001.c",
+    "It_McsRpc_002.c",
+    "It_McsRpc_003.c",
+    "It_McsRpc_004.c",
+    "It_McsRpc_005.c",
+    "It_McsRpc_006.c",
+    "It_McsRpc_007.c",
+    "It_McsNp_001.c",
+    "It_McsNp_002.c",
+    "It_McsNp_003.c",
+    "It_McsNp_004.c",
+    "It_McsNp_005.c",
+    "It_McsNp_006.c",
+    "It_McsNp_007.c",
+    "It_McsNp_008.c",
+    "It_McsSvc_001.c",
+    "It_McsSvc_003.c",
+    "It_McsSvc_004.c",
+    "It_McsSvc_005.c",
+    "It_McsSvc_006.c",
+    ]
+  }
+
+  include_dirs = [
+    # board driver contracts (can.h / net.h are self-contained)
+    "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/can",
+    "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/net",
+    # mica service framework headers (mica/service.h, mica/rpc*.h)
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/include",
+  ]
+
+  configs += [ "$LITEOSTOPDIR/testsuites:include" ]
+}

@@ -35,7 +35,7 @@
 #define SWTMR_PERIOD 4 // 4, Timeout interval of a periodic software timer ticks.
 
 static UINT32 g_testCount1 = 0;
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     g_testCount1++;
     return;
@@ -51,11 +51,7 @@ static UINT32 Testcase(VOID)
     const UINT64 delayMs = 80; // delay 80 ms.
     delayTicks = delayMs * LOSCFG_BASE_CORE_TICK_PER_SECOND / OS_SYS_MS_PER_SECOND;
 
-    ret = LOS_SwtmrCreate(SWTMR_PERIOD, LOS_SWTMR_MODE_PERIOD, Case1, &g_swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(SWTMR_PERIOD, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &g_swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_SwtmrStart(g_swtmrId1);
@@ -72,7 +68,9 @@ static UINT32 Testcase(VOID)
 
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ICUNIT_ASSERT_WITHIN_EQUAL(delayTicks, tickUpdate - tickRecord - 1, tickUpdate - tickRecord + 1, delayTicks);
+    ret = ((delayTicks >= tickUpdate - tickRecord - 1) &&
+           (delayTicks <= tickUpdate - tickRecord + 1)) ? LOS_OK : LOS_NOK;
+    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     // 10, set task delay time.
     LOS_TaskDelay(10);

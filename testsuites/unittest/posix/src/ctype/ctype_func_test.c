@@ -34,6 +34,8 @@
 #include "posix_test.h"
 #include "kernel_test.h"
 #include "log.h"
+/* isalnum_l/isxdigit_l 等 locale 变体声明需要（ctype.h:40-62 段） */
+#define _POSIX_SOURCE
 #include <ctype.h>
 
 #define RET_TRUE 1
@@ -62,7 +64,7 @@ static BOOL PosixCtypeFuncTestSuiteSetUp(void)
  */
 static BOOL PosixCtypeFuncTestSuiteTearDown(void)
 {
-    printf("==== [ Ctype TEST ] ====\n\n");
+    dprintf("==== [ Ctype TEST ] ====\n\n");
     return TRUE;
 }
 
@@ -394,6 +396,119 @@ LITE_TEST_CASE(PosixCtypeFuncTestSuite, testCtypeIsupper005, Function | MediumTe
     return 0;
 }
 
+/* *
+ * @tc.number TEST_CTYPE_ISALNUM_006
+ * @tc.name   count isalnum-true characters over the whole ascii table
+ * @tc.desc   [C- SOFTWARE -0200]
+ * 移植自 musl libc-test/src/functionalext/supplement/ctype/isalnum.c:75-85
+ * （isalnum_0400）：枚举 ASCII 0..127，字母数字字符共 62 个
+ * （10 数字 + 26 大写 + 26 小写）。
+ */
+LITE_TEST_CASE(PosixCtypeFuncTestSuite, testCtypeIsalnumCount001, Function | MediumTest | Level1)
+{
+    int total = 0;
+    int i;
+    /* 全 ASCII 枚举计数：isalnum 为真的字符共 62 个 */
+    for (i = 0; i < 128; i++) {
+        if (isalnum(i)) {
+            total++;
+        }
+    }
+    ICUNIT_ASSERT_EQUAL(total, 62, total);
+    return 0;
+}
+
+
+/* *
+ * @tc.number TEST_CTYPE_ISSPACE_006
+ * @tc.name   count isspace-true characters over the whole ascii table and high bytes
+ * @tc.desc   [C- SOFTWARE -0200]
+ * 移植自 musl libc-test/src/functionalext/supplement/ctype/isspace.c:113-122
+ * （isspace_0900）并扩展高位字节：ASCII 0..127 内空白字符共 6 个
+ * （\t \n \v \f \r 与空格）；128..255 高位字节在默认 C locale 下均非空白。
+ */
+LITE_TEST_CASE(PosixCtypeFuncTestSuite, testCtypeIsspaceCount001, Function | MediumTest | Level1)
+{
+    int total = 0;
+    int i;
+    /* 全 ASCII 枚举计数：isspace 为真的字符共 6 个 */
+    for (i = 0; i < 128; i++) {
+        if (isspace(i)) {
+            total++;
+        }
+    }
+    ICUNIT_ASSERT_EQUAL(total, 6, total);
+
+    /* 高位字节 128..255：默认 C locale 下均不为空白 */
+    int highTotal = 0;
+    for (i = 128; i < 256; i++) {
+        if (isspace(i)) {
+            highTotal++;
+        }
+    }
+    ICUNIT_ASSERT_EQUAL(highTotal, 0, highTotal);
+    return 0;
+}
+
+/* 用例简要描述: isalnum_l 对字母数字与符号的分类判定 */
+LITE_TEST_CASE(PosixCtypeFuncTestSuite, testCtypeIsalnumL001, Function | MediumTest | Level1)
+{
+    int ret;
+
+    /* __isalnum_l 忽略 locale 参数直接转发 isalnum（isalnum.c:8-10），
+     * locale_t 传 NULL 安全（函数不解引用），非 0 即真 */
+    ret = isalnum_l('A', NULL);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+
+    ret = isalnum_l('1', NULL);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+
+    ret = isalnum_l('+', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    return 0;
+}
+
+/* 用例简要描述: isxdigit_l 对十六进制字符的分类判定 */
+LITE_TEST_CASE(PosixCtypeFuncTestSuite, testCtypeIsxdigitL001, Function | MediumTest | Level1)
+{
+    int ret;
+
+    /* __isxdigit_l 同样忽略 locale 参数（isxdigit.c:8-10），locale_t 传 NULL 安全 */
+    ret = isxdigit_l('5', NULL);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+
+    ret = isxdigit_l('a', NULL);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+
+    ret = isxdigit_l('F', NULL);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+
+    ret = isxdigit_l('g', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+
+    ret = isxdigit_l('z', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    return 0;
+}
+
+/* 用例简要描述: isspace 六类空白字符完整判定 */
+LITE_TEST_CASE(PosixCtypeFuncTestSuite, testCtypeIsspaceAll001, Function | MediumTest | Level1)
+{
+    /* C locale 六类空白：' ' '\t' '\n' '\v' '\f' '\r'（include/ctype.h:26 __isspace） */
+    static const int spaceChars[] = {' ', '\t', '\n', '\v', '\f', '\r'};
+    size_t i;
+    int ret;
+
+    for (i = 0; i < sizeof(spaceChars) / sizeof(spaceChars[0]); i++) {
+        ret = isspace(spaceChars[i]);
+        ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+    }
+
+    ret = isspace('a');
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    return 0;
+}
+
 void PosixCtypeFuncTest()
 {
     LOG("begin PosixCtypeFuncTest....");
@@ -402,6 +517,7 @@ void PosixCtypeFuncTest()
     RUN_ONE_TESTCASE(testCtypeIsalnum003);
     RUN_ONE_TESTCASE(testCtypeIsalnum004);
     RUN_ONE_TESTCASE(testCtypeIsalnum005);
+    RUN_ONE_TESTCASE(testCtypeIsalnumCount001);
     RUN_ONE_TESTCASE(testCtypeIsascii001);
     RUN_ONE_TESTCASE(testCtypeIsascii002);
     RUN_ONE_TESTCASE(testCtypeIsascii003);
@@ -417,11 +533,15 @@ void PosixCtypeFuncTest()
     RUN_ONE_TESTCASE(testCtypeIsspace003);
     RUN_ONE_TESTCASE(testCtypeIsspace004);
     RUN_ONE_TESTCASE(testCtypeIsspace005);
+    RUN_ONE_TESTCASE(testCtypeIsspaceCount001);
     RUN_ONE_TESTCASE(testCtypeIsupper001);
     RUN_ONE_TESTCASE(testCtypeIsupper002);
     RUN_ONE_TESTCASE(testCtypeIsupper003);
     RUN_ONE_TESTCASE(testCtypeIsupper004);
     RUN_ONE_TESTCASE(testCtypeIsupper005);
+    RUN_ONE_TESTCASE(testCtypeIsalnumL001);
+    RUN_ONE_TESTCASE(testCtypeIsxdigitL001);
+    RUN_ONE_TESTCASE(testCtypeIsspaceAll001);
 
     return;
 }

@@ -33,7 +33,7 @@
 #include "It_los_swtmr.h"
 
 
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     if (arg != 0xabcdbcda) {
         return;
@@ -50,11 +50,7 @@ static UINT32 Testcase(VOID)
 
     g_testCount = 0;
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD, Case1, &swTmrID, 0xabcdbcda
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xabcdbcda);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_SwtmrStart(swTmrID);
@@ -64,9 +60,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     // 2, Here, assert that g_testCount is equal to this .
-    if (g_testCount < 2) {
-        ICUNIT_GOTO_EQUAL(g_testCount, 2, g_testCount, EXIT); // 2, Here, assert that g_testCount is equal to this
-    }
+    ICUNIT_GOTO_EQUAL(g_testCount, 2, g_testCount, EXIT);
 
     ret = LOS_SwtmrDelete(swTmrID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
@@ -75,9 +69,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     // 2, Here, assert that g_testCount is equal to this .
-    if (g_testCount < 2) {
-        ICUNIT_ASSERT_EQUAL(g_testCount, 2, g_testCount); // 2, Here, assert that g_testCount is equal to this
-    }
+    ICUNIT_ASSERT_EQUAL(g_testCount, 2, g_testCount);
 
     return LOS_OK;
 

@@ -68,6 +68,7 @@ VOID ItSuiteLosSem(void)
     ItLosSem041();
     ItLosSem042();
     ItLosSem043();
+    ItLosSem045();
 
 #if (LOS_KERNEL_TEST_FULL == 1)
     ItLosSem012();
@@ -83,5 +84,11 @@ VOID ItSuiteLosSem(void)
     ItLosSem036();
     ItLosSem037();
     ItLosSem039();
+    ItLosSem301();
+    ItLosSem302();
+    ItLosSem303();
+    ItLosSem304();
+    ItLosSem305();
+    ItLosSem306(); /* swtmr 系统任务 Pend 拒绝分支 */
 #endif
 }

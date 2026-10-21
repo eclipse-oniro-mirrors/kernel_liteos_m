@@ -36,5 +36,25 @@ VOID ItSuiteLosPm(VOID)
     ItLosPm001();
     ItLosPm002();
     ItLosPm003();
+    ItLosPm004();
+#if (LOSCFG_KERNEL_TICK_PERIODIC == 1)
+    ItLosPm005(); /* PM 深覆盖: 周期 tick 板无 BUG_11 竞态路径, 照常执行 */
+#else
+    /* tickless 板(qemu): ItLosPm005 触发 BUG_11 断言竞态, 修复前隔离 */
+#if defined(KERNEL_BUG_11_PM_TICKTIMER_ASSERT) && KERNEL_BUG_11_PM_TICKTIMER_ASSERT == 1
+    ItLosPm005(); /* PM 深覆盖: sysctrl 全字段/prepare 失败分支/三档模式/tickless 定时器链 */
+#endif
+#endif
+#if (LOSCFG_KERNEL_TICK_PERIODIC == 1)
+    /* 周期 tick 板: ItLosPm006 为 BUG_12(孪生缺陷)复现用例, 修复前隔离 */
+#if defined(KERNEL_BUG_12_PM_TICKTIMER_PERIODIC_DEAD) && KERNEL_BUG_12_PM_TICKTIMER_PERIODIC_DEAD == 1
+    ItLosPm006(); /* PM tickless 停表链契约: 修复后 timerStart 计数>=1 且周期合理 */
+#endif
+#else
+    /* tickless 板(qemu): ItLosPm006 走 BUG_11 同一断言路径, 随 BUG_11 修复后恢复 */
+#if defined(KERNEL_BUG_11_PM_TICKTIMER_ASSERT) && KERNEL_BUG_11_PM_TICKTIMER_ASSERT == 1
+    ItLosPm006();
+#endif
+#endif
 }
 

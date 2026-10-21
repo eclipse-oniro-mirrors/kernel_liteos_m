@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2022-2026 Huawei Device Co., Ltd. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this list of
+ *    conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+ *    conditions and the following disclaimer in the documentation and/or other materials
+ *    provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used to
+ *    endorse or promote products derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+ * TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/* ItFuzzPosixMutex: pthread_mutex_lock/unlock/trylock */
+/* DTFuzz: mutate target API params, pre-create resource, cleanup */
+
+#include "it_posix_mutex_fuzz.h"
+
+static void *FzPosixThreadEntry(void *arg) __attribute__((unused));
+static void *FzPosixThreadEntry(void *arg) { (VOID)arg; return NULL; }
+
+static UINT32 TestCase(VOID)
+{
+    INIT_FuzzEnvironment();
+
+    pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+    for (int i = 0; i < CYCLE_TOTAL_TIMES; i++) {
+        FuzzWatchdogFeed(); FuzzHeartbeat(i);
+        if (pthread_mutex_lock(&m) == 0) { (VOID)pthread_mutex_unlock(&m); }
+        if (pthread_mutex_trylock(&m) == 0) { (VOID)pthread_mutex_unlock(&m); }
+    }
+    (VOID)pthread_mutex_destroy(&m);
+
+    /* directed: mutexattr family + timedlock + prioceiling */
+    {
+        pthread_mutexattr_t ma;
+        int v = 0, old = 0;
+        struct timespec ts = {1, 0};
+        if (pthread_mutexattr_init(&ma) == 0) {
+            (VOID)pthread_mutexattr_settype(&ma, PTHREAD_MUTEX_RECURSIVE);
+            (VOID)pthread_mutexattr_gettype(&ma, &v);
+            (VOID)pthread_mutexattr_setprotocol(&ma, PTHREAD_PRIO_INHERIT);
+            (VOID)pthread_mutexattr_getprotocol(&ma, &v);
+            (VOID)pthread_mutexattr_setprioceiling(&ma, 10);
+            (VOID)pthread_mutexattr_getprioceiling(&ma, &v);
+            (VOID)pthread_mutexattr_destroy(&ma);
+        }
+        {
+            pthread_mutex_t m2;
+            if (pthread_mutex_init(&m2, NULL) == 0) {
+                (VOID)pthread_mutex_setprioceiling(&m2, 10, &old);
+                (VOID)pthread_mutex_getprioceiling(&m2, &old);
+                (VOID)pthread_mutex_timedlock(&m2, &ts);
+                (VOID)pthread_mutex_unlock(&m2);
+                (VOID)pthread_mutex_destroy(&m2);
+            }
+        }
+    }
+    DT_Clear(g_element);
+    CLEAR_FuzzEnvironment();
+    return 0;
+}
+
+VOID ItFuzzPosixMutex(VOID)
+{
+    TEST_ADD_CASE("ItFuzzPosixMutex", TestCase, TEST_LIB, TEST_PTHREAD, TEST_LEVEL0, TEST_FUNCTION);
+}

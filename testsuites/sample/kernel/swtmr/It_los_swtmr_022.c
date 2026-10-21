@@ -38,7 +38,7 @@
 #define HWI_NUM_INT14 HWI_NUM_TEST
 #endif
 
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     if (g_testCount != 2) { // 2, herr, the current possible value of the variable
         return;
@@ -56,11 +56,7 @@ static VOID Case2(VOID)
     g_testCount++;
 
     // 2, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE, Case1, &g_swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &g_swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
     g_testCount++;
@@ -73,7 +69,7 @@ static UINT32 Testcase(VOID)
     HWI_HANDLE_T hwiNum = HWI_NUM_INT14;
     g_testCount = 0;
 
-    ret = LOS_HwiCreate(hwiNum, 1, 0, Case2, 0);
+    ret = LOS_HwiCreate(hwiNum, 1, 0, (HWI_PROC_FUNC)Case2, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     TestHwiTrigger(hwiNum);

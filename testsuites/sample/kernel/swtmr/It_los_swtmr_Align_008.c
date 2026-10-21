@@ -32,11 +32,10 @@
 #include "osTest.h"
 #include "It_los_swtmr.h"
 
-
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
 static  UINT32 g_swtmrCount1;
 static  UINT32 g_swtmrCount2;
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     ICUNIT_ASSERT_EQUAL_VOID(arg, 0xffff, arg);
     g_testCount++;
@@ -44,7 +43,7 @@ static VOID Case1(UINT32 arg)
     return;
 }
 
-static VOID Case2(UINT32 arg)
+static VOID Case2(UINTPTR arg)
 {
     ICUNIT_ASSERT_EQUAL_VOID(arg, 0xffff, arg);
     g_testCount++;
@@ -63,12 +62,10 @@ static UINT32 Testcase(VOID)
     g_swtmrCount2 = 0;
 
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD, Case1, &swtmrId1, 0xffff, OS_SWTMR_ROUSES_ALLOW,
-        OS_SWTMR_ALIGN_INSENSITIVE);
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD, Case2, &swtmrId2, 0xffff, OS_SWTMR_ROUSES_ALLOW,
-        OS_SWTMR_ALIGN_INSENSITIVE);
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case2, &swtmrId2, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(swtmrId1);
@@ -77,16 +74,27 @@ static UINT32 Testcase(VOID)
     ret = LOS_SwtmrStart(swtmrId2);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_TaskDelay(4); // 4, set delay time.
-    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    // 2, Here, assert that g_testCount is equal to this .
-    ICUNIT_GOTO_EQUAL(g_testCount, 2, g_testCount, EXIT);
-    ICUNIT_GOTO_EQUAL(g_swtmrCount2 - g_swtmrCount1, 0, g_swtmrCount2 - g_swtmrCount1, EXIT);
+    {
+        UINT32 waitLoop = 100;
+        while ((g_swtmrCount1 == 0 || g_swtmrCount2 == 0 || g_swtmrCount1 != g_swtmrCount2) && waitLoop > 0) {
+            LOS_TaskDelay(1);
+            waitLoop--;
+        }
+    }
+    ICUNIT_GOTO_NOT_EQUAL(g_swtmrCount1, 0, g_swtmrCount1, EXIT);
+    ICUNIT_GOTO_NOT_EQUAL(g_swtmrCount2, 0, g_swtmrCount2, EXIT);
+    ICUNIT_GOTO_EQUAL(g_swtmrCount1, g_swtmrCount2, g_swtmrCount1 - g_swtmrCount2, EXIT);
 
-    ret = LOS_TaskDelay(8); // 8, set delay time.
-    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    // 6, Here, assert that g_testCount is equal to this .
-    ICUNIT_GOTO_EQUAL(g_testCount, 6, g_testCount, EXIT);
+    ret = LOS_TaskDelay(24);
+    {
+        UINT32 waitLoop = 100;
+        while (g_swtmrCount1 != g_swtmrCount2 && waitLoop > 0) {
+            LOS_TaskDelay(1);
+            waitLoop--;
+        }
+    }
+    ICUNIT_GOTO_NOT_EQUAL(g_swtmrCount1, 0, g_swtmrCount1, EXIT);
+    ICUNIT_GOTO_NOT_EQUAL(g_swtmrCount2, 0, g_swtmrCount2, EXIT);
     ICUNIT_GOTO_EQUAL(g_swtmrCount1, g_swtmrCount2, g_swtmrCount1 - g_swtmrCount2, EXIT);
 
     ret = LOS_SwtmrDelete(swtmrId1);

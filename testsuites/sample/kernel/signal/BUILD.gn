@@ -36,6 +36,9 @@ static_library("test_signal") {
     "It_los_signal_003.c",
     "It_los_signal_004.c",
     "It_los_signal_005.c",
+    "It_los_signal_006.c",
+    "It_los_signal_007.c",
+    "It_los_signal_008.c",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

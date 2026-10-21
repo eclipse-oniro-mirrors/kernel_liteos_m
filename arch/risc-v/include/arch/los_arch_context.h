@@ -1,0 +1,269 @@
+/*
+ * Copyright (c) 2013-2020, Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this list of
+ *    conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
+ *    of conditions and the following disclaimer in the documentation and/or other materials
+ *    provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
+ *    to endorse or promote products derived from this software without specific prior written
+ *    permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+#ifndef _LOS_ARCH_CONTEXT_H
+#define _LOS_ARCH_CONTEXT_H
+
+#include "los_compiler.h"
+#include "los_context.h"
+
+extern LosTaskCB *g_runTask;
+
+STATIC INLINE VOID *ArchCurrTaskGet(VOID)
+{
+    return (VOID *)g_runTask;
+}
+
+STATIC INLINE VOID ArchCurrTaskSet(VOID *val)
+{
+    g_runTask = (LosTaskCB *)val;
+}
+
+STATIC INLINE UINT32 ArchCurrCpuid(VOID)
+{
+    return 0;
+}
+
+#ifdef __cplusplus
+#if __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+#endif /* __cplusplus */
+
+/**
+ * @ingroup los_arch_context
+ * The initialization value of stack space.
+ */
+#define EMPTY_STACK                 0xCACA
+
+#define TP_INIT_VALUE  0x02020202L
+#define SP_INIT_VALUE  0x03030303L
+#define S11_INIT_VALUE 0x04040404L
+#define S10_INIT_VALUE 0x05050505L
+#define S9_INIT_VALUE  0x06060606L
+#define S8_INIT_VALUE  0x07070707L
+#define S7_INIT_VALUE  0x08080808L
+#define S6_INIT_VALUE  0x09090909L
+#define S5_INIT_VALUE  0x10101010L
+#define S4_INIT_VALUE  0x11111111L
+#define S3_INIT_VALUE  0x12121212L
+#define S2_INIT_VALUE  0x13131313L
+#define S1_INIT_VALUE  0x14141414L
+#define FP_INIT_VALUE  0x15151515L
+#define T6_INIT_VALUE  0x16161616L
+#define T5_INIT_VALUE  0x17171717L
+#define T4_INIT_VALUE  0x18181818L
+#define T3_INIT_VALUE  0x19191919L
+#define A7_INIT_VALUE  0x20202020L
+#define A6_INIT_VALUE  0x21212121L
+#define A5_INIT_VALUE  0x22222222L
+#define A4_INIT_VALUE  0x23232323L
+#define A3_INIT_VALUE  0x24242424L
+#define A2_INIT_VALUE  0x25252525L
+#define A1_INIT_VALUE  0x26262626L
+#define T2_INIT_VALUE  0x28282828L
+#define T1_INIT_VALUE  0x29292929L
+#define T0_INIT_VALUE  0x30303030L
+
+/**
+ * @ingroup los_arch_context
+ * Define the type of a task context control block.
+ */
+#ifndef LOSCFG_ARCH_FPU_DISABLE
+#ifdef LOSCFG_ARCH_FPU_DOUBLE
+/* D extension: FP registers are 64-bit wide (RV32D, FLEN=64). */
+typedef UINT64 FLOATREG_TYPE;
+#else
+typedef UINT32 FLOATREG_TYPE;
+#endif
+#endif
+
+typedef struct {
+    UINT32 sp;
+    UINT32 tp;
+    UINT32 t6;
+    UINT32 t5;
+    UINT32 t4;
+    UINT32 t3;
+    UINT32 t2;
+    UINT32 t1;
+    UINT32 t0;
+    UINT32 s11;
+    UINT32 s10;
+    UINT32 s9;
+    UINT32 s8;
+    UINT32 s7;
+    UINT32 s6;
+    UINT32 s5;
+    UINT32 mstatus;
+    UINT32 mepc;
+    UINT32 a7;
+    UINT32 a6;
+    UINT32 a5;
+    UINT32 a4;
+    UINT32 a3;
+    UINT32 a2;
+    UINT32 a1;
+    UINT32 a0;
+    UINT32 s4;
+    UINT32 s3;
+    UINT32 s2;
+    UINT32 s1;
+    UINT32 s0;
+    UINT32 ra;
+#ifndef LOSCFG_ARCH_FPU_DISABLE
+    /* FPU state mirrors the assembly stack frame (see soc_common.h).
+     * Order must match PUSH_ALL_REG/POP_ALL_REG in los_dispatch.S and
+     * PUSH_CALLER_REG/POP_ALL_REG in los_exc.S. */
+    FLOATREG_TYPE ft11;
+    FLOATREG_TYPE ft10;
+    FLOATREG_TYPE ft9;
+    FLOATREG_TYPE ft8;
+    FLOATREG_TYPE fa7;
+    FLOATREG_TYPE fa6;
+    FLOATREG_TYPE fa5;
+    FLOATREG_TYPE fa4;
+    FLOATREG_TYPE fa3;
+    FLOATREG_TYPE fa2;
+    FLOATREG_TYPE fa1;
+    FLOATREG_TYPE fa0;
+    FLOATREG_TYPE ft7;
+    FLOATREG_TYPE ft6;
+    FLOATREG_TYPE ft5;
+    FLOATREG_TYPE ft4;
+    FLOATREG_TYPE ft3;
+    FLOATREG_TYPE ft2;
+    FLOATREG_TYPE ft1;
+    FLOATREG_TYPE ft0;
+    FLOATREG_TYPE fs11;
+    FLOATREG_TYPE fs10;
+    FLOATREG_TYPE fs9;
+    FLOATREG_TYPE fs8;
+    FLOATREG_TYPE fs7;
+    FLOATREG_TYPE fs6;
+    FLOATREG_TYPE fs5;
+    FLOATREG_TYPE fs4;
+    FLOATREG_TYPE fs3;
+    FLOATREG_TYPE fs2;
+    FLOATREG_TYPE fs1;
+    FLOATREG_TYPE fs0;
+    UINT32 fcsr;
+    UINT32 fpuReserved[3];
+#endif
+} TaskContext;
+
+/* Extract the frame pointer (s0) from a suspended task's saved context. */
+STATIC INLINE UINTPTR ArchGetTaskFp(const VOID *stackPointer)
+{
+    return ((TaskContext *)stackPointer)->s0;
+}
+
+STATIC INLINE UINTPTR GetSP(VOID)
+{
+    UINTPTR spSave;
+    __asm__ __volatile__("mv %0, sp" : "=r"(spSave));
+    return spSave;
+}
+
+STATIC INLINE UINTPTR GetFp(VOID)
+{
+    UINTPTR fpSave = 0;
+    __asm__ __volatile__("mv %0, s0" : "=r"(fpSave));
+    return fpSave;
+}
+
+extern VOID ArchStartToRun(LosTaskCB *newTask);
+
+/**
+ * @ingroup los_arch_context
+ * @brief Wait for interrupt.
+ *
+ * @par Description:
+ * <ul>
+ * <li>This API is used to suspend execution until interrupt or a debug request occurs.</li>
+ * </ul>
+ * @attention None.
+ *
+ * @param None.
+ *
+ * @retval: None.
+ *
+ * @par Dependency:
+ * los_arch_context.h: the header file that contains the API declaration.
+ * @see None.
+ */
+extern VOID wfi(VOID);
+
+/**
+ * @ingroup los_arch_context
+ * @brief: mem fence function.
+ *
+ * @par Description:
+ * This API is used to fence for memory.
+ *
+ * @attention:
+ * <ul><li>None.</li></ul>
+ *
+ * @param: None.
+ *
+ * @retval:None.
+ * @par Dependency:
+ * <ul><li>los_arch_context.h: the header file that contains the API declaration.</li></ul>
+ * @see None.
+ */
+extern VOID mb(VOID);
+
+/**
+ * @ingroup los_arch_context
+ * @brief: mem fence function.
+ *
+ * @par Description:
+ * This API is same as mb, it just for adaptation.
+ *
+ * @attention:
+ * <ul><li>None.</li></ul>
+ *
+ * @param: None.
+ *
+ * @retval:None.
+ * @par Dependency:
+ * <ul><li>los_arch_context.h: the header file that contains the API declaration.</li></ul>
+ * @see None.
+ */
+extern VOID dsb(VOID);
+
+#ifdef __cplusplus
+#if __cplusplus
+}
+#endif /* __cplusplus */
+#endif /* __cplusplus */
+
+#endif /* _LOS_ARCH_CONTEXT_H */

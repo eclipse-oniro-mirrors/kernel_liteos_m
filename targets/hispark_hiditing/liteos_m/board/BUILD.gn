@@ -1,0 +1,92 @@
+# Copyright (c) 2026 HiSilicon (Shanghai) Technologies Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//kernel/liteos_m/liteos.gni")
+
+module_name = "bsp_config"
+kernel_module(module_name) {
+  asmflags = board_asmflags
+  sources = [
+    "interrupt_stub.c",
+    "main.c",
+    "nand_yaffs_test_backend.c",
+    "pmp_init.c",
+    "ram_lfs_backend.c",
+    "reset_vector.S",
+    "riscv_hal.c",
+    "uart_porting.c",
+    "watchdog_porting.c",
+  ]
+
+  include_dirs = [
+    "include",
+    "include/asm",
+    # ram_lfs_backend.c: los_fs.h (mount/umount/LOS_DiskPartition/PartitionCfg);
+    # the file body is empty unless LOSCFG_TEST (hi3322_testsuits product only).
+    "//kernel/liteos_m/fs/vfs",
+  ]
+
+  cflags = [ "-Werror" ]
+
+  defines = []
+
+  # NAND backend tag for the smoke-test banner
+  # (YAFFS2_BINARY_LIB_PORTING_PLAN.md C3).
+  if (board_nand_backend == "yaffs") {
+    defines += [ "BOARD_NAND_BACKEND_YAFFS=1" ]
+  }
+
+  # NAND file system smoke test (backend-agnostic POSIX/VFS level,
+  # board/nand_smoke_test.c). Toggle via board_nand_smoke_test in ../config.gni.
+  if (board_nand_smoke_test) {
+    sources += [ "nand_smoke_test.c" ]
+    defines += [ "ENABLE_NAND_SMOKE_TEST" ]
+  }
+}
+
+config("public") {
+  include_dirs = [
+    ".",
+    "include",
+    "include/asm",
+    "//commonlibrary/utils_lite/include",
+    "//device/soc/hisilicon/hi3322/sdk/open_source/libboundscheck/include",
+  ]
+
+  ldflags = [
+    "-fuse-ld=lld",
+    "-Wl,--relax-gp",
+    "-no-pie",
+    "-nostartfiles",
+    "-nostdlib",
+    "-Wl,-T" + rebase_path("board.ld"),
+    "-Wl,--whole-archive",
+    board_clang_rt_lib,
+    "-Wl,--no-whole-archive",
+  ]
+
+  # yaffs2 CLOSED prebuilt core (YAFFS2_BINARY_LIB_PORTING_PLAN.md P1):
+  # the PRISTINE fbb diting-community archive. This project compiles with
+  # the hard-float double ABI (-march=rv32imfdc... -mabi=ilp32d), whose
+  # objects carry exactly the same ELF e_flags (0x405, incl. the BiSheng
+  # vendor bit) as the fbb archive — no e_flags normalization is needed.
+  # The patched copy libyaffs2.a and tools/patch_eflags.py stay in-tree
+  # for a soft-float rollback. Not whole-archive: the OH-VFS adapter and
+  # the bridge reference yaffs symbols directly, so unused members (e.g.
+  # the fbb fsmap table object pulls nothing extra) stay out. Linked after
+  # the kernel archive so its members resolve the adapter's undefined
+  # symbols.
+  if (board_nand_backend == "yaffs") {
+    ldflags += [ rebase_path("//device/soc/hisilicon/hi3322/yaffs2/prebuilt/libyaffs2.orig.a") ]
+  }
+}

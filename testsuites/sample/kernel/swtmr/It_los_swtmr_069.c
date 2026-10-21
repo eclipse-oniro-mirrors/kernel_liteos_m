@@ -33,7 +33,7 @@
 #include "It_los_swtmr.h"
 
 
-static VOID SwtmrF01(UINT32 arg)
+static VOID SwtmrF01(UINTPTR arg)
 {
     UINT32 ret;
     UINT32 tick = 0;
@@ -44,7 +44,8 @@ static VOID SwtmrF01(UINT32 arg)
 
     ret = LOS_SwtmrTimeGet(g_swtmrId1, &tick);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    ICUNIT_GOTO_EQUAL(tick, TIMER_LOS_EXPIRATION1 - 1, tick, EXIT);
+    // unlike old absolute time model, no need to -1
+    ICUNIT_GOTO_EQUAL(tick, TIMER_LOS_EXPIRATION1, tick, EXIT);
 
     g_testCount++;
     return;
@@ -61,12 +62,7 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
     g_swtmrId1 = 0;
 
-    ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION1, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_swtmrId1,
-        TIMER_LOS_HANDLER_PARAMETER
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &g_swtmrId1, TIMER_LOS_HANDLER_PARAMETER);
 
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
@@ -78,9 +74,8 @@ static UINT32 Testcase(VOID)
 
     ret = LOS_SwtmrTimeGet(g_swtmrId1, &tick);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-
-    // 1, assert that uwTick is equal to this.
-    ICUNIT_GOTO_EQUAL(tick, 1, tick, EXIT);
+    // TaskDelay + TimeGet,  timing may differ by 1 tick
+    ICUNIT_GOTO_WITHIN_EQUAL(tick, 1, 2, tick, EXIT);
 
     // 2, Here, assert that g_testCount is equal to this .
     ICUNIT_GOTO_EQUAL(g_testCount, 2, g_testCount, EXIT);

@@ -32,9 +32,8 @@
 #include "osTest.h"
 #include "It_los_swtmr.h"
 
-
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     ICUNIT_ASSERT_EQUAL_VOID(arg, 0xffff, arg);
     g_testCount++;
@@ -46,12 +45,12 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     UINT32 swtmrId1;
     UINT32 swtmrId2;
-    // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD, Case1, &swtmrId1, 0xffff, OS_SWTMR_ROUSES_ALLOW, -1);
-    ICUNIT_ASSERT_EQUAL(ret, OS_ERRNO_SWTMR_ALIGN_INVALID, ret);
-    // 4, Timeout interval of a periodic software timer. 2, set swtmr sensitive
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD, Case1, &swtmrId2, 0xffff, OS_SWTMR_ROUSES_ALLOW, 2);
-    ICUNIT_ASSERT_EQUAL(ret, OS_ERRNO_SWTMR_ALIGN_INVALID, ret);
+    // 4, Timeout interval of a periodic software timer. 10, invalid mode.
+    ret = LOS_SwtmrCreate(4, 10, Case1, &swtmrId1, 0xffff);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_SWTMR_MODE_INVALID, ret);
+    // 4, Timeout interval of a periodic software timer. 0xFF, invalid mode.
+    ret = LOS_SwtmrCreate(4, 0xFF, Case1, &swtmrId2, 0xffff);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_SWTMR_MODE_INVALID, ret);
 
     return LOS_OK;
 }

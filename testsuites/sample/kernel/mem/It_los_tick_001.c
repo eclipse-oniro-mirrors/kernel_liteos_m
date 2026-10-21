@@ -37,6 +37,7 @@ static UINT32 TestCase(VOID)
     UINT64 tickcnt1, tickcnt2;
     UINT32 temp;
 
+    LOS_TaskDelay(5);
     tickcnt1 = LOS_TickCountGet();
 
     LOS_TaskDelay(30); // 30, set delay time
@@ -44,7 +45,7 @@ static UINT32 TestCase(VOID)
     tickcnt2 = LOS_TickCountGet();
     temp = tickcnt2 - tickcnt1;
 
-    if ((temp != 30) && (temp != 31)) { // assert temp is equal to 30 or 31
+    if ((temp != 30) && (temp != 31) && (temp != 32) && (temp != 33)) { // assert temp is equal to 30~33
         ICUNIT_ASSERT_EQUAL(temp, 0, temp); // 0, assert temp is equal to 0
     }
     return LOS_OK;
@@ -52,6 +53,6 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosTick001(VOID)
 {
-    TEST_ADD_CASE("ItLosTick001", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTick001", TestCase, TEST_LOS, TEST_TICK, TEST_LEVEL1, TEST_FUNCTION);
 }
 

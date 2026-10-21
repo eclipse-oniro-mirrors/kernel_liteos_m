@@ -37,8 +37,8 @@ static UINT32 TestCase(VOID)
 {
     UINT32 ret;
 
-    ret = LOS_TaskDelete(g_idleTaskID);
-    ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_TSK_OPERATE_IDLE, ret);
+    ret = LOS_TaskDelete(OsGetIdleTaskId());
+    ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_TSK_OPERATE_SYSTEM_TASK, ret);
 
     return LOS_OK;
 }

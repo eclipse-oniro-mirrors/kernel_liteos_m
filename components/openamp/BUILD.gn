@@ -1,0 +1,176 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# OpenAMP + libmetal + MICA (libmica) for liteos_m (bare-metal, AArch64 EL1).
+#
+# Upstream (third-party) provenance - kept in the SoC repository
+# (//device/soc/rockchip/rk3568_m) per the review policy on third-party code:
+#   libmetal  v1.3.0   -> shipped as PREBUILT archive prebuilt/libmetal.a
+#                          (core objects: init/device/io/log), headers in
+#                          //device/soc/rockchip/rk3568_m/include/libmetal/
+#                          (incl. the "liteos" system backend headers under
+#                          system/liteos/, plus its metal_sys.c source)
+#   open-amp  v1.3.1   -> shipped as PREBUILT archive prebuilt/openamp.a
+#                          (virtio/virtqueue/remoteproc_virtio/rpmsg/
+#                          rpmsg_virtio), headers in include/open-amp/
+#   The third_party source snapshots are NOT referenced by the build (see
+#   prebuilt/README in the SoC repo for the regeneration recipe).
+# MICA (libmica) is self-developed: its whole tree lives in THIS repository
+# and is compiled from source here (restored from the SoC repo where it had
+# been temporarily relocated):
+#   compat/mcs/mica/libmica/            MICA slave library (pedestal +
+#                                        tty/umt services)
+#   compat/mcs/mica/platform/           platform backend, overlaid as
+#                                        mica/platform/system/liteos/
+#   compat/mcs/mica/mica_cfg.h          master/slave protocol constants
+#
+# The metal/ and mica/ include sets are generated at build time by
+# gen_mcs_includes.py: the vanilla trees only get their metal/ and mica/
+# prefixes (and their @PROJECT_*@ substitution) at cmake install time.
+# Targets that include <metal/...> or <mica/...> headers must add a dep on
+# :mcs_includes for build ordering (see board/BUILD.gn).
+#
+# This tree's gn binary has no glob(): the input header list is enumerated
+# by the generator itself (--list mode) through exec_script.
+#
+# Slave-side source trimming, recorded in kernel/liteos_m/compat/mcs/README.md:
+#   libmetal : init/device/io/log + backend (dma/shmem/irq/softirq/version
+#              unused on the bare-metal slave)
+#   open-amp : virtio/virtqueue/remoteproc_virtio/rpmsg/rpmsg_virtio
+#              (elf_loader/remoteproc/rsc_table_parser are master-side)
+#   libmica  : baremetal pedestal (+ its resource table) + tty/umt services
+#              (hetero pedestal and echo service are not used on this board)
+# The libmica resource table is the single .resource_table of the image; the
+# board-level table (board/resource_table.c) is NOT built (see board/BUILD.gn).
+
+import("//kernel/liteos_m/liteos.gni")
+
+# mcs_gen_args / mcs_header_inputs come from the .gni (see the comment
+# there for why the input enumeration lives outside this file).
+import("mcs_includes.gni")
+
+module_switch = defined(LOSCFG_COMPONENT_OPENAMP)
+module_name = get_path_info(rebase_path("."), "name")
+
+# Generated include root (metal/ + mica/ trees), shared by this module and
+# by its dependents through :public below.
+mcs_include_root = get_label_info(":mcs_includes", "target_gen_dir") + "/include"
+
+action("mcs_includes") {
+  script = "gen_mcs_includes.py"
+
+  outputs = [ "$target_gen_dir/include/.generated" ]
+
+  inputs = mcs_header_inputs
+
+  args = mcs_gen_args + [
+    "--out",
+    rebase_path("$target_gen_dir/include", ""),
+  ]
+}
+
+kernel_module(module_name) {
+  deps = [ ":mcs_includes" ]
+
+  sources = [
+    # ---- libmetal liteos system backend (SoC repo, part of the shipped
+    #      libmetal header tree) ----
+    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/metal_sys.c",
+
+    # ---- libmica (kernel/liteos_m/compat/mcs, self-developed): baremetal
+    #      pedestal + services ----
+    # ped_rsc_table.c emits THE resource table of the image (.resource_table
+    # section, parsed/patched by the master mcs_km loader). The board-level
+    # table (board/resource_table.c) is excluded from the build so only one
+    # table is present.
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/mica_init.c",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/mica_service.c",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/pedestals/baremetal.c",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/pedestals/ped_rsc_table.c",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/rpc_service.c",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/tty_service.c",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/umt_service.c",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/echo_service.c",
+  ]
+
+  # ---- prebuilt archives (SoC repo, third-party only) ----
+  # libmetal v1.3.0 core + open-amp v1.3.1: the third_party source snapshots
+  # are NOT shipped in this tree (upstream review policy): the compiled
+  # objects are archived once (stored in the SoC repo,
+  # //device/soc/rockchip/rk3568_m/prebuilt/) with the exact flags of this
+  # configuration (aarch64-liteos-clang, cortex-a55, -O2, freestanding) and
+  # linked as prebuilt .a instead. Regeneration recipe and per-file
+  # provenance: prebuilt/README in the SoC repo. The archives propagate to
+  # the final link through the source_set libs mechanism (same path the musl
+  # archives take). Order matters only between the two: open-amp references
+  # libmetal symbols, never the other way round. libmica (self-developed) is
+  # compiled from source above and needs no archive.
+  libs = [
+    rebase_path("//device/soc/rockchip/rk3568_m/prebuilt/libmetal.a", ""),
+    rebase_path("//device/soc/rockchip/rk3568_m/prebuilt/openamp.a", ""),
+  ]
+
+  include_dirs = [
+    # the freestanding <pthread.h> shim must shadow the musl porting one
+    # for the libmica sources (target include_dirs precede the kernel
+    # config-provided dirs on the command line): libmica's service threads
+    # map onto LOS_TaskCreate with a tuned priority/stack instead of the
+    # kernel posix defaults (see compat/mcs/compat/pthread.h). The remaining
+    # libc headers (<errno.h>/<stdio.h>/<string.h>/<stdlib.h>) resolve
+    # directly to the musl porting tree on the kernel-config include path
+    # (//third_party/musl/porting/liteos_m/kernel/include); their
+    # implementations are in the image (musl libc, LOSCFG_LIBC_MUSL).
+    "//kernel/liteos_m/compat/mcs/compat",
+
+    mcs_include_root,
+    "//device/soc/rockchip/rk3568_m/include/open-amp",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/include",
+  ]
+
+  defines = [
+    "OPENAMP_VERSION_MAJOR=1",
+    "OPENAMP_VERSION_MINOR=3",
+    "OPENAMP_VERSION_PATCH=1",
+  ]
+
+  # upstream style is C11/libc; keep warnings non-fatal here
+  cflags = [
+    "-Wno-error",
+    "-Wno-unused-parameter",
+    "-Wno-sign-compare",
+    "-Wno-missing-field-initializers",
+    "-Wno-implicit-fallthrough",
+    "-Wno-old-style-definition",
+
+    # libmica's service headers use pthread_attr_t and the errno names
+    # without including <pthread.h>/<errno.h>: force-include the freestanding
+    # pthread shim (LOS_TaskCreate mapping) and the musl porting errno.h up
+    # front; all other libc headers resolve to the musl porting tree (see
+    # kernel/liteos_m/compat/mcs/README.md)
+    "-include",
+    rebase_path("//kernel/liteos_m/compat/mcs/compat/pthread.h", ""),
+    "-include",
+    rebase_path("//third_party/musl/porting/liteos_m/kernel/include/errno.h", ""),
+  ]
+}
+
+config("public") {
+  include_dirs = [
+    mcs_include_root,
+    "//device/soc/rockchip/rk3568_m/include/open-amp",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/include",
+    "//kernel/liteos_m/compat/mcs/mica", # mica_cfg.h (board code: main.c)
+  ]
+}

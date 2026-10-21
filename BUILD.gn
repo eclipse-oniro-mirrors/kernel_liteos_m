@@ -119,6 +119,8 @@ config("los_config") {
 
     #":warn_config",
     ":misc_config",
+
+    "//kernel/liteos_m/testsuites:kernel_test_coverage",
   ]
 }
 
@@ -135,9 +137,13 @@ config("public") {
   configs = [
     "arch:public",
     "kernel:public",
-    "kal:public",
+    "compat:public",
+    "lib:public",
+    "fs:public",
+    "shell:public",
     "components:public",
-    "utils:public",
+    "drivers/interrupt:public",
+    "drivers/timer:public",
   ]
 
   if (BOARD_SOC_FEATURE) {
@@ -154,12 +160,18 @@ group("modules") {
   deps = [
     "arch",
     "components",
-    "kal",
+    "compat",
+    "drivers/interrupt",
+    "drivers/timer",
+    "lib",
     "kernel",
-    "testsuites",
-    "utils",
-    HDFTOPDIR,
+    "fs",
+    "shell",
   ]
+
+  if (defined(LOSCFG_TEST)) {
+    deps += [ "testsuites" ]
+  }
 
   if (BOARD_SOC_FEATURE) {
     deps += [ "$DEVICE_BOARD_DIR/$device_company" ]
@@ -186,9 +198,6 @@ static_library("libkernel") {
 
 group("kernel") {
   deps = [ ":libkernel" ]
-}
-
-group("liteos_m") {
 }
 
 executable("liteos") {

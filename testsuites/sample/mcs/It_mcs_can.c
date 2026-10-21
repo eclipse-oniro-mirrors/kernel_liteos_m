@@ -1,0 +1,35 @@
+/*
+ * Copyright (c) 2026 Huawei Device Co., Ltd.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include "It_mcs.h"
+
+VOID ItSuiteMcsCan(VOID)
+{
+    ItMcsCan001();
+    ItMcsCan002();
+    ItMcsCan003();
+    ItMcsCan004();
+    ItMcsCan005();
+    ItMcsCan006();
+    ItMcsCan007();
+    ItMcsCan008();
+    ItMcsCan009();
+    ItMcsCan010();
+    ItMcsCan011();
+    ItMcsCan012();
+    ItMcsCan013();
+    ItMcsCan014();
+    ItMcsCan015();
+    ItMcsCan016();
+}

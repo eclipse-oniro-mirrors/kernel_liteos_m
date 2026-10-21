@@ -1,0 +1,39 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+#
+# AArch64 (ARMv8-A EL1) architecture layer for liteos_m.
+# Interrupt dispatch table helpers (los_common_interrupt.c) are built as
+# part of this module.
+
+import("//kernel/liteos_m/liteos.gni")
+
+module_name = "arm64"
+kernel_module(module_name) {
+  sources = [
+    "los_cache.S",
+    "los_context.c",
+    "los_cpu.c",
+    "los_dispatch.S",
+    "los_el_switch.S",
+    "los_exc.S",
+    "los_fault.c",
+    "los_common_interrupt.c",
+    "los_mmu.c",
+    "los_mmu_arm64.c",
+    "los_pagetable_mgr.c",
+    "los_timer.c",
+  ]
+
+  # include/arch/: regs.h (exception entry, EL-abstracted register names)
+  # and the MMU framework headers (mmu.h / mmu_pri.h / pagetable_manager.h)
+  # for los_exc.S, the MMU modules and the board glue.
+  include_dirs = [ "include" ]
+
+  configs += [ "$LITEOSTOPDIR:warn_config" ]
+}
+
+config("public") {
+  include_dirs = [
+    ".",
+    "include",
+  ]
+}

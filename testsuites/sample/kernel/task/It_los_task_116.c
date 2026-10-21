@@ -33,7 +33,7 @@
 #include "It_los_task.h"
 
 
-static VOID SwtmrF01(UINT32 arg)
+static VOID SwtmrF01(UINTPTR arg)
 {
     if (arg != 0xffff) {
         return;
@@ -51,11 +51,7 @@ static VOID TaskF01(VOID)
     UINT32 swTmrID;
 
     // 2, Create a timer for 2s.
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE, SwtmrF01, &swTmrID, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrF01, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
     ret = LOS_SwtmrStart(swTmrID);

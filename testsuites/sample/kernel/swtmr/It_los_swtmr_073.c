@@ -33,7 +33,7 @@
 #include "It_los_swtmr.h"
 
 
-static VOID SwtmrF01(UINT32 arg)
+static VOID SwtmrF01(UINTPTR arg)
 {
     if (arg != TIMER_LOS_HANDLER_PARAMETER) {
         return;
@@ -52,13 +52,7 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     for (i = 0; i <= TIMER_LOS_HANDLER_PARAMETER; i++) {
-        ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION3, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID[i],
-            TIMER_LOS_HANDLER_PARAMETER
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-            ,
-            OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-        );
+ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION3, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID[i], TIMER_LOS_HANDLER_PARAMETER);
         if (ret == LOS_OK) {
             timerCount = i;
         } else {
@@ -77,13 +71,7 @@ static UINT32 Testcase(VOID)
     timerCount = 0;
 
     for (i = 0; i <= TIMER_LOS_HANDLER_PARAMETER; i++) {
-        ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION3, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID[i],
-            TIMER_LOS_HANDLER_PARAMETER
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-            ,
-            OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-        );
+ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION3, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID[i], TIMER_LOS_HANDLER_PARAMETER);
         if (ret == LOS_OK) {
             timerCount = i;
         } else {

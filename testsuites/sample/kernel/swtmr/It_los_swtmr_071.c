@@ -33,7 +33,7 @@
 #include "It_los_swtmr.h"
 
 
-static VOID SwtmrF01(UINT32 arg)
+static VOID SwtmrF01(UINTPTR arg)
 {
     if (arg != TIMER_LOS_HANDLER_PARAMETER) {
         return;
@@ -51,12 +51,7 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
     g_swtmrId1 = 0;
 
-    ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION3, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrF01, &g_swtmrId1,
-        TIMER_LOS_HANDLER_PARAMETER
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION3, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &g_swtmrId1, TIMER_LOS_HANDLER_PARAMETER);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrTimeGet(g_swtmrId1, &tick);
@@ -77,7 +72,8 @@ static UINT32 Testcase(VOID)
 
     ret = LOS_SwtmrTimeGet(g_swtmrId1, &tick);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    ICUNIT_GOTO_EQUAL(tick, TIMER_LOS_EXPIRATION3 - delayTime - 1, tick, EXIT);
+    // TaskDelay + TimeGet, advance timing may differ by 1 tick
+    ICUNIT_GOTO_WITHIN_EQUAL(tick, TIMER_LOS_EXPIRATION3 - delayTime - 1, TIMER_LOS_EXPIRATION3 - delayTime, tick, EXIT);
 
     ret = LOS_SwtmrStop(g_swtmrId1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);

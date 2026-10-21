@@ -49,7 +49,7 @@ static int TaskJoinf02(VOID *argument)
 
 static UINT32 TestCase(VOID)
 {
-    UINT32 taskID;
+    UINT32 taskId;
     UINT32 ret;
     UINTPTR temp = 0;
     TSK_INIT_PARAM_S osTaskInitParam = { 0 };
@@ -63,21 +63,29 @@ static UINT32 TestCase(VOID)
     osTaskInitParam.uwResved = LOS_TASK_ATTR_JOINABLE;
 
     ret = LOS_TaskCreate(&g_joinTaskID, &osTaskInitParam);
-    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
     osTaskInitParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskJoinf02;
     osTaskInitParam.uwStackSize = OS_TSK_TEST_STACK_SIZE;
     osTaskInitParam.pcName = "deatch";
     osTaskInitParam.usTaskPrio = TASK_PRIO_TEST - 1;
+    /* 清掉复用参数残留的 JOINABLE 属性：否则 "deatch" 任务退出后变为无人 join 的
+     * 僵尸任务，TCB 永久占用，ResLeak 误报 task leak（本用例只 join "Join" 任务） */
+    osTaskInitParam.uwResved = 0;
 
-    ret = LOS_TaskCreate(&taskID, &osTaskInitParam);
-    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ret = LOS_TaskCreate(&taskId, &osTaskInitParam);
+    ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_JOIN);
 
     ret = LOS_TaskJoin(g_joinTaskID, &temp);
-    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
-    ICUNIT_ASSERT_EQUAL(temp, taskID, temp);
+    ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_JOIN);
+    ICUNIT_TRACK_EQUAL(temp, taskId, temp);
 
     return LOS_OK;
+
+EXIT_JOIN:
+    (VOID)LOS_TaskJoin(g_joinTaskID, NULL);
+EXIT:
+    return LOS_NOK;
 }
 
 VOID ItLosTask122(VOID) // IT_Layer_ModuleORFeature_No

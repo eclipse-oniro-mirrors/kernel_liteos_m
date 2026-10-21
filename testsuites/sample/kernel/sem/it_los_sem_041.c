@@ -84,8 +84,8 @@ static UINT32 Testcase(VOID)
     UINT32 osMuxUsedcnt = 0;
 
     for (loop = 0; loop < LOSCFG_BASE_IPC_SEM_LIMIT; loop++) {
-        semNode = g_allSem + loop;
-        if (semNode->semStat == OS_SEM_USED) {
+        semNode = g_osAllSem + loop;
+        if (semNode->semStat == LOS_USED) {
             osMuxUsedcnt++;
         }
     }
@@ -97,6 +97,13 @@ static UINT32 Testcase(VOID)
         task.pcName = "SemTsk7";
         task.uwStackSize = TASK_STACK_SIZE_TEST;
         task.usTaskPrio = TASK_PRIO_TEST - 2; // 2, set new task priority, it is higher than the current task.
+
+        g_testTaskID01 = OS_INVALID;
+        g_testTaskID02 = OS_INVALID;
+
+        for (index = 0; index < g_actMuxUsedcnt; index++) {
+            g_usSemID3[index] = OS_INVALID;
+        }
 
         for (index = 0; index < g_actMuxUsedcnt; index++) {
             ret = LOS_SemCreate(0, &g_usSemID3[index]);
@@ -113,9 +120,19 @@ static UINT32 Testcase(VOID)
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     EXIT:
+        if (g_testTaskID01 != OS_INVALID) {
+            (VOID)LOS_TaskDelete(g_testTaskID01);
+            g_testTaskID01 = OS_INVALID;
+        }
+        if (g_testTaskID02 != OS_INVALID) {
+            (VOID)LOS_TaskDelete(g_testTaskID02);
+            g_testTaskID02 = OS_INVALID;
+        }
         for (index = 0; index < g_actMuxUsedcnt; index++) {
-            ret = LOS_SemDelete(g_usSemID3[index]);
-            ICUNIT_TRACK_EQUAL(ret, LOS_OK, ret);
+            if (g_usSemID3[index] != OS_INVALID) {
+                (VOID)LOS_SemDelete(g_usSemID3[index]);
+                g_usSemID3[index] = OS_INVALID;
+            }
         }
     }
 

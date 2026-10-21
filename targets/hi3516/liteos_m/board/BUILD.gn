@@ -1,0 +1,33 @@
+import("//kernel/liteos_m/liteos.gni")
+
+module_name = "board"
+kernel_module(module_name) {
+  sources = [
+    "main.c",
+    "board.c",
+    "uart_porting.c",
+  ]
+  include_dirs = [
+    "include",
+    ".",
+    "//kernel/liteos_m/testsuites/include",
+  ]
+}
+
+config("public") {
+  include_dirs = [
+    ".",
+    "include",
+  ]
+
+  ldflags = [
+    "-fuse-ld=lld",
+    "-nostartfiles",
+    "-nostdlib",
+    "-Wl,-T" + rebase_path("board.ld"),
+    "-Wl,--gc-sections",
+    "-Wl,--whole-archive",
+    board_clang_rt_lib,
+    "-Wl,--no-whole-archive",
+  ]
+}

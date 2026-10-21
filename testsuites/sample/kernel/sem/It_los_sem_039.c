@@ -82,8 +82,8 @@ static UINT32 Testcase(VOID)
     UINT32 osMuxUsedcnt = 0;
 
     for (loop = 0; loop < LOSCFG_BASE_IPC_SEM_LIMIT; loop++) {
-        semNode = g_allSem + loop;
-        if (semNode->semStat == OS_SEM_USED) {
+        semNode = g_osAllSem + loop;
+        if (semNode->semStat == LOS_USED) {
             osMuxUsedcnt++;
         }
     }
@@ -106,6 +106,7 @@ static UINT32 Testcase(VOID)
         ret = LOS_TaskCreate(&g_testTaskID01, &task);
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
+        TEST_DELAY(g_testCount, 1, TEST_WAIT_TIMEOUT);
         ICUNIT_GOTO_EQUAL(g_testCount, 1, g_testCount, EXIT);
         g_testCount++;
 
@@ -115,7 +116,8 @@ static UINT32 Testcase(VOID)
         ret = LOS_TaskCreate(&g_testTaskID02, &task);
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-        ICUNIT_GOTO_EQUAL(g_testCount, 3, g_testCount, EXIT); // 3, Here, assert that g_testCount is equal to 3.
+        TEST_DELAY(g_testCount, 3, TEST_WAIT_TIMEOUT);
+        ICUNIT_GOTO_EQUAL(g_testCount, 3, g_testCount, EXIT);
 
     EXIT:
         for (index = 0; index < g_actMuxUsedcnt; index++) {

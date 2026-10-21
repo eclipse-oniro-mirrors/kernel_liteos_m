@@ -33,7 +33,7 @@
 #include "It_los_swtmr.h"
 
 
-static VOID Case1(UINT32 arg)
+static VOID Case1(UINTPTR arg)
 {
     UINT32 index;
 
@@ -59,21 +59,14 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     UINT32 swtmrId1;
     UINT32 swtmrId2;
+    UINT32 waitLoop;
     g_testCount = 0;
 
     // 1, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)Case3, &swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case3, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     // 2, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)Case2, &swtmrId2, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case2, &swtmrId2, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)Case1, 0);
@@ -85,8 +78,12 @@ static UINT32 Testcase(VOID)
     TestHwiTrigger(HWI_NUM_TEST);
 
     // 10, Here, check that g_testCount is smaller than this .
-    while (g_testCount < 10) {
+    /* Bounded wait: see It_los_swtmr_033.c. Periodic timers keep counting
+     * while we yield, so accept a small overshoot above 10. */
+    for (waitLoop = 0; (g_testCount < 10) && (waitLoop < TEST_WAIT_TIMEOUT); waitLoop++) {
+        LOS_TaskDelay(1);
     }
+    ICUNIT_GOTO_WITHIN_EQUAL(g_testCount, 10, 20, g_testCount, EXIT);
 
     LOS_SwtmrDelete(swtmrId2);
     LOS_SwtmrDelete(swtmrId1);

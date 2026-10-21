@@ -33,7 +33,7 @@
 #include "It_los_swtmr.h"
 
 
-static VOID SwtmrF01(UINT32 arg)
+static VOID SwtmrF01(UINTPTR arg)
 {
     UINT32 ret;
     UINT32 tick = 0;
@@ -60,12 +60,7 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
     g_swtmrId1 = 0;
 
-    ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION1, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrF01, &g_swtmrId1,
-        TIMER_LOS_HANDLER_PARAMETER
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION1, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &g_swtmrId1, TIMER_LOS_HANDLER_PARAMETER);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(g_swtmrId1);

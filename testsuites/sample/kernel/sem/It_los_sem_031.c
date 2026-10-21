@@ -78,12 +78,7 @@ static UINT32 Testcase(VOID)
     ret = LOS_SemCreate(1, &g_usSemID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        ,
-        OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     LOS_SemPend(g_usSemID, LOS_NO_WAIT);
@@ -98,13 +93,22 @@ static UINT32 Testcase(VOID)
     }
 
     LOS_SwtmrStop(swTmrID);
-    ICUNIT_ASSERT_EQUAL(g_testCount, 0x10, g_testCount);
+    ICUNIT_GOTO_EQUAL(g_testCount, 0x10, g_testCount, EXIT);
+
+    (VOID)LOS_TaskDelete(g_testTaskID01);
 
     ret = LOS_SwtmrDelete(swTmrID);
-    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SemDelete(g_usSemID);
-    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
+    return LOS_OK;
+
+EXIT:
+    LOS_SwtmrStop(swTmrID);
+    LOS_SwtmrDelete(swTmrID);
+    LOS_TaskDelete(g_testTaskID01);
+    LOS_SemDelete(g_usSemID);
     return LOS_OK;
 }
 

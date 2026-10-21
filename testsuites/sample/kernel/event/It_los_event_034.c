@@ -55,20 +55,13 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
     LOS_EventInit(&g_pevent);
 
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0xffff,
-        OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE);
-#else
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0xffff);
-#endif
+    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     LOS_SwtmrStart(swTmrID);
 
-    LOS_TaskDelay(11); // 11, set delay time.
-    if (g_testCount < 10) { // 10, Here, assert that g_testCount is equal to 10.
-        ICUNIT_GOTO_EQUAL(g_testCount, 10, g_testCount, EXIT); // 10, Here, assert that g_testCount is equal to 10.
-    }
+    TEST_DELAY(g_testCount, 10, TEST_WAIT_TIMEOUT);
+    ICUNIT_GOTO_EQUAL(g_testCount, 10, g_testCount, EXIT);
 EXIT:
 
     LOS_SwtmrDelete(swTmrID);

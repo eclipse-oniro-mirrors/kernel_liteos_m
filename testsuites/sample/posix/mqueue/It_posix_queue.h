@@ -82,14 +82,6 @@
 #define PER_ADDED_VALUE 4
 #endif
 
-#define ICUNIT_GOTO_WITHIN_EQUAL(param, value1, value2, retcode, label) \
-    do {                                                                \
-        if ((param) < (value1) || (param) > (value2)) {                 \
-            ICunitSaveErr(__LINE__, (iiUINT32)(retcode));               \
-            goto label;                                                 \
-        }                                                               \
-    } while (0)
-
 typedef UINT32 TSK_HANDLE_T;
 typedef UINT32 SEM_HANDLE_T ;
 
@@ -162,4 +154,9 @@ VOID ItPosixQueue049(VOID);
 VOID ItPosixQueue050(VOID);
 VOID ItPosixQueue051(VOID);
 VOID ItPosixQueue052(VOID);
+VOID ItPosixQueue053(VOID);
+VOID ItPosixQueue054(VOID);
+VOID ItPosixQueue055(VOID);
+VOID ItPosixQueue056(VOID);
+VOID ItPosixQueue057(VOID);
 #endif

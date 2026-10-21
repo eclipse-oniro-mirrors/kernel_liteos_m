@@ -1,0 +1,23 @@
+import("//kernel/liteos_m/liteos.gni")
+
+module_name = "arch"
+kernel_module(module_name) {
+  sources = [
+    "context.c",
+    "cpu.c",
+    "dispatch.S",
+    "exception.S",
+    "fault.c",
+    "los_interrupt.c",
+    "mmu.c",
+    "timer.c",
+  ]
+  configs += [ "$LITEOSTOPDIR:warn_config" ]
+}
+
+config("public") {
+  include_dirs = [
+    ".",
+    "//kernel/liteos_m/kernel/extended/backtrace",
+  ]
+}

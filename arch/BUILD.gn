@@ -37,11 +37,17 @@ module_group("arch") {
   modules = []
   if ("$board_cpu" == "arm9" || "$board_cpu" == "cortex-m3" ||
       "$board_cpu" == "cortex-m4" || "$board_cpu" == "cortex-m7" ||
-      "$board_cpu" == "cortex-m33" || "$board_cpu" == "cortex-m55") {
+      "$board_cpu" == "cortex-m33" || "$board_cpu" == "cortex-m55" ||
+      "$board_cpu" == "cortex-m0plus" ||
+      "$board_cpu" == "cortex-a7") {
     modules += [ "arm" ]
   } else if ("$board_cpu" == "ck802" || "$board_cpu" == "e802" ||
              "$board_cpu" == "ck804ef") {
     modules += [ "csky" ]
+  } else if ("$board_cpu" == "cortex-a55") {
+    # AArch64 builds its own copy of the interrupt dispatch helpers
+    # (los_common_interrupt.c) inside the arm64 module.
+    modules += [ "arm64" ]
   } else if ("$board_cpu" == "") {
     if ("$board_arch" != string_replace("$board_arch", "rv32i", "")) {
       modules += [ "risc-v" ]

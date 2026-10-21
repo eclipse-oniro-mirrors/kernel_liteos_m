@@ -45,6 +45,26 @@ extern "C" {
 #endif
 #define ICUNIT_SUIT_SIZE 200
 
+/* 用例执行耗时统计：Kconfig LOSCFG_TEST_CASE_TIME_STAT 为唯一开关（testsuites/Kconfig，默认 y）。
+ * 未走 Kconfig 的构建默认开启；显式 -DICUNIT_CASE_TIME_STAT=0 可强制关闭。 */
+#ifndef ICUNIT_CASE_TIME_STAT
+#ifdef LOSCFG_TEST_CASE_TIME_STAT
+#define ICUNIT_CASE_TIME_STAT 1
+#else
+#define ICUNIT_CASE_TIME_STAT 0
+#endif
+#endif
+
+/* 耗时 TOP 榜条数 */
+#ifndef ICUNIT_CASE_TIME_TOP_N
+#define ICUNIT_CASE_TIME_TOP_N 10
+#endif
+
+/* 慢用例阈值（微秒）：单用例执行超过该时长，用例执行完成后立即打印一条 [SlowCase] 耗时记录 */
+#ifndef ICUNIT_CASE_TIME_SLOW_US
+#define ICUNIT_CASE_TIME_SLOW_US 1000000
+#endif
+
 
 #ifdef __cplusplus
 #if __cplusplus

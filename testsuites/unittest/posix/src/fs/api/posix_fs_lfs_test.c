@@ -58,7 +58,7 @@
 #define LFS_SEEK_BOUNDARY   1452    /* 132 * 11, 引用上游 test_seek 的 COUNT=132 */
 #define LFS_LARGE_SIZE      98305   /* 引用上游 test_files_large 的 SIZE=98305(非对齐大文件) */
 #define LFS_LARGE_CHUNK     33      /* 引用上游 test_files_large 的 CHUNKSIZE=33 */
-#define LFS_ENTRY_NUM       60      /* 引用上游 test_entries 的多目录项规模 */
+#define LFS_ENTRY_NUM       (FS_PRESSURE_ON ? 60 : 4)   /* 上游 test_entries 规模 60;关=4 最小同路径覆盖(FS_PRESSURE_ON 见 posix_fs_test.h) */
 #define LFS_OPEN_MAX        100     /* LOSCFG_LFS_MAX_OPEN_FILES */
 #define LFS_DIR_OPEN_MAX    11      /* LOSCFG_MAX_OPEN_DIRS(10) + 1 */
 #define LFS_PRNG_SEED       1       /* 引用上游 TEST_PRNG 的固定种子 */
@@ -327,7 +327,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsEntriesInterspersed, Function | Me
         (void)close(fd);
     }
 
-    /* readdir 校验目录项数量: 60 - 30 + 15 = 45 */
+    /* readdir 校验目录项数量: N - N/2 + N/4 (N=60 时 60-30+15=45) */
     dir = opendir(TEST_ROOT "/entries");
     ICUNIT_GOTO_NOT_EQUAL(dir, NULL, dir, EXIT1);
     while ((entry = readdir(dir)) != NULL) {
@@ -337,7 +337,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsEntriesInterspersed, Function | Me
         cnt++;
     }
     (void)closedir(dir);
-    ICUNIT_ASSERT_EQUAL(cnt, 45, cnt); /* 45: 60-30+15 */
+    ICUNIT_ASSERT_EQUAL(cnt, LFS_ENTRY_NUM - LFS_ENTRY_NUM / 2 + LFS_ENTRY_NUM / 4, cnt);
 
     /* 非空目录 unlink/rmdir 失败: 适配层错误分支 */
     ret = rmdir(TEST_ROOT "/entries");

@@ -86,4 +86,27 @@ config TEST_KERNEL_COVERAGE
       on-target filesystem needed). Intended for debug/test builds only:
       it enlarges code & BSS and adds runtime dump overhead.
 
+config TEST_CASE_TIME_STAT
+    bool "Enable icunit case execution time statistics"
+    default y
+    depends on KERNEL_TEST || KERNEL_FUZZ
+    help
+      Measure each test case's wall-clock execution time inside ICunitRunF.
+      Cases taking longer than 1s (ICUNIT_CASE_TIME_SLOW_US) print a
+      [SlowCase] line with name + cost in seconds right after they finish,
+      and the TOP 10 slowest cases (name + cost in seconds) are printed at
+      the end of the run, before the '--- Test End ---' marker. Answer N to
+      compile the statistics out entirely (zero overhead).
+
+config KERNEL_TEST_PRESSURE
+    bool "Enable full pressure test loops"
+    default n
+    depends on KERNEL_TEST || KERNEL_FUZZ
+    help
+      Pressure-scale test cases (FS pressure loops, lfs entry-scale test)
+      run their FULL original iteration counts. Answer N (default) to run
+      minimal loop counts that still cover the very same code paths, so
+      regression time on flash-backed boards stays short. With Y the
+      produced binary is byte-identical to a tree without this knob.
+
 endmenu

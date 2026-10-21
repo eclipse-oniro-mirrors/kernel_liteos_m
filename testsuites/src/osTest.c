@@ -351,6 +351,7 @@ VOID TestTaskEntry(VOID)
     IcFilterReportNotFound();
     IcResumeReport();
     ICunitPrintFailLogs();
+    ICunitPrintTimeStats();
 #ifdef LOSCFG_TEST_KERNEL_COVERAGE
     /* Dump coverage BEFORE the '--- Test End ---' capture-stop marker so the
      * serial capture (which stops at Test End) records the gcov stream. */

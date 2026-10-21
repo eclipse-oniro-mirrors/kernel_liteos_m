@@ -61,6 +61,11 @@ iiUINT32 iCunit_errCode;
 ICUNIT_FAIL_LOG_S g_failLogArray[ICUNIT_FAIL_LOG_MAX];
 iUINT32 g_failLogCount = 0;
 
+#if (ICUNIT_CASE_TIME_STAT == 1)
+ICUNIT_TIME_STAT_S g_caseTimeTop[ICUNIT_CASE_TIME_TOP_N];
+iUINT32 g_caseTimeTopCnt = 0;
+#endif
+
 #ifdef __cplusplus
 #if __cplusplus
 }

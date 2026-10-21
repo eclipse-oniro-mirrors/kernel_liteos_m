@@ -113,8 +113,15 @@ STATIC VOID OsResLeakLazyLockPreInit(VOID)
 {
     time_t now = 0;
 
+#ifndef __aarch64__
+    /* aarch64: localtime/tzset trigger the LibcLock lazy-init path
+     * (first LOS_MuxCreate + Pend on this core) and corrupt the caller
+     * stack canary. Root cause pending; the posix time suite is not
+     * enabled on aarch64 anyway, so skip this prewarm there. */
     (VOID)localtime(&now);
     tzset();
+#endif
+    (VOID)now;
 #if (LOSCFG_POSIX_FS_API == 1)
     (VOID)fflush(NULL);
 #endif

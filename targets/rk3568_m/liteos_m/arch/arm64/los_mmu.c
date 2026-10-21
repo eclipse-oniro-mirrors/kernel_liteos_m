@@ -80,6 +80,12 @@ extern UINTPTR __heap_end;
 #define SHMEM_BASE        0x74000000UL
 #define SHMEM_SIZE        0x100000UL
 
+/* UMT shared buffer window (netproxy demo fallback: master pins
+ * phy_addr 0x75000000, slave send_buffer = phy + 1MB, both inside
+ * this 2MB window). Normal-NC like the other shared windows. */
+#define UMT_BASE           0x75000000UL
+#define UMT_SIZE           0x200000UL
+
 /* boot-probe scratch area */
 #define SCRATCH_BASE      0x77E00000UL
 #define SCRATCH_SIZE      0x200000UL
@@ -111,6 +117,7 @@ VOID ArchMmuAppRegionReg(VOID)
         {"data", textEnd, textEnd, dataEnd - textEnd, MMU_RW_NX_NORMAL_WB},
         {"shmem", SHMEM_BASE, SHMEM_BASE, SHMEM_SIZE, MMU_RW_NX_NORMAL_NC},
         {"netdma", NET_DMA_BASE, NET_DMA_BASE, NET_DMA_SIZE, MMU_RW_NX_NORMAL_NC},
+        {"umt", UMT_BASE, UMT_BASE, UMT_SIZE, MMU_RW_NX_NORMAL_NC},
         {"scratch", SCRATCH_BASE, SCRATCH_BASE, SCRATCH_SIZE, MMU_RW_NX_DEVICE_MAP},
         {"periph", PERIPH_BASE, PERIPH_BASE, PERIPH_SIZE, MMU_RW_NX_DEVICE_MAP},
     };

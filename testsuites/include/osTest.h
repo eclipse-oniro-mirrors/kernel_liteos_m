@@ -144,7 +144,7 @@ extern "C" {
 #define LOS_KERNEL_TRACE_TEST 0
 #endif
 
-#if (defined(LOSCFG_SHELL_EXCINFO_DUMP) || (LOSCFG_BACKTRACE_TYPE != 0))
+#if (defined(LOSCFG_SHELL_EXCINFO_DUMP) || (LOSCFG_BACKTRACE_TYPE != 0)) && !defined(LOSCFG_ARCH_ARM_AARCH64)
 #define LOS_KERNEL_EXC_TEST 1
 #else
 #define LOS_KERNEL_EXC_TEST 0
@@ -179,12 +179,12 @@ extern "C" {
 #else
 #define LOS_CMSIS_TEST 0
 #endif
-#ifdef LOSCFG_POSIX_API
+#if defined(LOSCFG_POSIX_API) && !defined(LOSCFG_ARCH_ARM_AARCH64)
 #define LOS_POSIX_TEST 1
 #else
 #define LOS_POSIX_TEST 0
 #endif
-#ifdef LOSCFG_POSIX_API
+#if defined(LOSCFG_POSIX_API) && !defined(LOSCFG_ARCH_ARM_AARCH64)
 #define LOS_XTS_TEST 1
 #else
 #define LOS_XTS_TEST 0
@@ -331,6 +331,11 @@ extern EVENT_CB_S g_exampleEvent;
 #define OS_TSK_TEST_STACK_SIZE 0x2000
 #elif  __XTENSA_LX6__
 #define OS_TSK_TEST_STACK_SIZE 0x800
+#elif defined(__aarch64__)
+/* AArch64 test task: 64-bit frames are deeper and the MCS suite
+ * (CAN/NET/RPC/NP/Svc) call chain overflows 0x1000. Use the same
+ * 0x5000 headroom as the coverage build. */
+#define OS_TSK_TEST_STACK_SIZE 0x5000
 #else
 #ifdef LOSCFG_TEST_KERNEL_COVERAGE
 /* ARM (-O0 instrumented) test task: measured waterline exceeds 0x1000
@@ -397,6 +402,17 @@ extern UINT32 TaskUsedCountGet(VOID);
 #define TIMER_1_IRQN 27
 #define HWI_NUM_TEST TIMER_1_IRQN
 #define LOS_KERNEL_MULTI_HWI_TEST 0
+
+#elif defined(LOSCFG_PLATFORM_RK3568_M)
+/* RK3568 AMP slave (AArch64, GICv3): INTID7 is the mica master->slave IPI
+ * (cfg.ipc_irq_num in board main.c); SGI8-15 are the master Linux arch-IPI
+ * range. Test vectors use SGI1-6 only and must never touch INTID7. */
+#define HWI_NUM_TEST  6
+#define HWI_NUM_TEST0 1
+#define HWI_NUM_TEST1 2
+#define HWI_NUM_TEST2 3
+#define HWI_NUM_TEST3 5
+#define LOS_KERNEL_MULTI_HWI_TEST 1
 
 #elif __RISC_V__
 #define HWI_NUM_TEST 32

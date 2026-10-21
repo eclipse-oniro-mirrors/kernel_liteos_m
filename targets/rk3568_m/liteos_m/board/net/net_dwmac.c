@@ -62,6 +62,8 @@
 #define MAC_CFG_TE             (1u << 1)
 #define MAC_CFG_RE             (1u << 0)
 
+#define MAC_RXQ_CTRL0          0x00a0u  /* RX queue control 0 */
+#define MAC_RXQ0_DCB_EN        (1u << 1) /* RX queue 0 enable, DCB mode */
 #define MAC_FLT_PR             (1u << 0)
 #define MAC_FLT_HMC            (1u << 2)
 #define MAC_FLT_PM             (1u << 4)
@@ -544,6 +546,19 @@ int NetInit(const netConfig *cfg, netDevice **dev)
         }
     }
 
+    /* wait for the link (max ~2s): after a BMCR autoneg restore the
+     * PHY re-negotiates, and the speed class below must sample the
+     * settled link; an already-up link passes on the first read */
+    for (poll = 0; poll < 500u; poll++) {
+        uint16_t st = 0;
+
+        if ((NetMdioRead(GMAC1_PHY_ADDR, PHY_REG_BMSR, &st) == 0) &&
+            ((st & BMSR_LSTATUS) != 0)) {
+            break;
+        }
+        LOS_TaskDelay(2);
+    }
+
     /* --- DMA soft reset (bus + channel state machines) --- */
     NetRegWrite(DMA_BUS_CFG, NetRegRead(DMA_BUS_CFG) | DMA_BUS_CFG_SW_RESET);
     for (poll = 0; poll < 100000u; poll++) {
@@ -561,10 +576,20 @@ int NetInit(const netConfig *cfg, netDevice **dev)
                  DMA_SYS_BUS_CFG_FB | DMA_SYS_BUS_BL4 | DMA_SYS_BUS_BL8 |
                  DMA_SYS_BUS_BL16 | DMA_SYS_BUS_BL32);
 
+    /* publish the new session config early: NetGetLinkInfo() reads
+     * dev->autoneg/force* to resolve the speed class below */
+    g_dev.portId = cfg->portId;
+    g_dev.mode = cfg->mode;
+    g_dev.autoneg = (cfg->autoneg != 0) ? 1u : 0u;
+    g_dev.forceSpeedMbps = (cfg->autoneg == 0) ? cfg->speedMbps : 0;
+    g_dev.forceFullDuplex = (cfg->autoneg == 0) ? ((cfg->fullDuplex != 0) ? 1u : 0u) : 0;
+    g_dev.promisc = (cfg->promisc != 0) ? 1u : 0u;
+
     /* --- MAC static config: speed class must track the PHY - RGMII runs
      *     125 mHz only for 1000M and 25/2.5 mHz for 100/10M, so forced
-     *     100/10M requires MII mode (PS) with FES for 100M; autoneg keeps
-     *     GMII (partner expected 1000M-capable). rx filter per config. */
+     *     100/10M requires MII mode (PS) with FES for 100M; autoneg
+     *     resolves the negotiated speed from the PHY (the partner may
+     *     settle at 100/10M even when 1000M is advertised). */
     val = NetRegRead(MAC_CONFIG);
     val &= ~(MAC_CFG_PS | MAC_CFG_FES | MAC_CFG_TE | MAC_CFG_RE);
     val |= MAC_CFG_DM | MAC_CFG_JD | MAC_CFG_BE |
@@ -575,6 +600,17 @@ int NetInit(const netConfig *cfg, netDevice **dev)
         } else {
             val |= MAC_CFG_PS;                    /* MII, 10M */
         }
+    } else {
+        netLinkInfo info;
+
+        (VOID)NetGetLinkInfo(&g_dev, &info);
+        if ((info.valid != 0) && (info.linkUp != 0)) {
+            if (info.speedMbps == 100) {
+                val |= MAC_CFG_PS | MAC_CFG_FES;  /* MII, 100M */
+            } else if (info.speedMbps == 10) {
+                val |= MAC_CFG_PS;                    /* MII, 10M */
+            } /* 1000M keeps GMII */
+        } /* link down: keep GMII defaults */
     }
     NetRegWrite(MAC_CONFIG, val);
 
@@ -606,6 +642,13 @@ int NetInit(const netConfig *cfg, netDevice **dev)
     val |= MTL_QMODE_RSF | MTL_QMODE_RTC_64;
     NetRegWrite(MTL_RXQ0_MODE, val);
 
+    /* the MAC drops every frame unless RX queue 0 is enabled here (DCB
+     * mode) - this is independent of the MTL/DMA queue config above */
+    val = NetRegRead(MAC_RXQ_CTRL0);
+    val &= ~0x3u;                   /* queue-0 mode bits */
+    val |= MAC_RXQ0_DCB_EN;
+    NetRegWrite(MAC_RXQ_CTRL0, val);
+
     /* --- DMA channel 0: rings, buffer size, engines still stopped --- */
     NetRegWrite(DMA_CH_TX_LIST, (uint32_t)(uintptr_t)g_txDesc);
     NetRegWrite(DMA_CH_RX_LIST, (uint32_t)(uintptr_t)g_rxDesc);
@@ -632,13 +675,11 @@ int NetInit(const netConfig *cfg, netDevice **dev)
     g_rdyHead = 0;
     g_rdyTail = 0;
 
-    g_dev.portId = cfg->portId;
-    g_dev.mode = cfg->mode;
-    g_dev.autoneg = (cfg->autoneg != 0) ? 1u : 0u;
-    g_dev.forceSpeedMbps = (cfg->autoneg == 0) ? cfg->speedMbps : 0;
-    g_dev.forceFullDuplex = (cfg->autoneg == 0) ? ((cfg->fullDuplex != 0) ? 1u : 0u) : 0;
-    g_dev.promisc = (cfg->promisc != 0) ? 1u : 0u;
     g_dev.state = NET_STATE_READY;
+
+    /* a fresh init starts from a clean slate: re-entry from READY must
+     * not observe the previous session counters */
+    (void)memset(&g_dev.stats, 0, sizeof(g_dev.stats));
 
     *dev = &g_dev;
     return 0;

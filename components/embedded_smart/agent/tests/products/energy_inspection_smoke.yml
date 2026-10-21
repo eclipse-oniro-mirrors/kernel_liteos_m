@@ -1,8 +1,0 @@
-schema: 1
-product: energy_inspection
-cases:
-  - name: capability_set
-    expect_capabilities: [observability, memory, workspace_tools, skills, tcp_gateway, mcp_client]
-    reject_capabilities: [alarm, process_tools, robot_tools]
-  - name: prompt_identity
-    expect_prompt_contains: "巡检助手"

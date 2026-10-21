@@ -1,7 +1,0 @@
-schema: 1
-id: robot_hi3516
-display_name: LiteCrab Hi3516 Robot Agent
-defconfig: defconfigs/robot_hi3516.defconfig
-prompt: products/robot_hi3516/prompt.md
-artifact_name: litecrab_agent
-runtime_config_schema: config/base_config.example.json

@@ -166,6 +166,7 @@
 #define CAN_STATE_OFFLINE      0u      /* BSS zero: never init'ed */
 #define CAN_STATE_READY        1u      /* init'ed, on the soft reset mode */
 #define CAN_STATE_RUNNING      2u      /* on the bus */
+#define CAN_STATE_STOPPED      3u      /* stopped: config kept, re-Init allowed */
 
 /* ready queue: lock-free SPSC ring of frame copies. producer = the ISR
  * (drain), consumer = the task (CanRecv); both on CPU3, head written
@@ -646,8 +647,8 @@ int CanInit(const canConfig *cfg, canDevice **dev)
         return CAN_ENODEV;
     }
     d = &g_devs[slot];
-    if (d->state == CAN_STATE_RUNNING) {
-        return CAN_EBUSY;               /* running: stop first */
+    if ((d->state == CAN_STATE_RUNNING) || (d->state == CAN_STATE_READY)) {
+        return CAN_EBUSY;               /* held: stop first (STOPPED may re-init) */
     }
     /* bind the profile BEFORE the first MMIO below: the register
      * helpers route through d->port->base and CanInit's early code
@@ -712,17 +713,27 @@ int CanInit(const canConfig *cfg, canDevice **dev)
      *     = don't care, 0 = must match code. mask = 0 therefore means
      *     "exactly filter_code" (can.h contract); mask = CAN_RX_FILTER_
      *     MASK (all ones) accepts everything. --- */
+    /* HW mask semantics: bit 1 = don't care, bit 0 = compare. The
+     * config filterMask uses the software convention 1 = compare,
+     * so program the complement. */
     if (cfg->filterEn != 0) {
         CanRegWrite(d, CAN_IDCODE, cfg->filterCode & CAN_RX_FILTER_MASK);
-        CanRegWrite(d, CAN_IDMASK, cfg->filterMask & CAN_RX_FILTER_MASK);
+        CanRegWrite(d, CAN_IDMASK, CAN_RX_FILTER_MASK & ~(cfg->filterMask));
+        /* close the 5 auxiliary banks (mask 0 = compare every bit,
+         * code 0 matches only id 0) so frames fall through to the
+         * global filter */
+        for (i = 0; i < 5; i++) {
+            CanRegWrite(d, CAN_IDCODE0 + (uint32_t)i * 8, 0);
+            CanRegWrite(d, CAN_IDMASK0 + (uint32_t)i * 8, 0);
+        }
     } else {
         CanRegWrite(d, CAN_IDCODE, 0);
         CanRegWrite(d, CAN_IDMASK, CAN_RX_FILTER_MASK);
-    }
-    /* the 5 auxiliary banks stay all-open */
-    for (i = 0; i < 5; i++) {
-        CanRegWrite(d, CAN_IDCODE0 + (uint32_t)i * 8, 0);
-        CanRegWrite(d, CAN_IDMASK0 + (uint32_t)i * 8, CAN_RX_FILTER_MASK);
+        /* the 5 auxiliary banks stay all-open */
+        for (i = 0; i < 5; i++) {
+            CanRegWrite(d, CAN_IDCODE0 + (uint32_t)i * 8, 0);
+            CanRegWrite(d, CAN_IDMASK0 + (uint32_t)i * 8, CAN_RX_FILTER_MASK);
+        }
     }
 
     /* --- rx fifo enable + timestamp counter enable: every rx fifo
@@ -815,8 +826,8 @@ int CanStart(canDevice *dev)
     if (dev->state == CAN_STATE_RUNNING) {
         return 0;                       /* idempotent */
     }
-    if (dev->state != CAN_STATE_READY) {
-        return CAN_EIO;                 /* FAULT: needs stop first */
+    if ((dev->state != CAN_STATE_READY) && (dev->state != CAN_STATE_STOPPED)) {
+        return CAN_EIO;                 /* FAULT: needs init first */
     }
 
     if (dev->mode != CAN_MODE_POLL) {
@@ -851,6 +862,11 @@ int CanStop(canDevice *dev, uint32_t timeoutUs)
         return CAN_EINVAL;
     }
     if (dev->state != CAN_STATE_RUNNING) {
+        /* never started (READY) or already stopped: nothing to
+         * quiesce, but a READY port is released for a later re-Init */
+        if (dev->state == CAN_STATE_READY) {
+            dev->state = CAN_STATE_STOPPED;
+        }
         return 0;
     }
     (VOID)timeoutUs;                   /* no DMA to quiesce: the reset
@@ -872,7 +888,7 @@ int CanStop(canDevice *dev, uint32_t timeoutUs)
     dev->rdyHead = 0;
     dev->rdyTail = 0;
 
-    dev->state = CAN_STATE_READY;
+    dev->state = CAN_STATE_STOPPED;
     return 0;
 }
 

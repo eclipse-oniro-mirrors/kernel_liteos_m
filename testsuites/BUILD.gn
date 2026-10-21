@@ -152,19 +152,37 @@ group("testsuites") {
     "sample/kernel/swtmr:test_swtmr",
     "sample/kernel/task:test_task",
     "sample/kernel/misc:test_misc",
-    "sample/kernel/exc:test_exc",
     "sample/kernel/tcb_verify:test_tcb_verify",
-    "sample/posix:test_posix",
     "sample/kernel/atomic:test_atomic",
-    "unittest/posix:posix_test",
-    "unittest/xts:xts_test",
     ]
+    # exc suite pulls riscv-only LosExcContext and exchook
+    # (LOSCFG_PLATFORM_EXC) APIs that aarch64 targets do not provide.
+    if (defined(LOSCFG_ARCH_ARM_AARCH32) || defined(LOSCFG_ARCH_RISCV)) {
+      deps += [ "sample/kernel/exc:test_exc" ]
+    }
+    # posix/xts suites rely on 32-bit-target musl semantics
+    # (pthread_t as integer, *timeofday64) and a C++ xts build not
+    # available on aarch64 targets.
+    if (!defined(LOSCFG_ARCH_ARM_AARCH64)) {
+      deps += [
+        "sample/posix:test_posix",
+        "unittest/posix:posix_test",
+        "unittest/xts:xts_test",
+      ]
+    }
   }
   if (defined(LOSCFG_KERNEL_FUZZ)) {
     deps += [
       "src/fuzz:fuzz_common",
       "sample/fuzz:fuzzapi_test",
     ]
+  }
+
+  # MCS AMP interface suites (sample/mcs): board drivers (can/net),
+  # mica service framework and np_* socket proxy. Only when the MCS
+  # pedestal is compiled in (targets/rk3568_m board).
+  if (defined(LOSCFG_KERNEL_TEST) && defined(LOSCFG_MCS)) {
+    deps += [ "sample/mcs:test_mcs" ]
   }
 
   # Conditional so that a coverage-off build keeps the exact same dep-graph

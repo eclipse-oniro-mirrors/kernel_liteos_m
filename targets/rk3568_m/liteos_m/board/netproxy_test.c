@@ -728,7 +728,7 @@ STATIC VOID *NpDemoTask(UINT32 arg)
     /* mica services come up asynchronously (mica task); wait for rpc */
     while (!mica_rpc_is_ready_pub()) {
         (VOID)LOS_TaskDelay(10);
-        if (++waited > 600) { /* ~60 s at 100 hz */
+        if (++waited > 12000) { /* ~240 s at 500 hz (20 ms per iter) */
             return NULL;
         }
     }

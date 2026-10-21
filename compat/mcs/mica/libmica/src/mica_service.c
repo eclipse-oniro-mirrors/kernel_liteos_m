@@ -190,9 +190,25 @@ int mica_create_all_services(void)
         return -1;
     }
 
-    /* wait for UMT ready */
-    while (!mica_service_is_ready(MICA_SERVICE_UMT)) {
-        mica_delay_tick(100);
+    /* wait for UMT ready (bounded: the master may never send umt traffic) */
+    {
+        unsigned int diagN = 0;
+        unsigned int waitN = 0;
+        while (!mica_service_is_ready(MICA_SERVICE_UMT)) {
+            if (diagN < 20) {
+                diagN++;
+                (void)mica_tty_printf("[umtdiag] #%u rpc=%d tty=%d umt=%d\n",
+                                      diagN,
+                                      mica_service_is_ready(MICA_SERVICE_RPC),
+                                      mica_service_is_ready(MICA_SERVICE_TTY),
+                                      mica_service_is_ready(MICA_SERVICE_UMT));
+            }
+            if (++waitN > 600) { /* ~120 s at 500 hz */
+                mica_log("WARN: umt not ready after wait, continue\n");
+                break;
+            }
+            mica_delay_tick(100);
+        }
     }
 
     mica_log("All services ready!\n");

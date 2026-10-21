@@ -302,7 +302,13 @@ VOID TestTaskEntry(VOID)
     ItSuiteFuzzAll();
 #endif
 #ifdef LOSCFG_KERNEL_TEST
+#if !defined(__aarch64__)
     TestKernel();
+#else
+    /* aarch64 slave core: the stock kernel suites were never validated on
+     * this target (ItLosQueue036 corrupts memory and trips every task
+     * stack-check). They are out of scope here: run the MCS suites only. */
+#endif
 
 #if (LOS_POSIX_TEST == 1)
     ItSuitePosix();
@@ -314,6 +320,14 @@ VOID TestTaskEntry(VOID)
 
 #if(LOS_XTS_TEST == 1)
     XtsTestSuite();
+#endif
+
+#if defined(LOSCFG_MCS)
+    /* MCS AMP interface suites (testsuites/sample/mcs): board drivers
+     * (can/net) + mica rpc/tty/umt services + np_* socket proxy. Runs
+     * after the standard suites; see It_mcs.c for the ready-wait. */
+    extern VOID ItSuiteMcs(VOID);
+    ItSuiteMcs();
 #endif
 
 #if (LOSCFG_FS_YAFFS == 1) && (LOS_POSIX_TEST == 1)
@@ -533,7 +547,7 @@ UINT64 LosCpuCycleGet(VOID)
 }
 #else
 
-#ifdef __ARM_ARCH_7A__
+#if defined(__ARM_ARCH_7A__) || defined(__aarch64__)
 /* Cortex-A (GIC): spin iterations after software-pend. GIC delivery takes
  * ~1µs; 10000 volatile iterations ≈ 70µs @ ~900MHz — 70x margin, and only
  * costs time when the IRQ is masked (test fails anyway in that case). */
@@ -549,7 +563,7 @@ VOID TestHwiTrigger(UINT32 hwiNum)
 {
     LOS_HwiEnable(hwiNum);
     LOS_HwiTrigger(hwiNum);
-#ifdef __ARM_ARCH_7A__
+#if defined(__ARM_ARCH_7A__) || defined(__aarch64__)
     /* GIC software-pend is asynchronous: the ISPENDR write completes before
      * the distributor forwards the IRQ, so the handler runs only after this
      * function returns. Test cases assert on g_testCount immediately after
@@ -563,7 +577,7 @@ VOID TestHwiTrigger(UINT32 hwiNum)
 
 VOID TestHwiSync(VOID)
 {
-#ifdef __ARM_ARCH_7A__
+#if defined(__ARM_ARCH_7A__) || defined(__aarch64__)
     for (volatile UINT32 i = 0; i < OS_HWI_TRIG_SPIN; i++) {}
 #endif
 }

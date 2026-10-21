@@ -41,6 +41,12 @@
 #include <mica/platform/delay.h>
 #include "mica_service_internal.h"
 #include <mica/rpc_proto.h>
+#include <mica/service.h> /* TEMP rpcdiag: mica_tty_printf */
+
+/* TEMP rpcdiag - root-cause probe for rpc is_ready==0. REMOVE BEFORE SUBMIT. */
+static volatile unsigned int g_rpcDiagRxCb;
+static volatile unsigned int g_rpcDiagNoh;
+static volatile unsigned int g_rpcDiagLoop;
 
 #define RPMSG_RPC_EPT_NAME "rpmsg-rpc"
 
@@ -136,6 +142,13 @@ static void RpcHandleRequest(struct rpmsg_endpoint *ept,
         resp->ret = -1;
         resp->err = -EOPNOTSUPP;
         resp->payload_len = 0;
+        if (g_rpcDiagNoh < 5) {
+            g_rpcDiagNoh++;
+            (void)mica_tty_printf("[rpcdiag] nohandler#%u func=%u dst=%08x ready=%d\n",
+                                  g_rpcDiagNoh, hdr->func_id,
+                                  ept->dest_addr,
+                                  (int)is_rpmsg_ept_ready(ept));
+        }
         (void)RpcSend(ept, resp, sizeof(*resp));
         return;
     }
@@ -208,6 +221,15 @@ static int rpc_rx_callback(struct rpmsg_endpoint *ept, void *data,
      * thread - diagnostics go out via RPC_FUNC_STAT counters instead */
     g_rpc_diag.rx_cnt++;
     g_rpc_diag.last_rx_func = hdr->func_id;
+    if (g_rpcDiagRxCb < 10) {
+        g_rpcDiagRxCb++;
+        (void)mica_tty_printf("[rpcdiag] rxcb#%u ept=%p addr=%08x dst=%08x rdev=%p ready=%d src=%08x len=%u f=%u fl=%04x id=%u\n",
+                              g_rpcDiagRxCb, (void *)ept, ept->addr,
+                              ept->dest_addr, (void *)ept->rdev,
+                              (int)is_rpmsg_ept_ready(ept), src,
+                              (unsigned int)len, hdr->func_id,
+                              hdr->flags, hdr->req_id);
+    }
     g_rpc_diag.last_rx_flags = hdr->flags;
     g_rpc_diag.last_rx_id = hdr->req_id;
     if (hdr->flags & RPC_F_RESP) {
@@ -365,6 +387,15 @@ void *rpc_service_thread(void *arg)
      * thread just keeps the service alive (echo_service pattern) */
     for (;;) {
         mica_delay_tick(1000);
+        if (g_rpcDiagLoop < 30) {
+            g_rpcDiagLoop++;
+            (void)mica_tty_printf("[rpcdiag] svc#%u addr=%08x dst=%08x rdev=%p ready=%d handler=%p tx=%u txf=%u\n",
+                                  g_rpcDiagLoop, g_rpc_ept.addr,
+                                  g_rpc_ept.dest_addr, (void *)g_rpc_ept.rdev,
+                                  (int)is_rpmsg_ept_ready(&g_rpc_ept),
+                                  (void *)g_rpc_handler,
+                                  g_rpc_diag.tx_cnt, g_rpc_diag.tx_fail);
+        }
     }
 
 err_tx_sem:
@@ -389,4 +420,18 @@ int mica_rpc_init_service(pthread_attr_t *attr)
 int mica_rpc_is_ready(void)
 {
     return mica_rpc_is_ready_pub();
+}
+
+/* TEMP rpcdiag: expose live ept state + probe counters (REMOVE BEFORE SUBMIT) */
+unsigned int mica_rpc_diag_probe(unsigned int *addr, unsigned int *dst,
+                                 unsigned int *rxCb, unsigned int *noh,
+                                 unsigned int *loopN, unsigned int *rxCnt)
+{
+    *addr = g_rpc_ept.addr;
+    *dst = g_rpc_ept.dest_addr;
+    *rxCb = g_rpcDiagRxCb;
+    *noh = g_rpcDiagNoh;
+    *loopN = g_rpcDiagLoop;
+    *rxCnt = g_rpc_diag.rx_cnt;
+    return (unsigned int)is_rpmsg_ept_ready(&g_rpc_ept);
 }

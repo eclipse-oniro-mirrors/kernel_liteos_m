@@ -147,6 +147,10 @@ iUINT32 ICunitInit()
     (void)memset_s(iCunit_CaseArray, sizeof(iCunit_CaseArray), 0, sizeof(iCunit_CaseArray));
     (void)memset_s(g_failLogArray, sizeof(g_failLogArray), 0, sizeof(g_failLogArray));
     (void)memset_s(g_moduleStat, sizeof(g_moduleStat), 0, sizeof(g_moduleStat));
+#if (ICUNIT_CASE_TIME_STAT == 1)
+    (void)memset_s(g_caseTimeTop, sizeof(g_caseTimeTop), 0, sizeof(g_caseTimeTop));
+    g_caseTimeTopCnt = 0;
+#endif
     g_failLogCount = 0;
     return (iUINT32)ICUNIT_SUCCESS;
 }
@@ -205,11 +209,68 @@ void ICunitPrintFailLogs(void)
     dprintf("\n========== End of Failed Case Logs ==========\n");
 }
 
+#if (ICUNIT_CASE_TIME_STAT == 1)
+/* 周期数转微秒：先整秒后余数分步换算，避免 64 位溢出与时钟非 1e6 整除的截断误差 */
+static iUINT64 ICunitCyclesToUs(UINT64 cycles)
+{
+    UINT64 sec, rem;
+    if (g_sysClock == 0) {
+        return 0;
+    }
+    sec = cycles / g_sysClock;
+    rem = cycles % g_sysClock;
+    return sec * OS_SYS_US_PER_SECOND + (rem * OS_SYS_US_PER_SECOND) / g_sysClock;
+}
+
+/* 按耗时降序维护 TOP 榜：未满直接插入，已满则淘汰末位后重排 */
+void ICunitTimeStatRecord(iCHAR *caseID, iUINT64 costUs)
+{
+    iUINT32 i, j;
+
+    if (g_caseTimeTopCnt < ICUNIT_CASE_TIME_TOP_N) {
+        j = g_caseTimeTopCnt;
+        g_caseTimeTopCnt++;
+    } else {
+        if (costUs <= g_caseTimeTop[ICUNIT_CASE_TIME_TOP_N - 1].costUs) {
+            return;
+        }
+        j = ICUNIT_CASE_TIME_TOP_N - 1;
+    }
+    for (i = j; (i > 0) && (g_caseTimeTop[i - 1].costUs < costUs); i--) {
+        g_caseTimeTop[i] = g_caseTimeTop[i - 1];
+    }
+    g_caseTimeTop[i].pcCaseID = caseID;
+    g_caseTimeTop[i].costUs = costUs;
+}
+#endif
+
+void ICunitPrintTimeStats(void)
+{
+#if (ICUNIT_CASE_TIME_STAT == 1)
+    iUINT32 i;
+    iUINT64 us;
+    iUINT32 sec, frac;
+
+    dprintf("\n========== Case Cost Time TOP %d ==========\n", g_caseTimeTopCnt);
+    for (i = 0; i < g_caseTimeTopCnt; i++) {
+        us = g_caseTimeTop[i].costUs;
+        sec = (iUINT32)(us / OS_SYS_US_PER_SECOND);
+        frac = (iUINT32)(us % OS_SYS_US_PER_SECOND);
+        dprintf("TOP%d: %-46s %u.%06u s\n", i + 1, g_caseTimeTop[i].pcCaseID, sec, frac);
+    }
+    dprintf("========== End of Case Cost Time TOP ==========\n");
+#endif
+}
+
 iUINT32 ICunitRunF(void)
 {
     iUINT32 idx, idx1;
     ICUNIT_CASE_S *psubCaseArray;
     iUINT32 caseRet;
+#if (ICUNIT_CASE_TIME_STAT == 1)
+    UINT64 startCycles;
+    iUINT64 costUs;
+#endif
 
     psubCaseArray = iCunit_CaseArray;
     idx1 = 1;
@@ -219,7 +280,18 @@ iUINT32 ICunitRunF(void)
         iCunit_errCode = 0;
 
         OsResLeakCheckBegin();
+#if (ICUNIT_CASE_TIME_STAT == 1)
+        startCycles = LOS_SysCycleGet();
+#endif
         caseRet = psubCaseArray->pstCaseFunc();
+#if (ICUNIT_CASE_TIME_STAT == 1)
+        costUs = ICunitCyclesToUs(LOS_SysCycleGet() - startCycles);
+        ICunitTimeStatRecord(psubCaseArray->pcCaseID, costUs);
+        if (costUs > ICUNIT_CASE_TIME_SLOW_US) {
+            dprintf("[SlowCase]-%s-[Cost: %u.%06u s]\n", psubCaseArray->pcCaseID,
+                (iUINT32)(costUs / OS_SYS_US_PER_SECOND), (iUINT32)(costUs % OS_SYS_US_PER_SECOND));
+        }
+#endif
         psubCaseArray->errLine = iCunit_errLineNo;
         psubCaseArray->retCode = (0 == iCunit_errLineNo) ? (caseRet) : (iCunit_errCode);
 

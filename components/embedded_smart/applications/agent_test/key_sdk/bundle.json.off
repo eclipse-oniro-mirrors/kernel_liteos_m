@@ -1,0 +1,35 @@
+{
+  "name": "@openharmony/key_sdk",
+  "description": "GPIO key (press/release) user-space SDK with debounce scan thread and pin-finder diagnostic, HDF user-mode GPIO HDI based.",
+  "version": "1.0",
+  "license": "Apache License 2.0",
+  "publishAs": "code-segment",
+  "segment": {
+    "destPath": "kernel/liteos_m/components/embedded_smart/applications/agent_test/key_sdk"
+  },
+  "dirs": {},
+  "scripts": {},
+  "component": {
+    "name": "key_sdk",
+    "subsystem": "applications",
+    "syscap": [],
+    "features": [],
+    "adapted_system_type": [
+      "mini",
+      "small"
+    ],
+    "rom": "",
+    "ram": "",
+    "deps": {
+      "components": [],
+      "third_party": []
+    },
+    "build": {
+      "sub_component": [
+        "//kernel/liteos_m/components/embedded_smart/applications/agent_test/key_sdk:key_group"
+      ],
+      "inner_kits": [],
+      "test": []
+    }
+  }
+}

@@ -1,0 +1,41 @@
+import("//build/lite/config/component/lite_component.gni")
+
+# 按键(GPIO) 用户态 SDK 集成文件(放进源码树 applications/key_sdk 时生效)
+#
+# 设计:源码直编 —— key_driver.c 编成 static_library("keydriver"),
+#     key_demo/app_test/ui_display_sdk 经 dep 复用,不再依赖预编译 .a。
+
+_hdf_include = [
+  "//drivers/hdf_core/framework/include/core",
+  "//drivers/hdf_core/framework/include/osal",
+  "//drivers/hdf_core/framework/include/platform",
+  "//drivers/hdf_core/framework/include/utils",
+  "//drivers/hdf_core/interfaces/inner_api/core",
+  "//drivers/hdf_core/interfaces/inner_api/osal/shared",
+  "//drivers/hdf_core/interfaces/inner_api/osal/uhdf",
+  "//drivers/hdf_core/interfaces/inner_api/utils",
+]
+
+# 按键驱动库(GPIO HDI 用户态封装, 实现 i2c/gpio_if_u 经板上 libhdf_platform.so)
+static_library("keydriver") {
+  sources = [ "key_driver.c" ]
+  include_dirs = _hdf_include
+}
+
+# 板端命令行测试程序(产物 rootfs/bin/key_demo)
+executable("key_demo") {
+  sources = [ "key_demo.c" ]
+  include_dirs = _hdf_include
+  deps = [
+    ":keydriver",
+    "//drivers/hdf_core/adapter/uhdf/platform:hdf_platform",
+  ]
+}
+
+group("key_group") {
+  deps = [ ":key_demo" ]
+}
+
+lite_component("key_sdk") {
+  features = [ ":key_demo" ]
+}

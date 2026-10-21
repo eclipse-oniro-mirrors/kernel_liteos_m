@@ -1,0 +1,23 @@
+import("//build/lite/config/component/lite_component.gni")
+
+# llmclient_stream — LLM 客户端库 v1.4(源码直编, 含流式接口)
+# 接口: llm_chat / llm_chat_raw / llm_chat_stream / llm_chat_stream_raw /
+#       llm_ask(见本目录 llm_client.h)
+#
+# 消费方与模块注册说明:
+#   app_test: dep 本目标, 替代原链接的 llm_sdk 预编译 libllmclient.a(v1.1, 无
+#             流式接口, 该 .a 保留不动仅不再链接); 同时 app_test 源码清单里的
+#             llm_sdk/llm_chat_raw.c 必须移除 —— v1.3 库已自带 llm_chat_raw,
+#             两处同编会在链接期重定义。
+#   agent_core_lib(app_test/BUILD.gn 的 source_set): agent 修改点①流式依赖
+#             v1.4 的 llm_chat_stream_raw(include_dirs 里本目录须在 llm_sdk 前)。
+#   注意: 头文件取本目录 llm_client.h(v1.4)。与 v1.1 的差异: 无 LLM_MSG_MAX
+#   宏(消息上限收紧为 1KB, 库内截断), 使用方不能再引用该宏。
+source_set("llmclient_stream") {
+  sources = [
+    "llm_client.c",
+    "llm_stream.c",
+  ]
+  include_dirs = [ "." ]
+  deps = [ "//third_party/mbedtls:mbedtls_shared" ]
+}

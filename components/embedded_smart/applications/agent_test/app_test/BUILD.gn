@@ -1,0 +1,154 @@
+import("//build/lite/config/component/lite_component.gni")
+
+# 综合串口控制台(v5, agent_test 版): WiFi 监控 + LLM 问答 + PCA9685 舵机/Otto 动作 + 语音唤醒
+# agent_test/ 平铺 7 个组件 SDK:
+#   自包含可独立交付: pca9685_sdk, wake_sdk
+#   应用与库: 本组件 app_test + key_sdk + llm_sdk + llm_stream + ui_display_sdk
+# 本组件在 agent_test/app_test, 目录按功能分组:
+#   main/    命令表主程序(app_main.c 实现 + app_test.c 仅 main 入口)
+#   common/  控制台行读取与 shell 小工具(无业务)
+#   service/ 业务服务(各含配置区 .h): wifi/llm/servo/agent/key/voice
+#   tools/   一次性命令(fallback, 不读串口)
+#   docs/    指令手册
+#
+# 语音集成说明(三段式, 参照 mytest/voice):
+#   voice_dialog.c/voice_service.c 为 app_test 侧适配层(见各自头文件);
+#   音频/唤醒词/TFLM 源码经本包内 wake_sdk 副本的 wake_audio_core 复用;
+#   ASR/TTS 段为本目录 voice_asr/voice_tts/voice_ws/voice_base64(复制自
+#   device/soc/hisilicon/common/platform/mytest/voice, 改动仅在本包内)。
+#
+# 注意: 本组件输出 /bin/agent_test, 与原 applications/app_test(my_wake 同理)
+# 并存于镜像; 两者都独占麦克风, 板上二选一运行。
+
+sdk_liteos_root = "//device/soc/hisilicon/hi3516dv300/sdk_liteos"
+mpp_lib_dir = rebase_path("$sdk_liteos_root/mpp/lib")
+
+# agent 组件源(已移至 applications/agent_test/agent)直接编进本包(v1.4 流式版):
+# 单一源, 改 agent 代码 hb build 即生效, 不再经 device/soc 副本(那份已退役)。
+# 不 dep 其 BUILD.gn —— 那里引用不存在的 platform/network/libllmclient.a,
+# 且其 executable("agent_test") 与本包输出同名。LLM 库统一用本包
+# llm_stream 的 v1.4 流式库(llmclient_stream, 源码直编):
+#   - llm_chat/llm_chat_raw/llm_chat_stream_raw 全有(agent 修改点①流式依赖
+#     llm_chat_stream_raw, v1.4 库已实现; 原 llm_sdk/llm_chat_raw.c 补缺
+#     源文件从本包源码清单移除, 两处同编会重定义);
+#   - 原预编译 llm_sdk/libllmclient.a(v1.1) 保留不动, 不再链接;
+#   - 本包源码 include "llm_client.h" 解析到 llm_stream 的 v1.4 头
+#     (无 LLM_MSG_MAX 宏, 消息上限 1KB 库内截断)。
+agent_root = "//kernel/liteos_m/components/embedded_smart/applications/agent_test/agent"
+
+source_set("agent_core_lib") {
+  sources = [
+    "$agent_root/agent_core.c",
+    "$agent_root/src/config/config.c",
+    "$agent_root/src/hub/hub.c",
+    "$agent_root/src/kernel/kernel.c",
+    "$agent_root/src/kernel/llm.c",
+    "$agent_root/src/kernel/skill.c",
+    "$agent_root/src/kernel/working_memory.c",
+    "$agent_root/src/memory/memory.c",
+    "$agent_root/src/observability/observability.c",
+    "$agent_root/src/runtime/builtin_tools.c",
+    "$agent_root/src/runtime/robot_tools.c",
+    "$agent_root/src/runtime/runtime.c",
+    "$agent_root/src/session/session.c",
+    "$agent_root/src/util/json.c",
+  ]
+  include_dirs = [
+    "$agent_root",           # platform_3516.h(经 -include 强制包含)
+    "$agent_root/include",   # litecrab/*.h, agent/agent.h
+    # llm_client.h: v1.4 头(llm_stream 目录)在前 — agent 源码调
+    # llm_chat_raw/llm_chat_stream_raw, v1.4 头才有后者声明; v1.1 头兜底
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_stream",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_sdk",
+  ]
+  cflags = [
+    "-include",
+    rebase_path("$agent_root/platform_3516.h"),
+    "-D_GNU_SOURCE",
+    "-Wno-unused-parameter",
+    "-Wno-unused-variable",
+    "-Wno-unused-function",
+  ]
+  deps = [ "//third_party/mbedtls:mbedtls_shared" ]
+}
+
+executable("agent_test") {
+  output_name = "agent_test"
+
+  sources = [
+    "common/app_console.c",
+    "main/app_main.c",
+    "main/app_test.c",
+    "service/agent_service.c",
+    "service/key_service.c",
+    "service/llm_service.c",
+    "service/servo_service.c",
+    "service/voice_asr.c",
+    "service/voice_base64.c",
+    "service/voice_dialog.c",
+    "service/voice_service.c",
+    "service/voice_tts.c",
+    "service/voice_ws.c",
+    "service/wifi_service.c",
+  ]
+  include_dirs = [
+    "common",
+    "main",
+    "service",
+    # 依赖本包内(applications/agent_test/)的 SDK 副本, 与原组件完全隔离
+    # llm_stream 在前: "llm_client.h" 取 v1.3 头(含 llm_chat_stream 声明)
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_stream",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_sdk",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/pca9685_sdk",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/key_sdk",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/wake_sdk",   # wake_capture/playback/word 头文件
+    "$agent_root/include",                  # agent/agent.h(语音链路 agent 桥)
+  ]
+  # 音频上行走 HTTPS 以外的 WS(TLS), 同样需要 mbedtls; C++ 运行时给 TFLM
+  # (wake_audio_core 是 C++ 源, 同 my_wake 的链接方式)
+  deps = [
+    ":agent_core_lib",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_stream:llmclient_stream",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/wake_sdk:wake_audio_core",
+    # SDK 库改为源码直编(dep), 不再链预编译 .a
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_sdk:wificlient",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/pca9685_sdk:pca9685",
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/key_sdk:keydriver",
+    "//third_party/mbedtls:mbedtls_shared",
+    # pca9685_sdk/key_sdk 用户态 HDI 实现(板上 /usr/lib/libhdf_platform.so)
+    "//drivers/hdf_core/adapter/uhdf/platform:hdf_platform",
+  ]
+  # MPP 静态库(同 my_wake: rootfs 不带 libmpi.so, 必须静态链) + -ldl(AO 重采样
+  # dlopen) + C++ 运行时(TFLM)
+  ldflags = [
+    "-L$mpp_lib_dir",
+    "-Wl,--start-group",
+    "$mpp_lib_dir/libmpi.a",
+    "$mpp_lib_dir/libdnvqe.a",
+    "$mpp_lib_dir/libupvqe.a",
+    "$mpp_lib_dir/libVoiceEngine.a",
+    "$mpp_lib_dir/libhive_RES.a",
+    "$mpp_lib_dir/libhive_record.a",
+    "$mpp_lib_dir/libhive_HPF.a",
+    "$mpp_lib_dir/libhive_ANR.a",
+    "$mpp_lib_dir/libhive_AEC.a",
+    "$mpp_lib_dir/libhive_AGC.a",
+    "$mpp_lib_dir/libhive_EQ.a",
+    "$mpp_lib_dir/libaaccomm.a",
+    "$mpp_lib_dir/libsecurec.a",
+    "-Wl,--end-group",
+    "-lm",
+    "-ldl",
+    "-lstdc++",
+  ]
+}
+
+# 说明: 不再定义 wifi_cli/llm_ask/bye_audio 目标 —— 它们与原 applications/app_test
+# 组件的输出(/bin/wifi_cli, /bin/llm_ask, data/voice/bye.pcm)同名同路径, 会产生
+# GN output collision。原 app_test 组件仍在镜像内, 由它继续提供这三个产物;
+# 本组件只新增 /bin/agent_test 主程序。
+group("agent_test_group") {
+  deps = [
+    ":agent_test",
+  ]
+}

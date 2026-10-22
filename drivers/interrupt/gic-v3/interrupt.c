@@ -56,10 +56,16 @@ STATIC INLINE UINT64 MpidrGet64(VOID)
 
 STATIC UINT32 GicrSlotGet(VOID)
 {
-    UINT32 mpidr = MpidrGet();
-    /* RK3568: 4 single-core clusters, core number is in MPIDR Aff1 (Aff0 always 0).
-     * rdist slots linear: slot n at GICR_BASE + n * 0x20000. */
-    return (mpidr >> 8) & 0xFF;
+    INT32 slot = GicrSlotProbe();
+
+    if (slot >= 0) {
+        return (UINT32)slot;
+    }
+    /* No TYPER match (unexpected): fall back to the single-core cluster
+     * layout (RK3568 bench profile - core number in MPIDR Aff1, Aff0
+     * always 0; rdist slots linear: slot n at GICR_BASE + n * 0x20000). */
+    PRINTK("gic_v3: GICR_TYPER probe failed, Aff1 fallback\n");
+    return (MpidrGet() >> 8) & 0xFF;
 }
 
 STATIC INLINE VOID GicrWaitForRwp(UINT32 slot)

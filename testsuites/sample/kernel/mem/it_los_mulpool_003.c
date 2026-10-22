@@ -38,7 +38,6 @@ static UINT32 TestCase(VOID)
     VOID *ptr2 = NULL;
     VOID *ptrRe = NULL;
     UINT32 i;
-    UINT32 allocSize = TEST_EACH_POOL_SIZE / 4;
     STATIC UINT8 outBuf[64] = {0};
 
     g_poolNum = 0;

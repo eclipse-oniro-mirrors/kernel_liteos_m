@@ -1,0 +1,14 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+
+import("//kernel/liteos_m/liteos.gni")
+
+group("liteos_m") {
+  deps = [
+    "arch/arm64",
+    "board",
+  ]
+}
+
+config("public") {
+  configs = [ "board:public" ]
+}

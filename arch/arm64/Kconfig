@@ -22,6 +22,20 @@ config ARCH_CORTEX_A55
     help
       ARM Cortex-A55 (ARMv8.2-A, AArch64, GICv3 + generic timer).
 
+config ARCH_CORTEX_A76
+    bool
+    select ARCH_ARM_V8A
+    select ARM_GIC_V3
+    help
+      ARM Cortex-A76 (ARMv8.2-A, AArch64, GICv3 + generic timer).
+
+config ARCH_CPU
+    string
+    default "cortex-a55" if ARCH_CORTEX_A55
+    default "cortex-a76" if ARCH_CORTEX_A76
+    help
+      -mcpu value passed to the compiler for the selected AArch64 core.
+
 config ARCH_FPU_ENABLE
     bool "Enable FPU/NEON context save"
     default y

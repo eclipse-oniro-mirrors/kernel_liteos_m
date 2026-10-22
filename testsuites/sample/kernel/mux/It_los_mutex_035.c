@@ -39,7 +39,7 @@ static UINT32 g_testMux035;
 static UINT32 g_swtmrPendRet;
 static volatile UINT32 g_swtmrRan;
 
-static VOID SwtmrFunc035(UINT32 arg)
+static VOID SwtmrFunc035(UINTPTR arg)
 {
     (VOID)arg;
     g_swtmrPendRet = LOS_MuxPend(g_testMux035, 10); // 10, timeout ticks; rejected before pend.

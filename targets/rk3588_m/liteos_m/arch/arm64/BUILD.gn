@@ -1,0 +1,16 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+#
+# RK3588 AMP slave MMU board glue: region table (ArchMmuAppRegionReg) and
+# the LosMmuInit bring-up sequence (dynamic framework + AMP hand-over cache
+# handling). The generic framework lives in kernel/liteos_m/arch/arm64.
+
+import("//kernel/liteos_m/liteos.gni")
+
+module_name = "arm64_mmu"
+kernel_module(module_name) {
+  sources = [ "los_mmu.c" ]
+}
+
+config("public") {
+  include_dirs = []
+}

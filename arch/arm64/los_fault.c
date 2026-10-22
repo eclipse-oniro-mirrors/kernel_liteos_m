@@ -235,8 +235,49 @@ LITE_OS_SEC_TEXT VOID OsArm64SyncExcHandler(EXC_CONTEXT_S *frame)
  *               CurrentEL value is passed in reg; print the EL before the
  *               slot parks (NBIT above has the bit-field semantics).
  * **************************************************************************** */
+/* Raw exception dump for contexts where PRINT_EXC cannot run (e.g. before
+ * the MMU/printf stack is usable): fixed-width hex, direct UART writes only,
+ * no vsnprintf/strlen. Reachable only from the exception park path. */
+extern VOID UartPuts(const CHAR *s, UINT32 len, BOOL isLock);
+
+STATIC VOID DbgPutHexLine(const CHAR *tag, UINT32 tagLen, UINT64 val)
+{
+    CHAR buf[32]; /* tag(<=8) + "0x" + 16 hex + '\n' */
+    UINT32 i;
+    UINT32 nib;
+
+    for (i = 0; i < tagLen; i++) {
+        buf[i] = tag[i];
+    }
+    buf[tagLen] = '0';
+    buf[tagLen + 1] = 'x';
+    for (i = 0; i < 16; i++) {
+        nib = (UINT32)((val >> ((15U - i) * 4U)) & 0xFU);
+        buf[tagLen + 2 + i] = (nib < 10) ? (CHAR)('0' + nib) : (CHAR)('A' + nib - 10);
+    }
+    buf[tagLen + 18] = '\n';
+    UartPuts(buf, tagLen + 19, 0);
+}
+
+STATIC VOID DbgExcRawDump(VOID)
+{
+    UINT64 elr, esr, far, spsr, sp;
+
+    __asm__ volatile("mrs %0, elr_el1" : "=r"(elr));
+    __asm__ volatile("mrs %0, esr_el1" : "=r"(esr));
+    __asm__ volatile("mrs %0, far_el1" : "=r"(far));
+    __asm__ volatile("mrs %0, spsr_el1" : "=r"(spsr));
+    __asm__ volatile("mov %0, sp" : "=r"(sp));
+    DbgPutHexLine("RAW ELR ", 8, elr);
+    DbgPutHexLine("RAW ESR ", 8, esr);
+    DbgPutHexLine("RAW FAR ", 8, far);
+    DbgPutHexLine("RAW SPSR", 8, spsr);
+    DbgPutHexLine("RAW SP  ", 8, sp);
+}
+
 VOID OsCurrentELGet(UINT32 reg)
 {
+    DbgExcRawDump();
     PRINT_EXC("The current exception level is EL%u\n", NBIT(reg, 3, 2));
 }
 

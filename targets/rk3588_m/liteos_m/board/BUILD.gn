@@ -1,0 +1,73 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+#
+# RK3588 AMP board (liteos_m, AArch64 EL1 on CPU7).
+
+import("//kernel/liteos_m/liteos.gni")
+
+module_name = "board"
+kernel_module(module_name) {
+  sources = [
+    "board.c",
+    "main.c",
+    "reset_vector.S",
+    "uart_porting.c",
+  ]
+
+  # The image carries the libmica pedestal resource table (kernel/liteos_m/
+  # compat/mcs/mica/libmica/src/pedestals/ped_rsc_table.c) as its single
+  # .resource_table, which the master mcs_km loader parses and patches (the
+  # manual bring-up files openamp_init.c/resource_table.c were removed).
+  if (defined(LOSCFG_MCS)) {
+    # main.c includes the build-time generated metal/ and mica/ include
+    # sets; depend on the generator action for ordering.
+    deps = [ "//kernel/liteos_m/components/openamp:mcs_includes" ]
+  }
+
+  # Real-time NIC data plane on GMAC1 (bring-up done by the master-side
+  # mcs_net.ko; this is the slave data path + the net demo task).
+  # Driver source: net/net_dwmac.c against the protocol-agnostic net.h
+  # contract (runtime-configurable mode, link policy and rx filter).
+  if (defined(LOSCFG_MCS_NET)) {
+    sources += [
+      "net/net_dwmac.c",
+      "net_test.c",
+    ]
+  }
+
+  # Real-time CAN data plane on CAN1/CAN2, classic + CAN-FD (bring-up
+  # done by the master-side mcs_can.ko; slave data path + self-test).
+  # Driver source: can/can_rk3588.c against the protocol-agnostic can.h
+  # v2 contract (per-port profiles can1_profile.h / can2_profile.h).
+  if (defined(LOSCFG_MCS_CAN)) {
+    sources += [
+      "can/can_rk3588.c",
+      "can_test.c",
+    ]
+  }
+
+  include_dirs = [
+    "include",
+    ".",
+    "can",
+    "net",
+    "//kernel/liteos_m/testsuites/include",
+  ]
+}
+
+config("public") {
+  include_dirs = [
+    ".",
+    "include",
+  ]
+
+  ldflags = [
+    "-fuse-ld=lld",
+    "-nostartfiles",
+    "-nostdlib",
+    "-Wl,-T" + rebase_path("//device/board/hihope/rk3588_m/liteos_m/board/board.ld"),
+    "-Wl,--gc-sections",
+    "-Wl,--whole-archive",
+    board_clang_rt_lib,
+    "-Wl,--no-whole-archive",
+  ]
+}

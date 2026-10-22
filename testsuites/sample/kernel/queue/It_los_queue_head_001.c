@@ -44,13 +44,13 @@ static UINT32 Testcase(VOID)
     ret = LOS_QueueCreate("Q1", QUEUE_BASE_NUM, &g_testQueueID01, 0, 4); // 4, set maxMsgSize
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_QueueWrite(g_testQueueID01, (VOID *)buff1, 4, 0); // 4, size
+    ret = LOS_QueueWrite(g_testQueueID01, (VOID *)(UINTPTR)buff1, 4, 0); // 4, size
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_QueueWrite(g_testQueueID01, (VOID *)buff2, 4, 0); // 4, size
+    ret = LOS_QueueWrite(g_testQueueID01, (VOID *)(UINTPTR)buff2, 4, 0); // 4, size
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_QueueWriteHead(g_testQueueID01, (VOID *)buff3, 4, 0); // 4, size
+    ret = LOS_QueueWriteHead(g_testQueueID01, (VOID *)(UINTPTR)buff3, 4, 0); // 4, size
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_QueueRead(g_testQueueID01, &buff4, 4, 0); // 4, size

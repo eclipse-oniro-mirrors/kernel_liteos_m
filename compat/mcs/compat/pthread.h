@@ -8,7 +8,7 @@
  * routine and its argument travel through a small heap descriptor because
  * TSK_INIT_PARAM_S.uwArg is a 32-bit scalar (safe: the whole image, heap
  * included, lives below 4GB on this board). Each thread gets a fixed
- * 8KB stack and priority 20 (below time-critical work, above demo tasks).
+ * 8KB stack and priority 27 (below the mica task, above idle).
  */
 
 #ifndef MICA_COMPAT_PTHREAD_H__
@@ -70,7 +70,14 @@ static inline int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)PthreadEntry;
     taskParam.uwArg = (UINT32)(uintptr_t)desc;
-    taskParam.usTaskPrio = 20;
+    /* Below the mica task itself (prio 26 in board main.c): the receiver
+     * thread must never preempt its own creator - LOS_TaskCreate()
+     * schedules immediately when the new priority is higher, and a
+     * higher-or-equal receiver would starve the mica task inside
+     * pthread_create before it can spawn the remaining services.
+     * Above the idle task (31) so the polling receiver keeps running
+     * whenever nothing else is ready. */
+    taskParam.usTaskPrio = 27;
     taskParam.uwStackSize = 0x2000;
     taskParam.pcName = "mica_thread";
     if (LOS_TaskCreate(thread, &taskParam) != LOS_OK) {

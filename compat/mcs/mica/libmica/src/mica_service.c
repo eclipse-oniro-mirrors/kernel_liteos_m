@@ -22,7 +22,7 @@ static void *receiver_thread_func(void *arg)
     while (g_receiver_running) {
         ped_ops->rcv_message();
     }
-    
+
     pthread_exit(NULL);
 }
 
@@ -165,12 +165,15 @@ int mica_create_all_services(void)
 
     mica_log("Creating receiver thread...\n");
     ret_rcv = mica_start_receiver(&attr);
+    mica_log("receiver create ret=%d\n", ret_rcv);
 
     mica_log("Creating UMT thread...\n");
     ret_umt = mica_umt_init_service(&attr);
+    mica_log("umt create ret=%d\n", ret_umt);
 
     mica_log("Creating ECHO thread...\n");
     ret_echo = mica_echo_init_service(&attr);
+    mica_log("echo create ret=%d\n", ret_echo);
 
     /* RPC service: rpmsg-rpc endpoint (client + server dispatch). Built as
      * part of the openamp component (rpc_service.c is always compiled);

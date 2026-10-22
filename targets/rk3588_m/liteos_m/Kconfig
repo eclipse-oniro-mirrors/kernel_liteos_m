@@ -1,0 +1,32 @@
+#
+# RK3588 AMP board options (sourced via $(DEVICE_PATH)/Kconfig).
+#
+
+config RK3588_OPENAMP
+    bool "Enable OpenAMP/rpmsg (MICA) support"
+    default n
+    depends on PLATFORM_RK3588_M
+    select COMPONENT_OPENAMP
+    help
+      Bring up open-amp + libmetal on the RTOS side and register the
+      rpmsg-tty endpoint for the Linux MICA framework (/dev/ttyRPMSG0).
+      Interrupt notification uses SGI 7 (MICA convention).
+
+config MCS
+    bool "Enable MCS hybrid deployment (AMP slave alongside Linux master)"
+    default n
+    depends on PLATFORM_RK3588_M
+    select RK3588_OPENAMP
+    help
+      MCS hybrid deployment: this core (CPU7, Cortex-A76) runs as the AMP
+      slave started and stopped by the Linux master mcs_km driver, sharing
+      the debug UART (Linux ttyFIQ0 console) with the master. When enabled:
+        - UartInit keeps the shared UART untouched (polled TX only);
+        - the shell does not poll UART RX (input comes over rpmsg tty);
+        - the mica/rpmsg service task is created at boot.
+      When disabled the board owns the UART itself (standalone bring-up).
+
+# Real-time data-plane options (MCS_NET / MCS_CAN) live with the board
+# sources one level down; rsource is relative to this file (this file is
+# reached as $(DEVICE_PATH)/Kconfig through the board symlink).
+rsource "board/Kconfig"

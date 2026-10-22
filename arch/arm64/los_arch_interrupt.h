@@ -208,9 +208,55 @@ STATIC INLINE VOID GiccSetSgi1r(UINT64 val)
 /* MPIDR helpers. */
 #define MPIDR_AFF_LEVEL0_SHIFT                0
 #define MPIDR_AFF_LEVEL1_SHIFT                8
+#define MPIDR_AFF_LEVEL2_SHIFT                23
+#define MPIDR_AFF_LEVEL3_SHIFT                32
 #define MPIDR_AFF_LEVEL_MASK                  0xFFULL
 #define MPIDR_AFF_LEVEL(mpidr, level)         \
     (((mpidr) >> MPIDR_AFF_LEVEL##level##_SHIFT) & MPIDR_AFF_LEVEL_MASK)
+
+/* GICR_TYPER affinity fields (GICv3: Aff2 [23:16], Aff3 [31:24],
+ * Aff1 [39:32], Aff0 [47:40]). */
+#define GICR_TYPER_AFF2_SHIFT                 16
+#define GICR_TYPER_AFF2_MASK                  (0xFFULL << GICR_TYPER_AFF2_SHIFT)
+#define GICR_TYPER_AFF3_SHIFT                 24
+#define GICR_TYPER_AFF3_MASK                  (0xFFULL << GICR_TYPER_AFF3_SHIFT)
+
+/* Max redistributor frame pairs probed before giving up. */
+#define GICR_SLOT_PROBE_MAX                   8
+
+/* Resolve this PE's redistributor slot by matching the GICR_TYPER
+ * affinity fields against our own MPIDR (same scheme as Linux
+ * __gic_populate_rdist: walk the linear frame array, stop at the Last
+ * frame). SoC-agnostic - works for the RK3568 single-core clusters
+ * (Aff1-encoded core number) and the RK3588 mixed A55/A76 clusters
+ * (cpu7 = Aff1 4 / Aff0 3) alike. Returns the slot index, or -1 when no
+ * frame matches. */
+STATIC INLINE INT32 GicrSlotProbe(VOID)
+{
+    UINT64 mpidr;
+    UINT32 aff0, aff1, aff2, aff3;
+    INT32 i;
+
+    __asm__ volatile("mrs %0, mpidr_el1" : "=r"(mpidr));
+    aff0 = (UINT32)MPIDR_AFF_LEVEL(mpidr, 0);
+    aff1 = (UINT32)MPIDR_AFF_LEVEL(mpidr, 1);
+    aff2 = (UINT32)MPIDR_AFF_LEVEL(mpidr, 2);
+    aff3 = (UINT32)MPIDR_AFF_LEVEL(mpidr, 3);
+
+    for (i = 0; i < GICR_SLOT_PROBE_MAX; i++) {
+        UINT64 typer = GICR_REG64(GICR_TYPER(i));
+        if ((((typer & GICR_TYPER_AFF0_MASK) >> GICR_TYPER_AFF0_SHIFT) == aff0) &&
+            (((typer & GICR_TYPER_AFF1_MASK) >> GICR_TYPER_AFF1_SHIFT) == aff1) &&
+            (((typer & GICR_TYPER_AFF2_MASK) >> GICR_TYPER_AFF2_SHIFT) == aff2) &&
+            (((typer & GICR_TYPER_AFF3_MASK) >> GICR_TYPER_AFF3_SHIFT) == aff3)) {
+            return i;
+        }
+        if ((typer & GICR_TYPER_LAST) != 0) {
+            break;
+        }
+    }
+    return -1;
+}
 
 /* ============================================================================
  * Interrupt lock/unlock (DAIF).

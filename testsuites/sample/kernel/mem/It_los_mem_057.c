@@ -91,15 +91,27 @@ static UINT32 TestCase(VOID)
     void *newPtr = NULL;
     UINT32 modA = 0;          /* module ID 0 */
     UINT32 modB = 1;          /* module ID 1 */
+    UINT32 usedModABase;      /* module A baseline (global counter may be non-zero) */
+    UINT32 usedModBBase;      /* module B baseline (global counter may be non-zero) */
+
+    /* Clear the pool buffer before init: g_memPool_TC57 is a static array that
+     * persists across test runs; LOS_MemPoolInit rebuilds pool headers but does
+     * not zero the data area. memset_s here gives a clean pool baseline. */
+    (VOID)memset_s(g_memPool_TC57, TEST_MEM_SIZE, 0, TEST_MEM_SIZE);
 
     /* Use LOS_MemPoolInit(attr=0) so slab is NOT enabled, avoiding slab
      * intercepting the small (0x40/0x80) module allocs that MEM_MUL_MODULE must track. */
     ret = LOS_MemPoolInit(g_memPool_TC57, TEST_MEM_SIZE, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
+    /* Record module baselines: LOS_MemMusedGet is a global counter shared across
+     * pools (not reset by LOS_MemPoolInit), so prior cases may have left non-zero
+     * usage. Subsequent assertions compare deltas against these baselines. */
+    usedModABase = LOS_MemMusedGet(modA);
+    usedModBBase = LOS_MemMusedGet(modB);
+
     /* --- LOS_MemMalloc + LOS_MemMusedGet --- */
     usedBefore = LOS_MemMusedGet(modA);
-    ICUNIT_GOTO_EQUAL(usedBefore, 0, usedBefore, EXIT);
 
     size = 0x100;
     p = LOS_MemMalloc(g_memPool_TC57, size, modA);
@@ -108,16 +120,16 @@ static UINT32 TestCase(VOID)
     usedAfter = LOS_MemMusedGet(modA);
     ICUNIT_GOTO_EQUAL((usedAfter > usedBefore), 1, 0, EXIT);
 
-    /* Module B should still be 0 */
-    ICUNIT_GOTO_EQUAL(LOS_MemMusedGet(modB), 0, LOS_MemMusedGet(modB), EXIT);
+    /* Module B should be unchanged (no alloc to modB yet) */
+    ICUNIT_GOTO_EQUAL(LOS_MemMusedGet(modB), usedModBBase, LOS_MemMusedGet(modB), EXIT);
 
     /* --- LOS_MemMallocAlign --- */
     pa = LOS_MemMallocAlign(g_memPool_TC57, 0x40, 32, modB);
     ICUNIT_GOTO_NOT_EQUAL(pa, NULL, 0, EXIT);
     ICUNIT_GOTO_EQUAL(IS_ALIGNED_SIZE((UINT32)(UINTPTR)pa, 32), 1, 0, EXIT);
 
-    /* Module B should now have non-zero usage */
-    ICUNIT_GOTO_EQUAL((LOS_MemMusedGet(modB) > 0), 1, 0, EXIT);
+    /* Module B usage should have increased after the align alloc */
+    ICUNIT_GOTO_EQUAL((LOS_MemMusedGet(modB) > usedModBBase), 1, 0, EXIT);
 
     /* --- LOS_MemMrealloc (grow) --- */
     p1 = LOS_MemMalloc(g_memPool_TC57, 0x80, modA);
@@ -154,9 +166,9 @@ static UINT32 TestCase(VOID)
     ret = LOS_MemMfree(g_memPool_TC57, pa, modB);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    /* All module usage should be back to 0 */
-    ICUNIT_GOTO_EQUAL(LOS_MemMusedGet(modA), 0, LOS_MemMusedGet(modA), EXIT);
-    ICUNIT_GOTO_EQUAL(LOS_MemMusedGet(modB), 0, LOS_MemMusedGet(modB), EXIT);
+    /* All module usage should be back to baseline (global counter, not zero) */
+    ICUNIT_GOTO_EQUAL(LOS_MemMusedGet(modA), usedModABase, LOS_MemMusedGet(modA), EXIT);
+    ICUNIT_GOTO_EQUAL(LOS_MemMusedGet(modB), usedModBBase, LOS_MemMusedGet(modB), EXIT);
 
     /* --- Boundary: invalid module ID --- */
     p2 = LOS_MemMalloc(g_memPool_TC57, 0x40, MEM_MODULE_MAX + 1);

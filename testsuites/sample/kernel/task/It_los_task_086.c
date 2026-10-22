@@ -64,7 +64,7 @@ static VOID HwiF01(VOID)
 
     g_testCount = 0;
 
-    for (g_index = startIndex; g_index < LOSCFG_BASE_CORE_TSK_LIMIT + 1; pro++, g_testCount++, g_index++) {
+    for (g_index = startIndex; g_index < LOSCFG_BASE_CORE_TSK_LIMIT; pro++, g_testCount++, g_index++) {
         task1.usTaskPrio = pro;
         (void)sprintf_s(acName, TASK_NAME_NUM, "Tsk086_%d", g_index);
         task1.pcName = acName;

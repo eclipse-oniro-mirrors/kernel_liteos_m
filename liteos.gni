@@ -59,9 +59,6 @@ if (defined(board_toolchain_path) &&
               ],
               "",
               [])
-} else if (defined(LOSCFG_KERNEL_HPL_SCRIPT_PREPROCESSOR)) {
-  assert(false,
-         "LOSCFG_KERNEL_HPL_SCRIPT_PREPROCESSOR requires the HPL wrapper toolchain: build with hpl_use_wrapper=true in gn args")
 }
 
 LITEOSTOPDIR = "//kernel/liteos_m"

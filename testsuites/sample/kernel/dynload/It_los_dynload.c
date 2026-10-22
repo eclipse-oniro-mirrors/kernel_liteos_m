@@ -34,9 +34,15 @@
 /* Board hooks to ensure/release the test FS volume (weak default: mounted at boot). */
 extern int TestFsVolumeEnsure(void);
 extern int TestFsVolumeRelease(void);
+#ifdef LOSCFG_PLATFORM_HI3322
+extern void RamLfsSetBlocks(unsigned int blocks);
+#endif
 
 VOID ItSuiteLosDynload(VOID)
 {
+#if defined(LOSCFG_PLATFORM_HI3322)
+    RamLfsSetBlocks(20);
+#endif
     if (TestFsVolumeEnsure() != 0) {
         dprintf("ItSuiteLosDynload: TEST_ROOT volume unavailable, FS cases will fail\n");
     }
@@ -79,4 +85,7 @@ VOID ItSuiteLosDynload(VOID)
 #endif
 
     (VOID)TestFsVolumeRelease();
+#if defined(LOSCFG_PLATFORM_HI3322)
+    RamLfsSetBlocks(32); /* 复位默认几何(FS/stdio/shell 域沿用 32 块) */
+#endif
 }

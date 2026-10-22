@@ -33,8 +33,6 @@
  * 当前隔离清单(缺陷编号见 总览.md 附录 B):
  *   - ItLosTestCmsisKernel008 (BUG_01: osKernelInitialize guard 失效,
  *     仅 qemu/ARM, cmsis_func_test.c:1449 附近)
- *   - ItPosixPipe003          (BUG_02: poll-on-pipe ws63 复位/qemu sem 竞态;
- *     qemu/arm 已验证正常
  *   - ItPosixSignal091        (BUG_03: sigtimedwait 后续 semaphore 误 post,
  *     疑与 BUG_08 同根因; BUG_08 已修复(20260923)恢复 sigwait 族阻塞唤醒路径,
  *     本项保留隔离待复测 semaphore 误 post 是否随同消解)
@@ -83,8 +81,6 @@
                                            * 态重入 guard 失效(BUG_01, 仅 qemu/ARM; 与 FUZZ_BUG_S11 同源)。
                                            * 隔离点在 cmsis_func_test.c 注册处: 外层 !LOSCFG_ARCH_ARM,
                                            * 内层本宏守卫单独一行(纯两层嵌套), 非 ARM 修复后置 1 恢复 */
-#define POSIX_BUG_02_PIPE_POLL          0 /* ItPosixPipe003: poll-on-pipe ws63 挂死复位
-                                           * (BUG_02, 疑似 PipePoll 内部函数缺陷) */
 #define POSIX_BUG_03_SIGTIMEDWAIT       0 /* ItPosixSignal091: sigtimedwait 后续 semaphore 误
                                            * post(BUG_03, 疑与 BUG_08 同根因) */
 #define POSIX_BUG_08_SIGWAIT_MASK       0 /* ItPosixSignal094: sigwait 族唤醒 mask 位序错位
@@ -113,18 +109,6 @@
                                                     * 契约(timerStart 计数>=1 且编程周期在一个 tick
                                                     * 以上), 修复前置 1 将失败; 隔离点在 It_los_pm.c
                                                     * 聚合注册点(仅周期 tick 板) */
-#define LIBC_BUG_13_VSSCANF_LOCK        0 /* ItLostestStdlibSscanfInt001: musl 移植层 vsscanf 在栈上
-                                           * 构造伪 FILE{.lock=-1}(sscanf.c/vsscanf.c:14-19), 而移植版
-                                           * __lockfile(__lockfile.c:7-10) 无 -1 哨兵检查, 直接
-                                           * pthread_mutex_lock((pthread_mutex_t *)-1) -> OsMuxPreCheck
-                                           * 解引用 0xffffffff 硬故障(BUG_13, FaultAddr 0xfffffffc,
-                                           * qemu 实测 Type=4)。上游 musl __lockfile 对栈 FILE 有
-                                           * 免锁路径, 移植改造为 pthread 锁时丢失该分支。
-                                           * 修复方向: __lockfile 增加 f->lock<0 直接返回 0。
-                                           * 全仓此前无 sscanf 用例(潜伏缺陷); 同族: fscanf 走
-                                           * fopen 的真实 FILE(锁有效)不受影响(ItLostestStdioFscanfFile001
-                                           * 照常执行, __shgetc 覆盖目标由其承接); 隔离点在
-                                           * strtod_test.c 的 RUN_ONE_TESTCASE 注册处, 修复后置 1 恢复 */
 
 #define KERNEL_BUG_14_DYNLOAD_SHN_COMMON 0 /* ItLosDynload016(!1194 dynload 新模块): 加载含 SHN_COMMON
                                             * 符号的 ET_REL 对象越界崩溃。【现象】LOS_MemLoad 加载带
@@ -190,16 +174,7 @@
  * 19/20/21/22 六条红灯实锤([Failed]+[ResLeak] 佐证), BUG_23 在 qemu 结构性
  * 不可达(SWTMR_IN_ISR 形态, 见宏注释), 待环形形态板验证。
  * 问题详情见 批次目录 resleak_test_design/resleak_MR_NONE_20261023_2130/问题记录/。 */
-#define POSIX_BUG_17_POLL_WAITNODE_LEAK  0 /* ItPosixPipe017: poll() 监听>=2个无事件 fd 时
-                                            * PollWaitNode 堆节点泄漏(poll.c:84 单指针覆盖,
-                                            * DestroyPollWait 只释放最后一个); 隔离点在
-                                            * It_posix_io.c 聚合注册点 */
-#define POSIX_BUG_18_PTHREAD_COND_MUTEX_LEAK 0 /* ItPosixPthread043: mux 池耗尽时 pthread_cond_init
-                                                * 假成功(pthread_cond.c:159 忽略内部锁失败)且
-                                                * destroy 失败早退跳过 free(:183-187), 每对
-                                                * init/destroy 泄漏一个堆块; 隔离点在
-                                                * It_posix_pthread.c 聚合注册点 */
-#define KERNEL_BUG_19_SIGNAL_TASKDEL_LEAK 1 /* ItLosSignal009: 删除带未处理待决信号的任务,
+#define KERNEL_BUG_19_SIGNAL_TASKDEL_LEAK 0 /* ItLosSignal009: 删除带未处理待决信号的任务,
                                               * OsTaskResourceReclaim(los_task.c:1451)只释放
                                               * sigCB 不遍历 sigInfoList, OsSigInfoNode 永久
                                               * 泄漏; 已修复: 回收统一走 OsSignalTaskDelete
@@ -214,10 +189,13 @@
                                               * 请求, OsPmLockRequest(los_pm.c:594-617)节点
                                               * 先插链表后查容量, 失败不回滚 -> 节点永久
                                               * 滞留; 隔离点在 It_los_pm.c 聚合注册点 */
-#define POSIX_BUG_22_MQOPEN_NAMEFAIL_LEAK 0 /* ItPosixQueue058: mq_open 名字保存失败
-                                             * (mqueue.c:199-201)ERROUT 只释放名字不删刚建的
-                                             * 内核队列, 槽位+缓冲永久泄漏; 隔离点在
-                                             * It_posix_queue.c 聚合注册点 */
+#define POSIX_BUG_22_MQOPEN_NAMEFAIL_LEAK 1 /* ItPosixQueue058: mq_open 名字保存失败
+                                              * (mqueue.c:199-201)ERROUT 只释放名字不删刚建的
+                                              * 内核队列, 槽位+缓冲永久泄漏 —— 已修复:
+                                              * DoMqueueCreate 三个失败分支(表槽占用/名字
+                                              * 保存/CB 回查)均在 ERROUT 前补 LOS_QueueDelete
+                                              * 归还队列, 与 mq_personal 分支对齐; 隔离点在
+                                              * It_posix_queue.c 聚合注册点 */
 #define KERNEL_BUG_23_SWTMR_EXPIRYLIST_LEAK 0 /* ItLosSwtmr124: 同 tick 到期数超过
                                                * expiryList 容量时 ONCE 定时器被丢弃置
                                                * DELETING(los_swtmr.c:410-418+:219), 无人

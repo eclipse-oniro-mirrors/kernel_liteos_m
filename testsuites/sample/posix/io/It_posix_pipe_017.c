@@ -23,8 +23,6 @@
  *            既无人释放也未从各管道 wq 摘除。
  * 【修复方向】PollTable.node 改为节点链表头(或 AddPollWaitQueue 发现 table 已挂
  *            节点时先摘除旧节点), DestroyPollWait 遍历释放全部节点并从 wq 摘除。
- * 【恢复方法】修复后把 bug_isolate.h 中 POSIX_BUG_17_POLL_WAITNODE_LEAK 置 1,
- *            聚合注册点(It_posix_io.c)恢复调用, 用例恢复执行作为回归看护常跑。
  * 【关联】    BUG_17 / resleak 批次问题记录 20261023_213001。 */
 #include "It_posix_io.h"
 #include <poll.h>

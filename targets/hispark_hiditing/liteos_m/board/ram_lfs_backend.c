@@ -33,14 +33,21 @@
 #include "securec.h"
 
 #define RAM_LFS_BLOCK_SIZE   4096U
-#define RAM_LFS_BLOCK_COUNT  32U /* 128KB：full/pressure 用例写入量为 KB 级，足够 */
-#define RAM_LFS_DISK_BYTES   (RAM_LFS_BLOCK_SIZE * RAM_LFS_BLOCK_COUNT)
+#define RAM_LFS_BLOCK_COUNT  32U /* 128KB 默认几何(可调上限): full/pressure 用例写入量为 KB 级，足够 */
 #define RAM_LFS_DEV_NAME     "ram0"
 #define RAM_LFS_MOUNT_POINT  "/littlefs"
 
 static UINT8 *g_ramLfsDisk;
 static int g_ramLfsDiskRegistered;
 static int g_ramLfsMounted;
+static UINT32 g_ramLfsBlocks = RAM_LFS_BLOCK_COUNT;
+
+void RamLfsSetBlocks(UINT32 blocks)
+{
+    if ((blocks >= 4U) && (blocks <= RAM_LFS_BLOCK_COUNT)) {
+        g_ramLfsBlocks = blocks;
+    }
+}
 
 static int RamLfsRead(int partition, UINT32 *offset, void *buf, UINT32 size)
 {
@@ -81,20 +88,22 @@ int TestFsVolumeEnsure(void)
     }
 
     if (g_ramLfsDisk == NULL) {
-        g_ramLfsDisk = (UINT8 *)LOS_MemAlloc((VOID *)OS_SYS_MEM_ADDR, RAM_LFS_DISK_BYTES);
+        g_ramLfsDisk = (UINT8 *)LOS_MemAlloc((VOID *)OS_SYS_MEM_ADDR,
+                                             RAM_LFS_BLOCK_SIZE * g_ramLfsBlocks);
         if (g_ramLfsDisk == NULL) {
-            PRINTK("ram_lfs: alloc %u bytes failed\n", (UINT32)RAM_LFS_DISK_BYTES);
+            PRINTK("ram_lfs: alloc %u bytes failed\n", (UINT32)(RAM_LFS_BLOCK_SIZE * g_ramLfsBlocks));
             return -1;
         }
     }
 
     /* 干净盘：全 0xFF → 无 superblock → LfsMount 内部 format 兜底后挂载成功 */
-    if (memset_s(g_ramLfsDisk, RAM_LFS_DISK_BYTES, 0xFF, RAM_LFS_DISK_BYTES) != EOK) {
+    if (memset_s(g_ramLfsDisk, RAM_LFS_BLOCK_SIZE * g_ramLfsBlocks, 0xFF,
+                 RAM_LFS_BLOCK_SIZE * g_ramLfsBlocks) != EOK) {
         return -1;
     }
 
     if (!g_ramLfsDiskRegistered) {
-        lengths[0] = (int)RAM_LFS_DISK_BYTES;
+        lengths[0] = (int)(RAM_LFS_BLOCK_SIZE * g_ramLfsBlocks);
         addrs[0] = 0; /* 分区起始偏移：块回调直接以 offset 索引盘体 */
         ret = LOS_DiskPartition(RAM_LFS_DEV_NAME, "littlefs", lengths, addrs, 1);
         if (ret != 0) {
@@ -113,11 +122,8 @@ int TestFsVolumeEnsure(void)
                          * 13→72/轮、墙钟反而变慢,故保持 256。 */
     cfg.writeSize = 256;
     cfg.blockSize = (int)RAM_LFS_BLOCK_SIZE;
-    cfg.blockCount = (int)RAM_LFS_BLOCK_COUNT;
+    cfg.blockCount = (int)g_ramLfsBlocks;
     cfg.cacheSize = 256;
-    cfg.partNo = 0;
-    cfg.lookaheadSize = 16; /* 16, qemu fs_init.c 同款 */
-    cfg.blockCycles = 1000; /* 1000, RAM 盘无磨损语义，取 qemu 同款 */
     cfg.partNo = 0;
     cfg.lookaheadSize = 16; /* 16, qemu fs_init.c 同款 */
     cfg.blockCycles = 1000; /* 1000, RAM 盘无磨损语义，取 qemu 同款 */
@@ -129,7 +135,7 @@ int TestFsVolumeEnsure(void)
 
     g_ramLfsMounted = 1;
     PRINTK("ram_lfs: %s mounted (%uKB ram disk)\n", RAM_LFS_MOUNT_POINT,
-        (UINT32)(RAM_LFS_DISK_BYTES / 1024U));
+        (UINT32)(RAM_LFS_BLOCK_SIZE * g_ramLfsBlocks / 1024U));
     return 0;
 }
 

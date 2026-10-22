@@ -192,15 +192,18 @@ STATIC struct mqpersonal *DoMqueueCreate(const struct mq_attr *attr, const CHAR 
     }
 
     if (mqueueCB == NULL) {
+        (VOID)LOS_QueueDelete(mqueueID);
         errno = EINVAL;
         goto ERROUT;
     }
 
     if (SaveMqueueName(mqName, mqueueCB) != LOS_OK) {
+        (VOID)LOS_QueueDelete(mqueueID);
         goto ERROUT;
     }
 
     if (GetMqueueCBByID(mqueueCB->mq_id, &(mqueueCB->mqcb)) != LOS_OK) {
+        (VOID)LOS_QueueDelete(mqueueID);
         errno = ENOSPC;
         goto ERROUT;
     }

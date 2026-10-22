@@ -152,11 +152,39 @@ static_library("posix_time_test") {
   ]
 }
 
+static_library("posix_pthread_test") {
+  sources = [ "src/pthread/rwlock_try_shared_test.c" ]
+  defines = [
+    "POSIX_CASE_LAYER=TEST_LIB",
+    "POSIX_CASE_MODULE=TEST_POSIX",
+    "POSIX_CASE_LEVEL=TEST_LEVEL0",
+  ]
+  configs += [
+    ":posix_test_cfg",
+    "$LITEOSTOPDIR/testsuites:include",
+  ]
+}
+
+static_library("posix_poll_test") {
+  sources = [ "src/io/poll_test.c" ]
+  defines = [
+    "POSIX_CASE_LAYER=TEST_LIB",
+    "POSIX_CASE_MODULE=TEST_POSIX",
+    "POSIX_CASE_LEVEL=TEST_LEVEL0",
+  ]
+  configs += [
+    ":posix_test_cfg",
+    "$LITEOSTOPDIR/testsuites:include",
+  ]
+}
+
 group("posix_test") {
   deps = [
     ":posix_test_lib",
     ":posix_math_test",
     ":posix_mqueue_test",
+    ":posix_poll_test",
+    ":posix_pthread_test",
     ":posix_sem_test",
     ":posix_time_test",
   ]

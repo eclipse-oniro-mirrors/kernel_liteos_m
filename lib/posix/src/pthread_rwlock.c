@@ -10,11 +10,6 @@
 
 #define _MUX_MAGIC 0xEBCFDEA0
 
-struct RwList {
-    void *ptr;
-    void *next;
-};
-
 #define OS_RWLOCK_IS_LIST_EMPTY(head) ((head)->next == (void *)(head))
 
 static inline int OsMutexIsInit(const pthread_mutex_t *mutex)
@@ -54,50 +49,29 @@ static inline int OsRwlockIsOwner(pthread_rwlock_t *rwl, LosTaskCB *runTsk)
  */
 static int OsRwlockAddNode(pthread_rwlock_t *rwl, LosTaskCB *runTsk)
 {
-    struct RwList *rwListPtr;
-    rwlock_node_t *ownerPtr;
-    UINT32 spinIntSave;
-
-    rwListPtr = (struct RwList *)malloc(sizeof(struct RwList) + sizeof(rwlock_node_t));
-    if (rwListPtr == NULL) {
+    rwlock_node_t *node = malloc(sizeof(rwlock_node_t));
+    if (node == NULL) {
         return ENOMEM;
     }
-    spinIntSave = OsSpinLockTaskRq(runTsk);
-    rwListPtr->next = ((struct RwList *)&runTsk->rwList)->next;
-    ((struct RwList *)&runTsk->rwList)->next = (void *)rwListPtr;
-    OsSpinUnlockTaskRq(runTsk, spinIntSave);
-    rwListPtr->ptr = (void *)rwl;
-
-    ownerPtr = (rwlock_node_t *)((uintptr_t)rwListPtr + sizeof(struct RwList));
-    ownerPtr->next = rwl->owner.next;
-    rwl->owner.next = (void *)ownerPtr;
-    ownerPtr->ptr = (void *)runTsk;
+    node->ptr = (void *)runTsk;
+    node->next = rwl->owner.next;
+    rwl->owner.next = node;
     return ENOERR;
 }
 
-static void OsRwlockRmvNode(pthread_rwlock_t *rwl, LosTaskCB *runTsk, void *rwListArg)
+static void OsRwlockRmvNode(pthread_rwlock_t *rwl, LosTaskCB *runTsk)
 {
-    struct RwList *rwList = (struct RwList *)rwListArg;
-    struct RwList *prev = rwList;
-    struct RwList *node = rwList->next;
-    rwlock_node_t *ownerHead = &rwl->owner;
-    rwlock_node_t *ownerPrev = ownerHead;
-    rwlock_node_t *ownerNode = ownerHead->next;
+    rwlock_node_t *head = &rwl->owner;
+    rwlock_node_t *prev = head;
+    rwlock_node_t *node = head->next;
 
-    for (; node != rwList; prev = node, node = prev->next) {
-        if (node->ptr == (void *)rwl) {
+    for (; node != head; prev = node, node = node->next) {
+        if (node->ptr == (void *)runTsk) {
             break;
         }
     }
+
     prev->next = node->next;
-
-    for (; ownerNode != ownerHead; ownerPrev = ownerNode, ownerNode = ownerPrev->next) {
-        if (ownerNode->ptr == (void *)runTsk) {
-            break;
-        }
-    }
-    ownerPrev->next = ownerNode->next;
-
     free(node);
 }
 
@@ -433,14 +407,10 @@ int pthread_rwlock_unlock(pthread_rwlock_t *rwl)
 
     if (rwl->writer != 0) {
         rwl->writer = 0;
-        UINT32 spinIntSave = OsSpinLockTaskRq(runTsk);
-        OsRwlockRmvNode(rwl, runTsk, &runTsk->rwList);
-        OsSpinUnlockTaskRq(runTsk, spinIntSave);
+        OsRwlockRmvNode(rwl, runTsk);
     } else {
         rwl->readers--;
-        UINT32 spinIntSave = OsSpinLockTaskRq(runTsk);
-        OsRwlockRmvNode(rwl, runTsk, &runTsk->rwList);
-        OsSpinUnlockTaskRq(runTsk, spinIntSave);
+        OsRwlockRmvNode(rwl, runTsk);
 
         if (rwl->readers > 0) {
             pthread_mutex_unlock(&rwl->mutex);

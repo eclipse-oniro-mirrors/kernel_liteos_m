@@ -19,9 +19,5 @@ VOID ItSuitePosixIo(void)
     ItPosixPipe014();
     ItPosixPipe015();
     ItPosixPipe016();
-    /* BUG_17(resleak 批次): poll() 多无事件 fd 等待节点泄漏,
-     * 修复前隔离(红灯暴露用例, 断言修复后契约) */
-#if defined(POSIX_BUG_17_POLL_WAITNODE_LEAK) && POSIX_BUG_17_POLL_WAITNODE_LEAK == 1
     ItPosixPipe017();
-#endif
 }

@@ -447,6 +447,9 @@ STATIC UINT32 DoPthreadCancel(LosTaskCB *task)
         goto OUT;
     }
     /* threadList lives inside pthreadData, unlink before freeing. */
+     if (pthreadData->key != NULL) {
+        PthreadExitKeyDtor(pthreadData);
+     }
     LOS_ListDelete(&pthreadData->threadList);
     free((VOID *)(UINTPTR)task->arg);
     task->arg = (UINT32)(UINTPTR)NULL;

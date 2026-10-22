@@ -52,19 +52,18 @@ STATIC INLINE VOID SetAddPollWaitFlag(struct PollTable *table, BOOL addQueueFlag
 STATIC VOID DestroyPollWait(struct PollTable *table)
 {
     UINT32 intSave;
-    struct PollWaitNode *waitNode = table->node;
+    struct PollWaitNode *waitNode = NULL;
+    struct PollWaitNode *waitNodeNext = NULL;
 
-    /* table->node is NULL when no wait node was ever queued (poll with
-     * timeout == 0, or the event was already ready at the first query),
-     * in which case only the semaphore needs to be destroyed.
-     */
-    if (waitNode != NULL) {
-        intSave = LOS_IntLock();
-        LOS_ListDelete(&waitNode->node);
-        LOS_IntRestore(intSave);
-
+    intSave = LOS_IntLock();
+    LOS_DL_LIST_FOR_EACH_ENTRY_SAFE(waitNode, waitNodeNext, &table->node,
+                                    struct PollWaitNode, tableNode) {
+        LOS_ListDelete(&waitNode->wqNode);
+        LOS_ListDelete(&waitNode->tableNode);
         (VOID)LOS_MemFree(OS_SYS_MEM_ADDR, waitNode);
     }
+    LOS_IntRestore(intSave);
+
     if (LOS_SemDelete(table->sem) != LOS_OK) {
         PRINT_ERR("destroy poll sem failed!\n");
     }
@@ -80,8 +79,8 @@ STATIC VOID AddPollWaitQueue(struct PollWaitQueue *waitQueue, struct PollTable *
 
     intSave = LOS_IntLock();
     waitNode->table = table;
-    LOS_ListAdd(&waitQueue->queue, &waitNode->node);
-    table->node = waitNode;
+    LOS_ListAdd(&waitQueue->queue, &waitNode->wqNode);
+    LOS_ListTailInsert(&table->node, &waitNode->tableNode);
     LOS_IntRestore(intSave);
 }
 
@@ -139,7 +138,7 @@ VOID PollNotify(struct PollWaitQueue *waitQueue, PollEvent event)
     }
 
     intSave = LOS_IntLock();
-    LOS_DL_LIST_FOR_EACH_ENTRY(waitNode, &waitQueue->queue, struct PollWaitNode, node) {
+    LOS_DL_LIST_FOR_EACH_ENTRY(waitNode, &waitQueue->queue, struct PollWaitNode, wqNode) {
         if (!event || (event & waitNode->table->event)) {
             if (LOS_SemPost(waitNode->table->sem) != LOS_OK) {
                 PRINT_ERR("poll notify sem post failed!\n");
@@ -208,6 +207,7 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout)
     struct PollTable table = {0};
     INT32 count;
 
+    LOS_ListInit(&table.node);
     if (LOS_SemCreate(0, &table.sem) != LOS_OK) {
         errno = EINVAL;
         return -1;

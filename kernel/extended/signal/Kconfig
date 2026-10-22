@@ -2,6 +2,6 @@ config KERNEL_SIGNAL
     bool "Enable Signal"
     default n if KERNEL_RAM_PRESET_TINY || KERNEL_RAM_PRESET_SMALL
     default y
-    depends on KERNEL_EXTKERNEL
+    depends on KERNEL_EXTKERNEL && ARCH_ARM_CORTEX_M
     help
       Select y to build LiteOS with signal.

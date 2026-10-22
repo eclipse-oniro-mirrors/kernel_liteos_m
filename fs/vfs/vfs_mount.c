@@ -207,7 +207,6 @@ STATIC struct MountPoint *VfsMountPointInit(const char *source, const char *targ
     mp->mDev = NULL;
     mp->mRefs = 0;
     mp->mWriteEnable = (mountflags & MS_RDONLY) ? FALSE : TRUE;
-    mp->mFs->fsRefs++;
 
     if (source != NULL && strcpy_s((char *)mp + sizeof(struct MountPoint), ssize, source) != EOK) {
         LOSCFG_FS_FREE_HOOK(mp);
@@ -220,6 +219,7 @@ STATIC struct MountPoint *VfsMountPointInit(const char *source, const char *targ
         errno = ENOMEM;
         return NULL;
     }
+    mp->mFs->fsRefs++;
     mp->mDev = source ? (char *)mp + sizeof(struct MountPoint) : NULL;
     mp->mPath = (char *)mp + sizeof(struct MountPoint) + ssize;
 
@@ -301,6 +301,7 @@ int mount(const char *source, const char *target,
     return LOS_OK;
 
 errout:
+    mp->mFs->fsRefs--;
     LOSCFG_FS_FREE_HOOK(mp);
     LOS_FsUnlock();
     return (int)LOS_NOK;

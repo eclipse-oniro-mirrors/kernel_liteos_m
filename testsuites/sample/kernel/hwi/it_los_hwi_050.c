@@ -42,8 +42,8 @@ static UINT32 Testcase(VOID)
     ret = LOS_HwiSetPriority(OS_HWI_MAX_NUM + 1, hwiPrio);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_HWI_NUM_INVALID, ret);
 
-#ifdef LOSCFG_PLATFORM_WS63_M
-    /* F-Inv: ws63 PLIC 优先级有效范围 0..6，7 越界返回 LOS_ERRNO_HWI_PRIO_INVALID */
+#ifdef __RISC_V__
+    /* F-Inv: RISC-V PLIC 优先级有效范围 0..6，7 越界返回 LOS_ERRNO_HWI_PRIO_INVALID */
     ret = LOS_HwiSetPriority(HWI_NUM_TEST, 7); // 7 = PLIC_PRIO_LEVELS, out of range.
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_HWI_PRIO_INVALID, ret);
 
@@ -65,8 +65,8 @@ static UINT32 Testcase(VOID)
 
     /* F-Pos: 任务上下文查询当前中断号（qemu 线程模式 IPSR=0） */
     irqNum = LOS_HwiCurIrqNum();
-#ifdef LOSCFG_PLATFORM_WS63_M
-    /* ws63 任务态读 mcause 残留值无确定语义，仅验证接口路径可执行 */
+#ifdef __RISC_V__
+    /* RISC-V 任务态读 mcause 残留值无确定语义，仅验证接口路径可执行 */
     (VOID)irqNum;
 #else
     ICUNIT_ASSERT_EQUAL(irqNum, 0, irqNum);

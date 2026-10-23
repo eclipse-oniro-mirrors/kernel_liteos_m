@@ -79,13 +79,22 @@ action("mcs_includes") {
   ]
 }
 
+# SoC AMP support dir (headers + prebuilt archives): per-product under
+# device/soc/rockchip; the trees are identical copies (aarch64,
+# -mgeneral-regs-only, freestanding).
+if (device_name == "rk3588_m") {
+  soc_amp_dir = "//device/soc/rockchip/rk3588_m"
+} else {
+  soc_amp_dir = "//device/soc/rockchip/rk3568_m"
+}
+
 kernel_module(module_name) {
   deps = [ ":mcs_includes" ]
 
   sources = [
     # ---- libmetal liteos system backend (SoC repo, part of the shipped
     #      libmetal header tree) ----
-    "//device/soc/rockchip/rk3568_m/include/libmetal/system/liteos/metal_sys.c",
+    "${soc_amp_dir}/include/libmetal/system/liteos/metal_sys.c",
 
     # ---- libmica (kernel/liteos_m/compat/mcs, self-developed): baremetal
     #      pedestal + services ----
@@ -116,8 +125,8 @@ kernel_module(module_name) {
   # libmetal symbols, never the other way round. libmica (self-developed) is
   # compiled from source above and needs no archive.
   libs = [
-    rebase_path("//device/soc/rockchip/rk3568_m/prebuilt/libmetal.a", ""),
-    rebase_path("//device/soc/rockchip/rk3568_m/prebuilt/openamp.a", ""),
+    rebase_path("${soc_amp_dir}/prebuilt/libmetal.a", ""),
+    rebase_path("${soc_amp_dir}/prebuilt/openamp.a", ""),
   ]
 
   include_dirs = [
@@ -133,7 +142,7 @@ kernel_module(module_name) {
     "//kernel/liteos_m/compat/mcs/compat",
 
     mcs_include_root,
-    "//device/soc/rockchip/rk3568_m/include/open-amp",
+    "${soc_amp_dir}/include/open-amp",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/include",
   ]
@@ -168,7 +177,7 @@ kernel_module(module_name) {
 config("public") {
   include_dirs = [
     mcs_include_root,
-    "//device/soc/rockchip/rk3568_m/include/open-amp",
+    "${soc_amp_dir}/include/open-amp",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/include",
     "//kernel/liteos_m/compat/mcs/mica", # mica_cfg.h (board code: main.c)

@@ -2442,7 +2442,6 @@ static UINT32 TestCmsisLowFreq001(VOID)
     osTimerId_t timerId = NULL;
     osTimerId_t timerOnceId = NULL;
     osSemaphoreId_t semId = NULL;
-    osTimerFunc_t fn = CmsisLowFreqTimerCb;
 
     g_cmsisLowFreqTimerRan = 0;
 
@@ -2459,6 +2458,7 @@ static UINT32 TestCmsisLowFreq001(VOID)
     ICUNIT_GOTO_EQUAL((UINTPTR)name, (UINTPTR)NULL, (UINTPTR)name, EXIT);
 
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
+    osTimerFunc_t fn = CmsisLowFreqTimerCb;
     /* F-Inv: 定时器创建负路径——NULL 回调 / 非法 type。 */
     timerId = osTimerExtNew(NULL, osTimerPeriodic, NULL, NULL, osTimerRousesAllow, osTimerAlignAllow);
     ICUNIT_GOTO_EQUAL((UINTPTR)timerId, (UINTPTR)NULL, (UINTPTR)timerId, EXIT);

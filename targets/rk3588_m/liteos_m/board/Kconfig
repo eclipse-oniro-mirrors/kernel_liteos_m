@@ -1,0 +1,66 @@
+#
+# RK3588 AMP board options (sourced via $(DEVICE_PATH)/Kconfig).
+#
+
+config RK3588_OPENAMP
+    bool "Enable OpenAMP/rpmsg (MICA) support"
+    default n
+    depends on PLATFORM_RK3588_M
+    select COMPONENT_OPENAMP
+    help
+      Bring up open-amp + libmetal on the RTOS side and register the
+      rpmsg-tty endpoint for the Linux MICA framework (/dev/ttyRPMSG0).
+      Interrupt notification uses SGI 7 (MICA convention).
+
+config MCS
+    bool "Enable MCS hybrid deployment (AMP slave alongside Linux master)"
+    default n
+    depends on PLATFORM_RK3588_M
+    select RK3588_OPENAMP
+    help
+      MCS hybrid deployment: this core (CPU7, Cortex-A76) runs as the AMP
+      slave started and stopped by the Linux master mcs_km driver, sharing
+      the debug UART (Linux ttyFIQ0 console) with the master. When enabled:
+        - UartInit keeps the shared UART untouched (polled TX only);
+        - the shell does not poll UART RX (input comes over rpmsg tty);
+        - the mica/rpmsg service task is created at boot.
+      When disabled the board owns the UART itself (standalone bring-up).
+
+config MCS_NET
+    bool "Real-time NIC data plane on GMAC1 / ETH2 (slave side)"
+    default n
+    depends on MCS
+    help
+      Slave-side data plane for the real-time NIC endpoint: the Linux
+      master mcs_net.ko gives up GMAC1 (fe1c0000, the ETH2 RJ45 behind
+      a YT9214 switch) after bring-up (clocks, reset, pinmux + php_grf/
+      sys_grf, PHY/MDIO) and this core runs the RX/TX rings against the
+      frozen net.h contract (protocol-agnostic frame driver; any
+      link-layer protocol is implemented on top). The GMAC1 interrupt
+      (INTID 266 = GIC SPI 234 + 32) is owned by this core and
+      registered via ArchHwiCreate. Rx/Tx mode (interrupt / polled /
+      hybrid) is a runtime NetConfig option, not a build switch. The
+      RGMII side runs fixed 1000M full duplex (the switch buffers
+      between port speeds), so there is no forced-link policy. A user
+      demo task (net_test.c) is compiled in: polled RX, sending
+      numbered 0x88B5 test frames and printing statistics once a
+      second.
+
+config MCS_CAN
+    bool "Real-time CAN data plane on CAN1/CAN2, classic + CAN-FD (slave side)"
+    default n
+    depends on MCS
+    help
+      Slave-side data plane for the real-time CAN endpoints: the Linux
+      master mcs_can.ko gives up CAN1 (fea60000) and CAN2 (fea70000)
+      after bring-up (baudclk retarget + clock hold, CRU resets,
+      can1m1/can2m1 pinmux) and this core runs the tx/rx fifos against
+      the can.h v2 contract (classic CAN 2.0B AND CAN-FD frames,
+      protocol-agnostic). The CAN interrupts (INTID 374/375 = GIC SPI
+      342/343 + 32) are owned by this core and registered via
+      ArchHwiCreate. Rx/Tx mode, work mode (loopback/silent), bit rate
+      (arbitration + FD data phase) are runtime CanConfig options, not
+      build switches. A self-test task (can_test.c) is compiled in:
+      loopback phases covering classic frames, FD frames (FDF/BRS, up
+      to 64 bytes, data rates 2M/5M), acceptance filtering and both
+      ports - zero external hardware required.

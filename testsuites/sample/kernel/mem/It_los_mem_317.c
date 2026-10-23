@@ -47,9 +47,6 @@ static UINT32 TestCase(VOID)
     VOID *ptrRe = NULL;
     VOID *sysPtr = NULL;
     UINT32 taskId;
-    UINT32 totalSize = 0;
-    UINT32 availSize = 0;
-    UINT8 oldLevel;
     LOS_MEM_POOL_STATUS poolStatus = {0};
 
     ret = LOS_MemPoolInit(g_memPoolTC317, MEM_TC317_POOL_SIZE, 0);
@@ -76,6 +73,10 @@ static UINT32 TestCase(VOID)
     ICUNIT_GOTO_NOT_EQUAL(ptr, NULL, 0, EXIT);
 
     /* ---- 2: LOS_MemNodeSizeCheck 两档检查级别 ---- */
+#if (LOSCFG_BASE_MEM_NODE_SIZE_CHECK == 1)
+    UINT32 totalSize = 0;
+    UINT32 availSize = 0;
+    UINT8 oldLevel;
     oldLevel = LOS_MemCheckLevelGet();
     ret = LOS_MemCheckLevelSet(LOS_MEM_CHECK_LEVEL_LOW);
     if (ret == LOS_OK) {
@@ -99,6 +100,7 @@ static UINT32 TestCase(VOID)
         ICUNIT_GOTO_NOT_EQUAL(ret, LOS_OK, ret, EXIT);
     }
     (VOID)LOS_MemCheckLevelSet(oldLevel);
+#endif
 
     /* ---- 3: LOS_MemMrealloc 分支 ---- */
     ptrRe = LOS_MemMrealloc(g_memPoolTC317, NULL, 0x80, MEM_TC317_MOD_A);
@@ -156,7 +158,9 @@ EXIT:
     if (ptr != NULL) {
         (VOID)LOS_MemFree(g_memPoolTC317, ptr);
     }
+#if (LOSCFG_BASE_MEM_NODE_SIZE_CHECK == 1)
     (VOID)LOS_MemCheckLevelSet(oldLevel);
+#endif
     (VOID)LOS_MemDeInit(g_memPoolTC317);
     return LOS_NOK;
 }

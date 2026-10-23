@@ -44,7 +44,7 @@ module_group("arch") {
   } else if ("$board_cpu" == "ck802" || "$board_cpu" == "e802" ||
              "$board_cpu" == "ck804ef") {
     modules += [ "csky" ]
-  } else if ("$board_cpu" == "cortex-a55") {
+  } else if ("$board_cpu" == "cortex-a55" || "$board_cpu" == "cortex-a76") {
     # AArch64 builds its own copy of the interrupt dispatch helpers
     # (los_common_interrupt.c) inside the arm64 module.
     modules += [ "arm64" ]

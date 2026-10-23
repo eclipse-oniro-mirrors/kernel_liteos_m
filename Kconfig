@@ -162,6 +162,14 @@ config PLATFORM_RK3568_M
         Rockchip RK3568 (4x Cortex-A55, AArch64, GICv3) in AMP mode:
         CPU0-2 run Linux (MICA), CPU3 runs liteos_m at EL1.
 
+config PLATFORM_RK3588_M
+    bool "rk3588_m"
+    select ARCH_CORTEX_A76
+    help
+        Rockchip RK3588 (4x Cortex-A55 + 4x Cortex-A76, AArch64, GICv3)
+        in AMP mode: CPU0-6 run Linux (MCS), CPU7 (A76) runs liteos_m
+        at EL1.
+
 config PLATFORM_HI3516DV300
     bool "hi3516dv300"
     select ARCH_CORTEX_A7

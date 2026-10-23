@@ -70,7 +70,7 @@ static VOID TaskF01(VOID)
 #if defined(__RISC_V__) || defined(__ARM_ARCH_7A__)
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
 #else
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, HwiF01, (HwiIrqParam *)1);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, (HwiIrqParam *)(UINTPTR)1);
 #endif
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 

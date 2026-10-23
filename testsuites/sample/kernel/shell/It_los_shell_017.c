@@ -140,11 +140,11 @@ static UINT32 Testcase(VOID)
     const CHAR *argvLvReset[2] = {"level", "2"};  /* 恢复默认 ERROR */
     const CHAR *argvMdOver[2] = {"module", "9"};  /* 越界(>MODULE4) */
     const CHAR *argvMdOk[2] = {"module", "2"};
-    const CHAR *argvPath[2] = {"path", LK017_LOG_FILE};
     const CHAR *argvPathNull[2] = {"path", NULL};
     const CHAR *argvPathBad[2] = {"path", "/no_such_dir_017/f"};
     const CHAR *argvUnknown[2] = {"xyz", "1"};
 #if (LK017_QEMU_ROOTFS == 1)
+    const CHAR *argvPath[2] = {"path", LK017_LOG_FILE};
     struct PartitionCfg cfg;
     struct stat st = {0};
     INT32 fd = -1;

@@ -1,10 +1,12 @@
-/* llm_client.c — LLM 问答客户端库实现(v1.3: 流式 SSE 增量回调)
- * llm_chat        : 板 -> 客户网关 IP:443 (mbedTLS TLS1.2, SNI/Host=vhost, Bearer=key)
- *                   库内封装 JSON(单条 user 消息), 回复自动提取 content
- * llm_chat_raw    : 同一传输通道, 客户自带完整 JSON body, 响应原样返回(不解析)
- * llm_chat_stream : 同一通道 + "stream":true, SSE 增量收包(llm_stream.c 解码),
- *                   正文片段实时回调, 支持 callback 中止; 思考过程不透传
- * llm_ask         : 板 -> PC 中继 /say (明文 HTTP, 免 key, 每次短连接)
+/* llm_client.c — LLM 问答客户端库实现(v1.4: 流式 raw + 大 body)
+ * llm_chat            : 板 -> 客户网关 IP:443 (mbedTLS TLS1.2, SNI/Host=vhost, Bearer=key)
+ *                       库内封装 JSON(单条 user 消息), 回复自动提取 content
+ * llm_chat_raw        : 同一传输通道, 客户自带完整 JSON body, 响应原样返回(不解析)
+ * llm_chat_stream     : 同一通道 + "stream":true, SSE 增量收包(llm_stream.c 解码),
+ *                       正文片段实时回调, 支持 callback 中止; 思考过程不透传
+ * llm_chat_stream_raw : 同一流式通道, 客户自带 body, SSE data 行原样回调(不解析);
+ *                       body 不含 "stream" 时自动注入(v1.4)
+ * llm_ask             : 板 -> PC 中继 /say (明文 HTTP, 免 key, 每次短连接)
  *
  * v1.2 长连接复用:
  *   - TLS 连接缓存在库内(g_lock 保护), 按 (ip,vhost,port) 匹配, 重复调用免握手
@@ -16,6 +18,11 @@
  *   - 超时语义变化: 流式用"空闲预算"(60s 无数据判死), 总时长不设限;
  *     非流式接口仍为 90s 总预算, 不受影响
  *   - [DONE] 后继续排干到 chunked 终结(宽限 10s), 连接保持可复用
+ *
+ * v1.4 (SPEC_AGENT_ADAPTATION 修改点①配套):
+ *   - 新增 llm_chat_stream_raw(SSE data 行原样回调, agent 工具流重组用)
+ *   - 请求缓冲改为按 body 动态分配, body 上限 24576 -> 69632(对齐 agent
+ *     24K 会话 + 32K 轮内余量的 69K body)
  *
  * 注: 大缓冲一律 malloc(堆) — liteos_a 链接器对超大静态段会错位放置(实测页错误)
  */
@@ -42,9 +49,9 @@
 #define LLM_FD_TIMEOUT_SEC  5
 #define LLM_RETRY_BUDGET    18    /* 18 x 5s = 90s 总预算(每次尝试) */
 #define LLM_ACC_SIZE        8192
-#define LLM_REQ_SIZE        3584
+#define LLM_REQ_SIZE        25600   /* (v1.4 起仅为参考值) 请求缓冲按 body 动态分配 */
 #define LLM_BODY_SIZE       3072
-#define LLM_RAWBODY_MAX     3072
+#define LLM_RAWBODY_MAX     69632   /* raw body 上限(v1.4: 24K -> 68K, 对齐 agent 69K body) */
 #define LLM_ESCJ_SIZE       2048
 #define LLM_ASKREQ_SIZE     1200
 #define LLM_CONN_IDLE_SEC   30
@@ -378,7 +385,9 @@ static int build_post_req(char *req, int cap, const llm_gateway_t *gw,
 static int https_post_once(const llm_gateway_t *gw, const char *body, int blen,
                            char *acc, int acc_size, int *stale)
 {
-    char *req = (char *)malloc(LLM_REQ_SIZE);
+    /* v1.4: 请求缓冲按 body 动态分配(agent 工具流 body 可达 69K) */
+    size_t req_cap = (size_t)blen + 1024;
+    char *req = (char *)malloc(req_cap);
     int ret = LLM_ERR_MEM;
     int acc_len = 0;
     *stale = 0;
@@ -387,8 +396,8 @@ static int https_post_once(const llm_gateway_t *gw, const char *body, int blen,
         return LLM_ERR_MEM;
     }
 
-    int rl = build_post_req(req, LLM_REQ_SIZE, gw, body, blen);
-    if (rl <= 0 || rl >= LLM_REQ_SIZE) {
+    int rl = build_post_req(req, (int)req_cap, gw, body, blen);
+    if (rl <= 0 || rl >= (int)req_cap) {
         ret = LLM_ERR_SEND;
         goto out;
     }
@@ -631,6 +640,10 @@ typedef struct {
     int           total;     /* 正文总长(回调口径, 与 out 无关) */
     int           done_seen; /* 已见 data: [DONE] */
     int           canceled;  /* 客户回调请求中止 */
+    /* v1.4 raw 模式(llm_chat_stream_raw): data 行原样转发, 不提取正文 */
+    llm_stream_line_cb raw_cb;
+    void         *raw_ud;
+    int           raw_lines; /* 已转发行数(返回值口径) */
 } lstr_ctx_t;
 
 /* SSE data 行处理(协议层回调, 每个 "data:" 事件一次)
@@ -641,6 +654,15 @@ static int lstr_on_line(void *user, const char *line, int len)
     if (len == 6 && memcmp(line, "[DONE]", 6) == 0) {
         c->done_seen = 1;
         return 1;
+    }
+    /* v1.4 raw 模式: 行原样转发(转义保留), [DONE] 不透传(上面已拦) */
+    if (c->raw_cb != NULL) {
+        c->raw_lines++;
+        if (c->raw_cb(c->raw_ud, line, len) != 0) {
+            c->canceled = 1;
+            return 1;
+        }
+        return 0;
     }
     int fl = llm_sse_content_frag(line, c->frag, LLS_FRAG_SIZE);
     if (fl <= 0) {
@@ -704,7 +726,9 @@ static int https_stream_once(const llm_gateway_t *gw, const char *body, int blen
 {
     int ret = LLM_ERR_MEM;
     *stale = 0;
-    char *req  = (char *)malloc(LLM_REQ_SIZE);
+    /* v1.4: 请求缓冲按 body 动态分配(agent 工具流 body 可达 69K) */
+    size_t req_cap = (size_t)blen + 1024;
+    char *req  = (char *)malloc(req_cap);
     char *hbuf = (char *)malloc(1024);            /* 响应头增量缓冲 */
     char *rbuf = (char *)malloc(2048);            /* body 读缓冲 */
     llm_sse_t *sse = (llm_sse_t *)malloc(sizeof(llm_sse_t));
@@ -713,8 +737,8 @@ static int https_stream_once(const llm_gateway_t *gw, const char *body, int blen
     }
 
     /* ---- 写(与非流式同一请求格式) ---- */
-    int rl = build_post_req(req, LLM_REQ_SIZE, gw, body, blen);
-    if (rl <= 0 || rl >= LLM_REQ_SIZE) {
+    int rl = build_post_req(req, (int)req_cap, gw, body, blen);
+    if (rl <= 0 || rl >= (int)req_cap) {
         ret = LLM_ERR_SEND;
         goto out;
     }
@@ -859,10 +883,11 @@ static int https_stream_once(const llm_gateway_t *gw, const char *body, int blen
         }
     }
 
-    /* ---- 收尾 ---- */
-    ret = c->total;
+    /* ---- 收尾 ----
+     * raw 模式以已转发行数为产出; v1.3 模式以正文总长为产出 */
+    ret = (c->raw_cb != NULL) ? c->raw_lines : c->total;
     if (!c->canceled) {
-        if (c->total == 0 && !sse->done && !c->done_seen) {
+        if (ret == 0 && !sse->done && !c->done_seen) {
             ret = LLM_ERR_NORESP;     /* 空手而归且非正常终结 */
         }
         if (c->toosmall) {
@@ -1072,6 +1097,51 @@ int llm_chat_raw(const llm_gateway_t *gw, const char *json_body, char *out, int 
     int r = llm_chat_raw_locked(gw, json_body, out, out_len);
     pthread_mutex_unlock(&g_lock);
     return r;
+}
+
+/* ============ 通道1d: llm_chat_stream_raw — 流式 raw(v1.4) ============ */
+int llm_chat_stream_raw(const llm_gateway_t *gw, const char *json_body,
+                        llm_stream_line_cb cb, void *user)
+{
+    if (gw == NULL || gw->ip == NULL || gw->vhost == NULL ||
+        gw->api_key == NULL || json_body == NULL || cb == NULL) {
+        return LLM_ERR_ARGS;
+    }
+    int blen = (int)strlen(json_body);
+    if (blen <= 0 || blen > LLM_RAWBODY_MAX) {
+        return LLM_ERR_ARGS;
+    }
+
+    /* body 不含 "stream" 标志时在顶层对象注入 "stream":true(客户 body 可不写;
+     * 含则原样不重复注入)。顶层 JSON 必以 '{' 开头, 首 '{' 即顶层开括号 */
+    char *sbody = NULL;
+    const char *send_body = json_body;
+    if (strstr(json_body, "\"stream\"") == NULL) {
+        sbody = (char *)malloc((size_t)blen + 32);
+        if (sbody == NULL) {
+            return LLM_ERR_MEM;
+        }
+        const char *brace = strchr(json_body, '{');
+        if (brace != NULL) {
+            int pre = (int)(brace - json_body) + 1;
+            memcpy(sbody, json_body, (size_t)pre);
+            memcpy(sbody + pre, "\"stream\":true,", 14);
+            memcpy(sbody + pre + 14, json_body + pre, (size_t)(blen - pre));
+            sbody[blen + 14] = '\0';
+            send_body = sbody;
+        }
+    }
+
+    lstr_ctx_t c;
+    memset(&c, 0, sizeof(c));
+    c.raw_cb = cb;
+    c.raw_ud = user;
+
+    pthread_mutex_lock(&g_lock);
+    int ret = llm_https_stream(gw, send_body, (int)strlen(send_body), &c);
+    pthread_mutex_unlock(&g_lock);
+    free(sbody);
+    return ret;
 }
 
 /* ============ 通道2: llm_ask — PC 中继(免 key, 短连接不复用) ============ */

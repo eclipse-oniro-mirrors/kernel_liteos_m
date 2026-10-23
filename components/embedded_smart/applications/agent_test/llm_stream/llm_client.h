@@ -1,5 +1,5 @@
 /* llm_client.h — 镜像内模块共用的 LLM 问答客户端库
- * 四种用法:
+ * 五种用法:
  *   1) llm_chat():        客户自带网关+key — 板上直连 TLS 1.2, 库内封装 JSON,
  *                         回复自动提取 content(白话进白话出), 一次性返回全文
  *   2) llm_chat_raw():    高阶接口 — 客户自带完整 JSON body(多轮/system/参数),
@@ -7,8 +7,11 @@
  *   3) llm_chat_stream(): 流式接口(v1.3) — 请求自动加 "stream":true, 服务端
  *                         SSE 增量推送, 正文片段实时回调(打字机效果); 思考过程
  *                         (reasoning_content)不透传, 只吐正文
- *   4) llm_ask():         便捷接口 — 走 PC 中继(默认 192.168.1.1:8443 /say), 免 key
- * 链接: -lllmclient (动态) 或 libllmclient.a (静态, llm_chat/llm_chat_raw/llm_chat_stream 需另 -lmbedtls)
+ *   4) llm_chat_stream_raw(): 流式 raw(v1.4) — 客户自带完整 JSON body, 每个
+ *                         SSE data 行原样回调(转义保留, 不提取正文);
+ *                         供 agent 工具流重组 content+tool_calls 用
+ *   5) llm_ask():         便捷接口 — 走 PC 中继(默认 192.168.1.1:8443 /say), 免 key
+ * 链接: -lllmclient (动态) 或 libllmclient.a (静态, 流式接口需另 -lmbedtls)
  */
 #ifndef LLM_CLIENT_H
 #define LLM_CLIENT_H
@@ -49,7 +52,7 @@ int llm_chat(const llm_gateway_t *gw, const char *message, char *out, int out_le
 
 /* 高阶接口: 客户自带完整 JSON body(多轮对话/system prompt/参数自定义)
  * 链路与 llm_chat 相同; 区别仅在于 JSON 由客户拼、响应不解析:
- * json_body: 客户构造的请求体, 原样发送(库不做转义不做校验), 上限 3KB
+ * json_body: 客户构造的请求体, 原样发送(库不做转义不做校验), 上限 68KB
  *            须符合网关 /v1/chat/completions 约定, 例:
  *            {"model":"...","messages":[
  *              {"role":"system","content":"..."},
@@ -82,6 +85,29 @@ typedef int (*llm_stream_cb)(const char *token, int len, void *user);
  */
 int llm_chat_stream(const llm_gateway_t *gw, const char *message,
                     llm_stream_cb cb, void *user, char *out, int out_len);
+
+/* ============ 流式 raw(v1.4): SSE data 行原样回调 ============ */
+
+/* 流式 raw 行回调: 每个 SSE "data:" 载荷行调用一次(同步在调用线程)
+ * line/len : 载荷行(已去 "data:" 前缀, 带转义原样, NUL 结尾);
+ *            [DONE] 不透传(库内自行判终结); content/tool_calls 事件均原样送达,
+ *            由客户自行提取(llm_sse_content_frag / 自拼 key)
+ * user     : llm_chat_stream_raw 传入的透传指针
+ * 返回 0 继续收; 返回非 0 = 请求中止(库停止读取并排干, 已送行保留)
+ */
+typedef int (*llm_stream_line_cb)(void *user, const char *line, int len);
+
+/* 流式 raw: 客户自带完整 JSON body, 每个 SSE data 行原样回调, 不做任何解析
+ * 与 llm_chat_stream 的区别: body 客户拼(多轮/工具/参数自由), 行不提取不过滤 —
+ * 供调用方重组 content+tool_calls 回非流式响应格式(agent 工具流用)
+ * json_body: 客户构造的请求体, 上限 68KB; 不含 "stream" 标志时库自动在顶层
+ *            对象注入 "stream":true(含则原样), 其余内容原样发送
+ * cb       : 每个事件行回调一次, 必填(不回调请用 llm_chat_raw)
+ * 返回     : >=0 已回调事件行数(中止时 = 已送行数); 负数见 LLM_ERR_*
+ * 超时/复用: 与 llm_chat_stream 相同(空闲 60s 判死; TLS 连接缓存共用)
+ */
+int llm_chat_stream_raw(const llm_gateway_t *gw, const char *json_body,
+                        llm_stream_line_cb cb, void *user);
 
 /* 便捷接口: 走 PC 中继(免 key, 有线网即可)
  * llm_set_server 可换中继地址(默认 192.168.1.1:8443)

@@ -23,16 +23,18 @@ import("//build/lite/config/component/lite_component.gni")
 sdk_liteos_root = "//device/soc/hisilicon/hi3516dv300/sdk_liteos"
 mpp_lib_dir = rebase_path("$sdk_liteos_root/mpp/lib")
 
-# agent 组件源(device/.../platform/agent)直接编进本包:
+# agent 组件源(已移至 applications/agent_test/agent)直接编进本包(v1.4 流式版):
+# 单一源, 改 agent 代码 hb build 即生效, 不再经 device/soc 副本(那份已退役)。
 # 不 dep 其 BUILD.gn —— 那里引用不存在的 platform/network/libllmclient.a,
 # 且其 executable("agent_test") 与本包输出同名。LLM 库统一用本包
-# llm_stream 的 v1.3 流式库(llmclient_stream, 源码直编):
-#   - llm_chat/llm_chat_raw/llm_ask 全有, 原 llm_sdk/llm_chat_raw.c 补缺
-#     源文件从本包源码清单移除(v1.3 库已自带, 两处同编会重定义);
+# llm_stream 的 v1.4 流式库(llmclient_stream, 源码直编):
+#   - llm_chat/llm_chat_raw/llm_chat_stream_raw 全有(agent 修改点①流式依赖
+#     llm_chat_stream_raw, v1.4 库已实现; 原 llm_sdk/llm_chat_raw.c 补缺
+#     源文件从本包源码清单移除, 两处同编会重定义);
 #   - 原预编译 llm_sdk/libllmclient.a(v1.1) 保留不动, 不再链接;
-#   - 本包源码 include "llm_client.h" 解析到 llm_stream 的 v1.3 头
+#   - 本包源码 include "llm_client.h" 解析到 llm_stream 的 v1.4 头
 #     (无 LLM_MSG_MAX 宏, 消息上限 1KB 库内截断)。
-agent_root = "//device/soc/hisilicon/common/platform/agent"
+agent_root = "//kernel/liteos_m/components/embedded_smart/applications/agent_test/agent"
 
 source_set("agent_core_lib") {
   sources = [
@@ -54,8 +56,9 @@ source_set("agent_core_lib") {
   include_dirs = [
     "$agent_root",           # platform_3516.h(经 -include 强制包含)
     "$agent_root/include",   # litecrab/*.h, agent/agent.h
-    # llm_client.h: 仍用 llm_sdk 目录的 v1.1 头(仅声明, 与 v1.3 库 ABI 一致;
-    # agent 源码只调 llm_chat_raw, v1.3 头无 LLM_MSG_MAX 宏, 保持原头最稳)
+    # llm_client.h: v1.4 头(llm_stream 目录)在前 — agent 源码调
+    # llm_chat_raw/llm_chat_stream_raw, v1.4 头才有后者声明; v1.1 头兜底
+    "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_stream",
     "//kernel/liteos_m/components/embedded_smart/applications/agent_test/llm_sdk",
   ]
   cflags = [

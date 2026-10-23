@@ -196,16 +196,12 @@ ArchTaskSchedule:
     ldr     r0, =OS_NVIC_INT_CTRL
     ldr     r1, =OS_NVIC_PENDSVSET
     str     r1, [r0]
-#ifdef LOSCFG_ARCH_ARM_V6M
-    dsb
-    isb
-#else
-    mrs     r2, ipsr
-    cbnz    r2, ArchTaskScheduleExit
+    mrs     r1, ipsr
+    cmp     r1, #0
+    bne     ArchTaskScheduleExit
     mrs     r0, primask
     cpsie   i
     msr     primask, r0
-#endif
 ArchTaskScheduleExit:
     bx      lr
     .fnend

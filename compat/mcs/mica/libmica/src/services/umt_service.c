@@ -192,6 +192,12 @@ int mica_send_data(void *data, int offset, size_t len)
         return -EINVAL;
     }
 
+    /* keep [offset, offset + len) inside the 1MB send window; the subtract
+     * form is immune to integer wrap-around for extreme offset values */
+    if (offset < 0 || (size_t)offset > UMT_SEND_BUFFER_OFFSET - len) {
+        return -EINVAL;
+    }
+
     /* check send buffer initialized */
     if (!g_umt_priv.umt_send_addr_init) {
         mica_log("UMT: send_buffer_addr not initialized\n");
@@ -284,7 +290,13 @@ int mica_rcv_data(void *buffer, size_t *len)
 
     umt_data = (umt_data_t *)g_umt_priv.rx_msg.data;
 
-    /* TODO: check buffer size */
+    /* reject frames that do not fit the caller-provided buffer */
+    if (umt_data->data_len > *len) {
+        rpmsg_release_rx_buffer(&g_umt_ept, g_umt_priv.rx_msg.data);
+        g_umt_priv.rx_msg.len = 0;
+        g_umt_priv.rx_msg.data = NULL;
+        return -EINVAL;
+    }
 
     /* copy from shared memory */
     memcpy(buffer, (void *)(uintptr_t)umt_data->phy_addr, umt_data->data_len);

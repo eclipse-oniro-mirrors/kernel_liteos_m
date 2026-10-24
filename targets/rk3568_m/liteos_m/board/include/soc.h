@@ -48,7 +48,7 @@ extern "C" {
 #define PERIPH_SIZE_MMIO                        0x10000000UL /* 256MB: GIC/UART/CRU */
 /* mcs reserved window: vrings (0x74000000..0x740FFFFF, Device-mapped in
  * los_mmu.c) + RTOS image (0x74100000.., Normal WB). The net DMA pools
- * sit in a Normal Non-Cacheable block at 0x76000000 (see gmac1_profile.h
+ * sit in a Normal Non-Cacheable block at 0x77A00000 (see gmac1_profile.h
  * NET_DMA_*). */
 #define DDR_WIN_BASE_MMU                        0x74000000UL
 #define DDR_WIN_SIZE_MMU                        0x04000000UL /* 64MB: 0x74000000..0x77FFFFFF */

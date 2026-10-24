@@ -14,6 +14,7 @@
 #include "los_task.h"
 #include "los_debug.h"
 #include "los_interrupt.h"
+#include "los_arch_interrupt.h"
 #include "soc.h"
 #include "uart.h"
 #include "securec.h"
@@ -62,19 +63,6 @@ STATIC VOID *app_task(UINT32 arg)
     /* placeholder for the AMP application: sleep forever */
     while (1) {
         LOS_TaskDelay(100); /* 100 ticks = 1s */
-        {
-            /* TEMP rpcdiag: ride the proven tick channel (REMOVE BEFORE SUBMIT) */
-            extern unsigned int mica_rpc_diag_probe(unsigned int *addr, unsigned int *dst,
-                                                   unsigned int *rxCb, unsigned int *noh,
-                                                   unsigned int *loopN, unsigned int *rxCnt);
-            unsigned int rpcAddr, rpcDst, rxCb, noh, loopN, rxCnt;
-            unsigned int rpcReady = mica_rpc_diag_probe(&rpcAddr, &rpcDst, &rxCb, &noh, &loopN, &rxCnt);
-            mica_tty_printf("[app] tick alive %u rpc=%u(addr=%x dst=%x cb=%u noh=%u lp=%u rx=%u) tty=%d umt=%d\n",
-                           (UINT32)LOS_TickCountGet(), rpcReady, rpcAddr, rpcDst,
-                           rxCb, noh, loopN, rxCnt,
-                           mica_service_is_ready(MICA_SERVICE_TTY),
-                           mica_service_is_ready(MICA_SERVICE_UMT));
-        }
     }
     return NULL;
 }
@@ -108,6 +96,18 @@ VOID SlavePoweroff(VOID)
      * the SMC below never executes, the IPI stays masked, and the master's
      * wait_cpu_off times out leaving the core on - which then gets its image
      * overwritten by the next load. Power-off must be print-free. */
+    /* Quiesce our redistributor (slot = MPIDR Aff1): ProcessorSleep=1
+     * drops the wake line so a stray IPI cannot resurrect the core out
+     * of PSCI CPU_OFF (observed: the parked core woke up, AFFINITY_INFO
+     * went back to ON and the next mica_start failed with "not in the
+     * OFF state"). */
+    UINT64 mpidrPwr;
+    UINT32 slotPwr;
+    __asm__ volatile("mrs %0, mpidr_el1" : "=r"(mpidrPwr));
+    slotPwr = (UINT32)((mpidrPwr >> 8) & 0xFFU);
+    GICR_REG32(GICR_WAKER(slotPwr)) |= GICR_WAKER_PROCESSORSLEEP;
+    while ((GICR_REG32(GICR_WAKER(slotPwr)) & GICR_WAKER_CHILDRENASLEEP) == 0U) { }
+
     __asm__ volatile (
         "dsb  sy\n"
         "mov  x0, %0\n"
@@ -115,8 +115,17 @@ VOID SlavePoweroff(VOID)
         :
         : "r"((UINT64)PSCI_FN_CPU_OFF)
         : "x0", "memory");
-    /* PSCI CPU_OFF does not return on success; park just in case. */
+    /* PSCI CPU_OFF does not return on success. If the core is still woken
+     * (wake sources outside the GIC), re-issue CPU_OFF instead of parking
+     * in WFE with the core left "ON". */
     for (;;) {
+        __asm__ volatile (
+            "dsb  sy\n"
+            "mov  x0, %0\n"
+            "smc  #0\n"
+            :
+            : "r"((UINT64)PSCI_FN_CPU_OFF)
+            : "x0", "memory");
         __asm__ volatile ("wfe");
     }
 }

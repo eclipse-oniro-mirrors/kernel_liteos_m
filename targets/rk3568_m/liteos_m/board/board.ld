@@ -10,7 +10,11 @@
  *                   the window head 0x74000000..0x740FFFFF holds the
  *                   master-allocated openamp vrings, do not place code
  *                   or static data there)
- *   - region size : 63MB (0x74100000 .. 0x78000000)
+ *   - region size : 61MB (0x74100000 .. 0x77DFFFFF); the tail hosts
+ *                   two board-static windows NOT owned by the linker
+ *                   heap: net DMA pool 0x77A00000 + 2M (gmac1) and
+ *                   boot-probe scratch 0x77C00000 + 2M, so the heap
+ *                   must end before 0x77A00000 (ASSERT below)
  *   - entry       : reset_vector at image offset 0 (PSCI CPU_ON entry)
  *   - .resource_table must stay a loaded section: the master-side
  *                   remoteproc loader parses it from the ELF and writes
@@ -24,7 +28,7 @@ OUTPUT_ARCH(aarch64)
 
 MEMORY
 {
-    RTOS_RAM (rwx) : ORIGIN = 0x74100000, LENGTH = 63M
+    RTOS_RAM (rwx) : ORIGIN = 0x74100000, LENGTH = 61M
 }
 
 SECTIONS
@@ -147,3 +151,6 @@ SECTIONS
         *(.ARM.exidx* .ARM.extab* .gnu.linkonce.armexidx.* .gnu.linkonce.armextab.*)
     }
 }
+
+/* heap must never run into the board-static net DMA pool at 0x77A00000 */
+ASSERT(__heap_end <= (0x77A00000), "heap overruns the net DMA pool window")

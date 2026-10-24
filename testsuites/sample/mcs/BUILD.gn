@@ -92,6 +92,7 @@ static_library("test_mcs") {
     "It_McsSvc_004.c",
     "It_McsSvc_005.c",
     "It_McsSvc_006.c",
+    "It_McsSvc_007.c",
     ]
   }
 

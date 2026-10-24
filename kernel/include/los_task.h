@@ -531,8 +531,12 @@ extern "C" {
  */
 #ifdef LOSCFG_KERNEL_TASK_ENTRY_VOID_PTR
 typedef VOID *(*TSK_ENTRY_FUNC)(VOID *param);
+#define LOS_TASK_PARAM_INIT_ARG(initParam, arg) \
+        (initParam.pArgs = (VOID *)(arg))
 #else
 typedef VOID *(*TSK_ENTRY_FUNC)(UINT32 arg);
+#define LOS_TASK_PARAM_INIT_ARG(initParam, arg) \
+        (initParam.uwArg = (UINT32)(UINTPTR)(arg))
 #endif
 
 /**

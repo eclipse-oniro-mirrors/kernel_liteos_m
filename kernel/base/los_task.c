@@ -54,6 +54,9 @@
 #if (LOSCFG_KERNEL_PM == 1)
 #include "los_pm.h"
 #endif
+#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
+#include "los_hpl_pri.h"
+#endif
 
 /**
  * @ingroup los_task
@@ -115,9 +118,18 @@ STATIC VOID OsTaskStackFree(LosTaskCB *taskCB)
 #endif
     taskCB->topOfStack = 0;
     UINT32 taskId = taskCB->taskId;
+#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
+    VOID *hplHandle = taskCB->hpl;
+#endif
     (VOID)memset_s(taskCB, sizeof(LosTaskCB), 0, sizeof(LosTaskCB));
     taskCB->taskId = taskId;
     taskCB->taskStatus = OS_TASK_STATUS_UNUSED;
+#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
+    taskCB->hpl = hplHandle;
+    if (taskCB->hpl != NULL) {
+        OsHplPreDelete(taskCB->hpl);
+    }
+#endif
     LOS_ListAdd(&g_losFreeTask, &taskCB->pendList);
 }
 
@@ -171,6 +183,9 @@ LITE_OS_SEC_TEXT WEAK VOID OsIdleTask(VOID)
         LOS_TaskResRecycle();
         OsIdleHandler();
 
+#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
+        OsHplIdleCompressLog();
+#endif
 #ifdef LOSCFG_KERNEL_PM
         LOWPOWERIDLEHOOK lowPowerHook = OsLowpowerHookGet();
         if (lowPowerHook != NULL) {

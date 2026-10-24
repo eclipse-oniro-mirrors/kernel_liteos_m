@@ -31,7 +31,15 @@ board_toolchain = "arm-none-eabi-gcc"
 use_board_toolchain = true
 
 # The toolchain path installed, it's not mandatory if you have added toolchain path to your ~/.bashrc.
-board_toolchain_path = ""
+declare_args() {
+  hpl_use_wrapper = false
+}
+
+if (hpl_use_wrapper) {
+  board_toolchain_path = rebase_path("$root_out_dir/hpl/toolchain")
+} else {
+  board_toolchain_path = ""
+}
 
 # Compiler prefix.
 board_toolchain_prefix = "arm-none-eabi-"

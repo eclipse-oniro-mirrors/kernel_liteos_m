@@ -75,6 +75,10 @@ kernel_module(module_name) {
     sources += [ "los_rwsem.c" ]
   }
 
+  if (defined(LOSCFG_BASE_IPC_RINGBUF)) {
+    sources += [ "los_ringbuf.c" ]
+  }
+
   if (defined(LOSCFG_DEBUG_MUTEX)) {
     sources += [ "debug/los_mux_debug.c" ]
   }

@@ -154,6 +154,10 @@ typedef struct TaskTimeSlice {
 extern LosTaskCB            *g_osTaskCBArray;
 extern UINT32               g_taskMaxNum;
 
+#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
+extern LosTaskCB            g_mainTask[LOSCFG_KERNEL_CORE_NUM];
+#endif
+
 /**
  * @ingroup los_task
  * @brief check task id's invalidation

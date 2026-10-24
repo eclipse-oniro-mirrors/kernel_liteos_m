@@ -102,7 +102,11 @@
 
 /************************** mcause ***********************/
 #ifndef MCAUSE_INT_ID_MASK
-#define MCAUSE_INT_ID_MASK                  0x7FFFFFF
+#ifdef LOSCFG_ARCH_LINX_M
+#define MCAUSE_INT_ID_MASK                  0xFFFu
+#else
+#define MCAUSE_INT_ID_MASK                  0x7FFFFFFFu
+#endif
 #endif
 #define RISCV_MCAUSE_ECALL_U                8
 

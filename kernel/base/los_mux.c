@@ -36,6 +36,7 @@
 #include "los_spinlock.h"
 #include "los_interrupt.h"
 #include "los_sched_pri.h"
+#include "los_mp_pri.h"
 #include "los_percpu_pri.h"
 #include "los_trace.h"
 #include "los_memory.h"
@@ -462,6 +463,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_MuxPost(UINT32 muxHandle)
     ret = OsMuxPostOp(runTask, (MuxBaseCB *)muxPosted);
     SCHEDULER_UNLOCK(intSave);
     if (ret == MUX_SCHEDULE) {
+        LOS_MpSchedule(OS_MP_CPU_ALL);
         LOS_Schedule();
     }
     OsHookCall(LOS_HOOK_TYPE_MUX_POST, muxPosted);

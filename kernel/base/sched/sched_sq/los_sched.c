@@ -30,6 +30,7 @@
  */
 
 #include "los_sched_pri.h"
+#include "los_mp_pri.h"
 #include "los_task_base.h"
 #include "los_priqueue_pri.h"
 #include "los_task_pri.h"
@@ -98,6 +99,10 @@ VOID OsSchedResched(VOID)
         runTask->taskStatus &= ~OS_TASK_STATUS_RUNNING;
         newTask->taskStatus |= OS_TASK_STATUS_RUNNING;
         newTask->startTime = runTask->startTime;
+#ifdef LOSCFG_KERNEL_SMP
+        runTask->lastCpu = runTask->currCpu;
+        newTask->currCpu = ArchCurrCpuid();
+#endif
 
 #if (LOSCFG_BASE_CORE_TSK_MONITOR == 1)
         OsTaskSwitchCheck(runTask, newTask);
@@ -201,8 +206,7 @@ VOID OsSchedWait(LosTaskCB *runTask, LOS_DL_LIST *list, UINT32 timeout)
     if (timeout != LOS_WAIT_FOREVER) {
         runTask->taskStatus |= OS_TASK_STATUS_PEND_TIME;
         runTask->waitTimes = timeout;
-        SortLinkAttribute *head = &OsPercpuGet()->taskSortLink;
-        OsSchedAddSortLink(head, &runTask->sortList, timeout);
+        OsTaskAdd2TimerList(runTask, timeout);
     }
 
     OsSchedResched();
@@ -218,8 +222,7 @@ VOID OsSchedWake(LosTaskCB *resumedTask)
 
     resumedTask->taskStatus &= ~OS_TASK_STATUS_PEND;
     if (resumedTask->taskStatus & OS_TASK_STATUS_PEND_TIME) {
-        SortLinkAttribute *head = &OsPercpuGet()->taskSortLink;
-        OsSchedDeleteSortLink(head, &resumedTask->sortList);
+        OsTimerListDelete(resumedTask);
         resumedTask->taskStatus &= ~OS_TASK_STATUS_PEND_TIME;
     }
 
@@ -370,12 +373,15 @@ VOID OsSchedSetIdleTaskSchedParam(LosTaskCB *idleTask)
 
 LosTaskCB *OsSchedStart(VOID)
 {
-    PRINTK("Entering scheduler\n");
+    UINT32 intSave;
 
-    (VOID)LOS_IntLock();
+    LOS_SpinLockSave(&g_taskSpin, &intSave);
     LosTaskCB *newTask = OsGetTopTask();
 
     newTask->taskStatus |= OS_TASK_STATUS_RUNNING;
+#ifdef LOSCFG_KERNEL_SMP
+    newTask->currCpu = ArchCurrCpuid();
+#endif
     OsCurrTaskSet(newTask);
 
 #if (LOSCFG_BASE_CORE_CPUP == 1)
@@ -391,6 +397,7 @@ LosTaskCB *OsSchedStart(VOID)
     OsSwtmrResponseTimeReset();
 #endif
 
+    PRINTK("cpu %u entering scheduler\n", ArchCurrCpuid());
     OS_SCHEDULER_SET(ArchCurrCpuid());
 
     OsSchedExpireTimeUpdate(newTask, newTask);

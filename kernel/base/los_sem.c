@@ -36,6 +36,7 @@
 #include "los_interrupt.h"
 #include "los_memory.h"
 #include "los_sched_pri.h"
+#include "los_mp_pri.h"
 #include "los_percpu_pri.h"
 #include "los_trace.h"
 #include "los_exc.h"
@@ -302,6 +303,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_SemPost(UINT32 semHandle)
     OsSchedWake(resumedTask);
 
     SCHEDULER_UNLOCK(intSave);
+    LOS_MpSchedule(OS_MP_CPU_ALL);
     LOS_Schedule();
     OsHookCall(LOS_HOOK_TYPE_SEM_POST, semPosted, resumedTask);
     return LOS_OK;

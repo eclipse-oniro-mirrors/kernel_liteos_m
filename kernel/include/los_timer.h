@@ -83,6 +83,10 @@ UINT32 ArchEnterSleep(VOID);
  */
 ArchTickTimer *ArchSysTickTimerGet(VOID);
 
+#ifdef LOSCFG_KERNEL_SMP
+VOID ArchTickTimerStartPerCpu(VOID);
+#endif
+
 #define LOS_SysTickTimerGet ArchSysTickTimerGet
 
 #ifdef __cplusplus

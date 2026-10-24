@@ -150,6 +150,13 @@ VOID OsSchedExpireTimeUpdate(LosTaskCB *newTask, LosTaskCB *runTask);
 
 VOID SchedTimeBaseInit(VOID);
 
+#ifdef LOSCFG_KERNEL_SMP
+STATIC INLINE VOID OsSchedAffiChange(VOID *task)
+{
+    (VOID)task;
+}
+#endif
+
 VOID OsSchedFreezeTask(LosTaskCB *taskCB);
 
 VOID OsSchedUnfreezeTask(LosTaskCB *taskCB);

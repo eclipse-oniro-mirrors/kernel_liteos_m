@@ -218,6 +218,7 @@ STATIC INLINE VOID OsSpinUnlockTaskRq(LosTaskCB *taskCB, UINT32 intSave)
 
 extern LOWPOWERIDLEHOOK OsLowpowerHookGet(VOID);
 LITE_OS_SEC_TEXT VOID OsTaskScan(VOID);
+LITE_OS_SEC_TEXT VOID OsTaskAdd2TimerList(LosTaskCB *taskCB, UINT32 timeout);
 LITE_OS_SEC_TEXT VOID OsTimerListDelete(LosTaskCB *taskCB);
 
 #endif /* _LOS_TASK_PRI_H */

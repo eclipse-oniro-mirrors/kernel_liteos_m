@@ -1,5 +1,31 @@
 /*
- * Copyright (c) 2024 morpheus
+ * Copyright (c) 2020-2022 Huawei Device Co., Ltd. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this list of
+ *    conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
+ *    of conditions and the following disclaimer in the documentation and/or other materials
+ *    provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
+ *    to endorse or promote products derived from this software without specific prior written
+ *    permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "los_context.h"
@@ -13,19 +39,11 @@
 
 extern VOID OsTaskEntry(UINT32 taskId);
 
-/* ****************************************************************************
- Function    : ArchInit
- Description : arch init function
- **************************************************************************** */
 LITE_OS_SEC_TEXT_INIT VOID ArchInit(VOID)
 {
     HalHwiInit();
 }
 
-/* ****************************************************************************
- Function    : ArchTaskExit
- Description : Task exit function
- **************************************************************************** */
 LITE_OS_SEC_TEXT_MINOR NORETURN VOID ArchTaskExit(VOID)
 {
     (VOID)LOS_IntLock();
@@ -33,14 +51,6 @@ LITE_OS_SEC_TEXT_MINOR NORETURN VOID ArchTaskExit(VOID)
     }
 }
 
-/* ****************************************************************************
- Function    : ArchTaskStackInit
- Description : Task stack initialization function
- Input       : taskId     --- TaskID
-               stackSize  --- Total size of the stack
-               topStack   --- Top of task's stack
- Return      : Context pointer
- **************************************************************************** */
 LITE_OS_SEC_TEXT_INIT VOID *ArchTaskStackInit(UINT32 taskId, UINT32 stackSize, VOID *topStack)
 {
     UINT32 index = 1;
@@ -58,7 +68,6 @@ LITE_OS_SEC_TEXT_INIT VOID *ArchTaskStackInit(UINT32 taskId, UINT32 stackSize, V
 
     context->regPSR = PSR_MODE_SVC_ARM;
 #ifdef LOSCFG_ARCH_FPU_ENABLE
-    /* 0xAAA0000000000000LL : float reg initialed magic word */
     for (index = 0; index < FP_REGS_NUM; index++) {
         context->D[index] = 0xAAA0000000000000LL + index; /* D0 - D31 */
     }
@@ -69,10 +78,6 @@ LITE_OS_SEC_TEXT_INIT VOID *ArchTaskStackInit(UINT32 taskId, UINT32 stackSize, V
     return (VOID *)context;
 }
 
-/* ****************************************************************************
- Function    : ArchSignalContextInit
- Description : Initialize a signal handler context on the task stack
- **************************************************************************** */
 VOID *ArchSignalContextInit(VOID *stackPointer, VOID *stackTop, UINTPTR sigHandler, UINT32 param)
 {
     UNUSED(stackTop);

@@ -70,7 +70,7 @@ VOID TestExtraTaskDelay(UINT32 uwTick)
 #ifdef LOSCFG_KERNEL_SMP
     // trigger task schedule may occor on another core
     // needs adding delay and checking status later
-    LosTaskDelay(uwTick);
+    LOS_TaskDelay(uwTick);
 #else
     // do nothing
 #endif

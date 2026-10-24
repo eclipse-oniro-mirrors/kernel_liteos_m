@@ -1455,7 +1455,6 @@ LITE_OS_SEC_TEXT_INIT STATIC INLINE VOID OsTaskResourceReclaim(LosTaskCB *taskCB
     (VOID)intSave;
 
 #ifdef LOSCFG_BASE_IPC_EVENT
-    LOS_EventDestroy(&(taskCB->event));
     taskCB->event.uwEventID = OS_NULL_INT;
     taskCB->eventMask = 0;
 #endif
@@ -1509,14 +1508,14 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsTaskDelete(UINT32 taskId, UINTPTR retVal)
         }
     }
 
+    OsHookCall(LOS_HOOK_TYPE_TASK_DELETE, taskCB);
+
     if (tempStatus & OS_TASK_STATUS_READY) {
         (VOID)OsSchedReadyTaskRemove(taskCB);
     } else if ((tempStatus & OS_TASK_STATUS_PEND) && (!OS_TASK_IS_JOINING(taskCB))) {
         LOS_ListDelete(&taskCB->pendList);
         taskCB->taskStatus &= ~OS_TASK_STATUS_PEND;
     }
-
-    OsHookCall(LOS_HOOK_TYPE_TASK_DELETE, taskCB);
 
 #ifdef LOSCFG_TASK_JOINABLE
     OsTaskCancelJoin(taskCB);

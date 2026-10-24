@@ -41,6 +41,7 @@ kernel_module(module_name) {
     "los_swtmr.c",
     "debug/los_swtmr_debug.c",
     "los_misc.c",
+    "los_mp.c",
     "los_percpu.c",
     "los_task.c",
     "los_tick.c",

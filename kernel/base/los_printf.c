@@ -110,15 +110,14 @@ STATIC VOID OutputControl(const CHAR *str, UINT32 len, OutputType type)
     return;
 }
 
-CHAR g_aBuf[SIZEBUF];
-
 STATIC VOID OsVprintf(const CHAR *fmt, va_list ap, OutputType type)
 {
     INT32 len = 0;
+    CHAR aBuf[SIZEBUF] = {0};
     CHAR *bBuf = NULL;
     UINT32 bufLen = SIZEBUF;
 
-    bBuf = g_aBuf;
+    bBuf = aBuf;
     len = vsnprintf_s(bBuf, bufLen, bufLen - 1, fmt, ap);
 #ifdef LOSCFG_KERNEL_PRINTF_SIZE_EXTEND
     if ((len == -1) && (*bBuf == '\0')) {

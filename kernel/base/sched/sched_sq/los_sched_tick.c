@@ -422,11 +422,13 @@ VOID LOS_SchedTickHandler(VOID)
     LosTaskCB *runTask = OsCurrTaskGet();
     if (g_schedResponseID == OS_INVALID) {
         g_tickIntLock++;
+        SCHEDULER_UNLOCK(intSave);
         if (g_swtmrScan != NULL) {
             (VOID)g_swtmrScan();
         }
 
         OsTaskScan();
+        SCHEDULER_LOCK(intSave);
         g_tickIntLock--;
     }
 
@@ -445,7 +447,7 @@ VOID LOS_SchedTickHandler(VOID)
     }
 
     g_schedResponseTime = OS_SCHED_MAX_RESPONSE_TIME;
-    if (LOS_CHECK_SCHEDULE) {
+    if (OsPreemptableInSched()) {
         LOS_Schedule();
     } else {
         OsSchedUpdateExpireTime();

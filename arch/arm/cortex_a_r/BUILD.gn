@@ -10,6 +10,7 @@ kernel_module(module_name) {
     "fault.c",
     "los_interrupt.c",
     "mmu.c",
+    "smp.c",
     "timer.c",
   ]
   configs += [ "$LITEOSTOPDIR:warn_config" ]

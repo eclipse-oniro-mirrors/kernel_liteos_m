@@ -323,16 +323,15 @@ STATIC UINT32 OsMuxPendForPosix(pthread_mutex_t *mutex, UINT32 timeout)
 {
     UINT32 intSave;
     LosMuxCB *muxPended = NULL;
-    UINT32 retErr;
     LosTaskCB *runningTask = NULL;
     UINT32 muxHandle = mutex->handle;
     LosTaskCB *owner = NULL;
 
     muxPended = GET_MUX(muxHandle);
-    intSave = LOS_IntLock();
+    SCHEDULER_LOCK(intSave);
 
     if (muxPended->muxStat == LOS_UNUSED) {
-        LOS_IntRestore(intSave);
+        SCHEDULER_UNLOCK(intSave);
         OS_RETURN_ERROR(LOS_ERRNO_MUX_INVALID);
     }
 
@@ -347,20 +346,20 @@ STATIC UINT32 OsMuxPendForPosix(pthread_mutex_t *mutex, UINT32 timeout)
             LOS_BitmapSet(&runningTask->priBitMap, runningTask->priority);
             (VOID)OsSchedPrioModify(runningTask, mutex->stAttr.prioceiling);
         }
-        LOS_IntRestore(intSave);
+        SCHEDULER_UNLOCK(intSave);
         OsHookCall(LOS_HOOK_TYPE_MUX_PEND, muxPended, timeout);
         return LOS_OK;
     }
 
     if ((muxPended->owner == runningTask) && (mutex->stAttr.type == PTHREAD_MUTEX_RECURSIVE)) {
         muxPended->muxCount++;
-        LOS_IntRestore(intSave);
+        SCHEDULER_UNLOCK(intSave);
         OsHookCall(LOS_HOOK_TYPE_MUX_PEND, muxPended, timeout);
         return LOS_OK;
     }
 
     if (!timeout) {
-        LOS_IntRestore(intSave);
+        SCHEDULER_UNLOCK(intSave);
         OS_RETURN_ERROR(LOS_ERRNO_MUX_UNAVAILABLE);
     }
 
@@ -377,18 +376,14 @@ STATIC UINT32 OsMuxPendForPosix(pthread_mutex_t *mutex, UINT32 timeout)
     OsHookCall(LOS_HOOK_TYPE_MUX_PEND, muxPended, timeout);
 
     OsSchedWait(runningTask, &muxPended->muxList, timeout);
-    LOS_IntRestore(intSave);
-
-    intSave = LOS_IntLock();
     if (runningTask->taskStatus & OS_TASK_STATUS_TIMEOUT) {
         runningTask->taskStatus &= (~OS_TASK_STATUS_TIMEOUT);
         OsMuxBitmapRestore(runningTask, owner);
-        retErr = LOS_ERRNO_MUX_TIMEOUT;
-        LOS_IntRestore(intSave);
-        OS_RETURN_ERROR(retErr);
+        SCHEDULER_UNLOCK(intSave);
+        OS_RETURN_ERROR(LOS_ERRNO_MUX_TIMEOUT);
     }
 
-    LOS_IntRestore(intSave);
+    SCHEDULER_UNLOCK(intSave);
     return LOS_OK;
 }
 
@@ -401,21 +396,21 @@ STATIC UINT32 OsMuxPostForPosix(pthread_mutex_t *mutex)
     UINT32 muxHandle = mutex->handle;
 
     muxPosted = GET_MUX(muxHandle);
-    intSave = LOS_IntLock();
+    SCHEDULER_LOCK(intSave);
 
     if (muxPosted->muxStat == LOS_UNUSED) {
-        LOS_IntRestore(intSave);
+        SCHEDULER_UNLOCK(intSave);
         OS_RETURN_ERROR(LOS_ERRNO_MUX_INVALID);
     }
 
     runningTask = (LosTaskCB *)OsCurrTaskGet();
     if ((muxPosted->muxCount == 0) || (muxPosted->owner != runningTask)) {
-        LOS_IntRestore(intSave);
+        SCHEDULER_UNLOCK(intSave);
         OS_RETURN_ERROR(LOS_ERRNO_MUX_INVALID);
     }
 
     if ((--(muxPosted->muxCount) != 0) && (mutex->stAttr.type == PTHREAD_MUTEX_RECURSIVE)) {
-        LOS_IntRestore(intSave);
+        SCHEDULER_UNLOCK(intSave);
         OsHookCall(LOS_HOOK_TYPE_MUX_POST, muxPosted);
         return LOS_OK;
     }
@@ -452,12 +447,12 @@ STATIC UINT32 OsMuxPostForPosix(pthread_mutex_t *mutex)
 
         OsSchedWake(resumedTask);
 
-        LOS_IntRestore(intSave);
+        SCHEDULER_UNLOCK(intSave);
         OsHookCall(LOS_HOOK_TYPE_MUX_POST, muxPosted);
         LOS_Schedule();
     } else {
         muxPosted->owner = NULL;
-        LOS_IntRestore(intSave);
+        SCHEDULER_UNLOCK(intSave);
     }
 
     return LOS_OK;

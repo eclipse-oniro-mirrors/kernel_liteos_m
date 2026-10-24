@@ -22,6 +22,7 @@ VOID ItPosixPipe013(VOID);
 VOID ItPosixPipe014(VOID);
 VOID ItPosixPipe015(VOID);
 VOID ItPosixPipe016(VOID);
+VOID ItPosixPipe017(VOID);
 
 VOID ItSuitePosixIo(VOID);
 

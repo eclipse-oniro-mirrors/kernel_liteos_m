@@ -115,6 +115,7 @@ static_library("test_mem") {
     "It_los_mem_330.c",
     "It_los_mem_331.c",
     "It_los_mem_332.c",
+    "It_los_mem_333.c",
     "It_los_mem_315.c",
     "it_los_mem.c",
   ]

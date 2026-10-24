@@ -114,6 +114,7 @@ static_library("test_swtmr") {
   "It_los_swtmr_121.c",
   "It_los_swtmr_122.c",
     "It_los_swtmr_123.c",
+    "It_los_swtmr_124.c",
     "It_los_swtmr_Align_001.c",
     "It_los_swtmr_Align_002.c",
     "It_los_swtmr_Align_003.c",

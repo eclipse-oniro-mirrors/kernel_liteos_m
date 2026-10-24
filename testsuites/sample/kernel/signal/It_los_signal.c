@@ -40,4 +40,9 @@ void ItSuiteLosSignal(void)
     ItLosSignal006(); /* SignalMask/SignalWait 防御分支 + 中断上下文拒绝 */
     ItLosSignal007(); /* 重复同号信号复用链表节点二次投递 */
     ItLosSignal008(); /* 中断内投递信号后等待走快速路径 */
+    /* BUG_19(resleak 批次): 删除带未处理待决信号的任务泄漏 OsSigInfoNode,
+     * 修复前隔离(红灯暴露用例, 断言修复后契约) */
+#if defined(KERNEL_BUG_19_SIGNAL_TASKDEL_LEAK) && KERNEL_BUG_19_SIGNAL_TASKDEL_LEAK == 1
+    ItLosSignal009();
+#endif
 }

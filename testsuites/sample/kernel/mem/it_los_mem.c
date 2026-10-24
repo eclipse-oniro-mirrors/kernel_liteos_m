@@ -299,5 +299,12 @@ VOID ItSuiteLosMem(void)
     ItLosMulPool004(); /* LOS_MulPoolRealloc 跨池拷贝(OsMulPoolCopyToNewNode) */
     ItLosMulPool005(); /* LOS_MulPoolShrink 有占用池跳过 */
 #endif
+    /* BUG_24(resleak 批次): OsSlabStatisticsGet 孤儿零调用——slab 内部泄漏
+     * 不可观测(红灯暴露用例); 仅 slab 板(如 ws63/hi3322)注册 */
+#if defined(LOSCFG_KERNEL_MEM_SLAB_EXTENTION)
+#if defined(KERNEL_BUG_24_SLAB_STAT_BLIND) && KERNEL_BUG_24_SLAB_STAT_BLIND == 1
+    ItLosMem333();
+#endif
+#endif
     MemEnd();
 }

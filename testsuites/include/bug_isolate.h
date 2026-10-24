@@ -211,4 +211,60 @@
 #define FUZZ_BUG_S13_CLEANUP_NONTASK     0 /* pthread_cleanup_push 于非 pthread 任务: 野指针崩溃(问题39) */
 #define FUZZ_BUG_S14_HWI_DEL_SYSTEM      0 /* LOS_HwiDelete 可删系统在用中断: tick 被删看门狗复位(问题40) */
 
+/* ==================== resleak 批次(20261023) 资源泄漏缺陷隔离宏 ====================
+ * 7 个商用代码资源泄漏缺陷的暴露用例(每条断言修复后契约, 修复前=红灯):
+ * 宏=0 期间不注册不执行, 基线保持全绿; 修复后置 1 恢复作为回归看护常跑。
+ * qemu 全量取证(20261024, logs/qemu_test_20261024_112643.log 等): BUG_17/18/
+ * 19/20/21/22 六条红灯实锤([Failed]+[ResLeak] 佐证), BUG_23 在 qemu 结构性
+ * 不可达(SWTMR_IN_ISR 形态, 见宏注释), 待环形形态板验证。
+ * 问题详情见 批次目录 resleak_test_design/resleak_MR_NONE_20261023_2130/问题记录/。 */
+#define POSIX_BUG_17_POLL_WAITNODE_LEAK  0 /* ItPosixPipe017: poll() 监听>=2个无事件 fd 时
+                                            * PollWaitNode 堆节点泄漏(poll.c:84 单指针覆盖,
+                                            * DestroyPollWait 只释放最后一个); 隔离点在
+                                            * It_posix_io.c 聚合注册点 */
+#define POSIX_BUG_18_PTHREAD_COND_MUTEX_LEAK 0 /* ItPosixPthread043: mux 池耗尽时 pthread_cond_init
+                                                * 假成功(pthread_cond.c:159 忽略内部锁失败)且
+                                                * destroy 失败早退跳过 free(:183-187), 每对
+                                                * init/destroy 泄漏一个堆块; 隔离点在
+                                                * It_posix_pthread.c 聚合注册点 */
+#define KERNEL_BUG_19_SIGNAL_TASKDEL_LEAK 0 /* ItLosSignal009: 删除带未处理待决信号的任务,
+                                              * OsTaskResourceReclaim(los_task.c:1451)只释放
+                                              * sigCB 不遍历 sigInfoList, OsSigInfoNode 永久
+                                              * 泄漏; 隔离点在 It_los_signal.c 聚合注册点 */
+#define POSIX_BUG_20_PTHREAD_CANCEL_KEY_LEAK 0 /* ItPosixPthread044: 异步取消线程
+                                                 * DoPthreadCancel(pthread.c:449-453)不释放
+                                                 * TSD key 数组(512B)且跳过析构器(仅
+                                                 * pthread_exit 路径回收); 连带发现: joinable
+                                                 * 线程被硬杀后遗留不可 join 的 ZOMBIE 任务;
+                                                 * 隔离点在 It_posix_pthread.c 聚合注册点 */
+#define KERNEL_BUG_21_PM_LOCKCNT_FULL_LEAK 0 /* ItLosPm007: PM 唤醒锁全局计数打满后新名字
+                                              * 请求, OsPmLockRequest(los_pm.c:594-617)节点
+                                              * 先插链表后查容量, 失败不回滚 -> 节点永久
+                                              * 滞留; 隔离点在 It_los_pm.c 聚合注册点 */
+#define POSIX_BUG_22_MQOPEN_NAMEFAIL_LEAK 0 /* ItPosixQueue058: mq_open 名字保存失败
+                                             * (mqueue.c:199-201)ERROUT 只释放名字不删刚建的
+                                             * 内核队列, 槽位+缓冲永久泄漏; 隔离点在
+                                             * It_posix_queue.c 聚合注册点 */
+#define KERNEL_BUG_23_SWTMR_EXPIRYLIST_LEAK 0 /* ItLosSwtmr124: 同 tick 到期数超过
+                                               * expiryList 容量时 ONCE 定时器被丢弃置
+                                               * DELETING(los_swtmr.c:410-418+:219), 无人
+                                               * 回收且不可再删, 槽位永久泄漏。仅 swtmr
+                                               * 任务形态板可触发(qemu 配置
+                                               * LOSCFG_BASE_CORE_SWTMR_IN_ISR=1, 环形队列
+                                               * 分支编译出局, 结构性不可达); 注册点在
+                                               * It_los_swtmr.c, 外层加
+                                               * !LOSCFG_BASE_CORE_SWTMR_IN_ISR 板级条件 */
+#define KERNEL_BUG_24_SLAB_STAT_BLIND      0 /* ItLosMem333(红灯暴露用例): OsSlabStatisticsGet
+                                               * (los_slabmem.c:505) extern 声明并完整实现(5 字段:
+                                               * totalSize/usedSize/freeSize/allocCount/freeCount)却全仓
+                                               * 零调用(孤儿)——slab 内部泄漏不可观测。分配 4 个 36B
+                                               * 不释放(真实泄漏)后 LOS_MemTotalUsedGet delta=0(公共
+                                               * API 看不到), OsSlabStatisticsGet usedSize +272(孤儿函数
+                                               * 能报数但无公共调用方) -> 红灯(公共 API 应反映 slab 用量
+                                               * 变化, 修复前 delta=0)。LOS_MemTotalUsedGet 不合并 slab
+                                               * =设计如此(slab 大块已计入, 合并重复计算); 孤儿=问题
+                                               * (extern+完整实现+零 consumer)。修复: 提供公共 API 暴露
+                                               * slab usedSize 或删除孤儿函数。仅 slab 板注册(qemu 无
+                                               * slab 不注册)。 */
+
 #endif /* _BUG_ISOLATE_H */

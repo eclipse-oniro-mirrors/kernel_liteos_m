@@ -284,6 +284,9 @@ STATIC VOID OsExcMsgDump(VOID)
     /* Ignore the return code when matching CSEC rule 6.6(4). */
     (VOID)memset_s(g_excMsgArray, g_excArraySize, EXC_MSG_ARRAY_INIT_VALUE, g_excArraySize);
 
+    /* Reset the dump cursor to the array base on every entry. */
+    g_excContent = (VOID *)g_excMsgArray;
+
     *((UINT32 *)g_excContent) = MAX_EXC_MEM_SIZE;  /* The total length of exception information. */
     g_excContent = (UINT8 *)g_excContent + sizeof(UINT32);
 

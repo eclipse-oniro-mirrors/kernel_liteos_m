@@ -40,6 +40,9 @@ VOID ItSuiteMcs(VOID)
 #ifdef LOSCFG_MCS_NET
     ItSuiteMcsNet();
 #endif
+#ifdef LOSCFG_MCS_TIMER
+    ItSuiteMcsTimer();
+#endif
 #ifdef LOSCFG_MCS_RPC
     ItMcsWaitServicesReady();
     ItSuiteMcsSvc();

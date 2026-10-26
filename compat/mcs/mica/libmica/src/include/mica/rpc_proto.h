@@ -93,6 +93,14 @@ struct rpc_stat_resp {
 #define RPC_FUNC_RECVFROM   0x113
 #define RPC_FUNC_CLOSE      0x120
 #define RPC_FUNC_SETSOCKOPT 0x121
+#define RPC_FUNC_GETSOCKOPT 0x122
+#define RPC_FUNC_GETSOCKNAME 0x123
+#define RPC_FUNC_GETPEERNAME 0x124
+#define RPC_FUNC_SHUTDOWN    0x125
+#define RPC_FUNC_SELECT      0x126
+
+/* ---- proxy shell (slave client -> master worker) ---- */
+#define RPC_FUNC_SYSTEM     0x130
 
 /* RPC_FUNC_SOCKET args/resp */
 struct rpc_socket_args {
@@ -173,6 +181,139 @@ struct rpc_setsockopt_args {
     int32_t optname;
     uint32_t optlen;
     /* optval bytes follow */
+};
+
+/* RPC_FUNC_GETSOCKOPT args; resp payload: [optlen u32][optval bytes] */
+struct rpc_getsockopt_args {
+    int32_t fd;
+    int32_t level;
+    int32_t optname;
+    uint32_t optlen; /* in: caller buffer capacity */
+};
+
+/* RPC_FUNC_GETSOCKNAME / GETPEERNAME args */
+struct rpc_getname_args {
+    int32_t fd;
+};
+/* resp payload: [addrlen u32][sockaddr bytes] */
+
+/* RPC_FUNC_SHUTDOWN args */
+struct rpc_shutdown_args {
+    int32_t fd;
+    int32_t how;
+};
+
+/* RPC_FUNC_SELECT args: three fd bitmaps in the MASTER fd space plus a
+ * timeout. The np_select() wrapper packs the caller's sets into these raw
+ * maps (fd values are master fds, opaque on the slave side). */
+#define RPC_SELECT_SET_BYTES 128 /* 1024 fds, same as POSIX fd_set */
+struct rpc_select_args {
+    int32_t nfds;      /* highest fd + 1 (master fd space) */
+    int32_t timeout_ms; /* -1: block; 0: poll once; >0: wait with timeout */
+    uint8_t rdset[RPC_SELECT_SET_BYTES];
+    uint8_t wrset[RPC_SELECT_SET_BYTES];
+    uint8_t exset[RPC_SELECT_SET_BYTES];
+};
+/* resp payload: rdset + wrset + exset (RPC_SELECT_SET_BYTES each, ready maps) */
+
+/* RPC_FUNC_SYSTEM args: NUL-terminated command string; the master runs it
+ * with system() (output goes to the master console); resp: ret in hdr. */
+
+/* ---- proxy filesystem (slave client -> master worker, 0x300 range) ---- */
+#define RPC_FUNC_PF_OPEN     0x300
+#define RPC_FUNC_PF_CLOSE    0x301
+#define RPC_FUNC_PF_READ     0x302
+#define RPC_FUNC_PF_WRITE    0x303
+#define RPC_FUNC_PF_LSEEK    0x304
+#define RPC_FUNC_PF_FCNTL    0x305
+#define RPC_FUNC_PF_UNLINK   0x306
+#define RPC_FUNC_PF_STAT     0x307
+#define RPC_FUNC_PF_FSTAT    0x308
+#define RPC_FUNC_PF_RENAME   0x309
+#define RPC_FUNC_PF_REMOVE   0x30A
+#define RPC_FUNC_PF_MKDIR    0x30B
+#define RPC_FUNC_PF_RMDIR    0x30C
+#define RPC_FUNC_PF_CHDIR    0x30D
+#define RPC_FUNC_PF_GETCWD   0x30E
+#define RPC_FUNC_PF_ACCESS   0x30F
+#define RPC_FUNC_PF_GETDENTS 0x310
+
+/* RPC_FUNC_PF_OPEN args: flags/mode + NUL-terminated path */
+struct rpc_pf_open_args {
+    int32_t flags;
+    uint32_t mode; /* created-file mode, used when flags has O_CREAT */
+    /* path bytes follow */
+};
+/* resp: ret in hdr carries the master fd (opaque on the slave side) */
+
+struct rpc_pf_close_args {
+    int32_t fd;
+};
+
+/* RPC_FUNC_PF_READ args; resp payload = data bytes (fragmented when large),
+ * hdr ret carries the read length */
+struct rpc_pf_read_args {
+    int32_t fd;
+    uint32_t count;
+};
+
+/* RPC_FUNC_PF_WRITE args: data bytes follow (fragmented when large);
+ * resp: hdr ret carries the written length */
+struct rpc_pf_write_args {
+    int32_t fd;
+    uint32_t len;
+};
+
+struct rpc_pf_lseek_args {
+    int32_t fd;
+    int32_t whence;
+    int32_t pad; /* keep offset 8-byte aligned */
+    int64_t offset;
+};
+/* resp payload: int64 offset */
+
+struct rpc_pf_fcntl_args {
+    int32_t fd;
+    int32_t cmd;
+    uint32_t arg;
+};
+/* resp: hdr ret carries the result */
+
+/* RPC_FUNC_PF_UNLINK / REMOVE / RMDIR / CHDIR args: NUL-terminated path
+ * only (no struct); RPC_FUNC_PF_MKDIR / ACCESS: mode/path-layout below */
+struct rpc_pf_mode_args {
+    uint32_t mode; /* mkdir mode or access mode */
+    /* path bytes follow */
+};
+
+/* RPC_FUNC_PF_RENAME args: two NUL-terminated paths packed back to back
+ * (old\0new\0); both must stay inside one rpc message */
+
+/* RPC_FUNC_PF_STAT / FSTAT: stat takes a NUL-terminated path, fstat a fd */
+struct rpc_pf_fstat_args {
+    int32_t fd;
+};
+/* resp payload for STAT / FSTAT (compact stat: the fields a slave-side
+ * program typically needs; full struct stat is not defined on LiteOS-M) */
+struct rpc_pf_stat_resp {
+    uint64_t st_size;
+    uint32_t st_mode;
+    uint32_t st_blksize;
+    int32_t pad; /* keep 8-byte aligned */
+};
+
+/* RPC_FUNC_PF_GETCWD args */
+struct rpc_pf_getcwd_args {
+    uint32_t size;
+};
+/* resp payload: NUL-terminated cwd string */
+
+/* RPC_FUNC_PF_GETDENTS args: raw Linux getdents64 layout; resp payload =
+ * the dirent buffer, hdr ret carries the byte count. The pfs_getdents()
+ * wrapper also exposes a simple one-entry-next helper (pfs_readdir). */
+struct rpc_pf_getdents_args {
+    int32_t fd;
+    uint32_t count;
 };
 
 #endif /* MICA_RPC_PROTO_H */

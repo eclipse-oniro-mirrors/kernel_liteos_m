@@ -338,6 +338,8 @@ VOID ItLosMulPool004(void);
 VOID ItLosMulPool005(void);
 #endif
 
+VOID ItLosMem333(VOID);
+
 #ifdef __cplusplus
 #if __cplusplus
 }

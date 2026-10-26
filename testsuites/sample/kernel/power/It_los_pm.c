@@ -56,5 +56,10 @@ VOID ItSuiteLosPm(VOID)
     ItLosPm006();
 #endif
 #endif
+    /* BUG_21(resleak 批次): PM 唤醒锁全局计数打满后新锁节点插入不回滚泄漏,
+     * 修复前隔离(红灯暴露用例, 断言修复后契约) */
+#if defined(KERNEL_BUG_21_PM_LOCKCNT_FULL_LEAK) && KERNEL_BUG_21_PM_LOCKCNT_FULL_LEAK == 1
+    ItLosPm007();
+#endif
 }
 

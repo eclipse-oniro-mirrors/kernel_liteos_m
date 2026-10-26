@@ -110,4 +110,9 @@ VOID ItSuitePosixMqueue(void)
     ItPosixQueue055();
     ItPosixQueue056();
     ItPosixQueue057();
+    /* BUG_22(resleak 批次): mq_open 名字保存失败后已建内核队列不删而泄漏,
+     * 修复前隔离(红灯暴露用例, 断言修复后契约) */
+#if defined(POSIX_BUG_22_MQOPEN_NAMEFAIL_LEAK) && POSIX_BUG_22_MQOPEN_NAMEFAIL_LEAK == 1
+    ItPosixQueue058();
+#endif
 }

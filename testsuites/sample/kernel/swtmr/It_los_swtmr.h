@@ -194,6 +194,7 @@ extern VOID ItLosSwtmrApi004(VOID);
 extern VOID ItLosSwtmr121(VOID);
 extern VOID ItLosSwtmr122(VOID);
 extern VOID ItLosSwtmr123(VOID);
+extern VOID ItLosSwtmr124(VOID);
 
 
 #ifdef __cplusplus

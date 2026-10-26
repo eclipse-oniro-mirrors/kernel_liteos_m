@@ -186,6 +186,15 @@ VOID ItSuiteLosSwtmr(void)
     ItLosSwtmr123(); /* 超长周期 rollnum 钳位分支 */
 #endif
 #endif
+    /* BUG_23(resleak 批次): 同 tick 到期溢出 expiryList 致 ONCE 定时器槽位泄漏。
+     * 外层板级条件: qemu 配置 LOSCFG_BASE_CORE_SWTMR_IN_ISR=1, 回调在 tick ISR
+     * 内联执行, expiryList 环形队列分支编译出局, 缺陷在该形态结构性不可达;
+     * 仅 swtmr 任务形态板(如 ws63)可触发。 */
+#if !defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR)
+#if defined(KERNEL_BUG_23_SWTMR_EXPIRYLIST_LEAK) && KERNEL_BUG_23_SWTMR_EXPIRYLIST_LEAK == 1
+    ItLosSwtmr124();
+#endif
+#endif
 #ifdef LOSCFG_KERNEL_CPUP
     OsCpupStart();
 #endif

@@ -90,4 +90,12 @@ void ItSuitePosixPthread(void)
     ItPosixPthread040();
     ItPosixPthread041();
     ItPosixPthread042();
+    /* BUG_18/BUG_20(resleak 批次): pthread_cond 半初始化堆块泄漏 /
+     * 异步取消 TSD key 数组泄漏+析构器跳过, 修复前隔离(红灯暴露用例) */
+#if defined(POSIX_BUG_18_PTHREAD_COND_MUTEX_LEAK) && POSIX_BUG_18_PTHREAD_COND_MUTEX_LEAK == 1
+    ItPosixPthread043();
+#endif
+#if defined(POSIX_BUG_20_PTHREAD_CANCEL_KEY_LEAK) && POSIX_BUG_20_PTHREAD_CANCEL_KEY_LEAK == 1
+    ItPosixPthread044();
+#endif
 }

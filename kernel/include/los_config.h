@@ -460,11 +460,6 @@ extern "C" {
 #define LOS_COMMON_DIVISOR                                  10
 #endif
 
-#if (LOSCFG_BASE_CORE_SWTMR == 1)
-    #if (LOSCFG_BASE_IPC_QUEUE == 0)
-        #error "if LOSCFG_BASE_CORE_SWTMR is set to 1, then LOSCFG_BASE_IPC_QUEUE must also be set to 1"
-    #endif
-#endif
 /* =============================================================================
                                        Memory module configuration ---- to be refactored
 ============================================================================= */

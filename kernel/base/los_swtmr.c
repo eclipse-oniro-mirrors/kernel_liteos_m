@@ -35,7 +35,6 @@
 #include "los_interrupt.h"
 #include "los_task_pri.h"
 #include "los_memory.h"
-#include "los_queue.h"
 #include "los_debug.h"
 #include "los_hook.h"
 #include "los_sched.h"
@@ -604,7 +603,7 @@ LosSwtmrCB *OsSwtmrIdVerify(UINT32 swtmrId)
 
 LosSwtmrCB *OsSwtmrIdVerify(UINT32 swtmrId)
 {
-    if (swtmrId >= KERNEL_SWTMR_LIMIT) {
+    if (swtmrId >= LOSCFG_BASE_CORE_SWTMR_LIMIT) {
         return NULL;
     }
 

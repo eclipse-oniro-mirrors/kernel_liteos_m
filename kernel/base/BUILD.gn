@@ -38,8 +38,6 @@ kernel_module(module_name) {
     "sched/sched_sq/los_sched_tick.c",
     "sched/sched_sq/los_priqueue.c",
     "los_sortlink.c",
-    "los_swtmr.c",
-    "debug/los_swtmr_debug.c",
     "los_misc.c",
     "los_mp.c",
     "los_percpu.c",
@@ -61,6 +59,12 @@ kernel_module(module_name) {
 
   if (defined(LOSCFG_BASE_IPC_EVENT)) {
     sources += [ "los_event.c" ]
+  }
+  if (defined(LOSCFG_BASE_CORE_SWTMR)) {
+    sources += [
+      "los_swtmr.c",
+      "debug/los_swtmr_debug.c",
+    ]
   }
   if (defined(LOSCFG_BASE_IPC_SEM)) {
     sources += [ "los_sem.c" ]

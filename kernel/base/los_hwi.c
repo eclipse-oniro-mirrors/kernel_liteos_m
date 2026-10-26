@@ -283,6 +283,8 @@ STATIC INLINE VOID OsIntPost(HWI_HANDLE_T hwiNum)
  */
 VOID OsIntHandle(HWI_HANDLE_T hwiNum, HwiHandleInfo *handleForm)
 {
+    (void)hwiNum;
+
     UINT32 intSave;
     if (handleForm == NULL) {
         return;

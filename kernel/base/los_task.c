@@ -404,7 +404,13 @@ STATIC VOID PrintTskInfo(const LosTaskCB *taskCB)
     PRINTK("%4u%9u%10s%#10x%#10x%#11x%#11x%#10x%#7x",
            taskCB->taskId, taskCB->priority, OsConvertTskStatus(taskCB->taskStatus),
            taskCB->stackSize, OsGetTaskWaterLine(taskCB->taskId),
-           (UINT32)(UINTPTR)taskCB->stackPointer, taskCB->topOfStack, taskCB->eventMask, semID);
+           (UINT32)(UINTPTR)taskCB->stackPointer, taskCB->topOfStack,
+#if (LOSCFG_BASE_IPC_EVENT == 1)
+           taskCB->eventMask,
+#else
+           0,
+#endif
+           semID);
     return;
 }
 
@@ -1259,9 +1265,11 @@ STATIC VOID OsTaskCBInit(LosTaskCB *taskCB, const TSK_INIT_PARAM_S *initParam, V
     taskCB->taskMux         = NULL;
     taskCB->priority        = initParam->usTaskPrio;
     taskCB->taskEntry       = initParam->pfnTaskEntry;
+#if (LOSCFG_BASE_IPC_EVENT == 1)
     taskCB->event.uwEventID = OS_NULL_INT;
     taskCB->eventMask       = 0;
     LOS_EventInit(&(taskCB->event));
+#endif
     taskCB->taskName        = initParam->pcName;
     taskCB->msg             = NULL;
 #if (LOSCFG_KERNEL_SIGNAL == 1)
@@ -2001,8 +2009,10 @@ LITE_OS_SEC_TEXT_MINOR UINT32 LOS_TaskInfoGet(UINT32 taskId, TSK_INFO_S *taskInf
     taskInfo->usTaskPrio = taskCB->priority;
     taskInfo->uwStackSize = taskCB->stackSize;
     taskInfo->uwTopOfStack = taskCB->topOfStack;
+#if (LOSCFG_BASE_IPC_EVENT == 1)
     taskInfo->uwEvent = taskCB->event;
     taskInfo->uwEventMask = taskCB->eventMask;
+#endif
     taskInfo->uwSemID = OsGetSemID(taskCB);
     taskInfo->uwMuxID = OsGetMuxID(taskCB);
     taskInfo->pTaskSem = taskCB->taskSem;

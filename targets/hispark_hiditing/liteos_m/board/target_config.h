@@ -83,9 +83,6 @@ extern "C" {
 #ifndef LOSCFG_BASE_CORE_SWTMR_ALIGN
 #define LOSCFG_BASE_CORE_SWTMR_ALIGN                        1
 #endif
-#ifndef LOSCFG_BASE_CORE_SWTMR_LIMIT
-#define LOSCFG_BASE_CORE_SWTMR_LIMIT                        16
-#endif
 /* XIP flash executes timer callbacks slower than RAM; raise the
  * threshold so periodic callbacks don't flood UART with warnings
  * and starve the test task (swtmr is priority 0). */

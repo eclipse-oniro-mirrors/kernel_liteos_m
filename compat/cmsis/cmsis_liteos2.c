@@ -1768,6 +1768,7 @@ const char *osMemoryPoolGetName(osMemoryPoolId_t mp_id)
 #endif /* LOSCFG_KERNEL_MEMBOX_STATIC */
 
 //  ==== Thread Flags Functions ====
+#if (LOSCFG_BASE_IPC_EVENT == 1)
 uint32_t osThreadFlagsSet(osThreadId_t thread_id, uint32_t flags)
 {
     LosTaskCB *taskCB = (LosTaskCB *)thread_id;
@@ -1876,3 +1877,4 @@ uint32_t osThreadFlagsWait(uint32_t flags, uint32_t options, uint32_t timeout)
             return (uint32_t)osFlagsErrorResource;
     }
 }
+#endif /* LOSCFG_BASE_IPC_EVENT */

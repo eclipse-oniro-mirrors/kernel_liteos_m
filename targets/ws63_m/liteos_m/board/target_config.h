@@ -42,15 +42,10 @@ extern "C" {
 #define LOSCFG_BASE_CORE_TSK_MONITOR                        1
 
 /*=============================================================================
-                    IPC module configuration (SEM/MUX/QUEUE/EVENT) managed by Kconfig + vendor defconfig
-=============================================================================*/
-
-/*=============================================================================
                     Software timer module configuration
 =============================================================================*/
-#define LOSCFG_BASE_CORE_SWTMR                              1
 #define LOSCFG_BASE_CORE_SWTMR_ALIGN                        1
-#define LOSCFG_BASE_CORE_SWTMR_LIMIT                        16
+
 /*=============================================================================
                     Memory module configuration
 =============================================================================*/

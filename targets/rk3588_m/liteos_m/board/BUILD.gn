@@ -13,6 +13,12 @@ kernel_module(module_name) {
     "uart_porting.c",
   ]
 
+  # Modbus-RTU oriented UART driver (uart_drv.h API), independent of the
+  # console path above (uart_porting.c).
+  if (defined(LOSCFG_RK3588_UART)) {
+    sources += [ "uart.c" ]
+  }
+
   # The image carries the libmica pedestal resource table (kernel/liteos_m/
   # compat/mcs/mica/libmica/src/pedestals/ped_rsc_table.c) as its single
   # .resource_table, which the master mcs_km loader parses and patches (the

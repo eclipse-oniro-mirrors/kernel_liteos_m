@@ -116,6 +116,11 @@ typedef struct {
 } UartPinmuxWrite;
 
 typedef struct {
+    UINT32 reg;      /* CRU softrst register, 0 = no reset */
+    UINT32 mask;     /* HIWORD16 bit mask for this UART's reset lines */
+} UartSoftRst;
+
+typedef struct {
     UINT8 portNr;             /* logical port id (1..9) */
     UINT32 base;              /* UART MMIO base */
     UINT16 intId;             /* GIC INTID (SPI + 32) */
@@ -123,7 +128,8 @@ typedef struct {
     UINT32 clkselVal;         /* HIWORD16 write (mask 0x3000, data 0x2000) */
     UINT32 gateReg;           /* CRU CLKGATE_CON: sclk+pclk gates */
     UINT32 gateVal;           /* HIWORD16 write (0 = enable, SET_TO_DISABLE) */
-    UartPinmuxWrite pinmux[2];/* selected m0/m1(/m2) group, see uart_board_cfg.h */
+    UartPinmuxWrite pinmux[4];/* iomux + optional pull writes, see uart_soc_rk3568.h */
+    UartSoftRst softrst;      /* CRU SOFTRST: assert+de-assert to init controller */
     BOOL rxEchoSuppress;      /* RS485 auto-direction transceiver echo drop */
 } UartPortProfile;
 
@@ -170,6 +176,7 @@ STATIC const UartPortProfile g_uart3Profile = {
     .gateReg = RK3568_UART3_GATE_REG,
     .gateVal = RK3568_UART3_GATE_VAL,
     .pinmux = BOARD_UART3_PINMUX,
+    .softrst = { .reg = RK3568_UART3_SOFTRST_REG, .mask = RK3568_UART3_SOFTRST_MASK },
     .rxEchoSuppress = BOARD_UART3_RS485_ECHO,
 };
 #endif
@@ -366,6 +373,11 @@ STATIC UartPortCtx g_uartCtx[UART_PORT_MAX] = {
 STATIC INLINE VOID BoardHwW32(UINT32 addr, UINT32 val)
 {
     *(volatile UINT32 *)(UINTPTR)addr = val;
+}
+
+STATIC INLINE UINT32 BoardHwR32(UINT32 addr)
+{
+    return *(volatile UINT32 *)(UINTPTR)addr;
 }
 
 /* short settle delay between CRU/GRF writes (CAN-chapter convention) */
@@ -619,19 +631,39 @@ extern UINT32 ArchHwiDelete(HWI_HANDLE_T hwiNum, HwiIrqParam *irqParam);
  * ========================================================================= */
 STATIC VOID UartBoardSetup(const UartPortProfile *profile)
 {
+    /* 2026-10-21: CRU SOFTRST disabled. The Linux 8250_dw probe already
+     * performs the reset during its platform_driver probe (via the reset
+     * controller framework). Re-asserting the reset from the slave UNDOES
+     * the initialization that enables the C0 pad → UART3 RX input path,
+     * causing external loopback failure (rx=0, isr=224 vs 480 baseline).
+     * The slave must NOT reset the UART controller after Linux unbind.
+     * The softrst struct remains in the profile for documentation. */
+
     /* clock gates: SET_TO_DISABLE, the profile value writes 0 = enable */
     BoardHwW32(profile->gateReg, profile->gateVal);
     BoardCruDelay();
     /* parent mux -> xin24m (index 2): defensive, boot chain already set */
     BoardHwW32(profile->clkselReg, profile->clkselVal);
     BoardCruDelay();
-    /* GRF pinmux: HIWORD16 writes select the m0/m1 group */
+    /* GRF pinmux + pull: HIWORD16 writes select the m0/m1 group and bias */
     for (UINT32 i = 0; i < (sizeof(profile->pinmux) / sizeof(profile->pinmux[0])); i++) {
         if (profile->pinmux[i].reg != 0) {
             BoardHwW32(profile->pinmux[i].reg, profile->pinmux[i].val);
             BoardCruDelay();
         }
     }
+#ifdef LOSCFG_PLATFORM_RK3568_M
+    /* Debug: verify the first IOMUX write took effect (read-back check).
+     * Catches GRF access issues and silent write failures. */
+    {
+        UINT32 rd = BoardHwR32(profile->pinmux[0].reg);
+        UINT32 expect = profile->pinmux[0].val & 0xFFFF;
+        if ((rd & (profile->pinmux[0].val >> 16)) != expect) {
+            PRINT_ERR("uart pinmux verify FAIL: reg=0x%x wrote 0x%x read 0x%x\n",
+                      profile->pinmux[0].reg, profile->pinmux[0].val, rd);
+        }
+    }
+#endif
 }
 
 /* ===========================================================================
@@ -813,8 +845,23 @@ int32_t uart_init(uint8_t port, const uart_attr_t *attr)
         return UART_ERR_STATE;
     }
 
-    /* board bring-up: clock gate + xin24m mux + pinmux */
+    /* board bring-up: soft reset + clock gate + xin24m mux + pinmux */
     UartBoardSetup(ctx->profile);
+
+    /* DW 8250 internal soft reset via SRR (offset 0x88, Rockchip HAL
+     * convention — HAL_UART_Reset): resets the UART state machine, RX
+     * FIFO, and TX FIFO.
+     *
+     * 2026-10-21: DISABLED. On the "Linux probe + unbind" deployment
+     * (uart3=okay in dts, mcs_uart.ko auto-unbind), writing SRR=0x7
+     * after the 8250_dw driver's probe RESETS the RX input path that
+     * Linux initialized — external loopback fails with rx=0 (isr=224).
+     * Without this write, the Linux-initialized UART state is preserved
+     * and external loopback passes (isr=480 baseline).
+     * The SRR path was an attempt to make the slave self-sufficient
+     * (uart3=disabled in dts) but that scenario needs more than SRR
+     * (see mcs_uart.ko for the working solution).
+     */
 
     /* 16550 registers; IER stays masked until everything is set up */
     divisor = UartDivisorCalc(attr->baudrate);
@@ -1401,47 +1448,13 @@ STATIC UINT32 UartTestDiag(UINT32 port)
     /* 1. tick kick health */
     (VOID)UartTestTickProbe();
 
-    /* 2. layered delivery probes: DISABLED on the bench - the software
+    /* No layered-delivery probe here: the software
      * pend of our level SPI via GICD_SETSPI_NSR re-asserts after EOI on
      * this GIC-600 (measured, see the post-mortem comment below) and
      * loops the prio-0 ISR forever, starving the rpmsg SGI kick and
      * getting the slave powered off by the master keep-alive. The
      * routing itself is already exercised by every real (hardware-
      * sourced) interrupt in the other test modes. */
-#if 0
-    {
-        volatile UINT64 *irouter = (volatile UINT64 *)(UINTPTR)(0xFD400000UL + 0x6000UL +
-                                                               (UINT32)ctx->profile->intId * 8U);
-        UINT32 respBefore = 0;
-        UINT32 respAfter = 0;
-        (VOID)LOS_HwiRespCntGet(ctx->profile->intId, &respBefore);
-
-        *irouter = 0x0ULL; /* route to the Linux boot core */
-        __asm__ volatile("isb" ::: "memory");
-        *(volatile UINT32 *)(UINTPTR)0xFD400040UL = ctx->profile->intId;
-        __asm__ volatile("isb" ::: "memory");
-        __asm__ volatile("mrs %0, cntpct_el0" : "=r"(c0));
-        do {
-            __asm__ volatile("mrs %0, cntpct_el0" : "=r"(c1));
-        } while ((c1 - c0) < (24000000ULL / 100ULL)); /* 10 ms wall */
-        (VOID)LOS_HwiRespCntGet(ctx->profile->intId, &respAfter);
-        PRINTK("diag: probe cpu0-route: alive, resp %u->%u (expect 0 dispatches here)\n",
-               respBefore, respAfter);
-
-        *irouter = 0x300ULL; /* route back to this core (CPU3) */
-        __asm__ volatile("isb" ::: "memory");
-        *(volatile UINT32 *)(UINTPTR)0xFD400040UL = ctx->profile->intId;
-        __asm__ volatile("isb" ::: "memory");
-        __asm__ volatile("mrs %0, cntpct_el0" : "=r"(c0));
-        do {
-            __asm__ volatile("mrs %0, cntpct_el0" : "=r"(c1));
-        } while ((c1 - c0) < (24000000ULL / 100ULL)); /* 10 ms wall */
-        (VOID)LOS_HwiRespCntGet(ctx->profile->intId, &respAfter);
-        PRINTK("diag: probe cpu3-route: alive, resp %u->%u isr=%u "
-               "(wedge above => CPU3 SPI delivery broken)\n",
-               respBefore, respAfter, ctx->isrCount);
-    }
-#endif
 
     /* 2. raw shift test: 4 bytes straight into THR, then wall-clock wait */
     __asm__ volatile("isb" ::: "memory");

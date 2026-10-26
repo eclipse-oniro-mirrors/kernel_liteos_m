@@ -33,12 +33,22 @@
 #define RK3568_CLKSEL_CON(n)           (RK3568_CRU_BASE + 0x100UL + 4UL * (n))
 /* CLKGATE_CON(n) = CRU + 0x300 + 4n  (clock gates, SET_TO_DISABLE) */
 #define RK3568_CLKGATE_CON(n)          (RK3568_CRU_BASE + 0x300UL + 4UL * (n))
+/* SOFTRST_CON(n) = CRU + 0x400 + 4n  (software reset, SET_TO_ASSERT) */
+#define RK3568_SOFTRST_CON(n)          (RK3568_CRU_BASE + 0x400UL + 4UL * (n))
 
 /* GRF iomux: 0x20 per GPIO bank, 8 bytes per group (A=0,B=1,C=2,D=3),
  * L covers pins 0..3, H covers pins 4..7; one 4-bit function field per
  * pin. GPIO0 is NOT reachable here (PMUGRF domain, separate base). */
 #define RK3568_GRF_IOMUX_L(bank, grp)  (RK3568_GRF_BASE + ((bank) - 1) * 0x20UL + (grp) * 8UL)
 #define RK3568_GRF_IOMUX_H(bank, grp)  (RK3568_GRF_IOMUX_L(bank, grp) + 4UL)
+
+/* RK3568 GRF pull register (linux pinctrl rk3568_calc_pull_reg_and_bit):
+ *   reg = GRF + 0x80 + (bank-1)*0x10 + (pin/8)*4; bit = (pin%8)*2.
+ * Encoding (2 bits/pin): 00=none, 01=pull-up(100K), 10=pull-down(100K). */
+#define RK3568_GRF_PULL_REG(bank, pin) \
+    (RK3568_GRF_BASE + 0x80UL + ((bank) - 1) * 0x10UL + ((pin) / 8) * 4UL)
+#define RK3568_PULL_UP_VAL(pin) \
+    (((0x3UL << (((pin) % 8) * 2)) << 16) | (0x1UL << (((pin) % 8) * 2)))
 
 /* HIWORD16 write convention ([31:16] mask, [15:0] data): only the masked
  * bits of the target register change - no read-modify-write races with
@@ -100,10 +110,15 @@
 #define RK3568_UART3_CLKSEL_REG  RK3568_CLKSEL_CON(56)
 #define RK3568_UART3_GATE_REG    RK3568_CLKGATE_CON(28)
 #define RK3568_UART3_GATE_VAL    RK3568_UART_GATE_VAL_SLOT(1)
+/* SRST_P_UART3(402)=bit10, SRST_S_UART3(403)=bit11 of SOFTRST_CON25 */
+#define RK3568_UART3_SOFTRST_REG   RK3568_SOFTRST_CON(25)
+#define RK3568_UART3_SOFTRST_MASK  (0x3UL << 10)
 #define RK3568_UART3_PINMUX_M0   { { RK3568_GRF_IOMUX_L(1, 0), 0x00FF0022UL }, \
                                    { 0, 0 } } /* GPIO1_A0(rx)/A1(tx) func2 */
 #define RK3568_UART3_PINMUX_M1   { { RK3568_GRF_IOMUX_L(3, 2), 0x000F0004UL }, \
-                                   { RK3568_GRF_IOMUX_H(3, 1), 0xF0004000UL } } /* GPIO3_C0(rx)/B7(tx) func4 */
+                                   { RK3568_GRF_IOMUX_H(3, 1), 0xF0004000UL }, \
+                                   { RK3568_GRF_PULL_REG(3, 16), RK3568_PULL_UP_VAL(16) }, \
+                                   { RK3568_GRF_PULL_REG(3, 15), RK3568_PULL_UP_VAL(15) } } /* GPIO3_C0(rx)/B7(tx) func4 + pull-up */
 
 /* ---- UART4: GIC SPI 120, mux CLKSEL_CON(58), gates CON(28) slot2 ---- */
 #define RK3568_UART4_BASE        0xFE680000UL

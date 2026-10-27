@@ -180,8 +180,8 @@ STATIC VOID ExcInfoDisplay(VOID)
     }
 
     if (LOS_TaskIsScheduled()) {
-    PRINTK("taskName = %s\n", g_runTask->taskName);
-    PRINTK("taskID = %u\n", g_runTask->taskId);
+    PRINTK("taskName = %s\n", g_newTask->taskName);
+    PRINTK("taskID = %u\n", g_newTask->taskId);
     } else {
         PRINTK("The exception occurs during system startup!\n");
     }
@@ -249,4 +249,13 @@ SYSTEM_DEATH:
     OsDoExcHook(EXC_INTERRUPT);
     while (1) {
     }
+}
+
+/* stack protector */
+WEAK UINT32 __stack_chk_guard = 0xd00a0dff;
+
+WEAK VOID __stack_chk_fail(VOID)
+{
+    LOS_Panic("stack-protector: Kernel stack is corrupted in: %p\n",
+              __builtin_return_address(0));
 }

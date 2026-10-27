@@ -15,6 +15,14 @@ kernel_module("arch") {
     sources += [ "los_timer.c" ]
   }
 
+  # Arch-level reset entry + stack allocation (excluded when board supplies its own).
+  if (!defined(LOSCFG_USING_BOARD_RESET_VECTOR)) {
+    sources += [
+      "los_reset_vector.S",
+      "los_stack.S",
+    ]
+  }
+
   # Core-specific trap replacement: LinxCore131 has its own trap entry
   # with hardware interrupt nesting (0xBFE/0x7ED CSR), replacing the
   # default los_trap.S.

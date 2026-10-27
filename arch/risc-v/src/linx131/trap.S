@@ -7,10 +7,8 @@
  *
  *              Key 131 difference vs standard RISC-V: hardware interrupt
  *              nesting via CSR prithd (0xBFE) + cipri (0x7ED). The standard
- *              trap uses mnxti; LinxCore131 does not have mnxti and instead
- *              reads the current interrupt priority (cipri) and writes it to
- *              the priority threshold (prithd), then re-enables interrupts
- *              via mret to allow only higher-priority interrupts to nest.
+ *              trap uses mnxti; LinxCore131 has no mnxti and instead writes
+ *              cipri to prithd so only higher-priority interrupts nest.
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
  * 1. Redistributions of source code must retain the above copyright notice, this list
@@ -36,17 +34,14 @@
 
 #ifndef _LOS_TRAP_S
 #define _LOS_TRAP_S
-#include "soc_common.h"
-#include "trap_macros.h"
+#include "arch/stack_ops.h"
 /* Interrupt numbers from board/include/asm/soc.h — defined here as .equ
  * because soc.h has C declarations the assembler cannot parse. */
 .equ NUM_HAL_INTERRUPT_NMI,   12
 .equ NUM_HAL_INTERRUPT_TIMER, 26
 
-/* POP_IRQ_REG: restore mepc(1) + mstatus(0) then POP_CALLER_REG.
- * Slots 0/1 are within the PUSH_CALLER_REG frame (unused by PUSH_CALLER_REG
- * which saves mstatus at 16 and mepc at 17). The 131 code saves mstatus/mepc
- * at 0/1 separately because the nesting mret mechanism modifies mepc. */
+/* Restore mepc(1)+mstatus(0) from CPU_SPECIAL slots (the nesting mret may
+ * modify mepc), then POP_CALLER_REG which skips those slots. */
 .macro POP_IRQ_REG
     LREG  t0, 1 * REGBYTES(sp)
     csrw  mepc, t0
@@ -79,7 +74,6 @@ g_mcause:
 .extern HalHwiInterruptDone
 .extern OsSchedProcSchedFlag
 .global HalTrapVector
-.equ TRAP_INTERRUPT_MODE_MASK, 0x80000000
 .align 6
 HalTrapVector:
     PUSH_CALLER_REG
@@ -131,12 +125,13 @@ HalTrapVector:
     li    a1, NUM_HAL_INTERRUPT_TIMER
     beq   a0, a1, 3f
 
-    /* Enable nesting: clear MPIE, set mepc=3f, mret (sets MIE=MPIE) */
+    /* Clear MPIE so mret leaves MIE=0 (nesting is via PRITHD, not MIE).
+     * mret is a jump-to-3f trick (mepc←3f); mepc saved at slot 1 above. */
     li    t0, RISCV_MSTATUS_MPIE
     csrrc zero, mstatus, t0
     la    a1, 3f
     csrw  mepc, a1
-    mret                           /* MIE←MPIE, PC←mepc(=3f)           */
+    mret                           /* MPIE←1, MIE←0, PC←mepc(=3f)       */
 3:
     jal   HalHwiInterruptDone      /* a0 = hwiNum (preserved)           */
 

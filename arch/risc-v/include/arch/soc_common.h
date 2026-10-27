@@ -8,8 +8,8 @@
  * 1. Redistributions of source code must retain the above copyright notice, this list of
  *    conditions and the following disclaimer.
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list
- *    of conditions and the following disclaimer in the documentation and/or other materials
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+ *    conditions and the following disclaimer in the documentation and/or other materials
  *    provided with the distribution.
  *
  * 3. Neither the name of the copyright holder nor the names of its contributors may be used
@@ -32,67 +32,17 @@
 #ifndef _SOC_COMMON_H
 #define _SOC_COMMON_H
 
-#define LREG lw
-#define SREG sw
-#define REGBYTES 4
+/* Stack-frame sizes, CSR aliases, mstatus/mcause masks and the layered
+ * REGBYTES/LREG/SREG/FPU_* constants live in cpu.h now; this file keeps only
+ * the SoC-level additions (extra mstatus/mie bits, IRQ numbers, CSR access
+ * macros) that have no place in the generic layered model. */
+#include "arch/cpu.h"
 
-#define EXC_SIZE_ON_STACK  (36 * REGBYTES)
-#define INT_SIZE_ON_STACK  (32 * REGBYTES)
-
-/* ---- FPU support (enabled when LOSCFG_ARCH_FPU_DISABLE is not defined) ----
- * FPU register state (f0-f31 + fcsr) is saved/restored on top of the 32
- * integer slots in the task/interrupt stack frame so all existing integer-reg
- * offsets stay unchanged.
- * With LOSCFG_ARCH_FPU_DOUBLE (D extension, FLEN=64, e.g. hi3322 rv32imfdc
- * ilp32d) each FP register occupies a 64-bit slot saved via fld/fsd;
- * otherwise (single-precision F extension, e.g. ws63 rv32imfc) it is a
- * 32-bit slot saved via flw/fsw.
- * Stack layout (sp-relative, growing down):  slots 0..31 = integer regs,
- * slots 32..51 = FPU caller regs (ft0-ft11, fa0-fa7),
- * slots 52..63 = FPU callee regs (fs0-fs11),
- * slots 64..67 = fcsr + 3 reserved.
- */
-#ifndef LOSCFG_ARCH_FPU_DISABLE
-#ifdef LOSCFG_ARCH_FPU_DOUBLE
-/* D extension: FLEN=64, one 64-bit slot per FP register (RV32D). */
-#define FLREG                   fld
-#define FSREG                   fsd
-#define FPUREGBYTES             8
-#else
-#define FPUREGBYTES             4
-#define FSREG                   fsw
-#define FLREG                   flw
-#endif
-#define FPU_CALLER_REG_NUM      20  /* ft0-ft11, fa0-fa7 */
-#define FPU_CALLEE_REG_NUM      12  /* fs0-fs11 */
-#define FPU_STATUS_REG_NUM      4   /* fcsr, res[3] */
-#define FPU_CALLER_REG_SIZE     (FPU_CALLER_REG_NUM * FPUREGBYTES)
-#define FPU_CALLEE_REG_SIZE     (FPU_CALLEE_REG_NUM * FPUREGBYTES)
-#define FPU_EXTENSION_REG_SIZE  (FPU_CALLER_REG_SIZE + FPU_CALLEE_REG_SIZE)
-#define FPU_STATUS_REG_SIZE     (FPU_STATUS_REG_NUM * REGBYTES)
-#define FPU_SAVE_SIZE           (FPU_EXTENSION_REG_SIZE + FPU_STATUS_REG_SIZE)
-#define FCSR_STACK_OFFSET       (32 * REGBYTES + FPU_EXTENSION_REG_SIZE)
-#define RISCV_MSTATUS_FS        0x00006000  /* FS=Dirty so FPU state is saved/restored */
-#else
-#define FPU_SAVE_SIZE           0
-#endif
-
-/* task TCB offset */
-#define TASK_CB_KERNEL_SP       0x0
-#define TASK_CB_STATUS          0x4
-
-#define UINT32_CUT_MASK         0xFFFFFFFF
-#define UINT8_CUT_MASK          0xFF
-#define OS_MV_32_BIT            32
-
-/************************ mstatus ************************/
+/* mstatus bits not covered by cpu.h */
 #define RISCV_MSTATUS_UIE                   0x00000001
-#define RISCV_MSTATUS_MIE                   0x00000008
 #define RISCV_MSTATUS_UPIE                  0x00000010
-#define RISCV_MSTATUS_MPIE                  0x00000080
-#define RISCV_MSTATUS_MPP                   0x00001800
 
-/************************ mie ***************************/
+/* mie bits */
 #define RISCV_MIE_USIE                      0x000000001
 #define RISCV_MIE_MSIE                      0x000000008
 #define RISCV_MIE_UTIE                      0x000000010
@@ -100,16 +50,10 @@
 #define RISCV_MIE_UEIE                      0x000000100
 #define RISCV_MIE_MEIE                      0x000000800
 
-/************************** mcause ***********************/
-#ifndef MCAUSE_INT_ID_MASK
-#ifdef LOSCFG_ARCH_LINX_M
-#define MCAUSE_INT_ID_MASK                  0xFFFu
-#else
-#define MCAUSE_INT_ID_MASK                  0x7FFFFFFFu
-#endif
-#endif
 #define RISCV_MCAUSE_ECALL_U                8
+#define OS_MV_32_BIT                        32
 
+/* IRQ numbers */
 #define RISCV_USER_SOFT_IRQ                 0
 #define RISCV_MACH_SOFT_IRQ                 3
 #define RISCV_USER_TIMER_IRQ                4
@@ -117,6 +61,7 @@
 #define RISCV_USER_EXT_IRQ                  8
 #define RISCV_MACH_EXT_IRQ                  11
 
+#ifndef __ASSEMBLER__
 #define READ_CSR(reg) ({                                          \
     UINT32 _tmp;                                                  \
     __asm__ volatile("csrr %0, " #reg : "=r"(_tmp) : : "memory"); \
@@ -152,5 +97,6 @@
 #define CLEAR_CUSTOM_CSR(reg, val) ({                              \
     __asm__ volatile("csrc " #reg ", %0" : : "r"(val) : "memory"); \
 })
+#endif
 
 #endif

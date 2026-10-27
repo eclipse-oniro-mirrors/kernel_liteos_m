@@ -109,7 +109,6 @@ config TEST_KERNEL_COVERAGE
     bool "Enable code coverage instrumentation (gcov)"
     default n
     depends on KERNEL_TEST || KERNEL_FUZZ
-    depends on COMPILER_GCC
     help
       Requires KERNEL_TEST=y and a GCC toolchain. Answer Y to compile
       kernel sources with -fprofile-arcs -ftest-coverage. No libgcov is

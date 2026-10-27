@@ -123,6 +123,114 @@ static volatile int g_gcovDumped = 0;
  * gcov runtime symbols expected by -fprofile-arcs instrumented code.
  * ========================================================================== */
 
+/* ============================================================================
+ * B64 流式编码器类型与前置声明（clang/GCC 两个 gcov 分支共用；
+ * 实现定义于本文件后段的 B64* 函数族）
+ * ========================================================================== */
+typedef struct {
+    unsigned int buf;    /* 3-byte accumulation (low 24 bits used) */
+    unsigned int nbits;  /* number of bits pending (0/8/16) */
+    unsigned int lineLen;
+} B64Ctx;
+static void B64PutStr(const char *s, unsigned int len);
+static void B64PushU32(B64Ctx *c, unsigned int v);
+static void B64PushU64(B64Ctx *c, long long v);
+static void B64Final(B64Ctx *c);
+static unsigned int GcovStrLen(const char *s);
+
+/* ============================================================================
+ * clang/BiSheng 分支: -fprofile-arcs 插桩代码引用的是 llvm_gcov_init +
+ * llvm_gcda_* 流式回调（每个 TU 的 writeout 回调里逐文件逐函数吐数据），
+ * 与 GCC 的 __gcov_init + gcov_info 链表模型不同。这里实现同一套
+ * GCOV_BEGIN/GCOV_DATA/GCOV_END UART 载荷，但用流式格式 GCOV_DATA2
+ * （载荷: stamp, 每函数 {ident, lnck, cfgck, n_ctrs, n_ctrs*i64} 直到帧尾，
+ *  无函数计数——clang 回调不预先告知函数数）。宿主侧 parse_gcov_log.py
+ *  按帧头标记区分 DATA/DATA2。
+ * ========================================================================== */
+#ifdef LOSCFG_COMPILER_CLANG_LLVM
+
+typedef void (*llvm_gcov_callback_t)(void);
+
+#define GCOV_LLVM_MAX_TU 1024
+static llvm_gcov_callback_t g_llvmWriteout[GCOV_LLVM_MAX_TU];
+static int g_llvmNTu = 0;
+static B64Ctx g_llvmCtx;
+static int g_llvmInFrame = 0;
+
+/* 注册每个 TU 的 writeout/reset/flush 回调（只关心 writeout=a0） */
+VOID llvm_gcov_init(llvm_gcov_callback_t writeout, llvm_gcov_callback_t reset,
+                    llvm_gcov_callback_t flush)
+{
+    (VOID)reset;
+    (VOID)flush;
+    UINT32 intSave = LOS_IntLock();
+    if ((writeout != NULL) && (g_llvmNTu < GCOV_LLVM_MAX_TU)) {
+        g_llvmWriteout[g_llvmNTu++] = writeout;
+    }
+    LOS_IntRestore(intSave);
+}
+
+VOID llvm_gcda_start_file(const char *filename, unsigned int version, unsigned int stamp)
+{
+    (VOID)version;
+    if (g_llvmInFrame) {
+        return;
+    }
+    B64PutStr("GCOV_BEGIN ", 11);
+    if (filename != NULL) {
+        B64PutStr(filename, GcovStrLen(filename));
+    }
+    B64PutStr("\n", 1);
+    g_llvmCtx.buf = 0;
+    g_llvmCtx.nbits = 0;
+    g_llvmCtx.lineLen = 0;
+    B64PutStr("GCOV_DATA2\n", 11);
+    B64PushU32(&g_llvmCtx, stamp);
+    g_llvmInFrame = 1;
+}
+
+VOID llvm_gcda_emit_function(unsigned int ident, unsigned int funcChecksum,
+                             unsigned int cfgChecksum)
+{
+    if (!g_llvmInFrame) {
+        return;
+    }
+    B64PushU32(&g_llvmCtx, ident);
+    B64PushU32(&g_llvmCtx, funcChecksum);
+    B64PushU32(&g_llvmCtx, cfgChecksum);
+}
+
+VOID llvm_gcda_emit_arcs(unsigned int count, const long long *values)
+{
+    unsigned int i;
+    if (!g_llvmInFrame) {
+        return;
+    }
+    B64PushU32(&g_llvmCtx, count);
+    for (i = 0; i < count; i++) {
+        B64PushU64(&g_llvmCtx, values[i]);
+    }
+}
+
+VOID llvm_gcda_summary_info(void)
+{
+}
+
+VOID llvm_gcda_end_file(void)
+{
+    if (!g_llvmInFrame) {
+        return;
+    }
+    B64Final(&g_llvmCtx);
+    if (g_llvmCtx.lineLen > 0) {
+        B64PutStr("\n", 1);
+    }
+    B64PutStr("GCOV_END\n", 9);
+    g_llvmInFrame = 0;
+}
+
+#endif /* LOSCFG_COMPILER_CLANG_LLVM */
+
 VOID __gcov_init(struct gcov_info *info)
 {
     UINT32 intSave;
@@ -187,12 +295,6 @@ VOID TEST_GcovRunConstructors(VOID)
 /* ---- streaming base64 encoder over the console UART ---- */
 static const char g_b64Tab[] =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-typedef struct {
-    unsigned int buf;    /* 3-byte accumulation (low 24 bits used) */
-    unsigned int nbits;  /* number of bits pending (0/8/16) */
-    unsigned int lineLen;
-} B64Ctx;
 
 static void B64PutStr(const char *s, unsigned int len)
 {
@@ -335,7 +437,9 @@ static void GcovDumpOne(struct gcov_info *info)
 
 VOID TEST_GcovDump(VOID)
 {
+#ifndef LOSCFG_COMPILER_CLANG_LLVM
     struct gcov_info *info;
+#endif
     UINT32 intSave;
 
     intSave = LOS_IntLock();
@@ -344,15 +448,26 @@ VOID TEST_GcovDump(VOID)
         return;
     }
     g_gcovDumped = 1;
+#ifndef LOSCFG_COMPILER_CLANG_LLVM
     info = g_gcovHead;
+#endif
     LOS_IntRestore(intSave);
 
     B64PutStr("\nGCOV_DUMP_START\n", 17);
+#ifdef LOSCFG_COMPILER_CLANG_LLVM
+    {
+        int i;
+        for (i = 0; i < g_llvmNTu; i++) {
+            g_llvmWriteout[i]();
+        }
+    }
+#else
     while (info != NULL) {
         GcovDumpOne(info);
         intSave = LOS_IntLock();
         info = GCOV_INFO_NEXT(info);
         LOS_IntRestore(intSave);
     }
+#endif
     B64PutStr("GCOV_DUMP_DONE\n", 15);
 }

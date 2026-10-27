@@ -542,6 +542,21 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
     }
 #endif
 
+#if defined(LOSCFG_MCS_TIMER) && !defined(LOSCFG_TEST)
+    /* Shared-free SoC timer demo (TIMER1 data plane; NO master
+     * precondition - the driver self-serves the CRU clock gate, see
+     * timer_test.c). Skipped in test builds: the timer suite in
+     * testsuites/sample/mcs owns TIMER1, a running demo would make
+     * every TimerInit fail with -EBUSY. */
+    {
+        extern UINT32 TimerTestTaskInit(VOID);
+        ret = TimerTestTaskInit();
+        if (ret != LOS_OK) {
+            PRINT_ERR("[boot] TimerTestTaskInit failed: 0x%x\n", ret);
+        }
+    }
+#endif
+
     /* 7. mica task (rpmsg bring-up runs once the scheduler is up) */
 #ifdef LOSCFG_MCS
     {

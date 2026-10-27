@@ -32,6 +32,7 @@ static_library("test_mcs") {
     "It_mcs_np.c",
     "It_mcs_rpc.c",
     "It_mcs_svc.c",
+    "It_mcs_timer.c",
   ]
 
   if (defined(LOSCFG_MCS_CAN)) {
@@ -96,10 +97,23 @@ static_library("test_mcs") {
     ]
   }
 
+  if (defined(LOSCFG_MCS_TIMER)) {
+    sources += [
+    "It_McsTimer_001.c",
+    "It_McsTimer_002.c",
+    "It_McsTimer_003.c",
+    "It_McsTimer_004.c",
+    "It_McsTimer_005.c",
+    "It_McsTimer_006.c",
+    ]
+  }
+
   include_dirs = [
     # board driver contracts (can.h / net.h are self-contained)
     "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/can",
     "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/net",
+    # timer driver contract (timer.h)
+    "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/timer",
     # mica service framework headers (mica/service.h, mica/rpc*.h)
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/include",
   ]

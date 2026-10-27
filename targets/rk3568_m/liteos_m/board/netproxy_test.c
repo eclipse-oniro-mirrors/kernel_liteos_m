@@ -18,11 +18,14 @@
  *     (RPC_FUNC_PING echo) so the MASTER can verify the slave service
  *     framework; the shell command "rpctest [len]" plays the client and
  *     round-trips a payload through the master (mica_rpc_call).
- *  2. socket proxy  - the np_* API below forwards BSD socket calls to
- *     the master netproxy worker over the same rpc channel (the master
- *     executes the real socket()/connect()/send()/recv() on its linux
- *     stack). shell command "nptest <ip> <port>" runs a UDP and a TCP
+ *  2. socket proxy  - the np_* API (libmica net_service.c) forwards BSD
+ *     socket calls to the master netproxy worker over the same rpc channel
+ *     (the master executes the real socket()/connect()/send()/recv() on its
+ *     linux stack). shell command "nptest <ip> <port>" runs a UDP and a TCP
  *     probe against <ip> and prints each step's result.
+ *  3. pfs/system   - the pfs_* API (libmica fs_service.c) forwards file
+ *     calls to the master filesystem; np_system runs a shell command on
+ *     the master console. shell commands "fstest" and "systest" demo them.
  * address arguments are raw sockaddr byte arrays (addrlen bytes) so the
  * proxy stays independent of any socket header on this side; nptest
  * builds the 16-byte sockaddr_in itself (family/port/addr big-endian).
@@ -42,6 +45,8 @@
 #endif
 #include <mica/rpc.h>
 #include <mica/rpc_proto.h>
+#include <mica/net_proxy.h>
+#include <mica/pfs.h>
 #ifdef LOSCFG_SHELL
 #include <mica/service.h> /* mica_tty_printf: shell command results also go
                              back to the interactive terminal on the master */
@@ -73,150 +78,10 @@ STATIC VOID NpRpcLog(const char *fmt, ...)
 }
 
 /* --------------------------------------------------------------------------
- * np_* socket proxy API (mica_rpc_call wrappers; blocking until the master
- * worker answers - the master always answers, poll timeouts come back as
- * -EAGAIN). fd values are master-side fds and stay opaque here.
+ * np_* socket proxy API: provided by libmica services/net_service.c
+ * (see include/mica/net_proxy.h). pfs_* / np_system: services/fs_service.c
+ * (see include/mica/pfs.h).
  * ------------------------------------------------------------------------ */
-
-int np_socket(int domain, int type, int protocol)
-{
-    struct rpc_socket_args args = { domain, type, protocol };
-    struct rpc_socket_resp resp;
-
-    return mica_rpc_call(RPC_FUNC_SOCKET, &args, sizeof(args),
-                         &resp, sizeof(resp), NULL, -1) < 0 ? -1 : resp.fd;
-}
-
-int np_connect(int fd, const uint8_t *addr, uint32_t addrLen)
-{
-    uint8_t msg[sizeof(struct rpc_sockaddr_args) + NP_SOCKADDR_IN_LEN];
-    struct rpc_sockaddr_args *a = (struct rpc_sockaddr_args *)msg;
-
-    if (addrLen == 0 || addrLen > NP_SOCKADDR_IN_LEN) {
-        return -1;
-    }
-    a->fd = fd;
-    a->addrlen = addrLen;
-    memcpy(msg + sizeof(*a), addr, addrLen);
-    return mica_rpc_call(RPC_FUNC_CONNECT, msg, sizeof(*a) + addrLen,
-                         NULL, 0, NULL, -1);
-}
-
-int np_send(int fd, const void *buf, uint32_t len, int flags)
-{
-    const uint8_t *p = (const uint8_t *)buf;
-    uint32_t total = 0;
-    int ret = 0;
-
-    while (len > 0) {
-        /* one RPC message per slice (header + data fit one rpmsg buffer) */
-        uint8_t msg[RPC_MAX_PAYLOAD];
-        struct rpc_send_args *a = (struct rpc_send_args *)msg;
-        uint32_t chunk = RPC_MAX_PAYLOAD - sizeof(*a);
-        if (chunk > len) {
-            chunk = len;
-        }
-        a->fd = fd;
-        a->flags = flags;
-        a->len = chunk;
-        memcpy(msg + sizeof(*a), p, chunk);
-        ret = mica_rpc_call(RPC_FUNC_SEND, msg, sizeof(*a) + chunk,
-                            NULL, 0, NULL, -1);
-        if (ret < 0) {
-            return (total > 0) ? (int)total : ret;
-        }
-        total += (uint32_t)ret;
-        p += chunk;
-        len -= chunk;
-    }
-    return (int)total;
-}
-
-int np_recv(int fd, void *buf, uint32_t cap, int flags, int timeoutMs)
-{
-    struct rpc_recv_args args = { fd, flags, timeoutMs };
-    uint32_t got = 0;
-    int ret;
-
-    ret = mica_rpc_call(RPC_FUNC_RECV, &args, sizeof(args),
-                        buf, cap, &got, -1);
-    if (ret < 0) {
-        return ret;
-    }
-    return (int)got;
-}
-
-int np_sendto(int fd, const void *buf, uint32_t len, int flags,
-              const uint8_t *dest, uint32_t addrLen)
-{
-    /* UDP semantics: the datagram must fit one rpc message */
-    uint8_t msg[RPC_MAX_PAYLOAD];
-    struct rpc_sendto_args *a = (struct rpc_sendto_args *)msg;
-    uint32_t maxData = RPC_MAX_PAYLOAD - sizeof(*a) - NP_SOCKADDR_IN_LEN;
-    uint32_t hdrLen;
-
-    if (addrLen == 0 || addrLen > NP_SOCKADDR_IN_LEN) {
-        return -1;
-    }
-    if (len > maxData) {
-        return -1; /* keep datagram atomic: no fragmentation for UDP */
-    }
-    a->fd = fd;
-    a->flags = flags;
-    a->addrlen = addrLen;
-    a->len = len;
-    hdrLen = sizeof(*a);
-    memcpy(msg + hdrLen, dest, addrLen);
-    memcpy(msg + hdrLen + addrLen, buf, len);
-    return mica_rpc_call(RPC_FUNC_SENDTO, msg, hdrLen + addrLen + len,
-                         NULL, 0, NULL, -1);
-}
-
-int np_recvfrom(int fd, void *buf, uint32_t cap, int flags,
-                int timeoutMs, uint8_t *from, uint32_t *fromLen)
-{
-    /* response payload: [addrlen u32][sockaddr bytes][data bytes];
-     * the master copies the datagram in one rpc response (datagrams are
-     * small); the fragment reassembly in rpc_service covers larger ones */
-    uint8_t tmp[RPC_MAX_PAYLOAD];
-    struct rpc_recvfrom_args args = { fd, flags, timeoutMs };
-    uint32_t got = 0;
-    int ret = mica_rpc_call(RPC_FUNC_RECVFROM, &args, sizeof(args),
-                            tmp, sizeof(tmp), &got, -1);
-
-    if (ret < 0) {
-        return ret;
-    }
-    if (got < sizeof(uint32_t)) {
-        return -1;
-    }
-    {
-        uint32_t alen = *(const uint32_t *)tmp;
-        uint32_t copyLen;
-        if (alen > got - sizeof(uint32_t)) {
-            return -1;
-        }
-        copyLen = got - sizeof(uint32_t) - alen;
-        if (copyLen > cap) {
-            copyLen = cap;
-        }
-        if (from != NULL && fromLen != NULL) {
-            uint32_t c = (alen < *fromLen) ? alen : *fromLen;
-            memcpy(from, tmp + sizeof(uint32_t), c);
-            *fromLen = c;
-        }
-        memcpy(buf, tmp + sizeof(uint32_t) + alen, copyLen);
-        return (int)copyLen;
-    }
-}
-
-int np_close(int fd)
-{
-    struct rpc_close_args args = { fd };
-
-    return mica_rpc_call(RPC_FUNC_CLOSE, &args, sizeof(args),
-                         NULL, 0, NULL, -1);
-}
 
 /* --------------------------------------------------------------------------
  * RPC server handler (master -> slave service probe)
@@ -480,13 +345,52 @@ STATIC VOID NpTestCmd(UINT32 argc, char **argv)
     (VOID)mica_tty_printf("[np] nptest done: %d fails\n", r.fails);
 }
 
+/* forward decls: the shell commands below reuse the autotest bodies */
+STATIC INT32 NpFsTest(VOID);
+STATIC INT32 NpSystemTest(VOID);
+
+STATIC VOID NpFsCmd(UINT32 argc, char **argv)
+{
+    (VOID)argc;
+    (VOID)argv;
+    {
+        INT32 fails = NpFsTest();
+
+        PRINTK("[np] fstest: %d fails\n", fails);
+        (VOID)mica_tty_printf("[np] fstest: %d fails\n", fails);
+    }
+}
+
+STATIC VOID NpSysCmd(UINT32 argc, char **argv)
+{
+    (VOID)argc;
+    (VOID)argv;
+    {
+        INT32 fails = NpSystemTest();
+
+        PRINTK("[np] systest: %d fails\n", fails);
+        (VOID)mica_tty_printf("[np] systest: %d fails\n", fails);
+    }
+}
+
 UINT32 NpShellCmdRegister(VOID)
 {
     UINT32 ret1 = osCmdReg(CMD_TYPE_EX, "rpctest", XARGS,
                            (CmdCallBackFunc)NpPingCmd);
     UINT32 ret2 = osCmdReg(CMD_TYPE_EX, "nptest", XARGS,
                            (CmdCallBackFunc)NpTestCmd);
-    return (ret1 == LOS_OK && ret2 == LOS_OK) ? LOS_OK : LOS_NOK;
+    UINT32 ret3 = osCmdReg(CMD_TYPE_EX, "fstest", XARGS,
+                           (CmdCallBackFunc)NpFsCmd);
+    UINT32 ret4 = osCmdReg(CMD_TYPE_EX, "systest", XARGS,
+                           (CmdCallBackFunc)NpSysCmd);
+#ifdef LOSCFG_MCS_TIMER
+    {
+        extern UINT32 TimerShellCmdRegister(VOID);
+        (VOID)TimerShellCmdRegister();
+    }
+#endif
+    return (ret1 == LOS_OK && ret2 == LOS_OK &&
+            ret3 == LOS_OK && ret4 == LOS_OK) ? LOS_OK : LOS_NOK;
 }
 
 #endif /* LOSCFG_SHELL */
@@ -519,7 +423,7 @@ STATIC INT32 NpBigMsgOnce(UINT32 size)
     UINT32 i;
     INT32 fd, sent = 0, got = 0, fails = 0;
 
-    if (size == 0 || size > NP_BIGMSG_MAX || NpParseIp("192.168.100.20", &ipBe) != 0) {
+    if (size == 0 || size > NP_BIGMSG_MAX || NpParseIp("127.0.0.1", &ipBe) != 0) {
         return 1;
     }
     fd = np_socket(2 /* AF_INET */, 1 /* SOCK_STREAM */, 0);
@@ -626,7 +530,7 @@ STATIC VOID *NpCcTaskB(UINT32 arg)
 
     (VOID)arg;
     for (i = 0; i < 5; i++) {
-        g_npCcFails[1] += NpProbe("192.168.100.20", NP_UDP_PORT, &probeRes);
+        g_npCcFails[1] += NpProbe("127.0.0.1", NP_UDP_PORT, &probeRes);
     }
     g_npCcDone[1] = 1;
     return NULL;
@@ -671,6 +575,359 @@ STATIC VOID NpConcurrentTest(VOID)
              waited * 10);
 }
 
+/* --------------------------------------------------------------------------
+ * sockopt / name tests: setsockopt+getsockopt (SO_RCVBUF), getsockname on
+ * a bound UDP socket, getpeername + shutdown on a connected TCP socket.
+ * ------------------------------------------------------------------------ */
+
+#define NP_SO_RCVBUF_DEF 8192
+
+STATIC INT32 NpSockOptsTest(VOID)
+{
+    UINT8 addr[NP_SOCKADDR_IN_LEN];
+    UINT32 ipBe;
+    UINT32 optval = 0;
+    UINT32 optlen = sizeof(optval);
+    INT32 fails = 0;
+    INT32 fd, ret;
+
+    /* setsockopt/getsockopt: grow SO_RCVBUF and read it back */
+    fd = np_socket(2 /* AF_INET */, 2 /* SOCK_DGRAM */, 0);
+    if (fd < 0) {
+        return 1;
+    }
+    optval = NP_SO_RCVBUF_DEF;
+    ret = np_setsockopt(fd, 1 /* SOL_SOCKET */, 8 /* SO_RCVBUF */,
+                        &optval, sizeof(optval));
+    if (ret != 0) {
+        fails++;
+    }
+    optlen = sizeof(optval);
+    optval = 0;
+    ret = np_getsockopt(fd, 1, 8, &optval, &optlen);
+    if (ret != 0 || optlen != sizeof(uint32_t) ||
+        optval < NP_SO_RCVBUF_DEF) { /* linux doubles it, never shrinks */
+        fails++;
+    }
+    NpRpcLog("auto: sockopt rcvbuf set=%d get=%u ret=%d", NP_SO_RCVBUF_DEF,
+             optval, ret);
+
+    /* getsockname: bind ANY:0, the master assigns an ephemeral port */
+    if (NpParseIp("0.0.0.0", &ipBe) != 0) {
+        ipBe = 0;
+    }
+    NpBuildSockaddrIn(addr, ipBe, 0);
+    ret = np_bind(fd, addr, sizeof(addr));
+    if (ret != 0) {
+        fails++;
+    } else {
+        UINT8 local[NP_SOCKADDR_IN_LEN];
+        UINT32 localLen = sizeof(local);
+
+        (VOID)memset(local, 0, sizeof(local));
+        ret = np_getsockname(fd, local, &localLen);
+        if (ret != 0 || localLen < 8 || local[2] == 0) {
+            fails++; /* family 2 + non-zero assigned port expected */
+        } else {
+            UINT16 portBe = (UINT16)((local[2] << 8) | local[3]);
+
+            NpRpcLog("auto: getsockname port=%u ret=%d", portBe, ret);
+        }
+    }
+    (VOID)np_close(fd);
+
+    /* getpeername + shutdown on a connected TCP socket (in-master echo) */
+    if (NpParseIp("127.0.0.1", &ipBe) != 0) {
+        return fails + 1;
+    }
+    fd = np_socket(2, 1 /* SOCK_STREAM */, 0);
+    if (fd < 0) {
+        return fails + 1;
+    }
+    NpBuildSockaddrIn(addr, ipBe, (UINT16)(NP_UDP_PORT + 1));
+    if (np_connect(fd, addr, sizeof(addr)) == 0) {
+        UINT8 peer[NP_SOCKADDR_IN_LEN];
+        UINT32 peerLen = sizeof(peer);
+
+        (VOID)memset(peer, 0, sizeof(peer));
+        ret = np_getpeername(fd, peer, &peerLen);
+        if (ret != 0 || peerLen < 8 || peer[2] == 0) {
+            fails++;
+        }
+        /* SHUT_WR(1): further sends are refused, the echo side sees EOF */
+        ret = np_shutdown(fd, 1);
+        if (ret != 0) {
+            fails++;
+        }
+        NpRpcLog("auto: getpeername+shutdown ret=%d fails=%d", ret, fails);
+    } else {
+        fails++;
+    }
+    (VOID)np_close(fd);
+    return fails;
+}
+
+/* --------------------------------------------------------------------------
+ * server path: bind+listen+select+accept. the master demo runs a
+ * connect-back thread (see netproxy_demo.c) that keeps trying
+ * 127.0.0.1:NP_CB_PORT, so the accept here completes fully in-board.
+ * ------------------------------------------------------------------------ */
+
+#define NP_CB_PORT 7005
+
+STATIC INT32 NpServerTest(VOID)
+{
+    UINT8 addr[NP_SOCKADDR_IN_LEN];
+    UINT32 ipBe;
+    UINT8 rxBuf[64];
+    np_fd_set rdset;
+    INT32 fails = 0;
+    INT32 lfd, cfd, ret;
+    INT32 nfds, waited = 0;
+
+    if (NpParseIp("127.0.0.1", &ipBe) != 0) {
+        return 1;
+    }
+    lfd = np_socket(2, 1 /* SOCK_STREAM */, 0);
+    if (lfd < 0) {
+        NpRpcLog("auto: server socket fail %d", lfd);
+        return 1;
+    }
+    NpBuildSockaddrIn(addr, ipBe, NP_CB_PORT);
+    ret = np_bind(lfd, addr, sizeof(addr));
+    if (ret != 0) {
+        NpRpcLog("auto: server bind fail %d", ret);
+        (VOID)np_close(lfd);
+        return 1;
+    }
+    ret = np_listen(lfd, 1);
+    if (ret != 0) {
+        NpRpcLog("auto: server listen fail %d", ret);
+        (VOID)np_close(lfd);
+        return 1;
+    }
+
+    /* select with a 1 s poll timeout until the connect-back lands (the
+     * master retries every 3 s; allow up to ~20 s) */
+    do {
+        NP_FD_ZERO(&rdset);
+        NP_FD_SET(lfd, &rdset);
+        nfds = np_select(lfd + 1, &rdset, NULL, NULL, 1000);
+        if (nfds < 0) {
+            NpRpcLog("auto: server select fail %d", nfds);
+            (VOID)np_close(lfd);
+            return 1;
+        }
+        if (nfds > 0 && NP_FD_ISSET(lfd, &rdset)) {
+            break;
+        }
+    } while (++waited < 20);
+
+    cfd = np_accept(lfd, NULL, NULL);
+    if (cfd < 0) {
+        NpRpcLog("auto: server accept fail %d (waited %d)", cfd, waited);
+        fails++;
+    } else {
+        const char *hello = "slave-server-ready";
+
+        ret = np_recv(cfd, rxBuf, sizeof(rxBuf), 0, 3000);
+        if (ret <= 0) {
+            fails++;
+        } else {
+            ret = np_send(cfd, hello, (UINT32)strlen(hello), 0);
+            if (ret != (INT32)strlen(hello)) {
+                fails++;
+            }
+        }
+        (VOID)np_shutdown(cfd, 2 /* SHUT_RDWR */);
+        (VOID)np_close(cfd);
+        NpRpcLog("auto: server accept fd=%d echo fails=%d", cfd, fails);
+    }
+    (VOID)np_close(lfd);
+    return fails;
+}
+
+/* --------------------------------------------------------------------------
+ * proxy filesystem + system: full pfs_* flow against the master /data.
+ * ------------------------------------------------------------------------ */
+
+#define NP_FS_DIR  "/data/np_fs_demo"
+#define NP_FS_FILE NP_FS_DIR "/hello.txt"
+
+/* Linux ABI values (musl-compatible; the local fcntl.h on liteos-m may
+ * not exist on every build, so keep them literal and documented). */
+#define NP_O_RDONLY       0
+#define NP_O_WRONLY       1
+#define NP_O_RDWR         2
+#define NP_O_CREAT        0100
+#define NP_O_TRUNC        01000
+#define NP_SEEK_SET       0
+#define NP_F_GETFL        3
+#define NP_S_IFMT         0170000u
+#define NP_S_IFREG        0100000u
+#define NP_S_IFDIR        0040000u
+
+STATIC INT32 NpFsTest(VOID)
+{
+    static const char content[] = "pfs hello from the liteos slave";
+    char buf[128];
+    char cwd[128];
+    struct pfs_stat st;
+    UINT8 dirents[512];
+    INT32 fd, ret, fails = 0;
+    int64_t pos;
+
+    /* clean slate from a previous run, then mkdir */
+    (VOID)pfs_rmdir(NP_FS_DIR);
+    ret = pfs_mkdir(NP_FS_DIR, 0755);
+    if (ret != 0) {
+        NpRpcLog("auto: pfs mkdir fail %d", ret);
+        return 1;
+    }
+    ret = pfs_stat(NP_FS_DIR, &st);
+    if (ret != 0 || (st.mode & NP_S_IFMT) != NP_S_IFDIR) {
+        fails++;
+        NpRpcLog("auto: pfs stat(dir) ret=%d mode=%o", ret, st.mode);
+    }
+
+    /* write the file (fragmented path: > 424 B payload slices) */
+    fd = pfs_open(NP_FS_FILE, NP_O_WRONLY | NP_O_CREAT | NP_O_TRUNC, 0644);
+    if (fd < 0) {
+        NpRpcLog("auto: pfs open(w) fail %d", fd);
+        (VOID)pfs_rmdir(NP_FS_DIR);
+        return 1;
+    }
+    ret = pfs_write(fd, content, (UINT32)sizeof(content) - 1);
+    if (ret != (INT32)sizeof(content) - 1) {
+        fails++;
+        NpRpcLog("auto: pfs write ret=%d", ret);
+    }
+    ret = pfs_close(fd);
+    if (ret != 0) {
+        fails++;
+    }
+
+    /* stat + read-back + lseek */
+    ret = pfs_stat(NP_FS_FILE, &st);
+    if (ret != 0 || st.size != sizeof(content) - 1 ||
+        (st.mode & NP_S_IFMT) != NP_S_IFREG) {
+        fails++;
+        NpRpcLog("auto: pfs stat(file) ret=%d size=%llu", ret,
+                 (unsigned long long)st.size);
+    }
+    fd = pfs_open(NP_FS_FILE, NP_O_RDONLY, 0);
+    if (fd < 0) {
+        NpRpcLog("auto: pfs open(r) fail %d", fd);
+        (VOID)pfs_unlink(NP_FS_FILE);
+        (VOID)pfs_rmdir(NP_FS_DIR);
+        return fails + 1;
+    }
+    ret = pfs_fcntl(fd, NP_F_GETFL, 0);
+    if (ret < 0) {
+        fails++;
+    }
+    ret = pfs_read(fd, buf, sizeof(buf));
+    if (ret != (INT32)sizeof(content) - 1 ||
+        memcmp(buf, content, sizeof(content) - 1) != 0) {
+        fails++;
+        NpRpcLog("auto: pfs read ret=%d", ret);
+    }
+    pos = pfs_lseek(fd, 0, NP_SEEK_SET);
+    if (pos != 0) {
+        fails++;
+    }
+    (VOID)pfs_close(fd);
+
+    /* rename -> access -> unlink -> rmdir */
+    ret = pfs_rename(NP_FS_FILE, NP_FS_DIR "/renamed.txt");
+    if (ret != 0) {
+        fails++;
+    }
+    ret = pfs_access(NP_FS_DIR "/renamed.txt", 0 /* F_OK */);
+    if (ret != 0) {
+        fails++;
+    }
+    ret = pfs_unlink(NP_FS_DIR "/renamed.txt");
+    if (ret != 0) {
+        fails++;
+    }
+
+    /* getdents: one more file so the directory is non-empty */
+    fd = pfs_open(NP_FS_DIR "/keep.txt", NP_O_WRONLY | NP_O_CREAT, 0644);
+    if (fd >= 0) {
+        (VOID)pfs_write(fd, "keep", 4);
+        (VOID)pfs_close(fd);
+        fd = pfs_open(NP_FS_DIR, NP_O_RDONLY, 0);
+        ret = pfs_getdents(fd, dirents, sizeof(dirents));
+        if (ret <= 0) {
+            fails++;
+            NpRpcLog("auto: pfs getdents ret=%d", ret);
+        } else {
+            UINT32 off = 0;
+            UINT32 n = 0;
+
+            while (PfsGetdentsNext(dirents, (UINT32)ret, &off) != NULL) {
+                n++;
+            }
+            /* '.' + '..' + keep.txt */
+            if (n < 3) {
+                fails++;
+            }
+            NpRpcLog("auto: pfs getdents bytes=%d entries=%u", ret, n);
+        }
+        (VOID)pfs_close(fd);
+        (VOID)pfs_remove(NP_FS_DIR "/keep.txt");
+    } else {
+        fails++;
+    }
+
+    /* chdir + getcwd round-trip */
+    ret = pfs_chdir(NP_FS_DIR);
+    if (ret != 0) {
+        fails++;
+    } else {
+        ret = pfs_getcwd(cwd, sizeof(cwd));
+        if (ret < 0 || strcmp(cwd, NP_FS_DIR) != 0) {
+            fails++;
+            NpRpcLog("auto: pfs getcwd ret=%d cwd=%s", ret, cwd);
+        }
+        (VOID)pfs_chdir("/");
+    }
+    ret = pfs_rmdir(NP_FS_DIR);
+    if (ret != 0) {
+        fails++;
+    }
+    NpRpcLog("auto: pfs all steps fails=%d", fails);
+    return fails;
+}
+
+STATIC INT32 NpSystemTest(VOID)
+{
+    char buf[64];
+    INT32 fd, ret, fails = 0;
+
+    /* run a master-side command whose output lands in a file we then
+     * read back through the pfs proxy (two proxies in one flow) */
+    (VOID)pfs_unlink("/data/np_system.txt");
+    ret = np_system("echo np-system-ok > /data/np_system.txt");
+    if (ret != 0) {
+        NpRpcLog("auto: system ret=%d", ret);
+        return 1;
+    }
+    fd = pfs_open("/data/np_system.txt", NP_O_RDONLY, 0);
+    if (fd < 0) {
+        return 1;
+    }
+    ret = pfs_read(fd, buf, sizeof(buf));
+    (VOID)pfs_close(fd);
+    (VOID)pfs_unlink("/data/np_system.txt");
+    if (ret < 0 || strstr(buf, "np-system-ok") == NULL) {
+        fails++;
+    }
+    NpRpcLog("auto: system+readback ret=%d fails=%d", ret, fails);
+    return fails;
+}
+
 STATIC VOID NpAutoTest(VOID)
 {
     INT32 r16, r64, r256;
@@ -692,7 +949,7 @@ STATIC VOID NpAutoTest(VOID)
     NpRpcLog("auto: rpctest 64 -> %d", r64);
     r256 = NpPingOnce(256);
     NpRpcLog("auto: rpctest 256 -> %d", r256);
-    (VOID)NpProbe("192.168.100.20", NP_UDP_PORT, &probeRes);
+    (VOID)NpProbe("127.0.0.1", NP_UDP_PORT, &probeRes);
     NpRpcLog("auto: nptest udp fd=%d send=%d recv=%d",
              probeRes.udpFd, probeRes.udpSend, probeRes.udpRecv);
     NpRpcLog("auto: nptest tcp fd=%d conn=%d send=%d recv=%d fails=%d",
@@ -711,6 +968,12 @@ STATIC VOID NpAutoTest(VOID)
      * concurrent-task timing if it ran before this. */
     NpConcurrentTest();
     NpErrPathsTest();
+    /* proxy network completion: sockopts/names + server (bind/listen/
+     * select/accept); proxy filesystem + proxy shell */
+    NpRpcLog("auto: sockopts fails=%d", NpSockOptsTest());
+    NpRpcLog("auto: server fails=%d", NpServerTest());
+    NpRpcLog("auto: pfs fails=%d", NpFsTest());
+    NpRpcLog("auto: system fails=%d", NpSystemTest());
     NpRpcLog("auto: done (masterSeen=%u)", g_masterSeen);
 }
 

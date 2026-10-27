@@ -54,9 +54,23 @@ kernel_module(module_name) {
 
   # mica rpc service probe + socket proxy demo (netproxy_test.c): the
   # rpmsg-rpc endpoint (libmica rpc_service.c) plus the np_* socket
-  # proxy API forwarding BSD socket calls to the master netproxy worker.
+  # proxy API (libmica net_service.c) forwarding BSD socket calls to
+  # the master netproxy worker.
   if (defined(LOSCFG_MCS_RPC)) {
     sources += [ "netproxy_test.c" ]
+  }
+
+  # Shared-free SoC timer data plane (TIMER1): unlike net/can there is
+  # NO master precondition (the master never touches the SoC TIMER
+  # block), the driver self-serves the CRU clock gate + reset. Driver
+  # source: timer/timer_rk3568.c against the protocol-agnostic timer.h
+  # contract (oneshot/periodic, irq or polled); timer_test.c is the
+  # phase-driven self-test demo.
+  if (defined(LOSCFG_MCS_TIMER)) {
+    sources += [
+      "timer/timer_rk3568.c",
+      "timer_test.c",
+    ]
   }
 
   include_dirs = [
@@ -64,6 +78,7 @@ kernel_module(module_name) {
     ".",
     "can",
     "net",
+    "timer",
     "//kernel/liteos_m/testsuites/include",
   ]
 }

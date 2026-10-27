@@ -84,9 +84,35 @@ config MCS_RPC
       rpmsg-rpc endpoint is brought up by libmica (rpc_service.c, both
       client and server roles) and this core registers an RPC_PING echo
       handler so the master can verify the slave service framework. On
-      top of the rpc channel the np_* socket proxy API (netproxy_test.c)
-      forwards BSD socket calls to the master netproxy worker, which
-      executes them on the Linux network stack (socket RPC proxy mode,
-      the UniProton proxy model). Shell commands: rpctest [len] runs a
-      client round-trip through the master; nptest <ip> [port] runs a
-      UDP and a TCP probe against <ip>.
+      top of the rpc channel the np_* socket proxy API (libmica
+      net_service.c, demo in netproxy_test.c) forwards BSD socket calls
+      (socket/bind/listen/accept/connect/send/recv/sendto/recvfrom/
+      setsockopt/getsockopt/getsockname/getpeername/shutdown/select/
+      close) to the master netproxy worker, which executes them on the
+      Linux network stack (socket RPC proxy mode, the UniProton proxy
+      model). The pfs_* proxy filesystem API (libmica fs_service.c)
+      forwards file calls (open/read/write/lseek/fcntl/unlink/stat/
+      fstat/rename/remove/mkdir/rmdir/chdir/getcwd/access/getdents) to
+      the master filesystem, and np_system runs a shell command on the
+      master console. Shell commands: rpctest [len] runs a client
+      round-trip through the master; nptest <ip> [port] runs a UDP and
+      a TCP probe against <ip>; fstest/systest exercise the proxy
+      filesystem and the proxy shell.
+
+config MCS_TIMER
+    bool "Shared-free SoC timer data plane on TIMER1 (slave side)"
+    default n
+    depends on MCS
+    help
+      Slave-side timer driver for the SoC TIMER block. The master oh
+      kernel owns TIMER0 (fe5f0000, its clockevent per the dtb
+      timer@fe5f0000 node), so this driver binds TIMER1 (fe5f0020,
+      24MHz) - a channel the master never touches: it enables the
+      CRU clock gate itself and never pulses the block-wide
+      SRST_P_TIMER reset. Data plane against the protocol-agnostic
+      timer.h contract: oneshot/periodic work mode, irq-only expiry
+      (minimal set; poll mode trimmed, add later if a caller needs it),
+      runtime interval change (TimerSetInterval) and a self-test demo
+      task (timer_test.c) with phase-driven checks (count + tick-span
+      accuracy, oneshot single-fire, rearm-on-the-fly). The slave
+      tick itself stays on the ARM generic timer and is untouched.

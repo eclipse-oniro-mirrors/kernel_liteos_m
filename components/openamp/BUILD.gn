@@ -110,6 +110,11 @@ kernel_module(module_name) {
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/tty_service.c",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/umt_service.c",
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/echo_service.c",
+    # np_*/pfs_* proxy client services (see include/mica/net_proxy.h and
+    # pfs.h): thin mica_rpc_call wrappers executed by netproxy_test.c /
+    # user tasks; the master-side partner is the netproxy worker.
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/net_service.c",
+    "//kernel/liteos_m/compat/mcs/mica/libmica/src/services/fs_service.c",
   ]
 
   # ---- prebuilt archives (SoC repo, third-party only) ----

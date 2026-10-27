@@ -134,12 +134,50 @@ static inline void ItMcsNetFillFrame(uint8_t *frame, uint32_t len)
 }
 #endif
 
+
+#ifdef LOSCFG_MCS_TIMER
+#include "timer.h"
+
+#define IT_TIMER_US_PER_TICK \
+    (1000000ULL / LOSCFG_BASE_CORE_TICK_PER_SECOND)
+
+/* irq-mode expiry recorder: the callback runs in ISR context */
+typedef struct {
+    timerDevice *dev;
+    volatile uint32_t count;
+} ItMcsTimerCtx;
+
+static inline void ItMcsTimerCb(void *arg)
+{
+    ItMcsTimerCtx *c = (ItMcsTimerCtx *)arg;
+
+    c->count++;
+}
+
+/* wait until ctx->count reaches want or timeoutMs elapses; 0 on hit */
+static inline int ItMcsTimerWaitCount(ItMcsTimerCtx *c, uint32_t want,
+                                      uint32_t timeoutMs)
+{
+    uint32_t waited = 0;
+
+    while (c->count < want) {
+        if (waited >= timeoutMs) {
+            return -1;
+        }
+        LOS_TaskDelay(1);
+        waited += (uint32_t)(IT_TIMER_US_PER_TICK / 1000ULL) + 1;
+    }
+    return 0;
+}
+#endif
+
 /* suite aggregators */
 VOID ItSuiteMcsCan(VOID);
 VOID ItSuiteMcsNet(VOID);
 VOID ItSuiteMcsRpc(VOID);
 VOID ItSuiteMcsNp(VOID);
 VOID ItSuiteMcsSvc(VOID);
+VOID ItSuiteMcsTimer(VOID);
 
 #ifdef LOSCFG_MCS_CAN
 VOID ItMcsCan001(VOID); VOID ItMcsCan002(VOID); VOID ItMcsCan003(VOID);
@@ -154,6 +192,10 @@ VOID ItMcsNet001(VOID); VOID ItMcsNet002(VOID); VOID ItMcsNet003(VOID);
 VOID ItMcsNet004(VOID); VOID ItMcsNet005(VOID); VOID ItMcsNet006(VOID);
 VOID ItMcsNet007(VOID); VOID ItMcsNet008(VOID); VOID ItMcsNet009(VOID);
 VOID ItMcsNet010(VOID);
+#endif
+#ifdef LOSCFG_MCS_TIMER
+VOID ItMcsTimer001(VOID); VOID ItMcsTimer002(VOID); VOID ItMcsTimer003(VOID);
+VOID ItMcsTimer004(VOID); VOID ItMcsTimer005(VOID); VOID ItMcsTimer006(VOID);
 #endif
 #ifdef LOSCFG_MCS_RPC
 VOID ItMcsRpc001(VOID); VOID ItMcsRpc002(VOID); VOID ItMcsRpc003(VOID);

@@ -30,6 +30,11 @@ extern VOID ItLosCache008(VOID);
 extern VOID ItLosCache009(VOID);
 extern VOID ItLosCache010(VOID);
 extern VOID ItLosCache011(VOID);
+extern VOID ItLosCache013(VOID);
+extern VOID ItLosCache014(VOID);
+extern VOID ItLosCache015(VOID);
+extern VOID ItLosCache016(VOID);
+extern VOID ItLosCache017(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

@@ -43,9 +43,8 @@
  *   IntLock 包裹三连可通过(对照实验 run6)。
  * 【修复方向】上游开源 liblos_cache.a 定界; 库侧全量维护序列加中断保护;
  *   测试侧全量序列外加 LOS_IntLock/LOS_IntRestore(实验验证有效)。
- * 【恢复方法】缺陷修复后置 bug_isolate.h 的
- *   KERNEL_BUG_13_CACHE_MAINT_PHASE_FREEZE=1, 本用例入自动套件:
- *   A~D 断言"失效操作不丢已写数据"修复后契约, F 千次全序列回归。
+ * 【修复落地】源码化(los_cache.c + los_cache_asm.S), 全路径 IntLock,
+ *   InvByAddr 边界写回 bug 修复(传原始地址给 InvByVa)。本用例恢复常跑。
  *
  * 探测矩阵:
  *   A: ArchDCacheInvalidate()   全量纯失效(主缺陷面)

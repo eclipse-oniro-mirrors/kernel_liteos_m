@@ -18,14 +18,14 @@ VOID ItSuiteLosCache(VOID)
     ItLosCache006();
     ItLosCache007();
     ItLosCache008();
-#if defined(KERNEL_BUG_13_CACHE_MAINT_LAYOUT_FREEZE) && KERNEL_BUG_13_CACHE_MAINT_LAYOUT_FREEZE == 1
-    /* #78 布局敏感缺陷: 触发点随构建布局漂移(002 单批布局冻 009, 合批布局冻 011),
-     * 维护族 009-011 一并隔离; 001-008 全部布局均未触发, 照常执行。修复后置 1 恢复 */
     ItLosCache009();
     ItLosCache010();
     ItLosCache011();
-#endif
-#if defined(KERNEL_BUG_13_CACHE_MAINT_PHASE_FREEZE) && KERNEL_BUG_13_CACHE_MAINT_PHASE_FREEZE == 1
-    ItLosCache012(); /* #78 缺陷探针: 修复后置 1 恢复(见 bug_isolate.h) */
-#endif
+    ItLosCache012();
+    /* 013-017: 新增接口覆盖/边界/功能完备度用例(源码化后回归补强) */
+    ItLosCache013();
+    ItLosCache014();
+    ItLosCache015();
+    ItLosCache016();
+    ItLosCache017();
 }

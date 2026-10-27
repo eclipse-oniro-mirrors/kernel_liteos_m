@@ -22,6 +22,14 @@ kernel_module("arch") {
     sources -= [ "los_trap.S" ]
     sources += [ "linx131/trap.S" ]
   }
+
+  # Open-source ws63 RISC-V (LinxCore131) I/D-cache maintenance. Replaces
+  # the former closed liblos_cache.a; gated by LOSCFG_ARCH_CACHE so boards
+  # without a cache provider don't reference the ArchICache*/ArchDCache*
+  # symbols.
+  if (defined(LOSCFG_ARCH_CACHE)) {
+    sources += [ "los_cache.c" ]
+  }
   configs += [ "$LITEOSTOPDIR:warn_config" ]
 }
 

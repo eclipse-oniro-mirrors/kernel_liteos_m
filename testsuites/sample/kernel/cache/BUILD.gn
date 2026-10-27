@@ -1,8 +1,9 @@
 # Copyright (c) 2026-2026. All rights reserved.
 #
 # Cache maintenance interface test suite (ws63 arch/cache.h). Gated by
-# LOSCFG_ARCH_CACHE (the closed liblos_cache.a provider must be linked for the
-# ArchICache*/ArchDCache* symbols to resolve) and LOSCFG_KERNEL_TEST.
+# LOSCFG_ARCH_CACHE (the arch/risc-v/src/los_cache.c provider must be
+# compiled for the ArchICache*/ArchDCache* symbols to resolve) and
+# LOSCFG_KERNEL_TEST.
 
 import("//kernel/liteos_m/liteos.gni")
 
@@ -20,7 +21,12 @@ static_library("test_cache") {
     "it_los_cache_009.c",
     "it_los_cache_010.c",
     "it_los_cache_011.c",
-    "it_los_cache_012.c", # #78 缺陷探针(bug_isolate.h 宏门控, 缺陷修复前不执行)
+    "it_los_cache_012.c", # #78 缺陷探针(源码化+IntLock+InvByAddr边界写回修复后恢复常跑)
+    "it_los_cache_013.c", # 接口覆盖: enable 幂等/重复使能
+    "it_los_cache_014.c", # 边界条件: 精确 cache line 边界
+    "it_los_cache_015.c", # 功能完备度: flush/clean/invalidate 语义
+    "it_los_cache_016.c", # 接口覆盖: flush_dcache/flush_icache 宏
+    "it_los_cache_017.c", # 回归: 源码化后中断安全回归
   ]
 
   include_dirs = [ "." ]

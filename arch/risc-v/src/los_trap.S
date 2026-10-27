@@ -2,23 +2,24 @@
  * Copyright (c) 2013-2020, Huawei Technologies Co., Ltd. All rights reserved.
  * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
  *
- * Description: RISC-V default trap (interrupt) entry — HalTrapVector.
- *              LinxCore131 overrides it via src/linx131/trap.S
- *              (file replacement in BUILD.gn).
+ * Description: RISC-V default trap (interrupt) entry — HalTrapVector. Uses
+ *              stack_ops.h macros but keeps OHOS symbols and the
+ *              interrupt-dispatch model. LinxCore131 overrides it via
+ *              src/linx131/trap.S (file replacement in BUILD.gn).
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, this list
- *    of conditions and the following disclaimer.
+ * 1. Redistributions of source code must retain the above copyright notice, this list of
+ *    conditions and the following disclaimer.
  *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this list
- *    of conditions and the following disclaimer in the documentation and/or other
- *    materials provided with the distribution.
+ *    of conditions and the following disclaimer in the documentation and/or other materials
+ *    provided with the distribution.
  *
- * 3. Neither the name of the copyright holder nor the names of its contributors may
- *    be used to endorse or promote products derived from this software without
- *    specific prior written permission.
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
+ *    to endorse or promote products derived from this software without specific prior written
+ *    permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
@@ -35,29 +36,41 @@
 
 #ifndef _LOS_TRAP_S
 #define _LOS_TRAP_S
-#include "soc_common.h"
-#include "trap_macros.h"
+#include "arch/stack_ops.h"
 
 .section .interrupt.HalTrapVector.text, "ax"
 .extern HalTrapEntry
+.extern HalHwiInterruptDone
 .extern OsSchedProcSchedFlag
 .global HalTrapVector
-.equ TRAP_INTERRUPT_MODE_MASK, 0x80000000
 .align 6
+
+/* mtvec target. PUSH_CALLER_REG allocates the full frame; CPU_SPECIAL slots
+ * 0/1 are filled with mcause/mepc. POP_CALLER_REG skips them (restored via
+ * csrw), so they must be restored explicitly before POP. */
 HalTrapVector:
     PUSH_CALLER_REG
     csrr  a0, mcause
-    li    a1, TRAP_INTERRUPT_MODE_MASK
-    li    a2, MCAUSE_INT_ID_MASK
-    and   a1, a0, a1
-    and   a0, a2, a0
-    beqz  a1, HalTrapEntry
+    li    a1, MCAUSE_MASK_INT_BIT
+    li    a2, MCAUSE_MASK_INT_NUM
+    and   a1, a0, a1            /* a1 = interrupt bit */
+    and   a0, a2, a0            /* a0 = interrupt number */
+    csrr  t0, mstatus
+    sw    t0, 0 * REGBYTES(sp)  /* slot 0 = mstatus */
+    csrr  t0, mepc
+    sw    t0, 1 * REGBYTES(sp)  /* slot 1 = mepc */
+    beqz  a1, HalTrapEntry      /* not an interrupt → exception */
+
     csrw  mscratch, sp
     la    sp, __start_and_irq_stack_top
     jal   HalHwiInterruptDone
     csrr  sp, mscratch
     call  OsSchedProcSchedFlag
 
+    lw    t0, 1 * REGBYTES(sp)
+    csrw  mepc, t0
+    lw    t0, 0 * REGBYTES(sp)
+    csrw  mstatus, t0
     POP_CALLER_REG
     mret
 #endif /* _LOS_TRAP_S */

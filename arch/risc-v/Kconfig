@@ -94,6 +94,36 @@ config ARCH_RISCV_INT_AUTO_STACK
     help
       RISC-V interrupt hardware stacking.
 
+# ---------------------------------------------------------------------------
+# Reset vector provider
+# ---------------------------------------------------------------------------
+config USING_BOARD_RESET_VECTOR
+    bool "Board provides its own reset_vector.S and stack layout"
+    default y
+    help
+      When set, the board supplies its own reset_vector.S and linker-defined
+      stack symbols; the arch-level los_reset_vector.S / los_stack.S are
+      excluded to avoid duplication. Clear for a bare board.
+
+# ---------------------------------------------------------------------------
+# System stack sizes (used by los_stack.S when USING_BOARD_RESET_VECTOR is off)
+# ---------------------------------------------------------------------------
+config IRQ_STACK_SIZE
+    int "IRQ stack size in bytes"
+    default 2048
+
+config STARTUP_STACK_SIZE
+    int "Startup stack size in bytes (0 = reuse IRQ stack)"
+    default 2048
+
+config EXC_STACK_SIZE
+    int "Exception stack size in bytes (0 = reuse startup stack)"
+    default 1024
+
+config NMI_STACK_SIZE
+    int "NMI stack size in bytes (0 = reuse exc stack)"
+    default 1024
+
 # LinxCore170 configuration variants
 config ARCH_LINXCORE_170_CONFIG61
     bool

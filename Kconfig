@@ -442,7 +442,7 @@ menu "Stack Smashing Protector (SSP) Compiler Feature"
 
 choice
     prompt "Enable stack buffer overflow detection"
-    default  CC_STACKPROTECTOR_STRONG
+    default CC_STACKPROTECTOR_STRONG
     ---help---
     This option turns on the -fstack-protector GCC feature. This
     feature puts, at the beginning of functions, a canary value on

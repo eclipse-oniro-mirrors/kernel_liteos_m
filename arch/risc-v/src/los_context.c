@@ -39,7 +39,7 @@
 #include "los_memory.h"
 #include "soc_common.h"
 
-LITE_OS_SEC_BSS LosTaskCB *g_runTask = NULL;
+LITE_OS_SEC_BSS LosTaskCB *g_newTask = NULL;
 
 LITE_OS_SEC_TEXT_INIT VOID ArchInit(VOID)
 {
@@ -55,69 +55,27 @@ LITE_OS_SEC_TEXT_MINOR VOID ArchTaskExit(VOID)
 
 LITE_OS_SEC_TEXT_INIT VOID *ArchTaskStackInit(UINT32 taskId, UINT32 stackSize, VOID *topStack)
 {
-    TaskContext *context = (TaskContext *)((UINTPTR)topStack + stackSize - sizeof(TaskContext));
-
-    context->mstatus = RISCV_MSTATUS_MPP | RISCV_MSTATUS_MPIE;
-#ifndef LOSCFG_ARCH_FPU_DISABLE
-    /* Enable FPU (mstatus.FS = Dirty) so the task can use FP instructions.
-     * The task switch / interrupt entry will save/restore FP registers
-     * because FS != Off. */
-    context->mstatus |= RISCV_MSTATUS_FS;
-    /* Zero FPU register area (ft0-fs11 + fcsr + reserved) by looping from
-     * the first FPU field to the end of TaskContext, 
-     * which uses a similar loop from S11_REG_INDEX+1 to sizeof(TaskContext). */
-    UINT32 fpuStart = (UINT32)(UINTPTR)&(((TaskContext *)0)->ft11) / sizeof(UINT32);
-    UINT32 fpuEnd = (UINT32)sizeof(TaskContext) / sizeof(UINT32);
     UINT32 index;
-    for (index = fpuStart; index < fpuEnd; index++) {
-        ((UINT32 *)context)[index] = 0;
+    TaskContext *context = NULL;
+
+    /* los_task.c already memset the stack + stamped OS_TASK_MAGIC_WORD, so
+     * do NOT re-memset here. */
+    context = (TaskContext *)(((UINTPTR)topStack + stackSize) - sizeof(TaskContext));
+
+    /* Single loop over the contiguous s11..ra region. */
+    ((UINT32 *)context)[S11_REG_INDEX] = S11_INIT_VALUE;
+    for (index = S11_REG_INDEX + 1; index < (sizeof(TaskContext) / sizeof(UINT32)); index++) {
+        ((UINT32 *)context)[index] = ((UINT32 *)context)[index - 1] + STACK_INIT_ACC;
     }
+#ifndef LOSCFG_ARCH_FPU_DISABLE
+    context->fcsr = 0x0;  /* fflags/frm start clean */
 #endif
+    context->mstatus = LOSCFG_MSTATUS_M;
     context->mepc = (UINT32)(UINTPTR)OsTaskEntry;
-    context->tp = TP_INIT_VALUE;
-    context->sp = SP_INIT_VALUE;
-    context->s11 = S11_INIT_VALUE;
-    context->s10 = S10_INIT_VALUE;
-    context->s9 = S9_INIT_VALUE;
-    context->s8 = S8_INIT_VALUE;
-    context->s7 = S7_INIT_VALUE;
-    context->s6 = S6_INIT_VALUE;
-    context->s5 = S5_INIT_VALUE;
-    context->s4 = S4_INIT_VALUE;
-    context->s3 = S3_INIT_VALUE;
-    context->s2 = S2_INIT_VALUE;
-    context->s1 = S1_INIT_VALUE;
-    context->s0 = FP_INIT_VALUE;
-    context->t6 = T6_INIT_VALUE;
-    context->t5 = T5_INIT_VALUE;
-    context->t4 = T4_INIT_VALUE;
-    context->t3 = T3_INIT_VALUE;
-    context->a7 = A7_INIT_VALUE;
-    context->a6 = A6_INIT_VALUE;
-    context->a5 = A5_INIT_VALUE;
-    context->a4 = A4_INIT_VALUE;
-    context->a3 = A3_INIT_VALUE;
-    context->a2 = A2_INIT_VALUE;
-    context->a1 = A1_INIT_VALUE;
     context->a0 = taskId;
-    context->t2 = T2_INIT_VALUE;
-    context->t1 = T1_INIT_VALUE;
-    context->t0 = T0_INIT_VALUE;
     context->ra = (UINT32)(UINTPTR)ArchTaskExit;
+
     return (VOID *)context;
 }
 
-LITE_OS_SEC_TEXT VOID wfi(VOID)
-{
-    __asm__ __volatile__("wfi");
-}
 
-LITE_OS_SEC_TEXT VOID mb(VOID)
-{
-    __asm__ __volatile__("fence":::"memory");
-}
-
-LITE_OS_SEC_TEXT VOID dsb(VOID)
-{
-    __asm__ __volatile__("fence":::"memory");
-}

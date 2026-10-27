@@ -34,17 +34,19 @@
 
 #include "los_compiler.h"
 #include "los_context.h"
+#include "arch_generic/barrier.h"
+#include <string.h>
 
-extern LosTaskCB *g_runTask;
+extern LosTaskCB *g_newTask;
 
 STATIC INLINE VOID *ArchCurrTaskGet(VOID)
 {
-    return (VOID *)g_runTask;
+    return (VOID *)g_newTask;
 }
 
 STATIC INLINE VOID ArchCurrTaskSet(VOID *val)
 {
-    g_runTask = (LosTaskCB *)val;
+    g_newTask = (LosTaskCB *)val;
 }
 
 STATIC INLINE UINT32 ArchCurrCpuid(VOID)
@@ -64,38 +66,46 @@ extern "C" {
  */
 #define EMPTY_STACK                 0xCACA
 
-#define TP_INIT_VALUE  0x02020202L
-#define SP_INIT_VALUE  0x03030303L
+/* Task-context register init values: ascending low-byte 0x01..0x1e so a
+ * stack dump shows the register identity; contiguous so STACK_INIT_ACC
+ * (0x01010101) can drive a single init loop over the s11..ra slice. */
+#define TP_INIT_VALUE  0x01010101L
+#define SP_INIT_VALUE  0x02020202L
 #define S11_INIT_VALUE 0x04040404L
 #define S10_INIT_VALUE 0x05050505L
 #define S9_INIT_VALUE  0x06060606L
 #define S8_INIT_VALUE  0x07070707L
 #define S7_INIT_VALUE  0x08080808L
 #define S6_INIT_VALUE  0x09090909L
-#define S5_INIT_VALUE  0x10101010L
-#define S4_INIT_VALUE  0x11111111L
-#define S3_INIT_VALUE  0x12121212L
-#define S2_INIT_VALUE  0x13131313L
-#define S1_INIT_VALUE  0x14141414L
-#define FP_INIT_VALUE  0x15151515L
-#define T6_INIT_VALUE  0x16161616L
-#define T5_INIT_VALUE  0x17171717L
-#define T4_INIT_VALUE  0x18181818L
-#define T3_INIT_VALUE  0x19191919L
-#define A7_INIT_VALUE  0x20202020L
-#define A6_INIT_VALUE  0x21212121L
-#define A5_INIT_VALUE  0x22222222L
-#define A4_INIT_VALUE  0x23232323L
-#define A3_INIT_VALUE  0x24242424L
-#define A2_INIT_VALUE  0x25252525L
-#define A1_INIT_VALUE  0x26262626L
-#define T2_INIT_VALUE  0x28282828L
-#define T1_INIT_VALUE  0x29292929L
-#define T0_INIT_VALUE  0x30303030L
+#define S5_INIT_VALUE  0x0a0a0a0aL
+#define S4_INIT_VALUE  0x0b0b0b0bL
+#define S3_INIT_VALUE  0x0c0c0c0cL
+#define S2_INIT_VALUE  0x0d0d0d0dL
+#define S1_INIT_VALUE  0x0e0e0e0eL
+#define FP_INIT_VALUE  0x0f0f0f0fL   /* s0 */
+#define T6_INIT_VALUE  0x10101010L
+#define T5_INIT_VALUE  0x11111111L
+#define T4_INIT_VALUE  0x12121212L
+#define T3_INIT_VALUE  0x13131313L
+#define A7_INIT_VALUE  0x14141414L
+#define A6_INIT_VALUE  0x15151515L
+#define A5_INIT_VALUE  0x16161616L
+#define A4_INIT_VALUE  0x17171717L
+#define A3_INIT_VALUE  0x18181818L
+#define A2_INIT_VALUE  0x19191919L
+#define A1_INIT_VALUE  0x1a1a1a1aL
+#define T2_INIT_VALUE  0x1c1c1c1cL
+#define T1_INIT_VALUE  0x1d1d1d1dL
+#define T0_INIT_VALUE  0x1e1e1e1eL
+
+/* STACK_INIT_ACC: step between consecutive register init values. */
+#define STACK_INIT_ACC  (S10_INIT_VALUE - S11_INIT_VALUE)  /* 0x01010101 */
 
 /**
  * @ingroup los_arch_context
- * Define the type of a task context control block.
+ * Task context. s11..ra are contiguous, so ArchTaskStackInit fills them
+ * with one loop from S11_REG_INDEX; the field order matches stack_ops.h
+ * PUSH/POP macros.
  */
 #ifndef LOSCFG_ARCH_FPU_DISABLE
 #ifdef LOSCFG_ARCH_FPU_DOUBLE
@@ -107,78 +117,89 @@ typedef UINT32 FLOATREG_TYPE;
 #endif
 
 typedef struct {
-    UINT32 sp;
-    UINT32 tp;
-    UINT32 t6;
-    UINT32 t5;
-    UINT32 t4;
-    UINT32 t3;
-    UINT32 t2;
-    UINT32 t1;
-    UINT32 t0;
-    UINT32 s11;
-    UINT32 s10;
-    UINT32 s9;
-    UINT32 s8;
-    UINT32 s7;
-    UINT32 s6;
-    UINT32 s5;
     UINT32 mstatus;
     UINT32 mepc;
-    UINT32 a7;
-    UINT32 a6;
-    UINT32 a5;
-    UINT32 a4;
-    UINT32 a3;
-    UINT32 a2;
-    UINT32 a1;
-    UINT32 a0;
-    UINT32 s4;
-    UINT32 s3;
-    UINT32 s2;
-    UINT32 s1;
-    UINT32 s0;
-    UINT32 ra;
+    UINT32 tp;    /* X4 */
+    UINT32 sp;    /* X2 */
+
 #ifndef LOSCFG_ARCH_FPU_DISABLE
-    /* FPU state mirrors the assembly stack frame (see soc_common.h).
-     * Order must match PUSH_ALL_REG/POP_ALL_REG in los_dispatch.S and
-     * PUSH_CALLER_REG/POP_ALL_REG in los_exc.S. */
-    FLOATREG_TYPE ft11;
-    FLOATREG_TYPE ft10;
-    FLOATREG_TYPE ft9;
-    FLOATREG_TYPE ft8;
-    FLOATREG_TYPE fa7;
-    FLOATREG_TYPE fa6;
-    FLOATREG_TYPE fa5;
-    FLOATREG_TYPE fa4;
-    FLOATREG_TYPE fa3;
-    FLOATREG_TYPE fa2;
-    FLOATREG_TYPE fa1;
-    FLOATREG_TYPE fa0;
-    FLOATREG_TYPE ft7;
-    FLOATREG_TYPE ft6;
-    FLOATREG_TYPE ft5;
-    FLOATREG_TYPE ft4;
-    FLOATREG_TYPE ft3;
-    FLOATREG_TYPE ft2;
-    FLOATREG_TYPE ft1;
-    FLOATREG_TYPE ft0;
-    FLOATREG_TYPE fs11;
-    FLOATREG_TYPE fs10;
-    FLOATREG_TYPE fs9;
-    FLOATREG_TYPE fs8;
-    FLOATREG_TYPE fs7;
-    FLOATREG_TYPE fs6;
-    FLOATREG_TYPE fs5;
-    FLOATREG_TYPE fs4;
-    FLOATREG_TYPE fs3;
-    FLOATREG_TYPE fs2;
-    FLOATREG_TYPE fs1;
-    FLOATREG_TYPE fs0;
-    UINT32 fcsr;
-    UINT32 fpuReserved[3];
+    FLOATREG_TYPE fs11;  /* F27 */
+    FLOATREG_TYPE fs10;  /* F26 */
+    FLOATREG_TYPE fs9;   /* F25 */
+    FLOATREG_TYPE fs8;   /* F24 */
+    FLOATREG_TYPE fs7;   /* F23 */
+    FLOATREG_TYPE fs6;   /* F22 */
+    FLOATREG_TYPE fs5;   /* F21 */
+    FLOATREG_TYPE fs4;   /* F20 */
+    FLOATREG_TYPE fs3;   /* F19 */
+    FLOATREG_TYPE fs2;   /* F18 */
+    FLOATREG_TYPE fs1;   /* F9 */
+    FLOATREG_TYPE fs0;   /* F8 */
+
+    FLOATREG_TYPE ft11;  /* F31 */
+    FLOATREG_TYPE ft10;  /* F30 */
+    FLOATREG_TYPE ft9;   /* F29 */
+    FLOATREG_TYPE ft8;   /* F28 */
+    FLOATREG_TYPE fa7;   /* F17 */
+    FLOATREG_TYPE fa6;   /* F16 */
+    FLOATREG_TYPE fa5;   /* F15 */
+    FLOATREG_TYPE fa4;   /* F14 */
+    FLOATREG_TYPE fa3;   /* F13 */
+    FLOATREG_TYPE fa2;   /* F12 */
+    FLOATREG_TYPE fa1;   /* F11 */
+    FLOATREG_TYPE fa0;   /* F10 */
+    FLOATREG_TYPE ft7;   /* F7 */
+    FLOATREG_TYPE ft6;   /* F6 */
+    FLOATREG_TYPE ft5;   /* F5 */
+    FLOATREG_TYPE ft4;   /* F4 */
+    FLOATREG_TYPE ft3;   /* F3 */
+    FLOATREG_TYPE ft2;   /* F2 */
+    FLOATREG_TYPE ft1;   /* F1 */
+    FLOATREG_TYPE ft0;   /* F0 */
+
+    UINT32 fcsr;  /* FCSR */
+    UINT32 reserved[3]; /* 3: aligned 16 bytes */
 #endif
+    UINT32 s11;   /* X27 */
+    UINT32 s10;   /* X26 */
+    UINT32 s9;    /* X25 */
+    UINT32 s8;    /* X24 */
+    UINT32 s7;    /* X23 */
+    UINT32 s6;    /* X22 */
+    UINT32 s5;    /* X21 */
+    UINT32 s4;    /* X20 */
+    UINT32 s3;    /* X19 */
+    UINT32 s2;    /* X18 */
+
+    UINT32 s1;    /* X9 */
+    UINT32 s0;    /* X8 */
+
+    UINT32 t6;    /* X31 */
+    UINT32 t5;    /* X30 */
+    UINT32 t4;    /* X29 */
+    UINT32 t3;    /* X28 */
+
+    UINT32 a7;    /* X17 */
+    UINT32 a6;    /* X16 */
+    UINT32 a5;    /* X15 */
+    UINT32 a4;    /* X14 */
+    UINT32 a3;    /* X13 */
+    UINT32 a2;    /* X12 */
+    UINT32 a1;    /* X11 */
+    UINT32 a0;    /* X10 */
+
+    UINT32 t2;    /* X7 */
+    UINT32 t1;    /* X6 */
+    UINT32 t0;    /* X5 */
+
+    UINT32 ra;    /* X1 */
 } TaskContext;
+
+/* Word-index of a TaskContext field. */
+#define TASK_CTX_INDEX(field)  ((UINT32)(UINTPTR)&(((TaskContext *)0)->field) / sizeof(UINT32))
+
+/* Word index of s11, start of the s11..ra region filled by the init loop. */
+#define S11_REG_INDEX  ((UINTPTR)&((TaskContext *)0)->s11 / sizeof(UINT32))
 
 /* Extract the frame pointer (s0) from a suspended task's saved context. */
 STATIC INLINE UINTPTR ArchGetTaskFp(const VOID *stackPointer)
@@ -202,63 +223,7 @@ STATIC INLINE UINTPTR GetFp(VOID)
 
 extern VOID ArchStartToRun(LosTaskCB *newTask);
 
-/**
- * @ingroup los_arch_context
- * @brief Wait for interrupt.
- *
- * @par Description:
- * <ul>
- * <li>This API is used to suspend execution until interrupt or a debug request occurs.</li>
- * </ul>
- * @attention None.
- *
- * @param None.
- *
- * @retval: None.
- *
- * @par Dependency:
- * los_arch_context.h: the header file that contains the API declaration.
- * @see None.
- */
-extern VOID wfi(VOID);
-
-/**
- * @ingroup los_arch_context
- * @brief: mem fence function.
- *
- * @par Description:
- * This API is used to fence for memory.
- *
- * @attention:
- * <ul><li>None.</li></ul>
- *
- * @param: None.
- *
- * @retval:None.
- * @par Dependency:
- * <ul><li>los_arch_context.h: the header file that contains the API declaration.</li></ul>
- * @see None.
- */
-extern VOID mb(VOID);
-
-/**
- * @ingroup los_arch_context
- * @brief: mem fence function.
- *
- * @par Description:
- * This API is same as mb, it just for adaptation.
- *
- * @attention:
- * <ul><li>None.</li></ul>
- *
- * @param: None.
- *
- * @retval:None.
- * @par Dependency:
- * <ul><li>los_arch_context.h: the header file that contains the API declaration.</li></ul>
- * @see None.
- */
-extern VOID dsb(VOID);
+/* wfi / mb / dsb are inline-asm macros from arch_generic/barrier.h. */
 
 #ifdef __cplusplus
 #if __cplusplus

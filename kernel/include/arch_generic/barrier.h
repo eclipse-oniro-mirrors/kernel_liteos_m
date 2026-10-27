@@ -76,18 +76,15 @@ extern VOID isb(VOID);
 #define ISB()       isb()
 
 #elif defined(__riscv)
-/*
- * RISC-V:
- *   dsb is provided as an extern C function in los_arch_context.h
- *   (fence based). Do NOT define the 'dsb' lowercase macro.
- *   dmb / isb lowercase aliases are safe (not declared by arch).
- */
-extern VOID dsb(VOID);
-#define DSB()       dsb()
-#define DMB()       dsb()
-#define ISB()       dsb()
+/* RISC-V: 'fence' is the unified barrier; 'fence.i' orders instruction fetch. */
+#define DSB()       __asm__ volatile("fence" : : : "memory")
+#define DMB()       __asm__ volatile("fence" : : : "memory")
+#define ISB()       __asm__ volatile("fence.i" : : : "memory")
+#define MB()        __asm__ volatile("fence" : : : "memory")
+#define dsb DSB
 #define dmb DMB
 #define isb ISB
+#define mb MB
 
 #else
 /*
@@ -105,6 +102,11 @@ extern VOID dsb(VOID);
 #define SEV()       __asm__ volatile("sev" : : : "memory")
 #define WFE()       __asm__ volatile("wfe" : : : "memory")
 #define WFI()       __asm__ volatile("wfi" : : : "memory")
+#elif defined(__riscv)
+#define SEV()
+#define WFE()
+#define WFI()       __asm__ volatile("wfi" : : : "memory")
+#define wfi WFI
 #else
 #define SEV()
 #define WFE()

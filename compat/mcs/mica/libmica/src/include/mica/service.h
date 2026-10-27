@@ -106,7 +106,8 @@ int mica_umt_unregister_rcv_cb(void);
  * @param buffer: receive buffer (output)
  * @param len:    in: buffer size; out: actual received length
  * @return: 0 on success; -EBUSY if callback mode is active; -EAGAIN if UMT not ready or wait failed;
- *          -EINVAL if buffer or len is NULL; -EFAULT on internal receive error
+ *          -EINVAL if buffer or len is NULL, or the received frame is larger than the buffer;
+ *          -EFAULT on internal receive error
  */
 int mica_rcv_data(void *buffer, size_t *len);
 
@@ -114,10 +115,12 @@ int mica_rcv_data(void *buffer, size_t *len);
  * Send data to peer (UMT zero-copy transfer into shared memory).
  *
  * @param data:   data buffer
- * @param offset: offset in shared send buffer to copy from
+ * @param offset: offset in shared send buffer to copy from; must satisfy
+ *                0 <= offset and offset + len <= 1MB send window
  * @param len:    data length (must be > 0 and within buffer limits)
- * @return: 0 on success; -EAGAIN if UMT not ready; -EINVAL if data NULL, len 0 or too large;
- *          -EFAULT if send buffer not yet initialized; -EIO on send failure
+ * @return: 0 on success; -EAGAIN if UMT not ready; -EINVAL if data NULL, len 0 or too large,
+ *          or offset negative / out of the send window; -EFAULT if send buffer not yet
+ *          initialized; -EIO on send failure
  */
 int mica_send_data(void *data, int offset, size_t len);
 

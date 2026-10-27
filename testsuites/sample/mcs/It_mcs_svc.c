@@ -21,4 +21,5 @@ VOID ItSuiteMcsSvc(VOID)
     ItMcsSvc004();
     ItMcsSvc005();
     ItMcsSvc006();
+    ItMcsSvc007();
 }

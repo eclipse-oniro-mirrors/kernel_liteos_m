@@ -61,11 +61,12 @@ extern "C" {
 /* frame size contract = NET_FRAME_SIZE (net.h, public) */
 
 /* DMA pool window: must match NET_DMA_BASE in los_mmu.c (one 2MB L2
+ * block inside the slave-private region tail, 0x77A00000..0x77BFFFFF);
  * block mapped normal-NC). identity-mapped, so PA==VA holds and the ring
  * addresses programmed into the DMA registers stay valid. layout inside:
  * rx desc @ +0x0000, tx desc @ +0x1000, rx pool @ +0x2000, tx pool
  * right after it (16 * 1536 = 0x6000). */
-#define NET_DMA_BASE         0x76000000UL
+#define NET_DMA_BASE         0x77A00000UL
 #define NET_DMA_SIZE         0x00200000UL
 #define NET_DMA_RX_DESC_OFF  0x0000UL
 #define NET_DMA_TX_DESC_OFF  0x1000UL

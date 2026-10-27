@@ -41,9 +41,9 @@
  *              payloads sit at 4-byte-aligned offsets inside the 512B
  *              buffers and 8-byte memcpy block copies (len >= 8) fault
  *              on Device mappings)
- *       net DMA pool 0x76000000 + 2M                      RW+NX  Normal NC
+ *       net DMA pool 0x77A00000 + 2M                      RW+NX  Normal NC
  *              (GMAC descriptors + frames, not IO-coherent)
- *       boot-probe scratch 0x77E00000 + 2M                RW+NX  Device nGnRE
+ *       boot-probe scratch 0x77C00000 + 2M                RW+NX  Device nGnRE
  *       peripherals 0xFD000000 + 32M                      RW+NX  Device nGnRE
  *              (GIC-600 GICD/GICR + UART2 0xFE660000)
  *
@@ -71,23 +71,25 @@ extern UINTPTR __text_start;
 extern UINTPTR __text_end;
 extern UINTPTR __heap_end;
 
-/* net DMA pool window (descriptors + frame buffers); must match
+/* net DMA pool window (descriptors + frame buffers), placed at the
+ * tail of the slave-private region (see board.ld); must match
  * NET_DMA_BASE in gmac1_profile.h. */
-#define NET_DMA_BASE      0x76000000UL
+#define NET_DMA_BASE      0x77A00000UL
 #define NET_DMA_SIZE      0x200000UL
 
 /* openamp shared window (vrings + net ctrl @ 0x740ff000), see mica_cfg.h */
 #define SHMEM_BASE        0x74000000UL
 #define SHMEM_SIZE        0x100000UL
 
-/* UMT shared buffer window (netproxy demo fallback: master pins
- * phy_addr 0x75000000, slave send_buffer = phy + 1MB, both inside
- * this 2MB window). Normal-NC like the other shared windows. */
-#define UMT_BASE           0x75000000UL
+/* UMT shared buffer window (master mcs_km pins phy_addr from the dts
+ * oh_rt,copy-mem-region node, slave send_buffer = phy + 1MB, both
+ * inside this 2MB window at the tail of the 64MB mcs window).
+ * Normal-NC like the other shared windows. */
+#define UMT_BASE           0x77E00000UL
 #define UMT_SIZE           0x200000UL
 
 /* boot-probe scratch area */
-#define SCRATCH_BASE      0x77E00000UL
+#define SCRATCH_BASE      0x77C00000UL
 #define SCRATCH_SIZE      0x200000UL
 
 /* peripherals: GIC-600 (GICD 0xFD400000 / GICR 0xFD580000) and UART2

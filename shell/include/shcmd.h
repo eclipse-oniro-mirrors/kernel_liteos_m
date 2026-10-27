@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
- * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -35,6 +35,7 @@
 #include "string.h"
 #include "stdlib.h"
 #include "los_list.h"
+#include "los_tables.h"
 #include "shcmdparse.h"
 #include "show.h"
 
@@ -85,11 +86,18 @@ typedef struct {
 #define SCREEN_IS_FULL(timesPrint, lineCap) ((timesPrint) >= ((lineCap) * DEFAULT_SCREEN_HEIGNT))
 
 extern CmdModInfo *OsCmdInfoGet(VOID);
-extern UINT32 OsCmdExec(CmdParsed *cmdParsed);
+extern UINT32 OsCmdInit(VOID);
+extern UINT32 OsCmdExec(CmdParsed *cmdParsed, CHAR *cmdStr);
 extern UINT32 OsCmdKeyShift(const CHAR *cmdKey, CHAR *cmdOut, UINT32 size);
 extern UINT32 OsShellKeyInit(ShellCB *shellCB);
 extern VOID OsShellKeyDeInit(CmdKeyLink *cmdKeyLink);
+extern VOID OsShellKeyDeInitShellCB(const ShellCB *shellCB);
 extern UINT32 OsShellSysCmdRegister(VOID);
+extern VOID OsShellSysCmdUnregister(VOID);
+extern VOID OsCmdDeInit(VOID);
+extern INT32 OsTabCompletion(CHAR *cmdKey, UINT32 *len);
+extern VOID OsShellCmdPush(const CHAR *string, CmdKeyLink *cmdKeyLink);
+extern VOID OsShellHistoryShow(UINT32 value, ShellCB *shellCB);
 extern INT32 VfsNormalizePath(const CHAR *directory, const CHAR *filename, CHAR **pathname);
 extern INT32 OsShellCmdDate(INT32 argc, const CHAR **argv);
 extern INT32 OsShellCmdDumpTask(INT32 argc, const CHAR **argv);
@@ -111,13 +119,17 @@ extern INT32 OsShellCmdRmdir(INT32 argc, const CHAR **argv);
 extern INT32 OsShellCmdMkdir(INT32 argc, const CHAR **argv);
 extern INT32 OsShellCmdCp(INT32 argc, const CHAR **argv);
 extern INT32 OsShellCmdHelp(INT32 argc, const CHAR **argv);
+extern UINT32 OsShellCmdWatch(UINT32 argc, const CHAR **argv);
+extern INT32 OsShellCmdSystemInfo(INT32 argc, const CHAR **argv);
+extern UINT32 SystemMd(INT32 argc, const CHAR **argv);
+extern UINT32 SystemMw(INT32 argc, const CHAR **argv);
+extern UINT32 OsShellCmdMemCheck(INT32 argc, const CHAR **argv);
 #ifdef LOSCFG_SHELL_LK
 extern INT32 CmdLog(INT32 argc, const CHAR **argv);
 #endif
 #ifdef LOSCFG_SHELL_DMESG
 extern INT32 OsShellCmdDmesg(INT32 argc, const CHAR **argv);
 #endif
-extern UINT32 OsCmdInit(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

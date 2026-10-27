@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
- * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -9,7 +9,7 @@
  *    conditions and the following disclaimer.
  *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this list
- *    of the conditions and the following disclaimer in the documentation and/or other materials
+ *    of conditions and the following disclaimer in the documentation and/or other materials
  *    provided with the distribution.
  *
  * 3. Neither the name of the copyright holder nor the names of its contributors may be used
@@ -119,6 +119,23 @@ VOID ItSuiteLosShell(VOID)
 #ifdef LOSCFG_SHELL
     ItLosShell020(); /* 框架辅助接口(OsCmdKeyShift/OsCmdParse/OsShellKey*) */
     ItLosShell021(); /* task 命令单参任务号分支(合法回溯/非数字/越界/掩码/双参) */
+    ItLosShell022(); /* systeminfo 命令(无参打印资源用量/带参返回-1) */
+    ItLosShell023(); /* md/mw 命令(内存读写往返一致性/无参防御) */
+    ItLosShell024(); /* memcheck 命令(LOS_MemIntegrityCheck返回LOS_OK/带参防御) */
+    ItLosShell025(); /* date 增强(+FORMAT格式化/-s设时/--help/无效时间防御) */
+    ItLosShell026(); /* SHELLCMD_ENTRY 链接段表注册验证(命令在注册表中可找到) */
+#if (LOSCFG_USE_SHELL == 1)
+    ItLosShell027(); /* watch 命令(无参防御/--over无任务防御) */
+#endif
+    ItLosShell028(); /* Tab 命令补全(tas->task/fre->free/hel->help/zzz无匹配/NULL防御) */
+    ItLosShell029(); /* 命令历史链表(OsShellCmdPush写入/ShellGetInputBuf FIFO读取/空链表返回NULL) */
+    ItLosShell030(); /* shell 任务栈水位线测量(压载命令经真实管道执行,峰值余量断言) */
+#ifdef LOSCFG_CMD_UNLOAD
+    ItLosShell031(); /* 命令卸载(osCmdReg 注册/OsShellCmdDelete 删除/重注册净零) */
+#endif
+#ifdef LOSCFG_ENABLE_MAGICKEY
+    ItLosShell032(); /* magic key(ctrl+r 开关/ctrl+z 帮助/ctrl+t 任务/ctrl+e 内存校验) */
+#endif
 #endif
 #if defined(LOSCFG_FS_LITTLEFS)
     (VOID)TestFsVolumeRelease();

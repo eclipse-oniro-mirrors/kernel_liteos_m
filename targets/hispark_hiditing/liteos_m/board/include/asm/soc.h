@@ -52,11 +52,13 @@
  * UART0 in software for brevity — same 0x5200B000 controller, DesignWare.
  * Register layout per hs-fbb src/drivers/drivers/driver/audio/source/core/hal/uart/serial_dw.c:
  *   0x04: data register (RBR/THR)
- *   0x44: FIFO status register (bit 0 = TX FIFO full) */
+ *   0x44: FIFO status register (bit 0 = TX FIFO full, bit 3 = RX FIFO empty) 
+ */
 #define UART0_BASE              0x5200B000u
 #define UART0_DATA              (*(volatile UINT32 *)(UART0_BASE + 0x04))
 #define UART0_FIFO_STATUS       (*(volatile UINT32 *)(UART0_BASE + 0x44))
 #define UART_TX_FIFO_FULL       (1u << 0)   /* bit 0: TX FIFO full — wait while set */
+#define UART_RX_FIFO_EMPTY      (1u << 3)   /* bit 3: RX FIFO empty — no data while set */
 
 /* HI3322 Watchdog (WDT V151, chip WDT) */
 #define WDT_BASE                0x57020000u

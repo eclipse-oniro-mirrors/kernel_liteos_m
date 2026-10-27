@@ -44,6 +44,8 @@ extern "C" {
 #endif /* __cplusplus */
 
 extern UINT32 OsMain(VOID);
+extern VOID *OsGetMainTask(VOID);
+extern VOID OsSetMainTask(VOID);
 
 #ifdef __cplusplus
 }

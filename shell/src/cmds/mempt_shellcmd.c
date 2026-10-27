@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
- * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -77,6 +77,21 @@ LITE_OS_SEC_TEXT_MINOR UINT32 OsShellCmdFree(INT32 argc, const CHAR *argv[])
         return OS_ERROR;
     }
     return 0;
+}
+
+LITE_OS_SEC_TEXT_MINOR UINT32 OsShellCmdMemCheck(INT32 argc, const CHAR *argv[])
+{
+    (VOID)argv;
+    if (argc > 0) {
+        PRINTK("\nUsage: memcheck\n");
+        return OS_ERROR;
+    }
+
+    if (LOS_MemIntegrityCheck(m_aucSysMem0) == LOS_OK) {
+        PRINTK("system memcheck over, all passed!\n");
+        return LOS_OK;
+    }
+    return LOS_NOK;
 }
 
 #if (LOSCFG_MEM_WATERLINE == 1)

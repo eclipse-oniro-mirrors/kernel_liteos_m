@@ -37,11 +37,12 @@ kernel_module(module_name) {
     "src/base/shcmdparse.c",
     "src/base/shmsg.c",
     "src/base/show.c",
-    "src/base/shell_box.c",
     "src/cmds/date_shell.c",
     "src/cmds/fullpath.c",
     "src/cmds/mempt_shellcmd.c",
+    "src/cmds/mwmd_shellcmd.c",
     "src/cmds/shell_shellcmd.c",
+    "src/cmds/sysinfo_shellcmd.c",
     "src/cmds/task_shellcmd.c",
     "src/cmds/swtmr_shellcmd.c",
   ]
@@ -59,6 +60,12 @@ kernel_module(module_name) {
   }
   if (defined(LOSCFG_FS_VFS)) {
     sources += [ "src/cmds/vfs_shellcmd.c" ]
+  }
+  if (defined(LOSCFG_ENABLE_MAGICKEY)) {
+    sources += [ "src/magickey/magickey.c" ]
+  }
+  if (defined(LOSCFG_USE_SHELL)) {
+    sources += [ "src/cmds/watch_shell.c" ]
   }
 }
 

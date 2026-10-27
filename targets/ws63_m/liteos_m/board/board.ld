@@ -103,6 +103,7 @@ SECTIONS
         *(.got)
         *(.got.plt)
         *(.got.*)
+        KEEP(*( SORT (.liteos.table.*)));
         . = ALIGN(8);
         __data_end = .;
     } > SRAM AT > PROGRAM_STARTUP

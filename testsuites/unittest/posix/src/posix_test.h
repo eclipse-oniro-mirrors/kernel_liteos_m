@@ -68,20 +68,14 @@
 #define TEST_ASSERT_EQUAL_FLOAT(expected, actual) \
     ICUNIT_ASSERT_EQUAL(((expected) == (actual)) || (isnan(expected) && isnan(actual)), TRUE, 0)
 
-void ItSuitePosix(void);
+void ItSuitePosixUnittest(void);
 
-extern void ItSuitePosixPthread(void);
-extern void ItSuitePosixMutex(void);
 extern void PosixCtypeFuncTest(void);
 extern void PosixIsdigitFuncTest(void);
 extern void PosixIslowerFuncTest(void);
 extern void PosixIsxdigitFuncTest(void);
 extern void PosixTolowerFuncTest(void);
 extern void PosixToupperFuncTest(void);
-extern void ItSuitePosixMqueue(void);
-
-extern void ItSuitePosixRwlock(void);
-
 extern void PosixStrerrorTest(void);
 
 extern void PosixFsFuncTest(void);

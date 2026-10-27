@@ -30,6 +30,7 @@ import("//kernel/liteos_m/liteos.gni")
 
 static_library("test_posix") {
   sources = [
+    "posix_sample_entry.c",
     "mqueue/It_posix_queue.c",
     "mqueue/It_posix_queue_001.c",
     "mqueue/It_posix_queue_002.c",

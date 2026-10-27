@@ -33,11 +33,13 @@
 #include "It_los_task.h"
 
 static VOID HwiF01(VOID);
+#if defined(__aarch64__)
 static VOID HwiF01_WithArg(VOID *arg)
 {
     (VOID)arg;
     HwiF01();
 }
+#endif
 
 static VOID HwiF01(VOID)
 {

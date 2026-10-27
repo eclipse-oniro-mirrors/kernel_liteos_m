@@ -42,8 +42,9 @@ VOID ItSuiteMcs(VOID)
 #endif
 #ifdef LOSCFG_MCS_RPC
     ItMcsWaitServicesReady();
-    ItSuiteMcsSvc();
     ItSuiteMcsRpc();
-    ItSuiteMcsNp();
 #endif
+    /* Np/Svc: 聚合文件与声明均无条件（It_mcs.h 2026-10-21 修正），不依赖 RPC */
+    ItSuiteMcsSvc();
+    ItSuiteMcsNp();
 }

@@ -21,6 +21,7 @@ kernel_module(module_name) {
     "los_mmu_arm64.c",
     "los_pagetable_mgr.c",
     "los_timer.c",
+    "los_softfp_abi.c",
   ]
 
   # include/arch/: regs.h (exception entry, EL-abstracted register names)

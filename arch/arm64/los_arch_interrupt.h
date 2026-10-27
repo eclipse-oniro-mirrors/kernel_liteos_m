@@ -202,7 +202,19 @@ STATIC INLINE VOID GiccSetSgi1r(UINT64 val)
 
 #define PRIORITY_SHIFT                        ((MAX_BINARY_POINT_VALUE + 1) % GIC_PRIORITY_OFFSET)
 
-#define GIC_INT_PRI(liteosPrio)               ((UINT8)((liteosPrio) << PRIORITY_SHIFT))
+/* This GIC-600 runs with GICD_CTLR.DS == 0 (two security states, set by
+ * ATF).  Consequences for the non-secure core:
+ *  1) ICC_PMR_EL1 reads back 0xF0 (0xFF writes are dropped), so any IRQ
+ *     priority >= 0xF0 is masked at the CPU interface - clamp below it.
+ *  2) The NS view of GICD_IPRIORITYR keeps only 4-bit granularity (bit[3]
+ *     of the written value is not retained), so a 5-bit mapping would
+ *     collapse liteos priority pairs onto the same GIC value.
+ * Fold the liteos 0..31 range onto the NS-representable 0x10-step grid
+ * (two liteos levels share one GIC level) and clamp below the PMR. */
+#define GIC_INT_PRI_CEILING                   0xE0U
+#define GIC_INT_PRI(liteosPrio)               \
+    ((UINT8)((((UINT32)(liteosPrio) & 0x1EU) << 3) > GIC_INT_PRI_CEILING ? \
+            GIC_INT_PRI_CEILING : (((UINT32)(liteosPrio) & 0x1EU) << 3)))
 #define GIC_INT_DEF_PRI                       GIC_INT_PRI(OS_HWI_PRIO_LOWEST)
 
 /* MPIDR helpers. */

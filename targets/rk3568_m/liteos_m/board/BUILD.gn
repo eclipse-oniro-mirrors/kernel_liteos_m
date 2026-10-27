@@ -80,8 +80,12 @@ config("public") {
     "-nostdlib",
     "-Wl,-T" + rebase_path("//device/board/hihope/rk3568_m/liteos_m/board/board.ld"),
     "-Wl,--gc-sections",
-    "-Wl,--whole-archive",
+    # Plain archive reference (NOT --whole-archive): members are pulled
+    # only for still-undefined symbols, so the soft-ABI FP builtins in
+    # arch/arm64/los_softfp_abi.c take precedence over the hard-float
+    # AAPCS versions inside libclang_rt.builtins.a. With --whole-archive
+    # every archive member is force-linked and the two ABI versions
+    # collide (duplicate symbol).
     board_clang_rt_lib,
-    "-Wl,--no-whole-archive",
   ]
 }

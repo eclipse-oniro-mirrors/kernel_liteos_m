@@ -41,7 +41,7 @@
                                 Software timer module configuration
 =============================================================================*/
 #define LOSCFG_BASE_CORE_SWTMR 1
-#define LOSCFG_BASE_CORE_SWTMR_ALIGN 0
+#define LOSCFG_BASE_CORE_SWTMR_ALIGN 1
 
 /*=============================================================================
                                 Memory module configuration

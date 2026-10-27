@@ -32,6 +32,13 @@
 #include "osTest.h"
 #include "It_los_task.h"
 
+static VOID HwiF01(VOID);
+static VOID HwiF01_WithArg(VOID *arg)
+{
+    (VOID)arg;
+    HwiF01();
+}
+
 static VOID HwiF01(VOID)
 {
     UINT32 ret;
@@ -67,10 +74,20 @@ static VOID TaskF01(VOID)
     ret = LOS_TaskCreate(&g_testTaskID02, &task1);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
-#if defined(__RISC_V__) || defined(__ARM_ARCH_7A__)
+#if defined(__aarch64__)
+    /* AArch64 fix (2026-10-21): (1) OsHwiCreate derefs irqParam->pDevId - the
+     * old "(HwiIrqParam *)1" wild pointer faulted at 0x9 and powered the
+     * slave off via PSCI CPU_OFF; (2) HWI_PROC_FUNC on WITH_ARG boards takes
+     * a void* - HwiF01(VOID) mismatches, add the param. */
+    {
+        HwiIrqParam irqParam054 = {0};
+        irqParam054.pDevId = (VOID *)1;
+        ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, HwiF01_WithArg, &irqParam054);
+    }
+#elif defined(__RISC_V__) || defined(__ARM_ARCH_7A__)
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
 #else
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, (HwiIrqParam *)(UINTPTR)1);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, HwiF01, (HwiIrqParam *)(UINTPTR)1);
 #endif
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 

@@ -35,6 +35,7 @@
 #include "osTest.h"
 #include "los_exc.h"
 #include "los_arch_interrupt.h"
+#include "los_exc_info.h"
 #include "los_sem.h"
 #include "los_task.h"
 

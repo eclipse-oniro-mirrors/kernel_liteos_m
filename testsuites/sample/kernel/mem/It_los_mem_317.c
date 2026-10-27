@@ -33,6 +33,23 @@ extern "C" {
  * 4) F-Inv: LOS_MemMfree 未对齐 ptr → OsMemPtrToNode 拒绝(错误返回, 不触 panic);
  * 5) F-Pos: LOS_MemInfoGet 契约 + LOS_MemRealloc 缩容/扩容搬移分支。 */
 
+/* LOS_MemCheckLevelGet/Set declarations are guarded by
+ * LOSCFG_BASE_MEM_NODE_SIZE_CHECK in los_memory.h (not enabled in this
+ * config) but the functions are always compiled in bestfit. Declare
+ * them locally. */
+extern UINT8 LOS_MemCheckLevelGet(VOID);
+extern UINT32 LOS_MemCheckLevelSet(UINT8 checkLevel);
+extern UINT32 LOS_MemNodeSizeCheck(VOID *pool, VOID *ptr, UINT32 *totalSize, UINT32 *availSize);
+#ifndef LOS_MEM_CHECK_LEVEL_LOW
+#define LOS_MEM_CHECK_LEVEL_LOW 0
+#endif
+#ifndef LOS_MEM_CHECK_LEVEL_HIGH
+#define LOS_MEM_CHECK_LEVEL_HIGH 1
+#endif
+#ifndef LOS_MEM_CHECK_LEVEL_DISABLE
+#define LOS_MEM_CHECK_LEVEL_DISABLE 0xff
+#endif
+
 #define MEM_TC317_POOL_SIZE 0x1000
 #define MEM_TC317_MOD_A     1
 #define MEM_TC317_MOD_B     2

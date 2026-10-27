@@ -33,8 +33,12 @@
 #ifdef LOSCFG_KERNEL_MEM_BESTFIT
 
 #define MEM_TC324_BUF_SIZE      0x2000
-#define MEM_TC324_SIZE_UNALIGN  (MEM_TC324_BUF_SIZE - 2) /* 0x1FFE: not 4-aligned */
-#define MEM_TC324_SIZE_ALIGNED  (MEM_TC324_BUF_SIZE - 4) /* 0x1FFC: one step down */
+#define MEM_TC324_SIZE_UNALIGN  (MEM_TC324_BUF_SIZE - 2) /* 0x1FFE: not aligned */
+/* bestfit rounds UP then backs off one alignment unit (los_memory.c
+ * OS_MEM_ALIGN(size, OS_MEM_ALIGN_SIZE) - OS_MEM_ALIGN_SIZE): 0x1FFC with
+ * the 4-byte alignment of 32-bit targets, 0x1FF8 with the 8-byte
+ * alignment (sizeof(UINTPTR)) of AArch64 - derive it from the platform. */
+#define MEM_TC324_SIZE_ALIGNED  ((UINT32)(OS_MEM_ALIGN(MEM_TC324_SIZE_UNALIGN, OS_MEM_ALIGN_SIZE) - OS_MEM_ALIGN_SIZE))
 #define MEM_TC324_SIZE_LMS      0x1E00 /* LMS active: pool shrunk to 16/17 aligned down to 64 */
 
 

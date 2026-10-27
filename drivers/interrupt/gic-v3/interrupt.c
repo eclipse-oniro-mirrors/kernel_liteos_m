@@ -106,6 +106,9 @@ STATIC UINT32 HwiUnmask(HWI_HANDLE_T hwiNum)
 {
     UINT32 mask = 1U << (hwiNum % 32);
 
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
     if (hwiNum < GIC_MIN_SPI_NUM) {
         /* SGI/PPI: our own Redistributor. */
         GICR_REG32(GICR_ISENABLER0(g_gicrSlot)) = mask;
@@ -121,6 +124,9 @@ STATIC UINT32 HwiMask(HWI_HANDLE_T hwiNum)
 {
     UINT32 mask = 1U << (hwiNum % 32);
 
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
     if (hwiNum < GIC_MIN_SPI_NUM) {
         GICR_REG32(GICR_ICENABLER0(g_gicrSlot)) = mask;
         GicrWaitForRwp(g_gicrSlot);
@@ -137,19 +143,40 @@ STATIC UINT32 HwiSetPriority(HWI_HANDLE_T hwiNum, HWI_PRIOR_T hwiPrio)
     UINT32 shift = (hwiNum % 4) * 8;
     UINT32 prio = GIC_INT_PRI(hwiPrio);
     UINT32 val;
+    UINT32 tries;
 
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
     if (hwiNum < GIC_MIN_SPI_NUM) {
         val = GICR_REG32(GICR_IPRIORITYR(g_gicrSlot, offset));
         val &= ~(GIC_PRIORITY_MASK << shift);
         val |= prio << shift;
         GICR_REG32(GICR_IPRIORITYR(g_gicrSlot, offset)) = val;
         GicrWaitForRwp(g_gicrSlot);
-    } else {
-        val = GICD_REG32(GICD_IPRIORITYR(offset));
+        return LOS_OK;
+    }
+
+    /* SPI path (GICD_IPRIORITYR). AMP observed (ItLosHwi013): a priority
+     * write can effectively land after the RWP handshake - the IRQ then
+     * stays at its previous/default priority and software-triggered
+     * delivery order inverts intermittently. Write, then read back and
+     * rewrite up to 3 times until the field holds the intended value. */
+    volatile UINT32 *ipr = &GICD_REG32(GICD_IPRIORITYR(offset));
+
+    for (tries = 0; tries < 3; tries++) {
+        val = *ipr;
         val &= ~(GIC_PRIORITY_MASK << shift);
         val |= prio << shift;
-        GICD_REG32(GICD_IPRIORITYR(offset)) = val;
+        *ipr = val;
         GicdWaitForRwp();
+        if (((*ipr >> shift) & GIC_PRIORITY_MASK) == prio) {
+            break;
+        }
+    }
+    if (tries == 3) { /* still wrong after retries: diagnose, keep going */
+        PRINT_ERR("gic_v3: IPRIORITYR write stuck: irq %u want 0x%x got 0x%x\n",
+                    hwiNum, prio, (*ipr >> shift) & GIC_PRIORITY_MASK);
     }
     return LOS_OK;
 }
@@ -158,6 +185,9 @@ STATIC UINT32 HwiPending(HWI_HANDLE_T hwiNum)
 {
     UINT32 mask = 1U << (hwiNum % 32);
 
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
     if (hwiNum < 16) {
         /* SGI: raise on this core via ICC_SGI1R_EL1 (target list = us). */
         UINT32 mpidr = MpidrGet();
@@ -177,6 +207,9 @@ STATIC UINT32 HwiClear(HWI_HANDLE_T hwiNum)
 {
     UINT32 mask = 1U << (hwiNum % 32);
 
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
     if (hwiNum < GIC_MIN_SPI_NUM) {
         GICR_REG32(GICR_ICPENDR0(g_gicrSlot)) = mask;
     } else {

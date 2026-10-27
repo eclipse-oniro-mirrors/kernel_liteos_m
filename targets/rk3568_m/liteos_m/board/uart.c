@@ -898,6 +898,9 @@ int32_t uart_deinit(uint8_t port)
     if (ctx->profile == NULL) {
         return UART_ERR_NOT_SUP; /* port disabled in uart_board_cfg.h */
     }
+    if (ctx->state == UART_PORT_UNINIT) {
+        return UART_OK; /* idempotent: already deinited (§5 re-init cycle) */
+    }
     if (ctx->state != UART_PORT_INITED) {
         return UART_ERR_STATE;
     }

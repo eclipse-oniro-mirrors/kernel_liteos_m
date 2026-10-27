@@ -44,9 +44,9 @@ static UINT32 TestCase(VOID)
     tick = LOS_MS2Tick(1000);
     ICUNIT_ASSERT_EQUAL(tick, LOSCFG_BASE_CORE_TICK_PER_SECOND, tick);
 
-    /* F-Pos: 截断取整校验,50ms -> 5 tick(5000/1000=5,B 侧截断非向上取整) */
+    /* F-Pos: 截断取整校验,50ms -> 50*TICK_PER_SECOND/1000 tick(截断非向上取整) */
     tick = LOS_MS2Tick(50);
-    ICUNIT_ASSERT_EQUAL(tick, 5, tick);
+    ICUNIT_ASSERT_EQUAL(tick, (50 * LOSCFG_BASE_CORE_TICK_PER_SECOND) / 1000, tick);
 
     /* F-BVA: 哨兵值 OS_NULL_INT(0xFFFFFFFF) 原样直返(los_tick.c:336) */
     tick = LOS_MS2Tick(OS_NULL_INT);

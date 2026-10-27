@@ -62,7 +62,7 @@ confEL1:
     msr     cnthctl_el2, x0
 
     /* disable EL1 FPU traps (CPACR.FPEN) */
-    mov     x0, #(0b11 << 20)
+    mov     x0, #(0x3 << 20)
     msr     cpacr_el1, x0
 
     /* keep the entry SP available at EL1 */

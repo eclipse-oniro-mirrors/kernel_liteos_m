@@ -36,7 +36,7 @@ static UINT32 Testcase(VOID)
 {
     UINT32 ret;
     CHAR buff1[] = "UniDSP_TEST";
-    INT32 buff2;
+    UINTPTR buff2;
 
     ret = LOS_QueueCreate("Q1", QUEUE_BASE_NUM, &g_testQueueID01, 0, QUEUE_BASE_MSGSIZE);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);

@@ -36,12 +36,12 @@ static UINT32 Testcase(VOID)
 {
     UINT32 ret;
 
-    UINT32 buff1 = 1;
-    UINT32 buff2 = 2;
-    UINT32 buff3 = 3;
-    UINT32 buff4;
+    UINTPTR buff1 = 1;
+    UINTPTR buff2 = 2;
+    UINTPTR buff3 = 3;
+    UINTPTR buff4;
 
-    ret = LOS_QueueCreate("Q1", QUEUE_BASE_NUM, &g_testQueueID01, 0, 4); // 4, set maxMsgSize
+    ret = LOS_QueueCreate("Q1", QUEUE_BASE_NUM, &g_testQueueID01, 0, sizeof(UINTPTR)); /* POINT rw: node must hold a pointer */
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_QueueWrite(g_testQueueID01, (VOID *)(UINTPTR)buff1, 4, 0); // 4, size

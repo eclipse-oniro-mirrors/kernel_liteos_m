@@ -96,7 +96,7 @@ static UINT32 TestCase(VOID)
 
     g_testCount = 0;
 
-    taskStack1 = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, task1.uwStackSize, 8);
+    taskStack1 = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, task1.uwStackSize, LOSCFG_STACK_POINT_ALIGN_SIZE);
     ICUNIT_ASSERT_NOT_EQUAL((UINTPTR)taskStack1, 0, (UINTPTR)taskStack1);
 
     ret = LOS_TaskCreateStatic(&g_testTaskID01, &task1, taskStack1);
@@ -109,7 +109,7 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk058B";
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
 
-    taskStack2 = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, task1.uwStackSize, 8);
+    taskStack2 = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, task1.uwStackSize, LOSCFG_STACK_POINT_ALIGN_SIZE);
     ICUNIT_GOTO_NOT_EQUAL((UINTPTR)taskStack2, 0, (UINTPTR)taskStack2, EXIT);
 
     ret = LOS_TaskCreateStatic(&g_testTaskID02, &task1, taskStack2);

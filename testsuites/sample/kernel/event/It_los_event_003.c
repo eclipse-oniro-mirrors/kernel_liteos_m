@@ -40,7 +40,7 @@ static VOID TaskF01(VOID)
     ICUNIT_ASSERT_EQUAL_VOID(g_testCount, 0, g_testCount);
     g_testCount++;
 
-    ret = LOS_EventRead(&g_pevent, 0x11, LOS_WAITMODE_AND, 1);
+    ret = LOS_EventRead(&g_pevent, 0x11, LOS_WAITMODE_AND, 2);
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_EVENT_READ_TIMEOUT, ret, EXIT);
 
     ICUNIT_GOTO_EQUAL(g_testCount, 2, g_testCount, EXIT); // 2, Here, assert that g_testCount is equal to 2.

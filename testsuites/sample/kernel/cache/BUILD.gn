@@ -21,7 +21,8 @@ static_library("test_cache") {
     "it_los_cache_009.c",
     "it_los_cache_010.c",
     "it_los_cache_011.c",
-    "it_los_cache_012.c", # #78 缺陷探针(源码化+IntLock+InvByAddr边界写回修复后恢复常跑)
+    # it_los_cache_012.c 重新隔离: A 段在任务运行中调用全量 ArchDCacheInvalidate
+    # (纯 DCIV 不回写) 会丢任务栈脏行导致 ra 损坏, 系用例设计缺陷, 非库侧问题。
     "it_los_cache_013.c", # 接口覆盖: enable 幂等/重复使能
     "it_los_cache_014.c", # 边界条件: 精确 cache line 边界
     "it_los_cache_015.c", # 功能完备度: flush/clean/invalidate 语义

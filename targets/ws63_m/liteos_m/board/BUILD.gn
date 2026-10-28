@@ -55,7 +55,7 @@ config("public") {
   ]
 
   # The ws63 RISC-V (LinxCore131) I/D-cache maintenance implementation now
-  # ships as open source in arch/risc-v/src/los_cache.c (gated by
+  # ships as open source in arch/risc-v/src/linx131/los_cache.c (gated by
   # LOSCFG_ARCH_CACHE), so the closed prebuilt liblos_cache.a is no longer
   # linked here. The ArchICache*/ArchDCache* symbols resolve directly from
   # the arch module.

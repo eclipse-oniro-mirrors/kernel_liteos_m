@@ -1,8 +1,8 @@
 # Copyright (c) 2026-2026. All rights reserved.
 #
 # Cache maintenance interface test suite (ws63 arch/cache.h). Gated by
-# LOSCFG_ARCH_CACHE (the arch/risc-v/src/los_cache.c provider must be
-# compiled for the ArchICache*/ArchDCache* symbols to resolve) and
+# LOSCFG_ARCH_CACHE (the arch/risc-v/src/linx131/los_cache.c provider must
+# be compiled for the ArchICache*/ArchDCache* symbols to resolve) and
 # LOSCFG_KERNEL_TEST.
 
 import("//kernel/liteos_m/liteos.gni")

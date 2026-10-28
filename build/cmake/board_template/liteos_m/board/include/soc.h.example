@@ -1,0 +1,36 @@
+/*
+ * soc.h — example SoC header (board template placeholder).
+ *
+ * target_config.h does #include "soc.h". Copy this file to your board's
+ * include/ dir as soc.h and replace the placeholder values below with
+ * your SoC's real register base addresses, peripheral definitions, RAM
+ * layout symbols, etc. Or, if your SoC already ships a soc.h on its own
+ * include path, just drop this file and point EVOLVE_BOARD_DIR at the dir
+ * that provides it.
+ */
+#ifndef _SOC_H_EXAMPLE
+#define _SOC_H_EXAMPLE
+
+/* === EXAMPLE values — REPLACE with your SoC's real definitions === */
+
+/* SoC register base addresses (example placeholders) */
+#define SOC_REG_BASE           0x40000000UL
+#define SOC_FLAGS_BASE         0x50000000UL
+
+/* RAM size (example: 1 MB) */
+#define SOC_RAM_SIZE           (1024 * 1024)
+
+/* UART / timer / interrupt-controller base addresses — fill in per SoC */
+/* #define SOC_UART0_BASE     0x... */
+/* #define SOC_TIMER_BASE     0x... */
+/* #define SOC_INTC_BASE      0x... */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* _SOC_H_EXAMPLE */

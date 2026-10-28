@@ -109,13 +109,15 @@ static UINT32 TestCase(VOID)
     dprintf("[cache78] total write-lost ops: %u/4\n", defects);
 
     /* --- F: 全序列复刻循环(回归, 千次放大) ---
-     * 逐条复刻 ItLosCache011 用例体(Enable/预取/栈缓冲/ByVa/ByAddr/
+     * 逐条复刻 ItLosCache011 用例体(Enable/预取/缓冲/ByVa/ByAddr/
      * 全量 flush), 循环 1000 遍验证稳定性。
-     * 注意: 不调 ArchDCacheInvalidate()(全量纯失效), 改用 ArchDCacheFlush()
-     * (回写+失效) 避免踩坏任务栈。 */
+     * 注意1: 不调 ArchDCacheInvalidate()(全量纯失效), 改用 ArchDCacheFlush()
+     * (回写+失效) 避免踩坏任务栈。
+     * 注意2: fbuf 用 static(全局变量), 避免 ArchDCacheInvByVa/InvByAddr 的
+     * 对齐扩展范围覆盖栈帧脏行(ra/s0)导致栈损坏。 */
     dprintf("[cache78]F seq-loop: enter (1000 passes)...\n");
     {
-        volatile UINT32 fbuf[32];
+        static volatile UINT32 fbuf[32];
         UINT32 it, k;
         for (it = 0; it < 1000U; it++) {
             (VOID)ArchICacheEnable(CACHE_32KB);

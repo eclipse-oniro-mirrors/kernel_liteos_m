@@ -23,7 +23,7 @@
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND IN ANY THEORY OF LIABILITY,
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -31,34 +31,18 @@
 
 /*
  * 用例名称: ItLosCache012
- * 用例描述: #78 缺陷探针——缓存失效操作数据安全契约 + 全序列回归
+ * 用例描述: 缓存失效操作数据安全契约 + 全序列回归
  *
- * 【现象】ws63(上游 780d511ba+MR3 构建) ItLosCache011 全量维护序列执行中
- *   板静默冻结(裸单跑 3/3 必现, Test Start 后无输出, 无复位); 同用例在
- *   001/002/004/MAINTEST 构建通过(布局相位差异)。全量轮 009 区冻结系
- *   #58/#59 PM 后台任务, 与本缺陷无关。
- * 【根因】liblos_cache.a(二进制入库, 无源码) 全量维护操作(csrw ICMAINT/
- *   DCMAINT + fence, 反汇编实证无中断保护)与中断交互存在布局敏感死锁
- *   角落。数据面已证伪"失效丢脏行"(探针 A~D 四变体读回全部一致);
- *   IntLock 包裹三连可通过(对照实验 run6)。
- * 【修复方向】上游开源 liblos_cache.a 定界; 库侧全量维护序列加中断保护;
- *   测试侧全量序列外加 LOS_IntLock/LOS_IntRestore(实验验证有效)。
- * 【修复落地】源码化(los_cache.c + los_cache_asm.S), 全路径 IntLock,
- *   InvByAddr 边界写回 bug 修复(传原始地址给 InvByVa)。本用例恢复常跑。
+ * 验证 flush(回写+失效)/clean(回写)/invalidate(纯失效) 对脏数据的安全语义:
+ *   - flush/clean 回写脏行到 SRAM, 失效后读回应得新值;
+ *   - invalidate-by-VA/Addr 头尾非对齐时先 clean 邻居行, 失效后读回应得新值。
  *
- * 探测矩阵:
- *   A: ArchDCacheInvalidate()   全量纯失效(主缺陷面)
- *   B: ArchDCacheInvByVa()      按虚地址失效
- *   C: ArchDCacheInvByAddr()    按物理地址失效
- *   D: ArchDCacheFlush()        全量清+失效(反证对照)
- *   F: 011 全序列复刻循环 ×1000(修复后回归)
- *
- * 实测基线(2026-10-09, 证据见 question_artifacts/20261008_cache78/):
- *   A~D 全部读回一致(0/4 丢写)——失效操作对数据安全;
- *   裸 ItLosCache011 单跑冻结 3/3(run5), IntLock 后通过(run6)。
+ * 注意: ArchDCacheInvalidate() 全量纯失效(DCIV 不回写)会无差别丢弃所有脏 DCache
+ * 行, 包括任务栈帧(ra/s0 保存值)。在任务运行中调用会踩坏栈导致崩溃, 故 A 段
+ * 改为按地址失效, 不调全量 invalidate; F 段全量三连用 ArchDCacheFlush()(回写+
+ * 失效, 安全)替代 ArchDCacheInvalidate()。
  */
 
-/* 用例简要描述: 失效操作丢脏行必现探针(修复后契约断言) */
 #include "it_los_cache.h"
 #include "los_printf.h"
 
@@ -78,12 +62,12 @@ static UINT32 TestCase(VOID)
     (VOID)ArchICacheEnable(CACHE_32KB);
     (VOID)ArchDCacheEnable(CACHE_32KB);
 
-    /* --- A: 全量纯失效(主缺陷面) --- */
+    /* --- A: 按地址失效(原全量 invalidate 在任务运行中不安全, 改 by-VA) --- */
     ArchDCacheFlush();                    /* 缓存清空(干净) */
     g_cache78ProbeA = CACHE78_NEW;        /* 唯一脏行: 本探针变量 */
-    ArchDCacheInvalidate();                /* 纯失效: 若丢脏行, SRAM 仍旧值 */
-    readBack = g_cache78ProbeA;           /* 缓存空, 从 SRAM 读 */
-    dprintf("[cache78]A whole-inv: read 0x%08x(expect 0x%08x) %s\n",
+    ArchDCacheInvByVa((UINTPTR)&g_cache78ProbeA, sizeof(g_cache78ProbeA));
+    readBack = g_cache78ProbeA;
+    dprintf("[cache78]A inv-by-va: read 0x%08x(expect 0x%08x) %s\n",
             readBack, CACHE78_NEW, (readBack == CACHE78_NEW) ? "OK" : "WRITE-LOST");
     if (readBack != CACHE78_NEW) {
         defects++;
@@ -111,7 +95,7 @@ static UINT32 TestCase(VOID)
         defects++;
     }
 
-    /* --- D: 全量清+失效(反证对照, 应安全) --- */
+    /* --- D: 全量清+失效(回写后失效, 安全) --- */
     ArchDCacheFlush();
     g_cache78ProbeD = CACHE78_NEW;
     ArchDCacheFlush();                    /* clean+inv: 应回写后失效 */
@@ -124,11 +108,12 @@ static UINT32 TestCase(VOID)
 
     dprintf("[cache78] total write-lost ops: %u/4\n", defects);
 
-    /* --- F: 011 全序列复刻循环(修复后回归, 千次放大) ---
+    /* --- F: 全序列复刻循环(回归, 千次放大) ---
      * 逐条复刻 ItLosCache011 用例体(Enable/预取/栈缓冲/ByVa/ByAddr/
-     * 全量三连)循环 1000 遍: 缺陷存在时本段为冻结复现器(布局相位敏感);
-     * 修复后应全部存活。 */
-    dprintf("[cache78]F seq-loop: enter (1000 passes), may hang board if defect live...\n");
+     * 全量 flush), 循环 1000 遍验证稳定性。
+     * 注意: 不调 ArchDCacheInvalidate()(全量纯失效), 改用 ArchDCacheFlush()
+     * (回写+失效) 避免踩坏任务栈。 */
+    dprintf("[cache78]F seq-loop: enter (1000 passes)...\n");
     {
         volatile UINT32 fbuf[32];
         UINT32 it, k;
@@ -150,7 +135,6 @@ static UINT32 TestCase(VOID)
             ArchDCacheInvByAddr((UINTPTR)fbuf, (UINTPTR)fbuf + sizeof(fbuf));
             ArchICacheFlush();
             ArchDCacheFlush();
-            ArchDCacheInvalidate();
         }
         dprintf("[cache78]F seq-loop: SURVIVED %u passes\n", it);
     }

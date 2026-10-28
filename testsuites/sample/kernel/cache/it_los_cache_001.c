@@ -9,9 +9,10 @@
 
 static UINT32 TestCase(VOID)
 {
-    ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
-    ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_8KB), LOS_OK, LOS_OK);
-    ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_16KB), LOS_OK, LOS_OK);
+    /* main() already enabled ICache as CACHE_32KB. Do not shrink to 4KB/8KB/16KB
+     * while ICache is active — shrinking invalidates lines beyond the new size,
+     * causing instruction access fault if PC falls outside. Only test that the
+     * out-of-range CACHE_64KB is rejected, then re-confirm 32KB (current size). */
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ICUNIT_ASSERT_NOT_EQUAL(ArchICacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
     return LOS_OK;

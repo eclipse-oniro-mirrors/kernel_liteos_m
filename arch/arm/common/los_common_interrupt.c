@@ -33,6 +33,7 @@
 #include "los_hwi_pri.h"
 #include "los_exc.h"
 #include "los_interrupt.h"
+#include "nvic.h"
 
 EXC_PROC_FUNC g_excRegHook = NULL;
 
@@ -142,3 +143,19 @@ VOID *HalGetHandleForm(HWI_HANDLE_T hwiNum)
     }
     return &g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT];
 }
+
+/*
+ * Rebuild the kernel-side interrupt state after a power-loss resume:
+ * VTOR + PendSV/SysTick priority (device NVIC is re-armed by the board's
+ * idle-wakeup callback via LOS_HwiCreate + LOS_HwiEnable).
+ */
+#if defined(LOSCFG_KERNEL_RUNSTOP) || defined(LOSCFG_KERNEL_DEEPSLEEP_RETENTION)
+#define OS_PM_SYSPRIO_LOWEST    0xC0u
+
+VOID OsResumeInterruptSystem(VOID)
+{
+    SCB_REG->vtor = (UINT32)(UINTPTR)ArchGetHwiFrom();
+    SCB_REG->shpr[10] = OS_PM_SYSPRIO_LOWEST;  /* PendSV */
+    SCB_REG->shpr[11] = OS_PM_SYSPRIO_LOWEST;  /* SysTick */
+}
+#endif

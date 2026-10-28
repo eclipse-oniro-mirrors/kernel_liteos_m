@@ -147,7 +147,7 @@ def store_dync_excel():
                 c = ws.cell(row, column + 3)
                 c.value = object_name
         else:
-            if("\r\n" == values.get('addr')):
+            if ("\r\n" == values.get('addr')):
                 row = row + 1
                 column = 1
                 c = ws.cell(row, column)

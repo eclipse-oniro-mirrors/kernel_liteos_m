@@ -185,6 +185,16 @@ STATIC VOID OsSchedSetNextExpireTime(UINT32 responseID, UINT64 taskEndTime)
         nextExpireTime = OS_SCHED_MAX_RESPONSE_TIME - g_tickResponsePrecision;
     } else {
         nextExpireTime = percpu->taskSortLink.baseTime + nextRollSum;
+#ifdef LOSCFG_KERNEL_PM
+        /*
+         * After a PM resume the sortlink baseTime lags behind the cycle
+         * counter; clamp the expiry to at least "now + precision" so the
+         * downstream taskEndTime alignment uses a non-stale value.
+         */
+        if (nextExpireTime <= currTime + g_tickResponsePrecision) {
+            nextExpireTime = currTime + g_tickResponsePrecision;
+        }
+#endif
     }
     /* The response time of the task time slice is aligned to the next response time in the delay queue */
     if ((nextExpireTime > taskEndTime) && ((nextExpireTime - taskEndTime) > g_schedTickMinPeriod)) {
@@ -235,13 +245,22 @@ VOID OsSchedUpdateExpireTime(VOID)
 
 UINT64 OsSchedGetNextExpireTime(UINT64 startTime)
 {
+#ifndef LOSCFG_KERNEL_PM
     (void)startTime;
+#endif
     Percpu *percpu = OsPercpuGet();
     UINT64 rollSum = OsGetNextRollSum(&percpu->taskSortLink, &percpu->swtmrSortLink);
     if (rollSum == OS_SORT_LINK_UINT64_MAX) {
         return OS_SCHED_MAX_RESPONSE_TIME - g_tickResponsePrecision;
     }
-    return percpu->taskSortLink.baseTime + rollSum;
+    UINT64 expireTime = percpu->taskSortLink.baseTime + rollSum;
+#ifdef LOSCFG_KERNEL_PM
+    /* after a PM resume the baseTime can lag behind the caller's startTime. */
+    if (expireTime <= startTime) {
+        return startTime + g_tickResponsePrecision;
+    }
+#endif
+    return expireTime;
 }
 
 STATIC INLINE UINT32 OsTickRollSumToTicks(UINT64 rollSum)

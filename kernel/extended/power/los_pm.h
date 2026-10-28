@@ -131,6 +131,8 @@ typedef enum {
     LOS_SYS_NORMAL_SLEEP = 0,
     LOS_SYS_LIGHT_SLEEP,
     LOS_SYS_DEEP_SLEEP,
+    LOS_SYS_DEEPSLEEP_RETENTION,
+    LOS_SYS_RUNSTOP,
     LOS_SYS_SHUTDOWN,
 } LOS_SysSleepEnum;
 
@@ -203,6 +205,23 @@ typedef struct {
      * The value can be NULL.
      */
     VOID (*deepResume)(VOID);
+    /*
+     * Layered hooks for LOS_SYS_DEEPSLEEP_RETENTION (used when suspendConfig
+     * is registered instead of deepSuspend): suspendConfig/enterDeepSleep/
+     * resumeConfig/systemWakeup wrap the WFI with tick compensation.
+     */
+    VOID (*suspendConfig)(VOID);
+    VOID (*enterDeepSleep)(VOID);
+    VOID (*resumeConfig)(VOID);
+    VOID (*systemWakeup)(VOID);
+    /* The system enters the runstop mode (flash snapshot).
+     * In runstop mode, the value cannot be NULL.
+     */
+    UINT32 (*runstopSuspend)(VOID);
+    /* The system recovers from runstop.
+     * The value can be NULL.
+     */
+    VOID (*runstopResume)(VOID);
     /* The system enters the shutdown mode.
      * In shutdown mode, the value cannot be NULL.
      */
@@ -460,4 +479,58 @@ UINT32 LOS_PmSuspend(UINT32 wakeCount);
  * @see LOS_PmLockRequest
  */
 VOID LOS_PmLockInfoShow(VOID);
+
+/**
+ * @ingroup los_pm
+ * @brief Enable the lowpower feature.
+ *
+ * @par Description:
+ * This API is used to enable the lowpower feature.
+ *
+ * @attention None.
+ *
+ * @param None.
+ *
+ * @retval None.
+ * @par Dependency:
+ * <ul><li>los_pm.h: the header file that contains the API declaration.</li></ul>
+ * @see LOS_DisableLowPower
+ */
+VOID LOS_EnableLowPower(VOID);
+
+/**
+ * @ingroup los_pm
+ * @brief Disable the lowpower feature.
+ *
+ * @par Description:
+ * This API is used to disable the lowpower feature.
+ *
+ * @attention None.
+ *
+ * @param None.
+ *
+ * @retval None.
+ * @par Dependency:
+ * <ul><li>los_pm.h: the header file that contains the API declaration.</li></ul>
+ * @see LOS_EnableLowPower
+ */
+VOID LOS_DisableLowPower(VOID);
+
+/**
+ * @ingroup los_pm
+ * @brief Get the lowpower status.
+ *
+ * @par Description:
+ * This API is used to get the lowpower status.
+ *
+ * @attention None.
+ *
+ * @param None.
+ *
+ * @retval UINT32 status, 1 means enabled, 0 means disabled.
+ * @par Dependency:
+ * <ul><li>los_pm.h: the header file that contains the API declaration.</li></ul>
+ * @see LOS_EnableLowPower
+ */
+UINT32 LOS_GetLowPowerStatus(VOID);
 #endif

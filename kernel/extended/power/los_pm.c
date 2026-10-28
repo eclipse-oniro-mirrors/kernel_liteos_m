@@ -30,6 +30,8 @@
  */
 
 #include "los_pm.h"
+#include "los_pm_pri.h"
+#include "los_pm_debug_pri.h"
 #include "securec.h"
 #include "los_timer.h"
 #include "los_task.h"
@@ -39,6 +41,12 @@
 #include "los_sched_pri.h"
 #include "los_memory.h"
 #include "los_swtmr.h"
+#if defined(LOSCFG_KERNEL_RUNSTOP) || defined(LOSCFG_KERNEL_DEEPSLEEP_RETENTION)
+#include "los_deepsleep_pri.h"
+#include "los_interrupt.h"
+#include "los_hwi_pri.h"
+#include "nvic.h"
+#endif
 
 #if (LOSCFG_KERNEL_PM == 1)
 #define OS_PM_NODE_FREE 0x80000000U
@@ -55,25 +63,16 @@ typedef struct {
     LOS_DL_LIST  list;
 } OsPmLockCB;
 
-typedef struct {
-    LOS_SysSleepEnum  pmMode;
-    LOS_SysSleepEnum  sysMode;
-    UINT16            lock;
-    BOOL              isWake;
-    LosPmDevice       *device;
-    LosPmSysctrl      *sysctrl;
-    LosPmTickTimer    *tickTimer;
-#if (LOSCFG_BASE_CORE_TICK_WTIMER == 0)
-    UINT64            enterSleepTime;
-#endif
-    LOS_DL_LIST       lockList;
-} LosPmCB;
-
 #define PM_EVENT_LOCK_MASK    0xF
 #define PM_EVENT_LOCK_RELEASE 0x1
 STATIC EVENT_CB_S g_pmEvent;
-STATIC LosPmCB g_pmCB;
+LosPmCB g_pmCB;
 STATIC LosPmSysctrl g_sysctrl;
+
+#if defined(LOSCFG_KERNEL_RUNSTOP) || defined(LOSCFG_KERNEL_DEEPSLEEP_RETENTION)
+/* Reset-mode flag shared by runstop and deepsleep resume paths. */
+__attribute__((section(".data"))) INTPTR g_resumeFromImg = LOS_COLD_RESET;
+#endif
 
 STATIC VOID OsPmSysctrlInit(VOID)
 {
@@ -86,15 +85,47 @@ STATIC VOID OsPmSysctrlInit(VOID)
     g_sysctrl.lightResume = NULL;
     g_sysctrl.deepSuspend = ArchEnterSleep;
     g_sysctrl.deepResume = NULL;
+    g_sysctrl.suspendConfig = NULL;
+    g_sysctrl.enterDeepSleep = NULL;
+    g_sysctrl.resumeConfig = NULL;
+    g_sysctrl.systemWakeup = NULL;
+    g_sysctrl.runstopSuspend = NULL;
+    g_sysctrl.runstopResume = NULL;
     g_sysctrl.shutdownSuspend = NULL;
     g_sysctrl.shutdownResume = NULL;
 }
 
+#if (LOSCFG_BASE_CORE_TICK_WTIMER == 0)
+/*
+ * Post-sleep tick compensation: advance tick base, restart tick,
+ * run one catch-up tick (sortlink is stale after tick handoff).
+ */
+VOID OsPmTickCompensate(LosPmCB *pm, UINT32 sleepCycles)
+{
+    LosPmTickTimer *tickTimer = pm->tickTimer;
+    UINT64 realSleepTime, currTime;
+
+    if ((tickTimer == NULL) || (tickTimer->freq == 0) || (tickTimer->tickUnlock == NULL)) {
+        return;
+    }
+
+    realSleepTime = OS_SYS_CYCLE_TO_NS((UINT64)sleepCycles, tickTimer->freq);
+    realSleepTime = OS_SYS_NS_TO_CYCLE(realSleepTime, g_sysClock);
+    currTime = pm->enterSleepTime + realSleepTime;
+    pm->enterSleepTime = 0;
+
+    OsTickTimerBaseReset(currTime);
+    OsSchedResetSchedResponseTime(0);
+    tickTimer->tickUnlock();
+#ifdef LOSCFG_KERNEL_DEEPSLEEP_RETENTION
+    LOS_SchedTickHandler();
+#endif
+}
+#endif
+
+#ifndef LOSCFG_KERNEL_PM_FORCED_SLEEP_NO_TIMER
 STATIC VOID OsPmTickTimerStart(LosPmCB *pm)
 {
-#if (LOSCFG_BASE_CORE_TICK_WTIMER == 0)
-    UINT64 currTime, sleepTime, realSleepTime;
-#endif
     LosPmTickTimer *tickTimer = pm->tickTimer;
 
     if ((tickTimer == NULL) || (tickTimer->tickUnlock == NULL)) {
@@ -104,19 +135,10 @@ STATIC VOID OsPmTickTimerStart(LosPmCB *pm)
 #if (LOSCFG_BASE_CORE_TICK_WTIMER == 0)
     if (tickTimer->timerStop != NULL) {
         if (pm->enterSleepTime != 0) {
-            /* Restore the main CPU frequency */
-            sleepTime = tickTimer->timerCycleGet();
+            UINT32 sleepCycles = (UINT32)tickTimer->timerCycleGet();
+
             tickTimer->timerStop();
-
-            realSleepTime = OS_SYS_CYCLE_TO_NS(sleepTime, tickTimer->freq);
-            realSleepTime = OS_SYS_NS_TO_CYCLE(realSleepTime, g_sysClock);
-            currTime = pm->enterSleepTime + realSleepTime;
-            pm->enterSleepTime = 0;
-
-            OsTickTimerBaseReset(currTime);
-            OsSchedResetSchedResponseTime(0);
-            /* Restart the system tick timer */
-            tickTimer->tickUnlock();
+            OsPmTickCompensate(pm, sleepCycles);
         }
         return;
     }
@@ -124,7 +146,6 @@ STATIC VOID OsPmTickTimerStart(LosPmCB *pm)
 
     /* Restore the system tick timer */
     tickTimer->tickUnlock();
-    return;
 }
 
 STATIC BOOL OsPmTickTimerStop(LosPmCB *pm)
@@ -136,8 +157,15 @@ STATIC BOOL OsPmTickTimerStop(LosPmCB *pm)
 #endif
     LosPmTickTimer *tickTimer = pm->tickTimer;
 
+    /*
+     * NORMAL/RUNSTOP/SHUTDOWN keep tick running.
+     * RETENTION handles its own tick stop/compensate.
+     */
     if ((tickTimer == NULL) || (tickTimer->tickLock == NULL) ||
-        (pm->sysMode == LOS_SYS_NORMAL_SLEEP)) {
+        (pm->sysMode == LOS_SYS_NORMAL_SLEEP) ||
+        (pm->sysMode == LOS_SYS_RUNSTOP) ||
+        (pm->sysMode == LOS_SYS_SHUTDOWN) ||
+        (pm->sysMode == LOS_SYS_DEEPSLEEP_RETENTION)) {
         return FALSE;
     }
 
@@ -166,6 +194,7 @@ STATIC BOOL OsPmTickTimerStop(LosPmCB *pm)
     tickTimer->tickLock();
     return TRUE;
 }
+#endif
 
 STATIC VOID OsPmCpuResume(LosPmCB *pm)
 {
@@ -175,6 +204,10 @@ STATIC VOID OsPmCpuResume(LosPmCB *pm)
         pm->sysctrl->lightResume();
     } else if ((pm->sysMode == LOS_SYS_DEEP_SLEEP) && (pm->sysctrl->deepResume != NULL)) {
         pm->sysctrl->deepResume();
+    } else if (pm->sysMode == LOS_SYS_DEEPSLEEP_RETENTION) {
+        /* Layered path: resumeConfig already called inside OsEnterDeepSleepMainCore. */
+    } else if ((pm->sysMode == LOS_SYS_RUNSTOP) && (pm->sysctrl->runstopResume != NULL)) {
+        pm->sysctrl->runstopResume();
     }
 }
 
@@ -188,11 +221,20 @@ STATIC VOID OsPmCpuSuspend(LosPmCB *pm)
         pm->sysctrl->lightSuspend();
     } else if (pm->sysMode == LOS_SYS_DEEP_SLEEP) {
         pm->sysctrl->deepSuspend();
+    } else if (pm->sysMode == LOS_SYS_DEEPSLEEP_RETENTION) {
+#ifdef LOSCFG_KERNEL_DEEPSLEEP_RETENTION
+        OsEnterDeepSleepMainCore(pm);
+#else
+        pm->sysctrl->deepSuspend();
+#endif
+    } else if (pm->sysMode == LOS_SYS_RUNSTOP) {
+        (VOID)pm->sysctrl->runstopSuspend();
     } else {
-        pm->sysctrl->shutdownSuspend();
+        (VOID)pm->sysctrl->shutdownSuspend();
     }
 }
 
+#ifndef LOSCFG_KERNEL_PM_FORCED_SLEEP_NO_TIMER
 STATIC VOID OsPmResumePrepare(LosPmCB *pm, UINT32 mode, UINT32 prepare)
 {
     if ((prepare == 0) && (pm->device->resume != NULL)) {
@@ -233,6 +275,11 @@ STATIC UINT32 OsPmSuspendCheck(LosPmCB *pm, Suspend *sysSuspendEarly, Suspend *d
 
     intSave = LOS_IntLock();
     pm->sysMode = pm->pmMode;
+#if (LOSCFG_KERNEL_PM_DEBUG == 1)
+    if (!g_lowpowerEnable) {
+        pm->sysMode = LOS_SYS_NORMAL_SLEEP;
+    }
+#endif
     if (pm->lock > 0) {
         pm->sysMode = LOS_SYS_NORMAL_SLEEP;
         LOS_IntRestore(intSave);
@@ -286,11 +333,19 @@ STATIC UINT32 OsPmSuspendSleep(LosPmCB *pm)
         OsSchedUpdateExpireTime();
     }
 
+#if (LOSCFG_KERNEL_PM_DEBUG == 1)
+    OsPmDebugSleepStart((UINT8)pm->sysMode);
+#endif
+
     OsPmCpuSuspend(pm);
 
     OsPmCpuResume(pm);
 
     OsPmTickTimerStart(pm);
+
+#if (LOSCFG_KERNEL_PM_DEBUG == 1)
+    OsPmDebugSleepEnd(LOS_HwiCurIrqNum());
+#endif
 
 EXIT:
     pm->sysMode = LOS_SYS_NORMAL_SLEEP;
@@ -300,6 +355,28 @@ EXIT:
     LOS_TaskUnlock();
     return ret;
 }
+#else
+STATIC UINT32 OsPmSuspendSleep(LosPmCB *pm)
+{
+    UINT32 intSave;
+ 
+    intSave = LOS_IntLock();
+ 
+    pm->sysMode = pm->pmMode;
+    if (pm->lock > 0) {
+        pm->sysMode = LOS_SYS_NORMAL_SLEEP;
+        LOS_IntRestore(intSave);
+        return LOS_NOK;
+    }
+ 
+    OsPmCpuSuspend(pm);
+    OsPmCpuResume(pm);
+ 
+    LOS_IntRestore(intSave);
+ 
+    return LOS_OK;
+}
+#endif
 
 STATIC VOID OsPmNormalSleep(VOID)
 {
@@ -387,6 +464,24 @@ STATIC UINT32 OsPmSysctrlRegister(LosPmCB *pm, LosPmSysctrl *sysctrl)
     }
     if (sysctrl->deepResume != NULL) {
         pm->sysctrl->deepResume = sysctrl->deepResume;
+    }
+    if (sysctrl->suspendConfig != NULL) {
+        pm->sysctrl->suspendConfig = sysctrl->suspendConfig;
+    }
+    if (sysctrl->enterDeepSleep != NULL) {
+        pm->sysctrl->enterDeepSleep = sysctrl->enterDeepSleep;
+    }
+    if (sysctrl->resumeConfig != NULL) {
+        pm->sysctrl->resumeConfig = sysctrl->resumeConfig;
+    }
+    if (sysctrl->systemWakeup != NULL) {
+        pm->sysctrl->systemWakeup = sysctrl->systemWakeup;
+    }
+    if (sysctrl->runstopSuspend != NULL) {
+        pm->sysctrl->runstopSuspend = sysctrl->runstopSuspend;
+    }
+    if (sysctrl->runstopResume != NULL) {
+        pm->sysctrl->runstopResume = sysctrl->runstopResume;
     }
     if (sysctrl->shutdownSuspend != NULL) {
         pm->sysctrl->shutdownSuspend = sysctrl->shutdownSuspend;
@@ -532,6 +627,16 @@ UINT32 LOS_PmModeSet(LOS_SysSleepEnum mode)
     }
 
     if ((mode == LOS_SYS_DEEP_SLEEP) && (pm->sysctrl->deepSuspend == NULL)) {
+        LOS_IntRestore(intSave);
+        return LOS_ERRNO_PM_HANDLER_NULL;
+    }
+
+    if ((mode == LOS_SYS_DEEPSLEEP_RETENTION) && (pm->sysctrl->suspendConfig == NULL)) {
+        LOS_IntRestore(intSave);
+        return LOS_ERRNO_PM_HANDLER_NULL;
+    }
+
+    if ((mode == LOS_SYS_RUNSTOP) && (pm->sysctrl->runstopSuspend == NULL)) {
         LOS_IntRestore(intSave);
         return LOS_ERRNO_PM_HANDLER_NULL;
     }
@@ -774,6 +879,9 @@ UINT32 OsPmInit(VOID)
 
     OsPmSysctrlInit();
     pm->sysctrl = &g_sysctrl;
+#if (LOSCFG_KERNEL_PM_DEBUG == 1)
+    OsPmDebugInit();
+#endif
     return ret;
 }
 #endif

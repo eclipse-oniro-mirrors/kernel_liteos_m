@@ -132,6 +132,26 @@ STATIC VOID DeleteSigInfoFromList(OsSigCB *sigCB, INT32 sigNo)
     }
 }
 
+VOID OsSignalTaskDelete(VOID *task)
+{
+    LosTaskCB *taskCB = (LosTaskCB *)task;
+    OsSigCB *sigCB = (OsSigCB *)taskCB->sig;
+    OsSigInfoNode *node = NULL;
+    OsSigInfoNode *next = NULL;
+
+    if (sigCB == NULL) {
+        return;
+    }
+
+    LOS_DL_LIST_FOR_EACH_ENTRY_SAFE(node, next, &sigCB->sigInfoList, OsSigInfoNode, node) {
+        LOS_ListDelete(&node->node);
+        (VOID)LOS_MemFree(OS_SYS_MEM_ADDR, node);
+    }
+
+    (VOID)LOS_MemFree(OS_SYS_MEM_ADDR, sigCB);
+    taskCB->sig = NULL;
+}
+
 STATIC VOID SignalHandle(LosTaskCB *task, BOOL cleanStatus)
 {
     UINT32 intSave;

@@ -4,7 +4,9 @@
  *
  * Contract source: 《驱动接口依赖.md》ModBus-RTU chapter (7 P0 APIs) as
  * adopted by 《Modbus-RTU_UART驱动实现方案_rk3568.md》V0.17:
- *  - legal line combos: E-1 / O-1 / N-2 (Q5), data_bits 5~8;
+ *  - legal line combos: E-1 / O-1 / N-1 / N-2, data_bits 5~8
+ *    (N-1 is the general-serial 10-bit frame; E-1 / O-1 / N-2 keep the
+ *    Modbus RTU 11-bit frame requirement);
  *  - write() timeout covers the whole flow (accept + drain, TEMT anchored),
  *    partial return is legal and TX is flushed on timeout;
  *  - error codes are exactly the five below (V0.7 principle: no invented
@@ -33,7 +35,7 @@ extern "C" {
 #define UART_ERR_NOT_SUP (-4)  /* capability/port not supported */
 
 typedef enum {
-    UART_PARITY_NONE = 0, /* no parity (Modbus RTU requires 2 stop bits) */
+    UART_PARITY_NONE = 0, /* no parity (N-1 general serial; N-2 Modbus RTU) */
     UART_PARITY_ODD  = 1,
     UART_PARITY_EVEN = 2, /* Modbus RTU default */
 } uart_parity_t;
@@ -42,7 +44,7 @@ typedef struct {
     uint32_t      baudrate;  /* 1200 ~ 115200 */
     uint8_t       data_bits; /* 5 ~ 8; Modbus RTU uses 8 */
     uart_parity_t parity;
-    uint8_t       stop_bits; /* 1 or 2; legal combos: E-1 / O-1 / N-2 */
+    uint8_t       stop_bits; /* 1 or 2; legal combos: E-1 / O-1 / N-1 / N-2 */
 } uart_attr_t;
 
 /*

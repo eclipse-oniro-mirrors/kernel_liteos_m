@@ -10,6 +10,7 @@
 
 #include "arch/cache.h"
 #include "los_toolchain.h"
+#include "los_builddef.h"
 
 #ifdef __cplusplus
 #if __cplusplus
@@ -30,7 +31,7 @@ STATIC INLINE UINTPTR CacheAddrAlignUp(UINTPTR addr)
     return CacheAddrAlignDown(addr + (CACHE_LINE_SIZE - 1));
 }
 
-STATIC VOID DCacheOperate(UINTPTR baseAddr, UINT32 size, UINT32 op)
+LITE_OS_SEC_TEXT_MINOR STATIC VOID DCacheOperate(UINTPTR baseAddr, UINT32 size, UINT32 op)
 {
     UINTPTR alignedBase = CacheAddrAlignDown(baseAddr);
     UINTPTR end = CacheAddrAlignUp(alignedBase + size);
@@ -42,7 +43,7 @@ STATIC VOID DCacheOperate(UINTPTR baseAddr, UINT32 size, UINT32 op)
     __asm__ __volatile__("fence" ::: "memory");
 }
 
-UINT32 ArchICacheEnable(CacheSize icclSize)
+LITE_OS_SEC_TEXT UINT32 ArchICacheEnable(CacheSize icclSize)
 {
     if (((UINT32)icclSize & ~0x7U) != 0) {
         return LOS_NOK;
@@ -51,7 +52,7 @@ UINT32 ArchICacheEnable(CacheSize icclSize)
     return LOS_OK;
 }
 
-UINT32 ArchDCacheEnable(CacheSize dcclSize)
+LITE_OS_SEC_TEXT UINT32 ArchDCacheEnable(CacheSize dcclSize)
 {
     if (((UINT32)dcclSize & ~0x7U) != 0) {
         return LOS_NOK;
@@ -60,7 +61,7 @@ UINT32 ArchDCacheEnable(CacheSize dcclSize)
     return LOS_OK;
 }
 
-UINT32 ArchICachePrefetchEnable(CachePrefLines iclValue)
+LITE_OS_SEC_TEXT UINT32 ArchICachePrefetchEnable(CachePrefLines iclValue)
 {
     if (iclValue > CACHE_PREF_8_LINES) {
         return LOS_NOK;
@@ -69,7 +70,7 @@ UINT32 ArchICachePrefetchEnable(CachePrefLines iclValue)
     return LOS_OK;
 }
 
-UINT32 ArchDCachePrefetchEnable(CachePrefLines iclValue, CachePrefLines sclValue)
+LITE_OS_SEC_TEXT UINT32 ArchDCachePrefetchEnable(CachePrefLines iclValue, CachePrefLines sclValue)
 {
     if (iclValue > CACHE_PREF_8_LINES || sclValue > CACHE_PREF_8_LINES) {
         return LOS_NOK;
@@ -79,17 +80,17 @@ UINT32 ArchDCachePrefetchEnable(CachePrefLines iclValue, CachePrefLines sclValue
     return LOS_OK;
 }
 
-VOID ArchDCacheFlushByVa(UINTPTR baseAddr, UINT32 size)
+LITE_OS_SEC_TEXT VOID ArchDCacheFlushByVa(UINTPTR baseAddr, UINT32 size)
 {
     DCacheOperate(baseAddr, size, DCACHE_FLUSH_BY_VA);
 }
 
-VOID ArchDCacheCleanByVa(UINTPTR baseAddr, UINT32 size)
+LITE_OS_SEC_TEXT VOID ArchDCacheCleanByVa(UINTPTR baseAddr, UINT32 size)
 {
     DCacheOperate(baseAddr, size, DCACHE_CLEAN_BY_VA);
 }
 
-VOID ArchICacheFlushByVa(UINTPTR baseAddr, UINT32 size)
+LITE_OS_SEC_TEXT VOID ArchICacheFlushByVa(UINTPTR baseAddr, UINT32 size)
 {
     UINTPTR alignedBase = CacheAddrAlignDown(baseAddr);
     UINTPTR end = CacheAddrAlignUp(alignedBase + size);
@@ -101,7 +102,7 @@ VOID ArchICacheFlushByVa(UINTPTR baseAddr, UINT32 size)
     __asm__ __volatile__("fence" ::: "memory");
 }
 
-VOID ArchDCacheInvByVa(UINTPTR baseAddr, UINT32 size)
+LITE_OS_SEC_TEXT VOID ArchDCacheInvByVa(UINTPTR baseAddr, UINT32 size)
 {
     UINTPTR alignedBase = CacheAddrAlignDown(baseAddr);
     UINTPTR endUnaligned = baseAddr + size;
@@ -116,47 +117,47 @@ VOID ArchDCacheInvByVa(UINTPTR baseAddr, UINT32 size)
     DCacheOperate(baseAddr, size, DCACHE_INV_BY_VA);
 }
 
-VOID ArchICacheFlushByAddr(UINTPTR startAddr, UINTPTR endAddr)
+LITE_OS_SEC_TEXT VOID ArchICacheFlushByAddr(UINTPTR startAddr, UINTPTR endAddr)
 {
     UINTPTR alignedStart = CacheAddrAlignDown(startAddr);
     UINTPTR alignedEnd = CacheAddrAlignUp(endAddr);
     ArchICacheFlushByVa(alignedStart, (UINT32)(alignedEnd - alignedStart));
 }
 
-VOID ArchDCacheFlushByAddr(UINTPTR startAddr, UINTPTR endAddr)
+LITE_OS_SEC_TEXT VOID ArchDCacheFlushByAddr(UINTPTR startAddr, UINTPTR endAddr)
 {
     UINTPTR alignedStart = CacheAddrAlignDown(startAddr);
     UINTPTR alignedEnd = CacheAddrAlignUp(endAddr);
     ArchDCacheFlushByVa(alignedStart, (UINT32)(alignedEnd - alignedStart));
 }
 
-VOID ArchDCacheCleanByAddr(UINTPTR startAddr, UINTPTR endAddr)
+LITE_OS_SEC_TEXT VOID ArchDCacheCleanByAddr(UINTPTR startAddr, UINTPTR endAddr)
 {
     UINTPTR alignedStart = CacheAddrAlignDown(startAddr);
     UINTPTR alignedEnd = CacheAddrAlignUp(endAddr);
     ArchDCacheCleanByVa(alignedStart, (UINT32)(alignedEnd - alignedStart));
 }
 
-VOID ArchDCacheInvByAddr(UINTPTR startAddr, UINTPTR endAddr)
+LITE_OS_SEC_TEXT VOID ArchDCacheInvByAddr(UINTPTR startAddr, UINTPTR endAddr)
 {
     UINTPTR alignedStart = CacheAddrAlignDown(startAddr);
     UINTPTR alignedEnd = CacheAddrAlignUp(endAddr);
     ArchDCacheInvByVa(alignedStart, (UINT32)(alignedEnd - alignedStart));
 }
 
-VOID ArchICacheFlush(VOID)
+LITE_OS_SEC_TEXT VOID ArchICacheFlush(VOID)
 {
     __asm__ __volatile__("csrw 0x7c2, %0" :: "r"((UINTPTR)ICACHE_BY_ALL) : "memory"); /* ICMAINT */
     __asm__ __volatile__("fence" ::: "memory");
 }
 
-VOID ArchDCacheFlush(VOID)
+LITE_OS_SEC_TEXT VOID ArchDCacheFlush(VOID)
 {
     __asm__ __volatile__("csrw 0x7c3, %0" :: "r"((UINTPTR)DCACHE_FLUSH_ALL) : "memory"); /* DCMAINT */
     __asm__ __volatile__("fence" ::: "memory");
 }
 
-VOID ArchDCacheInvalidate(VOID)
+LITE_OS_SEC_TEXT VOID ArchDCacheInvalidate(VOID)
 {
     __asm__ __volatile__("csrw 0x7c3, %0" :: "r"((UINTPTR)DCACHE_INV_BY_ALL) : "memory"); /* DCMAINT */
     __asm__ __volatile__("fence" ::: "memory");

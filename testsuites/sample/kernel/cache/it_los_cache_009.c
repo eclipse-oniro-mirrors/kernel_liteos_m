@@ -10,7 +10,7 @@
 
 static UINT32 TestCase(VOID)
 {
-    volatile UINT32 buf[20];
+    static volatile UINT32 buf[20];
     UINT32 i;
 
     for (i = 0; i < 20; i++) {

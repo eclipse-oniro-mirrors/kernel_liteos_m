@@ -31,8 +31,12 @@
 #include "posix_fs_test.h"
 #include "los_fs.h"
 
-/* 测试专用未挂载路径, 确保不与实际挂载点冲突 */
-#define FS_MOUNT_TEST_MP       TEST_ROOT"/fs_mount_test_mp"
+/*
+ * 挂载点外路径: 用于"未挂载路径"负路径。
+ * 注意不能改用挂载点内子路径(如 TEST_ROOT"/fs_mount_test_mp"): 修复问题 #51 前
+ * 该路径会被 VfsMpFind 前缀命中而卸载整个挂载点, 导致后续 fs 用例连锁失败;
+ * 修复后的子路径拒绝语义由 posix_fs_vfs_test.c 的 TestFsVfsUmountSubPath 看护。
+ */
 #define FS_MOUNT_OUT_MP        "/fs_mount_out_mp"
 
 /* *
@@ -197,9 +201,11 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsUmountENOENT, Function | MediumTest |
 {
     int32_t ret;
 
-    /* 未挂载路径, 该错误分支不设置 errno, 只校验返回值 */
+    /* 未挂载路径: 返回失败且 errno=ENOENT(问题 #51 修复时补齐) */
+    errno = 0;
     ret = umount(FS_MOUNT_OUT_MP);
     ICUNIT_ASSERT_EQUAL(ret, POSIX_FS_IS_ERROR, ret);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
 
     return POSIX_FS_NO_ERROR;
 }
@@ -235,9 +241,11 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsUmount2ENOENT, Function | MediumTest 
 {
     int32_t ret;
 
-    /* 未挂载路径, 该错误分支不设置 errno, 只校验返回值 */
+    /* 未挂载路径: 返回失败且 errno=ENOENT(问题 #51 修复时补齐) */
+    errno = 0;
     ret = umount2(FS_MOUNT_OUT_MP, 0);
     ICUNIT_ASSERT_EQUAL(ret, POSIX_FS_IS_ERROR, ret);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
 
     return POSIX_FS_NO_ERROR;
 }

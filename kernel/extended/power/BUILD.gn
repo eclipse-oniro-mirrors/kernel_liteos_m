@@ -7,8 +7,8 @@
 # 1. Redistributions of source code must retain the above copyright notice, this list of
 #    conditions and the following disclaimer.
 #
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list
-#    of conditions and the following disclaimer in the documentation and/or other materials
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+#    conditions and the following disclaimer in the documentation and/or other materials
 #    provided with the distribution.
 #
 # 3. Neither the name of the copyright holder nor the names of its contributors may be used
@@ -33,9 +33,23 @@ module_switch = defined(LOSCFG_KERNEL_PM)
 module_name = get_path_info(rebase_path("."), "name")
 kernel_module(module_name) {
   sources = [ "los_pm.c" ]
+  if (defined(LOSCFG_KERNEL_RUNSTOP)) {
+    sources += [ "runstop/los_runstop.c" ]
+  }
+  if (defined(LOSCFG_KERNEL_DEEPSLEEP_RETENTION)) {
+    sources += [ "deepsleep/los_deepsleep.c" ]
+  }
+  if (defined(LOSCFG_KERNEL_PM_DEBUG)) {
+    sources += [ "debug/los_pm_debug.c" ]
+  }
   configs += [ "$LITEOSTOPDIR:warn_config" ]
 }
 
 config("public") {
-  include_dirs = [ "." ]
+  include_dirs = [
+    ".",
+    "../include/lowpower",
+    "//kernel/liteos_m/drivers/interrupt/include",
+    "//kernel/liteos_m/arch/arm/cortex_m",
+  ]
 }

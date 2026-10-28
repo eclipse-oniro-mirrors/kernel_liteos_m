@@ -45,7 +45,10 @@
  *              (GMAC descriptors + frames, not IO-coherent)
  *       boot-probe scratch 0x77C00000 + 2M                RW+NX  Device nGnRE
  *       peripherals 0xFD000000 + 32M                      RW+NX  Device nGnRE
- *              (GIC-600 GICD/GICR + UART2 0xFE660000)
+ *              (split: periph-lo / gicd 64K / gic-gap / gicr 768K /
+ *               periph-hi, covering GIC-600 GICD/GICR + UART2
+ *               0xFE660000; gicd is runtime-removable via
+ *               LOS_GicdMmuDisable/Enable)
  *
  *     The 1MB shared/image boundary is not 2MB aligned: the framework
  *     handles it by splitting that L2 entry into an L3 table automatically
@@ -63,6 +66,7 @@
 #include "arch/cache.h"
 #include "arch/mmu.h"
 #include "arch/mmu_pri.h"
+#include "soc.h"
 
 /* board.ld symbols */
 extern UINTPTR __text_entry_start;
@@ -92,10 +96,18 @@ extern UINTPTR __heap_end;
 #define SCRATCH_BASE      0x77C00000UL
 #define SCRATCH_SIZE      0x200000UL
 
-/* peripherals: GIC-600 (GICD 0xFD400000 / GICR 0xFD580000) and UART2
- * 0xFE660000, covered as Device blocks */
-#define PERIPH_BASE       0xFD000000UL
-#define PERIPH_SIZE       0x2000000UL
+/* peripherals as Device blocks. The former single 32MB periph region
+ * is split so that GICD/GICR own dedicated regions: GICD is the
+ * runtime-lock window of LOS_GicdMmuDisable/Enable, GICR must stay
+ * mapped forever (interrupt delivery). Sizes come from soc.h
+ * (board-verified). The GICD..GICR gap and everything else keep the
+ * previous periph coverage. */
+#define GIC_GAP_BASE      (GICD_BASE + GICD_MMU_SIZE)
+#define GIC_GAP_SIZE      (GICR_BASE - GIC_GAP_BASE)
+#define PERIPH_LO_BASE    0xFD000000UL
+#define PERIPH_LO_SIZE    (GICD_BASE - PERIPH_LO_BASE)
+#define PERIPH_HI_BASE    (GICR_BASE + GICR_MMU_SIZE)
+#define PERIPH_HI_SIZE    (0xFD000000UL + 0x2000000UL - PERIPH_HI_BASE)
 
 #define PAGE_SIZE_4K      LOSCFG_ARCH_ARM64_PAGE_SIZE
 #define BLOCK_SIZE_2M     0x200000UL
@@ -121,7 +133,11 @@ VOID ArchMmuAppRegionReg(VOID)
         {"netdma", NET_DMA_BASE, NET_DMA_BASE, NET_DMA_SIZE, MMU_RW_NX_NORMAL_NC},
         {"umt", UMT_BASE, UMT_BASE, UMT_SIZE, MMU_RW_NX_NORMAL_NC},
         {"scratch", SCRATCH_BASE, SCRATCH_BASE, SCRATCH_SIZE, MMU_RW_NX_DEVICE_MAP},
-        {"periph", PERIPH_BASE, PERIPH_BASE, PERIPH_SIZE, MMU_RW_NX_DEVICE_MAP},
+        {"periph-lo", PERIPH_LO_BASE, PERIPH_LO_BASE, PERIPH_LO_SIZE, MMU_RW_NX_DEVICE_MAP},
+        {"gicd", GICD_BASE, GICD_BASE, GICD_MMU_SIZE, MMU_RW_NX_DEVICE_MAP},
+        {"gic-gap", GIC_GAP_BASE, GIC_GAP_BASE, GIC_GAP_SIZE, MMU_RW_NX_DEVICE_MAP},
+        {"gicr", GICR_BASE, GICR_BASE, GICR_MMU_SIZE, MMU_RW_NX_DEVICE_MAP},
+        {"periph-hi", PERIPH_HI_BASE, PERIPH_HI_BASE, PERIPH_HI_SIZE, MMU_RW_NX_DEVICE_MAP},
     };
     UINT32 ret;
     UINT32 i;

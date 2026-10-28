@@ -36,6 +36,7 @@ extern "C" {
 #define GICR_BASE                               0xFE680000UL
 /* one RD (0x10000) + one SGI (0x10000) frame per core; 8 PEs */
 #define GICR_STRIDE_CORES                       8
+#define GICD_MMU_SIZE                           0x010000UL
 
 /* ---- UART ---- */
 #define UART2_BASE                              0xFEB50000UL /* debug console, shared with Linux */

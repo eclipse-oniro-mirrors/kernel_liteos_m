@@ -283,6 +283,8 @@ extern size_t IntActive(VOID);
  * <ul><li>The range of available cpuMask may vary accroding to different interrupt controller.</li></ul>
  */
 #define LOS_ERRNO_HWI_AFFI_INVALID              LOS_ERRNO_OS_ERROR(LOS_MOD_HWI, 0x10)
+#define LOS_ERRNO_HWI_GICD_ALREADY_LOCKED      LOS_ERRNO_OS_ERROR(LOS_MOD_HWI, 0x11)
+#define LOS_ERRNO_HWI_GICD_ALREADY_OPEN        LOS_ERRNO_OS_ERROR(LOS_MOD_HWI, 0x12)
 
 /**
  * @ingroup los_interrupt
@@ -636,6 +638,57 @@ extern UINT32 LOS_HwiDisable(HWI_HANDLE_T hwiNum);
 extern UINT32 LOS_HwiClear(HWI_HANDLE_T hwiNum);
 extern UINT32 LOS_HwiSetPriority(HWI_HANDLE_T hwiNum, HWI_PRIOR_T priority);
 extern UINT32 LOS_HwiCurIrqNum(VOID);
+
+/**
+ * @ingroup los_hwi
+ * @brief Lock the GICD register window at the page-table level (AMP slave).
+ *
+ * @par Description:
+ * Removes the GICD window (GICD_BASE .. +GICD_MMU_SIZE) from this core's
+ * MMU page tables. Any subsequent GICD access raises a Translation Fault
+ * (fail-fast: LOS_Hwi* calls do NOT soft-check, they fault). Interrupts
+ * already enabled keep being delivered (GICR/ICC path, no GICD access).
+ * NOT idempotent: calling it while the window is already locked returns
+ * LOS_ERRNO_HWI_GICD_ALREADY_LOCKED - a caller state mismatch that must
+ * surface, not be silently absorbed (same spirit as the D3 fail-fast).
+ * Not callable from ISR.
+ * @par Contract:
+ * Must be called at a GICD-quiet time: no task/ISR inside a LOS_Hwi* call
+ * (the RWP poll may run up to ~1s and a preempted caller faults on resume).
+ * @retval #LOS_OK            Window locked by this call.
+ * @retval #LOS_ERRNO_HWI_GICD_ALREADY_LOCKED  Was already locked (caller state mismatch).
+ * @retval #other             MMU framework error (state unchanged).
+ * @see LOS_GicdMmuEnable
+ * @since 1.0
+ */
+extern UINT32 LOS_GicdMmuDisable(VOID);
+
+/**
+ * @ingroup los_hwi
+ * @brief Unlock the GICD register window (restore page-table mapping).
+ *
+ * @par Description:
+ * Restores the identity RW+NX+Device mapping of the GICD window; GICD
+ * becomes read/writable again. NOT idempotent: calling it while the
+ * window is already open returns LOS_ERRNO_HWI_GICD_ALREADY_OPEN.
+ * Not callable from ISR.
+ * @retval #LOS_OK            Window mapped by this call.
+ * @retval #LOS_ERRNO_HWI_GICD_ALREADY_OPEN    Was already open (caller state mismatch).
+ * @retval #other             MMU framework error (window stays locked).
+ * @see LOS_GicdMmuDisable
+ * @since 1.0
+ */
+extern UINT32 LOS_GicdMmuEnable(VOID);
+
+/**
+ * @ingroup los_hwi
+ * @brief Query whether the GICD window is currently locked.
+ * @retval TRUE               Locked (GICD unmapped, access faults).
+ * @retval FALSE              Open (GICD mapped).
+ * @see LOS_GicdMmuDisable
+ * @since 1.0
+ */
+extern BOOL LOS_GicdMmuIsLocked(VOID);
 
 UINT32 ArchIntLock(VOID);
 UINT32 ArchIntUnLock(VOID);

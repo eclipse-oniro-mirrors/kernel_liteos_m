@@ -91,6 +91,12 @@ extern VOID ItLosHwi050(VOID);
 extern VOID ItLosHwi051(VOID);
 extern VOID ItLosHwi052(VOID);
 extern VOID ItLosHwi053(VOID);
+#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
+extern VOID ItLosHwi054(VOID);
+extern VOID ItLosHwi055(VOID);
+extern VOID ItLosHwi056(VOID);
+extern VOID ItLosHwi057(VOID);
+#endif
 
 
 #if (LOS_KERNEL_MULTI_HWI_TEST == 1)

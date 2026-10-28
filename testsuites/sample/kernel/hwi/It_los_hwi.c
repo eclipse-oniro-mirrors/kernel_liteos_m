@@ -131,4 +131,14 @@ VOID ItSuiteLosHwi()
     /* 053: 高段向量(32..95) LOCIEN0/1 与 LOCIPRI reg1-8, 仅 ws63(himideerv200 PLIC) */
     ItLosHwi053();
 #endif
+#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
+    /* 054-057: GICD MMU 访问开关(AMP 中断隔离), 仅 rk3568 AMP slave.
+     * 054: 状态机往返/ALREADY 语义/压力循环; 055: 锁定期间中断投递独立性;
+     * 056: 页表池往返零消耗; 057: 序列终位 fault 注入(锁定态读 GICD ->
+     * Translation Fault -> 专属提示 -> CPU_OFF, 其后的套件不再执行). */
+    ItLosHwi054();
+    ItLosHwi055();
+    ItLosHwi056();
+    ItLosHwi057();
+#endif
 }

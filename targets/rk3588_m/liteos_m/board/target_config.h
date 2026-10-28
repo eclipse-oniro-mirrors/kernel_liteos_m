@@ -53,7 +53,11 @@
 =============================================================================*/
 #define LOSCFG_BASE_CORE_SWTMR 1
 #define LOSCFG_BASE_CORE_SWTMR_ALIGN 0
+/* Kconfig supplies the limit (vendor debug/release config, value 48);
+ * guard keeps a fallback for builds without the Kconfig pipeline. */
+#ifndef LOSCFG_BASE_CORE_SWTMR_LIMIT
 #define LOSCFG_BASE_CORE_SWTMR_LIMIT 48
+#endif
 
 /*=============================================================================
                                 Memory module configuration

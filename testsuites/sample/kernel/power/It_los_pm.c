@@ -45,17 +45,7 @@ VOID ItSuiteLosPm(VOID)
     ItLosPm005(); /* PM 深覆盖: sysctrl 全字段/prepare 失败分支/三档模式/tickless 定时器链 */
 #endif
 #endif
-#if (LOSCFG_KERNEL_TICK_PERIODIC == 1)
-    /* 周期 tick 板: ItLosPm006 为 BUG_12(孪生缺陷)复现用例, 修复前隔离 */
-#if defined(KERNEL_BUG_12_PM_TICKTIMER_PERIODIC_DEAD) && KERNEL_BUG_12_PM_TICKTIMER_PERIODIC_DEAD == 1
-    ItLosPm006(); /* PM tickless 停表链契约: 修复后 timerStart 计数>=1 且周期合理 */
-#endif
-#else
-    /* tickless 板(qemu): ItLosPm006 走 BUG_11 同一断言路径, 随 BUG_11 修复后恢复 */
-#if defined(KERNEL_BUG_11_PM_TICKTIMER_ASSERT) && KERNEL_BUG_11_PM_TICKTIMER_ASSERT == 1
     ItLosPm006();
-#endif
-#endif
     /* BUG_21(resleak 批次): PM 唤醒锁全局计数打满后新锁节点插入不回滚泄漏,
      * 修复前隔离(红灯暴露用例, 断言修复后契约) */
 #if defined(KERNEL_BUG_21_PM_LOCKCNT_FULL_LEAK) && KERNEL_BUG_21_PM_LOCKCNT_FULL_LEAK == 1

@@ -62,7 +62,7 @@ HalTrapVector:
     beqz  a1, HalTrapEntry      /* not an interrupt → exception */
 
     csrw  mscratch, sp
-    la    sp, __start_and_irq_stack_top
+    la    sp, __irq_stack_top
     jal   HalHwiInterruptDone
     csrr  sp, mscratch
     call  OsSchedProcSchedFlag

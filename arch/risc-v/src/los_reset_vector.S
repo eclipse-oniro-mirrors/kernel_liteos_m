@@ -55,6 +55,8 @@
  * LOSCFG_USING_BOARD_RESET_VECTOR is set — but we are excluded then). */
 .global __startup_stack_top
 .global __irq_stack_top
+.global __exc_stack_top
+.global __nmi_stack_top
 
 .global reset_vector
 .global HandleReset

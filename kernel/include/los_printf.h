@@ -122,8 +122,13 @@ typedef VOID (*pf_OUTPUT)(const CHAR *fmt, ...);
  *   VOID LOS_Printf(LogModuleType type, INT32 level, const CHAR *fmt, ...);
  */
 #ifdef LOSCFG_LIB_LIBC
+#if defined(LOSCFG_LIBC_NEWLIB)
+/* Newlib <stdio.h> dprintf conflicts; route to LOS_Printf. */
+#define diag_printf(fmt, ...)   LOS_Printf(LOG_MODULE_KERNEL, LOG_COMMON_LEVEL, fmt, ##__VA_ARGS__)
+#else
 extern VOID dprintf(const CHAR *fmt, ...);
 #define diag_printf(fmt, ...)   dprintf(fmt, ##__VA_ARGS__)
+#endif
 #else
 #define diag_printf(fmt, ...)   LOS_Printf(LOG_MODULE_KERNEL, LOG_COMMON_LEVEL, fmt, ##__VA_ARGS__)
 #endif

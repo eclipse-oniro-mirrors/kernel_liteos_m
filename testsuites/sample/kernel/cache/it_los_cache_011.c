@@ -11,11 +11,13 @@
 
 static UINT32 TestCase(VOID)
 {
-    volatile UINT32 buf[32];
+    static volatile UINT32 buf[32];
     UINT32 i;
 
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
-    ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
+    ArchICacheFlush();
+    ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICachePrefetchEnable(CACHE_PREF_4_LINES), LOS_OK, LOS_OK);
     ICUNIT_ASSERT_EQUAL(ArchDCachePrefetchEnable(CACHE_PREF_4_LINES, CACHE_PREF_4_LINES), LOS_OK, LOS_OK);
 
@@ -37,7 +39,6 @@ static UINT32 TestCase(VOID)
 
     ArchICacheFlush();
     ArchDCacheFlush();
-    ArchDCacheInvalidate();
 
     for (i = 0; i < 32; i++) {
         ICUNIT_ASSERT_EQUAL(buf[i], (0x30000U | i), buf[i]);

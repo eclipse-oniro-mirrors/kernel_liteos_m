@@ -45,7 +45,7 @@ static UINT32 TestCase(VOID)
         ICUNIT_ASSERT_EQUAL(buf[i], 0x1BAD0000U | i, buf[i]);
     }
 
-    /* --- whole-cache flush + invalidate keep a clean buffer intact --- */
+    /* --- whole-cache flush keeps a clean buffer intact --- */
     for (i = 0; i < 16; i++) {
         buf[i] = 0x600D0000U | i;
     }
@@ -54,7 +54,7 @@ static UINT32 TestCase(VOID)
         ICUNIT_ASSERT_EQUAL(buf[i], 0x600D0000U | i, buf[i]);
     }
     ArchDCacheCleanByVa((UINTPTR)buf, sizeof(buf));
-    ArchDCacheInvalidate();
+    ArchDCacheFlush();
     for (i = 0; i < 16; i++) {
         ICUNIT_ASSERT_EQUAL(buf[i], 0x600D0000U | i, buf[i]);
     }

@@ -1,13 +1,11 @@
 /*
  * Copyright (c) 2026-2026. All rights reserved.
  *
- * TestCase: interrupt-safety regression for the source cache implementation.
- * The closed liblos_cache.a had a layout-sensitive deadlock because its
- * multi-step maintenance sequences (csrw <INCVA> + csrw <MAINT> + fence,
- * iterated per line) ran without interrupt protection. The source
- * implementation in arch/risc-v/src/los_cache.c wraps every maintenance
- * sequence in LOS_IntLock / LOS_IntRestore. This case loops every public
- * maintenance entry many times to confirm the fix holds.
+ * TestCase: full-sequence regression for the source cache implementation.
+ * Loops every public maintenance entry many times to confirm stability
+ * and data integrity. Uses static buf (no stack-line sharing with InvByVa)
+ * and ArchDCacheFlush (writeback+invalidate, safe for task stack) instead
+ * of ArchDCacheInvalidate (pure DCIV, unsafe in task runtime).
  */
 
 #include "it_los_cache.h"
@@ -21,7 +19,9 @@ static UINT32 TestCase(VOID)
     UINT32 loop;
 
     (VOID)ArchICacheEnable(CACHE_32KB);
-    (VOID)ArchDCacheEnable(CACHE_32KB);
+    ArchICacheFlush();
+    (VOID)ArchDCacheEnable(CACHE_4KB);
+    ArchDCacheFlush();
 
     for (loop = 0; loop < CACHE_INTSAFE_LOOPS; loop++) {
         for (i = 0; i < 32; i++) {
@@ -37,10 +37,9 @@ static UINT32 TestCase(VOID)
         ArchDCacheFlushByAddr((UINTPTR)buf, (UINTPTR)buf + sizeof(buf));
         ArchDCacheCleanByAddr((UINTPTR)buf, (UINTPTR)buf + sizeof(buf));
         ArchDCacheInvByAddr((UINTPTR)buf, (UINTPTR)buf + sizeof(buf));
-        /* whole-cache family */
+        /* whole-cache family (ArchDCacheFlush instead of Invalidate: safe for stack) */
         ArchICacheFlush();
         ArchDCacheFlush();
-        ArchDCacheInvalidate();
         /* data integrity after the full sequence */
         for (i = 0; i < 32; i++) {
             ICUNIT_ASSERT_EQUAL(buf[i], loop * 32U + i, buf[i]);

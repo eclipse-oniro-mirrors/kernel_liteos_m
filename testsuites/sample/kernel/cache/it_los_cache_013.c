@@ -11,15 +11,28 @@
 
 static UINT32 TestCase(VOID)
 {
+    /* Flush after each size change to clear stale lines beyond the new size. */
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
+    ArchICacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
+    ArchICacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
+    ArchICacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_16KB), LOS_OK, LOS_OK);
+    ArchICacheFlush();
 
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_8KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
+
+    /* Restore main's config (ICache 32KB / DCache 4KB) */
+    ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
+    ArchICacheFlush();
 
     /* After re-enable the maintenance path must still be functional. */
     volatile UINT32 buf[4];

@@ -39,7 +39,14 @@ static VOID HwiF01(VOID)
     UINT32 ret;
     UINT32 len = 10;
     UINT32 flags = 0;
+#ifdef __aarch64__
+    /* LOS_QueueWrite stores a pointer: the per-message payload must
+     * hold sizeof(UINT32*) bytes (8 on AArch64) plus the 4-byte size
+     * header LOS_QueueCreate adds internally. */
+    UINT32 maxMsgSize = sizeof(UINT32 *) + 4;
+#else
     UINT32 maxMsgSize = 6;
+#endif
     UINT8 queueRead[6];
     UINT8  queueWrite[6] = {101, 102, 103, 104, 105, 106};
 

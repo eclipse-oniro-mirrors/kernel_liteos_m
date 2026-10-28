@@ -109,4 +109,56 @@ config KERNEL_TEST_PRESSURE
       regression time on flash-backed boards stays short. With Y the
       produced binary is byte-identical to a tree without this knob.
 
+config TEST_UART_DRV
+    bool "UART driver test suite"
+    default n
+    depends on KERNEL_TEST
+    help
+      Compile and register the UART driver ICUnit suite (ItLosUart001-005,
+      LEVEL0). The cases exercise the board UART driver API through the
+      MCR internal loopback, so they need no external wiring and never
+      touch the console port.
+
+config TEST_AMP_SLAVE
+    bool "Adapt test framework for an AMP slave core"
+    default n
+    depends on KERNEL_TEST
+    help
+      Adaptations for running the kernel tests on an AMP slave core that
+      shares the interrupt controller and the UART with a master OS:
+      claim the SPI ownership (GICD IGROUPR/IROUTER, edge trigger) when a
+      test HWI is created, force-clean the safe test SPI vectors between
+      cases, route SGI-based cases to SPIs, and skip cases whose output
+      would clobber the shared console (full task-table dump).
+
+config TEST_HWI_TRIG_ASYNC
+    bool "HWI software trigger is delivered asynchronously"
+    default n
+    depends on KERNEL_TEST
+    help
+      The interrupt controller forwards a software-pended interrupt with
+      a pipeline latency instead of delivering it before the trigger call
+      returns. TestHwiTrigger sleeps one tick so the ISR is served
+      deterministically, and trigger-dependent cases wait for the ISR to
+      actually run before continuing.
+
+config TEST_HWI_PRIO_FOLDED
+    bool "HWI priority values are folded to a coarser granularity"
+    default n
+    depends on KERNEL_TEST
+    help
+      Only the top priority bits are honored (e.g. a non-secure GICv3
+      view with DS=0 folds priorities onto a 16-step grid). HWI test
+      cases pick even, strictly ordered priority values so distinct
+      logical priorities stay distinct on the folded grid.
+
+config TEST_TICK_PHASE_LAG
+    bool "Skip cases sensitive to a tick-boundary phase lag"
+    default n
+    depends on KERNEL_TEST
+    help
+      Task wakeups and tick-count reads can differ by one tick when a
+      task blocks mid-period. Cases that assert exact tick boundaries
+      right after osDelay are skipped until the scheduling side is fixed.
+
 endmenu

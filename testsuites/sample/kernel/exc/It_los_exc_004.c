@@ -50,7 +50,7 @@ static VOID Exc004DumpHook(UINTPTR startAddr, UINT32 space, UINT32 rwFlag, CHAR 
            (UINT32)startAddr, space, rwFlag, (UINTPTR)buf);
 }
 
-static VOID Exc004ExcHook(UINT32 type, LosExcContext *context)
+static VOID Exc004ExcHook(UINT32 type, EXC_CONTEXT_TYPE *context)
 {
     (VOID)type;
     (VOID)context;
@@ -88,6 +88,7 @@ static UINT32 Testcase(VOID)
  * false
  * @par TestCase_Remark
  * DESTRUCTIVE/NON-RETURNING: needs LOS_KERNEL_TEST_MANUAL + LOSCFG_SHELL_EXCINFO_DUMP.
+
  */
 VOID ItLosExc004(VOID)
 {

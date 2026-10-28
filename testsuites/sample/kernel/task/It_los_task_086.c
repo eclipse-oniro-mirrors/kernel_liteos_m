@@ -65,6 +65,12 @@ static VOID HwiF01(VOID)
     g_testCount = 0;
 
     for (g_index = startIndex; g_index < LOSCFG_BASE_CORE_TSK_LIMIT; pro++, g_testCount++, g_index++) {
+        /* TSK_LIMIT (48 on rk3568) exceeds the 32 priority levels: wrap
+         * back to 1 instead of running past LOS_TASK_PRIORITY_LOWEST
+         * (LOS_TaskCreate would fail with TSK_PRIOR_ERROR). */
+        if (pro >= LOS_TASK_PRIORITY_LOWEST) {
+            pro = 1;
+        }
         task1.usTaskPrio = pro;
         (void)sprintf_s(acName, TASK_NAME_NUM, "Tsk086_%d", g_index);
         task1.pcName = acName;

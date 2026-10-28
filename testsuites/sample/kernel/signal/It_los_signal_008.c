@@ -81,6 +81,18 @@ static VOID SubTask008(VOID)
     LOS_HwiEnable(HWI_NUM_TEST);
     LOS_HwiTrigger(HWI_NUM_TEST);
 
+#ifdef LOSCFG_TEST_HWI_TRIG_ASYNC
+    /* rk3568 GIC: SPI delivery is asynchronous (~us) - busy-wait briefly so
+     * the ISR runs while THIS task is current; if it fired during the later
+     * TaskDelay poll the ISR's LOS_CurTaskIDGet() would target whatever task
+     * got scheduled and the signal would pend on the wrong task. */
+    for (volatile UINT32 spin = 0; spin < 300000; spin++) {
+        if (g_hwiDone008 == 1) {
+            break;
+        }
+    }
+#endif
+
     /* 有界轮询: 触发即同步执行, 1000 tick 上界防御 */
     loop = 0;
     while ((g_hwiDone008 == 0) && (loop < 1000)) {

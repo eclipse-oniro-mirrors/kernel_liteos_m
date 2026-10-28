@@ -16,6 +16,7 @@
 
 VOID ItSuiteMcsCan(VOID)
 {
+#ifdef LOSCFG_MCS_CAN
     ItMcsCan001();
     ItMcsCan002();
     ItMcsCan003();
@@ -32,4 +33,5 @@ VOID ItSuiteMcsCan(VOID)
     ItMcsCan014();
     ItMcsCan015();
     ItMcsCan016();
+#endif /* LOSCFG_MCS_CAN */
 }

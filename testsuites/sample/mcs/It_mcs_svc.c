@@ -16,10 +16,12 @@
 
 VOID ItSuiteMcsSvc(VOID)
 {
+#ifdef LOSCFG_MCS_RPC
     ItMcsSvc001();
     ItMcsSvc003();
     ItMcsSvc004();
     ItMcsSvc005();
     ItMcsSvc006();
     ItMcsSvc007();
+#endif
 }

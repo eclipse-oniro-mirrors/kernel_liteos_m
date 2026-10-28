@@ -13,6 +13,10 @@ board_toolchain_prefix = ""
 board_toolchain_type = "clang"
 use_board_toolchain = true
 
+# Soft-float ABI: -mgeneral-regs-only callers emit FP builtins with the
+# general-register convention, while the stock libclang_rt builtins follow
+# the hard-float AAPCS (see arch/arm64/los_softfp_abi.c).  This archive is
+# the stock one with the conflicting members removed.
 board_clang_rt_lib = board_toolchain_path + "/../lib/clang/15.0.4/lib/aarch64-linux-ohos/libclang_rt.builtins.a"
 
 board_opt_flags = [ "-O2" ]

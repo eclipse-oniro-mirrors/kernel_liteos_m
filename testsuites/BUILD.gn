@@ -154,10 +154,13 @@ group("testsuites") {
     "sample/kernel/misc:test_misc",
     "sample/kernel/tcb_verify:test_tcb_verify",
     "sample/kernel/atomic:test_atomic",
+    "sample/kernel/uart:test_uart",
     ]
-    # exc suite pulls riscv-only LosExcContext and exchook
-    # (LOSCFG_PLATFORM_EXC) APIs that aarch64 targets do not provide.
-    if (defined(LOSCFG_ARCH_ARM_AARCH32) || defined(LOSCFG_ARCH_RISCV)) {
+    # exc suite: osTest.h enables LOS_KERNEL_EXC_TEST when
+    # SHELL_EXCINFO_DUMP or BACKTRACE_TYPE!=0 - align the BUILD dep with
+    # that condition (the destructive cases are MANUAL-gated; the remaining
+    # aarch64-safe cases are backtrace walks + exc-hook registration).
+    if (defined(LOSCFG_SHELL_EXCINFO_DUMP) || (defined(LOSCFG_BACKTRACE_TYPE) && LOSCFG_BACKTRACE_TYPE != 0)) {
       deps += [ "sample/kernel/exc:test_exc" ]
     }
     # posix/xts suites rely on 32-bit-target musl semantics

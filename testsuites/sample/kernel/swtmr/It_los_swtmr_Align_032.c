@@ -38,7 +38,7 @@
  * OsSwtmrFindAlignTime 遍历，遇到非对齐节点走 continue 分支（los_swtmr.c
  * L236-237/L264）。只调对外接口。 */
 
-static VOID CaseFunc032(UINT32 arg)
+static VOID CaseFunc032(UINTPTR arg)
 {
     (VOID)arg;
 }

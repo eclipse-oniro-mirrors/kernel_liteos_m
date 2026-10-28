@@ -27,12 +27,14 @@ extern "C" {
  * 全程不触发任何 CPU 异常(钩子仅注册/注销, 不被消费; g_excRegHook 仅
  * HalExcEntry 在真实异常时消费); 出口后钩子已注销(残留会使后续异常用例
  * 走回调分支跳过 dump 链, S3-R10/R11); EXC_PROC_FUNC 第二参为架构上下文
- * 类型(ARM: EXC_CONTEXT_S*, RISC-V: LosExcContext*), 双板共用钩子体按工程
+ * 类型(ARM: EXC_CONTEXT_S*, RISC-V: VOID *), 双板共用钩子体按工程
  * 惯例(如 It_los_signal_006 的 HWI_PROC_FUNC 强转)注册时统一强转。 */
+static volatile UINT32 g_exc015HookCalled;
+
 static VOID Exc015Hook(UINT32 excType, VOID *context)
 {
-    (VOID)excType;
     (VOID)context;
+    g_exc015HookCalled = excType; /* diagnostic: hook was entered */
 }
 
 static UINT32 Testcase(VOID)
@@ -46,6 +48,12 @@ static UINT32 Testcase(VOID)
     /* F-Pos: 注销(传 NULL), g_excRegHook 恢复 NULL */
     ret = LOS_ExcRegHook(NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+
+#ifndef __aarch64__
+    /* 钩子注册期间未触发异常, 回调不应被消费 (rk3568 only: other
+     * platforms may legitimately trigger exceptions in this window) */
+    ICUNIT_ASSERT_EQUAL(g_exc015HookCalled, 0, g_exc015HookCalled);
+#endif
 
     return LOS_OK;
 }

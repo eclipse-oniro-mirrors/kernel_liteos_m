@@ -16,6 +16,7 @@
 
 VOID ItSuiteMcsNet(VOID)
 {
+#ifdef LOSCFG_MCS_NET
     ItMcsNet001();
     ItMcsNet002();
     ItMcsNet003();
@@ -26,4 +27,5 @@ VOID ItSuiteMcsNet(VOID)
     ItMcsNet008();
     ItMcsNet009();
     ItMcsNet010();
+#endif /* LOSCFG_MCS_NET */
 }

@@ -63,6 +63,10 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
 #ifdef __RISC_V__
     HWI_PRIOR_T hwiPrio = 3;
+#elif defined(LOSCFG_TEST_HWI_PRIO_FOLDED)
+    /* folded 0x10-step grid: odd liteos values collapse with their even
+     * neighbours - use even levels to keep the SPIs strictly ordered */
+    HWI_PRIOR_T hwiPrio = 2;
 #else
     HWI_PRIOR_T hwiPrio = 1;
 #endif
@@ -77,14 +81,22 @@ static UINT32 Testcase(VOID)
     ret = LOS_HwiCreate(HWI_NUM_TEST1, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
+#ifdef LOSCFG_TEST_HWI_PRIO_FOLDED
+    hwiPrio = 4; /* even: distinct on DS=0 NS 4-bit priority grid */
+#else
     hwiPrio = 2; // set new hwi priority is 2
+#endif
     ret = LOS_HwiCreate(HWI_NUM_TEST2, hwiPrio, mode, (HWI_PROC_FUNC)HwiF02, &irqParam);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
 #ifdef __RISC_V__
     hwiPrio = 1;
 #else
+#ifdef LOSCFG_TEST_HWI_PRIO_FOLDED
+    hwiPrio = 6; /* even: distinct on DS=0 NS 4-bit priority grid */
+#else
     hwiPrio = 3; // set new hwi priority is 3
+#endif
 #endif
     ret = LOS_HwiCreate(HWI_NUM_TEST3, hwiPrio, mode, (HWI_PROC_FUNC)HwiF03, &irqParam);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT2);

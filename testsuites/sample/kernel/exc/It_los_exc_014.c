@@ -20,10 +20,9 @@ extern "C" {
 #endif /* __cplusplus */
 
 #ifdef LOSCFG_PLATFORM_EXC
-/* ws63 侧 exchook 公共头目录在编译包含路径(与 qemu 侧不同, 见 It_los_exc_011
- * 注释), 直接包含获取 OsExcRegister 原型/ExcInfoType/MAX_EXC_MEM_SIZE 与
- * 跨架构类型宏 EXC_CONTEXT_TYPE(RISC-V: LosExcContext, ARM: EXC_CONTEXT_S) */
-#include "los_exc_info.h" /* OsExcRegister 拒绝分支 266-267 */
+/* los_exc_info.h 无包含守卫, 统一由 it_los_exc.h 包含, 此处勿再直接包含 */
+/* OsExcRegister prototype lives only in los_exc_info.c (no header decl) */
+extern VOID OsExcRegister(ExcInfoType type, EXC_INFO_SAVE_CALLBACK func, VOID *arg);
 
 /* exchook 内部落盘指针/缓冲无头文件声明, 按工程先例(It_los_exc_011.c:38-39
  * 的 extern 声明方式)引出: 定义于 kernel/extended/exchook/los_exc_info.c:54-56 */

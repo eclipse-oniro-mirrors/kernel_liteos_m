@@ -39,9 +39,9 @@ static UINT32 Testcase(VOID)
     CHAR buff1[QUEUE_SHORT_BUFFER_LENGTH] = "UniDSP";
     CHAR buff2[QUEUE_SHORT_BUFFER_LENGTH] = "DOPRA";
     CHAR buff3[8] = "TEST";
-    INT32 buff4;
-    INT32 buff5;
-    INT32 buff6;
+    UINTPTR buff4;
+    UINTPTR buff5;
+    UINTPTR buff6;
 
     ret = LOS_QueueCreate("Q1", QUEUE_BASE_NUM, &g_testQueueID01, 0, QUEUE_BASE_MSGSIZE);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);

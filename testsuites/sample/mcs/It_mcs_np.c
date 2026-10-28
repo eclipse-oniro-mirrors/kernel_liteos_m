@@ -16,6 +16,7 @@
 
 VOID ItSuiteMcsNp(VOID)
 {
+#ifdef LOSCFG_MCS_RPC
     ItMcsNp001();
     ItMcsNp002();
     ItMcsNp003();
@@ -24,4 +25,5 @@ VOID ItSuiteMcsNp(VOID)
     ItMcsNp006();
     ItMcsNp007();
     ItMcsNp008();
+#endif
 }

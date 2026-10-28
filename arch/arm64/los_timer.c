@@ -88,6 +88,11 @@ STATIC UINT64 PTimerTickCycleGet(UINT32 *period);
 STATIC VOID PTimerTickLock(VOID);
 STATIC VOID PTimerTickUnlock(VOID);
 
+/* Time-base alignment state (see PTimerTickCycleGet): CNTPT at the very
+ * first arming and the number of tick ISRs completed since then. */
+STATIC UINT64 g_tickFirstArmCntpt;
+STATIC volatile UINT64 g_tickIsrCount;
+
 #if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
 STATIC VOID HalTickEntry(VOID *parm);
 #else
@@ -191,7 +196,11 @@ STATIC UINT32 PTimerTickStart(HWI_PROC_FUNC handler)
     /* one-shot: arm the first expiry; the ISR (or the pump below) re-arms
      * every tick. For the virtual backend the counter read also proves the
      * path is not trapped (CNTHCTL gates only the physical counter/timer). */
-    TICK_CVAL_WRITE(TICK_CT_READ() + TickPeriodGet());
+    /* Record the first-arm counter value and reset the ISR count for the
+     * discrete time base (see PTimerTickCycleGet below). */
+    g_tickFirstArmCntpt = TICK_CT_READ();
+    g_tickIsrCount = 0;
+    TICK_CVAL_WRITE(g_tickFirstArmCntpt + TickPeriodGet());
     TICK_CTL_WRITE(PTIMER_ENABLE);
 
     return LOS_OK;
@@ -218,6 +227,7 @@ STATIC VOID HalTickEntry(VOID)
     (VOID)parm;
     /* re-arm before running the handler so the level signal drops */
     TICK_CVAL_WRITE(TICK_CT_READ() + TickPeriodGet());
+    g_tickIsrCount++;
     (VOID)OsTickHandler();
 }
 
@@ -225,13 +235,17 @@ STATIC UINT64 PTimerTickCycleGet(UINT32 *period)
 {
     UINT64 curr;
     UINT32 intSave = LOS_IntLock();
-    curr = TICK_CT_READ();
     if (period != NULL) {
-        /* "remaining time to the next expiry": ~0 by the time a tick ISR
-         * samples it; reporting the full period would make
-         * OsUpdateSysTimeBase inflate the time base once per tick. */
+        /* keep the generic WTIMER=0 software base (g_tickTimerBase) at 0:
+         * this port reports the full absolute time base by itself. */
         *period = 0;
     }
+    if (g_tickFirstArmCntpt == 0) {
+        curr = AARCH64_SYSREG_READ(cntpct_el0);
+        LOS_IntRestore(intSave);
+        return curr;
+    }
+    curr = g_tickFirstArmCntpt + g_tickIsrCount * TickPeriodGet();
     LOS_IntRestore(intSave);
     return curr;
 }

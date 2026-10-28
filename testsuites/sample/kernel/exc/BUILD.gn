@@ -50,4 +50,8 @@ static_library("test_exc") {
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]
+
+  include_dirs = [
+    "$LITEOSTOPDIR/kernel/extended/exchook",
+  ]
 }

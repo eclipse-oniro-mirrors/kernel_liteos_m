@@ -119,3 +119,31 @@ VOID OsTestCalibrateBusyDelay(VOID)
 }
 
 #endif /* LOSCFG_BASE_CORE_SWTMR */
+
+/*
+ * 板级按需挂卷钩子的弱默认实现（声明见 kernel_test.h）：恒成功（返回 0），
+ * 语义为"卷已由启动流程挂载"（qemu 产品的 LfsLowLevelInit 路径）。
+ * hi3322_testsuits 的 ram_lfs_backend.c / nand_yaffs_test_backend.c 提供
+ * 强符号覆盖（按套件挂/卸）。放在 test_init 公共层：所有测试目录组合下
+ * 均可用（shell 的 vfs 用例族与 posix fs 族都依赖该钩子，不再绑定
+ * unittest/posix 目录开关）。
+ */
+__attribute__((weak)) int TestFsVolumeEnsure(void)
+{
+    return 0;
+}
+
+__attribute__((weak)) int TestFsVolumeRelease(void)
+{
+    return 0;
+}
+
+__attribute__((weak)) int TestYaffsVolumeEnsure(void)
+{
+    return 0;
+}
+
+__attribute__((weak)) int TestYaffsVolumeRelease(void)
+{
+    return 0;
+}

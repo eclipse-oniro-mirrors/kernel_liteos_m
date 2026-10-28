@@ -141,37 +141,49 @@ group("testsuites") {
 
   # mutually exclusive build modes (Kconfig): normal suites vs fuzz-only
   if (defined(LOSCFG_KERNEL_TEST)) {
-    deps += [
-    "sample/kernel/event:test_event",
-    "sample/kernel/hwi:test_hwi",
-    "sample/kernel/mem:test_mem",
-    "sample/kernel/mux:test_mux",
-    "sample/kernel/queue:test_queue",
-    "sample/kernel/sem:test_sem",
-    "sample/kernel/rwsem:test_rwsem",
-    "sample/kernel/swtmr:test_swtmr",
-    "sample/kernel/task:test_task",
-    "sample/kernel/misc:test_misc",
-    "sample/kernel/tcb_verify:test_tcb_verify",
-    "sample/kernel/atomic:test_atomic",
-    "sample/kernel/uart:test_uart",
-    ]
+    # Per-directory selection (Kconfig TEST_ICUNIT_* / TEST_UNI_*): block
+    # order mirrors the original flat dep list so an all-defaults build
+    # keeps the exact same dep-graph order (archive members / layout).
+    if (defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
+      deps += [
+        "sample/kernel/event:test_event",
+        "sample/kernel/hwi:test_hwi",
+        "sample/kernel/mem:test_mem",
+        "sample/kernel/mux:test_mux",
+        "sample/kernel/queue:test_queue",
+        "sample/kernel/sem:test_sem",
+        "sample/kernel/rwsem:test_rwsem",
+        "sample/kernel/swtmr:test_swtmr",
+        "sample/kernel/task:test_task",
+        "sample/kernel/misc:test_misc",
+        "sample/kernel/tcb_verify:test_tcb_verify",
+        "sample/kernel/atomic:test_atomic",
+        "sample/kernel/uart:test_uart",
+      ]
+    }
     # exc suite: osTest.h enables LOS_KERNEL_EXC_TEST when
     # SHELL_EXCINFO_DUMP or BACKTRACE_TYPE!=0 - align the BUILD dep with
     # that condition (the destructive cases are MANUAL-gated; the remaining
     # aarch64-safe cases are backtrace walks + exc-hook registration).
-    if (defined(LOSCFG_SHELL_EXCINFO_DUMP) || (defined(LOSCFG_BACKTRACE_TYPE) && LOSCFG_BACKTRACE_TYPE != 0)) {
+    if (defined(LOSCFG_TEST_ICUNIT_KERNEL) &&
+        (defined(LOSCFG_SHELL_EXCINFO_DUMP) ||
+         (defined(LOSCFG_BACKTRACE_TYPE) && LOSCFG_BACKTRACE_TYPE != 0))) {
       deps += [ "sample/kernel/exc:test_exc" ]
     }
     # posix/xts suites rely on 32-bit-target musl semantics
     # (pthread_t as integer, *timeofday64) and a C++ xts build not
     # available on aarch64 targets.
-    if (!defined(LOSCFG_ARCH_ARM_AARCH64)) {
-      deps += [
-        "sample/posix:test_posix",
-        "unittest/posix:posix_test",
-        "unittest/xts:xts_test",
-      ]
+    if (defined(LOSCFG_TEST_ICUNIT_POSIX) &&
+        !defined(LOSCFG_ARCH_ARM_AARCH64)) {
+      deps += [ "sample/posix:test_posix" ]
+    }
+    if (defined(LOSCFG_TEST_UNI_POSIX) &&
+        !defined(LOSCFG_ARCH_ARM_AARCH64)) {
+      deps += [ "unittest/posix:posix_test" ]
+    }
+    if (defined(LOSCFG_TEST_UNI_XTS) &&
+        !defined(LOSCFG_ARCH_ARM_AARCH64)) {
+      deps += [ "unittest/xts:xts_test" ]
     }
   }
   if (defined(LOSCFG_KERNEL_FUZZ)) {
@@ -196,44 +208,44 @@ group("testsuites") {
     deps += [ "src/gcov" ]
   }
 
-  if (defined(LOSCFG_KAL_CMSIS)) {
+  if (defined(LOSCFG_KAL_CMSIS) && defined(LOSCFG_TEST_ICUNIT_CMSIS)) {
     deps += [ "sample/cmsis:test_cmsis" ]
   }
-  if (defined(LOSCFG_ARCH_CACHE)) {
+  if (defined(LOSCFG_ARCH_CACHE) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/cache:test_cache" ]
   }
-  if (defined(LOSCFG_BASE_CORE_CPUP)) {
+  if (defined(LOSCFG_BASE_CORE_CPUP) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/cpup:test_cpup" ]
   }
-  if (defined(LOSCFG_BASE_IPC_RWSEM)) {
+  if (defined(LOSCFG_BASE_IPC_RWSEM) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/rwsem:test_rwsem" ]
   }
-  if (defined(LOSCFG_DYNLINK)) {
+  if (defined(LOSCFG_DYNLINK) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/dynlink:test_dynlink" ]
   }
-  if (defined(LOSCFG_KERNEL_DYNLOAD) &&
+  if (defined(LOSCFG_KERNEL_DYNLOAD) && defined(LOSCFG_TEST_ICUNIT_KERNEL) &&
       (defined(LOSCFG_ARCH_ARM_AARCH32) || defined(LOSCFG_ARCH_RISCV))) {
     deps += [ "sample/kernel/dynload:test_dynload" ]
   }
-  if (defined(LOSCFG_KERNEL_LMS)) {
+  if (defined(LOSCFG_KERNEL_LMS) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/lms:test_lms" ]
   }
-  if (defined(LOSCFG_KERNEL_HPL)) {
+  if (defined(LOSCFG_KERNEL_HPL) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/hpl:test_hpl" ]
   }
-  if (defined(LOSCFG_KERNEL_TRACE)) {
+  if (defined(LOSCFG_KERNEL_TRACE) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/trace:test_trace" ]
   }
-  if (defined(LOSCFG_KERNEL_LMK)) {
+  if (defined(LOSCFG_KERNEL_LMK) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/lmk:test_lmk" ]
   }
-  if (defined(LOSCFG_KERNEL_SIGNAL)) {
+  if (defined(LOSCFG_KERNEL_SIGNAL) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/signal:test_signal" ]
   }
-  if (defined(LOSCFG_KERNEL_PM)) {
+  if (defined(LOSCFG_KERNEL_PM) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/power:test_pm" ]
   }
-  if (defined(LOSCFG_SHELL)) {
+  if (defined(LOSCFG_SHELL) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/shell:test_shell" ]
   }
   if (!module_switch) {

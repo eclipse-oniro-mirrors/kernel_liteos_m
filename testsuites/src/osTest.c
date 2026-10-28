@@ -43,6 +43,9 @@
 #if (LOS_POSIX_TEST == 1)
 #include "posix_test.h"
 #endif
+#if (LOS_POSIX_TEST == 1) && defined(LOSCFG_TEST_ICUNIT_POSIX)
+extern void ItSuitePosixSample(void);
+#endif
 #if (LOS_XTS_TEST == 1)
 #include "xts_test.h"
 #endif
@@ -165,6 +168,7 @@ UINT32 TaskUsedCountGet(VOID)
 extern VOID ItSuiteLosUart(VOID);
 #endif
 
+#ifdef LOSCFG_TEST_ICUNIT_KERNEL
 void TestKernel(void)
 {
 #if (LOS_KERNEL_ATOMIC_TEST == 1)
@@ -253,6 +257,7 @@ void TestKernel(void)
     ItSuiteLosTcbVerify();
 #endif
 }
+#endif /* LOSCFG_TEST_ICUNIT_KERNEL */
 
 #if (CMSIS_OS_VER == 2)
 void TestCmsis2(void)
@@ -313,21 +318,34 @@ VOID TestTaskEntry(VOID)
     ItSuiteFuzzAll();
 #endif
 #ifdef LOSCFG_KERNEL_TEST
+#ifdef LOSCFG_TEST_ICUNIT_KERNEL
     TestKernel();
-
-#if (LOS_POSIX_TEST == 1)
-    ItSuitePosix();
 #endif
 
-#if (LOS_CMSIS_TEST == 1)
+#if (LOS_POSIX_TEST == 1) && defined(LOSCFG_TEST_ICUNIT_POSIX)
+    ItSuitePosixSample();
+#endif
+#if (LOS_POSIX_TEST == 1) && defined(LOSCFG_TEST_UNI_POSIX)
+    ItSuitePosixUnittest();
+#endif
+
+#if (LOS_CMSIS_TEST == 1) && defined(LOSCFG_TEST_ICUNIT_CMSIS)
     CmsisFuncTestSuite();
 #endif
 
-#if(LOS_XTS_TEST == 1)
+#if(LOS_XTS_TEST == 1) && defined(LOSCFG_TEST_UNI_XTS)
     XtsTestSuite();
 #endif
 
-#if (LOSCFG_FS_YAFFS == 1) && (LOS_POSIX_TEST == 1)
+#if defined(LOSCFG_MCS)
+    /* MCS AMP interface suites (testsuites/sample/mcs): board drivers
+     * (can/net) + mica rpc/tty/umt services + np_* socket proxy. Runs
+     * after the standard suites; see It_mcs.c for the ready-wait. */
+    extern VOID ItSuiteMcs(VOID);
+    ItSuiteMcs();
+#endif
+
+#if (LOSCFG_FS_YAFFS == 1) && (LOS_POSIX_TEST == 1) && defined(LOSCFG_TEST_UNI_POSIX)
     /* yaffs 套件放最后：其专用池（124KB，TestYaffsVolumeEnsure 时 malloc）
      * 自 Ensure 起常驻到复位（卷保持挂载），若在 ItSuitePosix 内执行会饿死
      * 其后的 CMSIS/XTS 线程栈分配（实测 pthread/CMSIS 大面积 ENOMEM）。

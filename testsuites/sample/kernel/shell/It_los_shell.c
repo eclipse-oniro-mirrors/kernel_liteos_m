@@ -39,7 +39,7 @@ extern int TestFsVolumeRelease(void);
 #ifdef LOSCFG_PLATFORM_WS63_M
 extern void RamLfsSetBlocks(unsigned int blocks);
 #endif
-#ifdef LOSCFG_FS_LITTLEFS
+#if defined(LOSCFG_FS_LITTLEFS)
 #include "shcmd.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -49,7 +49,7 @@ VOID ItSuiteLosShell(VOID)
 {
 #if defined(LOSCFG_FS_LITTLEFS)
     (VOID)TestFsVolumeEnsure(); /* 48KB/22 数据块(后端默认几何), 每用例间新鲜重挂 */
-#ifdef LOSCFG_FS_LITTLEFS
+#if defined(LOSCFG_FS_LITTLEFS)
     /* 预热 shell cp 的静态互斥锁 g_mutexCp: OsShellCmdDoCp 首次 lock 走 pthread
      * 静态锁懒初始化(LOS_MuxCreate), 一次性创建若落入首个 cp 用例(Shell014)
      * 的 ResLeak 窗口会被计为 mux 泄漏(误报, 与 los_resleak_test.c 预热段同一

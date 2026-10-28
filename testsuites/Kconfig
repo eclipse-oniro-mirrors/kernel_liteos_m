@@ -71,6 +71,40 @@ config KERNEL_TEST_MANUAL
     default n
     depends on KERNEL_TEST
 
+# Per-directory test selection: five knobs, one per testsuites source
+# directory. All default to y, so an untouched debug.config builds the
+# exact same binary as before this menu existed. Turning a knob off
+# removes the whole directory from the build; all five off yields an
+# empty suite (test framework only, zero cases).
+# Each directory owns its suite entry (ItSuitePosixSample /
+# ItSuitePosixUnittest), so the two posix directories are fully
+# independent: either one can be enabled alone.
+menu "Test directory selection"
+    depends on KERNEL_TEST
+
+config TEST_ICUNIT_KERNEL
+    bool "testsuites/sample/kernel"
+    default y
+
+config TEST_ICUNIT_CMSIS
+    bool "testsuites/sample/cmsis"
+    default y
+    depends on KAL_CMSIS
+
+config TEST_ICUNIT_POSIX
+    bool "testsuites/sample/posix"
+    default y
+
+config TEST_UNI_POSIX
+    bool "testsuites/unittest/posix"
+    default y
+
+config TEST_UNI_XTS
+    bool "testsuites/unittest/xts"
+    default y
+
+endmenu
+
 config TEST_KERNEL_COVERAGE
     bool "Enable code coverage instrumentation (gcov)"
     default n

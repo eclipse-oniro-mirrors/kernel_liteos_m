@@ -45,8 +45,7 @@
  */
 
 #include "posix_fs_test.h"
-#include "los_fs.h"
-#include "los_memory.h" /* LOS_MemAlloc/LOS_MemFree: 设备存储按需分配 */
+#include "los_fs.h" /* LOS_MemAlloc/LOS_MemFree: 设备存储按需分配 */
 #include <sys/statfs.h>
 #if (LOSCFG_SUPPORT_LITTLEFS == 1)
 #include "lfs.h"
@@ -63,6 +62,7 @@
 #define LFSRAM_SPLIT_FILES      40      /* 目录分裂用文件数 */
 #define LFSRAM_REWRITE_TIMES    30      /* 磨损重定位改写次数 */
 #define LFSRAM_BUF_LEN          1024
+#define LFSRAM_RW_BUF_LEN       (LFSRAM_BUF_LEN * 2) /* 读写缓冲: 读回校验段一次 1280+512 */
 #define LFSRAM_BAD_PARTNO       5       /* 越界分区号 */
 
 /* RAM "块设备" 状态与错误注入开关 */
@@ -73,6 +73,9 @@
  * 各回调的 ((UINT32)LFSRAM_DEV_SIZE) 随指针化统一改为 LFSRAM_DEV_SIZE。
  */
 static UINT8 *g_lfsRamDev = NULL;  /* 最大几何: 64*512 = 32KB */
+static char *g_lfsRamBuf = NULL;  /* 族级共享读写缓冲 2KB: 与设备同生命周期
+                                   * (PosixFsLfsRamTest 首尾托管), 免 per-case
+                                   * 局部大数组压任务栈(8KB)/static 常驻 .bss */
 static volatile UINT32 g_lfsRamErrMask = 0; /* bit0 读失败 bit1 写失败 bit2 擦失败 */
 static volatile UINT32 g_lfsRamVerifyFail = 0; /* 写后校验失败注入(一次性): 写回调落盘后
                                                 * 翻转首字节, 使 littlefs 读回校验(prog 后
@@ -377,7 +380,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamMountFormatFallback, Function |
     (void)umount("/lfsram");
     (void)umount("/lfsro");
     int fd;
-    char buf[LFSRAM_BUF_LEN];
+    char *buf = g_lfsRamBuf; /* 族级共享缓冲(首尾托管), 免占任务栈 */
     struct PartitionCfg cfg;
 
     /* RAM 盘清零: 无有效超级块, lfs_mount 失败 -> lfs_format -> lfs_mount 成功 */
@@ -407,7 +410,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamMountFormatFallback, Function |
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     fd = open("/lfsram/fallback", O_RDONLY);
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
-    ret = read(fd, buf, sizeof(buf));
+    ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
     ICUNIT_ASSERT_EQUAL(ret, (int)strlen("fallback"), ret);
     (void)close(fd);
     (void)unlink("/lfsram/fallback");
@@ -519,7 +522,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamExhaustion, Function | MediumTe
     int fd;
     int i;
     int full = 0;
-    char buf[LFSRAM_BUF_LEN];
+    char *buf = g_lfsRamBuf; /* 族级共享缓冲(首尾托管), 免占任务栈 */
     struct PartitionCfg cfg;
 
     LfsRamFillBigCfg(&cfg);
@@ -528,16 +531,16 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamExhaustion, Function | MediumTe
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     /* 持续写入 1KB 块直到 ENOSPC(上限防死循环) */
-    (void)memset_s(buf, sizeof(buf), 'E', sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'E', LFSRAM_RW_BUF_LEN);
     fd = open("/lfsram/exh", O_CREAT | O_TRUNC | O_WRONLY, 0666);
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
     for (i = 0; i < LFSRAM_EXHAUST_CAP; i++) {
-        ret = write(fd, buf, sizeof(buf));
+        ret = write(fd, buf, LFSRAM_RW_BUF_LEN);
         if (ret == -1) {
             full = 1;
             break;
         }
-        ICUNIT_GOTO_EQUAL(ret, (int)sizeof(buf), ret, EXIT);
+        ICUNIT_GOTO_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret, EXIT);
     }
     ICUNIT_GOTO_EQUAL(full, 1, full, EXIT);
     (void)close(fd);
@@ -547,7 +550,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamExhaustion, Function | MediumTe
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
     full = 0;
     for (i = 0; i < LFSRAM_EXHAUST_CAP; i++) {
-        ret = write(fd, buf, sizeof(buf));
+        ret = write(fd, buf, LFSRAM_RW_BUF_LEN);
         if (ret == -1) {
             full = 1;
             break;
@@ -563,8 +566,8 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamExhaustion, Function | MediumTe
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     fd = open("/lfsram/exh3", O_CREAT | O_TRUNC | O_WRONLY, 0666);
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
-    ret = write(fd, buf, sizeof(buf));
-    ICUNIT_ASSERT_EQUAL(ret, (int)sizeof(buf), ret);
+    ret = write(fd, buf, LFSRAM_RW_BUF_LEN);
+    ICUNIT_ASSERT_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret);
     (void)close(fd);
 
 EXIT:
@@ -676,7 +679,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamRelocate, Function | MediumTest
     (void)umount("/lfsro");
     int fd;
     int i;
-    char buf[LFSRAM_BUF_LEN];
+    char *buf = g_lfsRamBuf; /* 族级共享缓冲(首尾托管), 免占任务栈 */
     struct PartitionCfg cfg;
 
     LfsRamFillCfg(&cfg, 0, LFSRAM_DEV_BLOCKS); /* blockCycles=2: 快速触发重定位 */
@@ -685,16 +688,16 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamRelocate, Function | MediumTest
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     /* 反复整体改写同一文件: COW + 磨损重定位 */
-    (void)memset_s(buf, sizeof(buf), 'R', sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'R', LFSRAM_RW_BUF_LEN);
     for (i = 0; i < LFSRAM_REWRITE_TIMES; i++) {
         fd = open("/lfsram/reloc", O_CREAT | O_TRUNC | O_RDWR, 0666);
         ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
-        ret = write(fd, buf, sizeof(buf));
-        ICUNIT_GOTO_EQUAL(ret, (int)sizeof(buf), ret, EXIT);
+        ret = write(fd, buf, LFSRAM_RW_BUF_LEN);
+        ICUNIT_GOTO_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret, EXIT);
         ret = lseek(fd, 0, SEEK_SET);
         ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
-        ret = read(fd, buf, sizeof(buf));
-        ICUNIT_GOTO_EQUAL(ret, (int)sizeof(buf), ret, EXIT);
+        ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
+        ICUNIT_GOTO_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret, EXIT);
         ret = close(fd);
         ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     }
@@ -702,8 +705,8 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamRelocate, Function | MediumTest
     /* 每次改写后数据校验(buf 内容保持 'R') */
     fd = open("/lfsram/reloc", O_RDONLY);
     ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
-    ret = read(fd, buf, sizeof(buf));
-    ICUNIT_GOTO_EQUAL(ret, (int)sizeof(buf), ret, EXIT);
+    ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
+    ICUNIT_GOTO_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret, EXIT);
     ICUNIT_GOTO_EQUAL(buf[0], 'R', buf[0], EXIT);
     (void)close(fd);
 
@@ -727,7 +730,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamWriteFail, Function | MediumTes
     (void)umount("/lfsram");
     (void)umount("/lfsro");
     int fd;
-    char buf[LFSRAM_BUF_LEN];
+    char *buf = g_lfsRamBuf; /* 族级共享缓冲(首尾托管), 免占任务栈 */
     struct PartitionCfg cfg;
 
     LfsRamFillCfg(&cfg, 0, LFSRAM_DEV_BLOCKS);
@@ -739,28 +742,28 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamWriteFail, Function | MediumTes
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
 
     /* 注入块设备写失败: 适配层 LfsWrite 错误分支, write 返回 -1 */
-    (void)memset_s(buf, sizeof(buf), 'W', sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'W', LFSRAM_RW_BUF_LEN);
     g_lfsRamErrMask = 0x2; /* bit1: 写失败 */
-    ret = write(fd, buf, sizeof(buf));
+    ret = write(fd, buf, LFSRAM_RW_BUF_LEN);
     ICUNIT_ASSERT_EQUAL(ret, -1, ret);
 
     /* 注入读失败: read 返回 -1 */
     g_lfsRamErrMask = 0x1; /* bit0: 读失败 */
-    ret = read(fd, buf, sizeof(buf));
+    ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
     ICUNIT_ASSERT_EQUAL(ret, -1, ret);
     g_lfsRamErrMask = 0;
 
     /* 有缓存挂起数据时注入写失败: fsync 刷盘失败(适配层错误分支) */
-    ret = write(fd, buf, sizeof(buf));
-    ICUNIT_ASSERT_EQUAL(ret, (int)sizeof(buf), ret);
+    ret = write(fd, buf, LFSRAM_RW_BUF_LEN);
+    ICUNIT_ASSERT_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret);
     g_lfsRamErrMask = 0x2; /* bit1: 写失败 */
     ret = fsync(fd);
     ICUNIT_ASSERT_EQUAL(ret, -1, ret);
     g_lfsRamErrMask = 0;
 
     /* 清除注入后可正常读写 */
-    ret = write(fd, buf, sizeof(buf));
-    ICUNIT_ASSERT_EQUAL(ret, (int)sizeof(buf), ret);
+    ret = write(fd, buf, LFSRAM_RW_BUF_LEN);
+    ICUNIT_ASSERT_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret);
 
     ret = close(fd);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -1032,7 +1035,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamMkdirInSplitDir, Function | Med
     int cnt = 0;
     char path[PATH_MAX];
     char name[64]; /* 64: 长文件名缓冲 */
-    char buf[LFSRAM_BUF_LEN];
+    char *buf = g_lfsRamBuf; /* 族级共享缓冲(首尾托管), 免占任务栈 */
     DIR *dir = NULL;
     struct dirent *entry = NULL;
     struct stat st = { 0 };
@@ -1093,8 +1096,8 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamMkdirInSplitDir, Function | Med
     ICUNIT_GOTO_EQUAL(ret, (int)strlen("subdata"), ret, EXIT);
     ret = lseek(fd, 0, SEEK_SET);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
-    (void)memset_s(buf, sizeof(buf), 0, sizeof(buf));
-    ret = read(fd, buf, sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 0, LFSRAM_RW_BUF_LEN);
+    ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
     ICUNIT_GOTO_EQUAL(ret, (int)strlen("subdata"), ret, EXIT);
     ret = strcmp(buf, "subdata");
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
@@ -1167,7 +1170,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamAppendRewrite, Function | Mediu
     int ret;
     int fd;
     int i;
-    static char buf[LFSRAM_BUF_LEN]; /* 静态 1KB 缓冲, 避免占用任务栈 */
+    char *buf = g_lfsRamBuf; /* 族级共享缓冲(首尾托管), 免占任务栈 */
     struct stat st = { 0 };
     /* 级联容错: 清除可能遗留的错误注入与挂载 */
     g_lfsRamErrMask = 0;
@@ -1185,7 +1188,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamAppendRewrite, Function | Mediu
     /* 建立非整块对齐的 2.5 块(1280B)文件 */
     fd = open("/lfsram/appf", O_CREAT | O_TRUNC | O_RDWR, 0666);
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
-    (void)memset_s(buf, sizeof(buf), 'A', sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'A', LFSRAM_RW_BUF_LEN);
     for (i = 0; i < 1280; i += LFSRAM_BUF_LEN) { /* 1280B = 2.5*512 */
         int chunk = (1280 - i > LFSRAM_BUF_LEN) ? LFSRAM_BUF_LEN : (1280 - i);
         ret = write(fd, buf, chunk);
@@ -1198,7 +1201,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamAppendRewrite, Function | Mediu
      * 对末块非整块部分的逐字节拷贝 */
     fd = open("/lfsram/appf", O_APPEND | O_RDWR, 0666);
     ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
-    (void)memset_s(buf, sizeof(buf), 'B', sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'B', LFSRAM_RW_BUF_LEN);
     ret = write(fd, buf, 512); /* 512: 跨入第 4 块 */
     ICUNIT_GOTO_EQUAL(ret, 512, ret, EXIT);
     ret = close(fd);
@@ -1213,7 +1216,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamAppendRewrite, Function | Mediu
     ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
     ret = lseek(fd, 600, SEEK_SET); /* 600: 位于第 2 块中段 */
     ICUNIT_GOTO_EQUAL(ret, 600, ret, EXIT);
-    (void)memset_s(buf, sizeof(buf), 'C', 100); /* 100: 改写长度 */
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'C', 100); /* 100: 改写长度 */
     ret = write(fd, buf, 100);
     ICUNIT_GOTO_EQUAL(ret, 100, ret, EXIT);
     ret = close(fd);
@@ -1372,7 +1375,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamVerifyFail, Function | MediumTe
     int ret;
     int fd;
     int i;
-    static char buf[LFSRAM_BUF_LEN]; /* 静态 1KB 缓冲, 避免占用任务栈 */
+    char *buf = g_lfsRamBuf; /* 族级共享缓冲(首尾托管), 免占任务栈 */
     char path[PATH_MAX];
     /* 级联容错: 清除可能遗留的错误注入与挂载 */
     g_lfsRamErrMask = 0;
@@ -1418,7 +1421,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamVerifyFail, Function | MediumTe
      * 校验失败 -> ctz_extend 换块重试, 追加最终成功 */
     fd = open("/lfsram/bigf", O_CREAT | O_TRUNC | O_RDWR, 0666);
     ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
-    (void)memset_s(buf, sizeof(buf), 'A', sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'A', LFSRAM_RW_BUF_LEN);
     for (i = 0; i < 1280; i += LFSRAM_BUF_LEN) { /* 1280B = 2.5*512 */
         int chunk = (1280 - i > LFSRAM_BUF_LEN) ? LFSRAM_BUF_LEN : (1280 - i);
         ret = write(fd, buf, chunk);
@@ -1428,7 +1431,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamVerifyFail, Function | MediumTe
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     fd = open("/lfsram/bigf", O_APPEND | O_RDWR, 0666);
     ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
-    (void)memset_s(buf, sizeof(buf), 'B', sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'B', LFSRAM_RW_BUF_LEN);
     g_lfsRamVerifyFail = 1;
     ret = write(fd, buf, 512); /* 512: 跨块追加触发 ctz_extend */
     ICUNIT_GOTO_EQUAL(ret, 512, ret, EXIT);
@@ -1439,7 +1442,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamVerifyFail, Function | MediumTe
      * 换块重试, 改写最终成功 */
     fd = open("/lfsram/midf", O_CREAT | O_TRUNC | O_RDWR, 0666);
     ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
-    (void)memset_s(buf, sizeof(buf), 'M', sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'M', LFSRAM_RW_BUF_LEN);
     for (i = 0; i < 1280; i += LFSRAM_BUF_LEN) {
         int chunk = (1280 - i > LFSRAM_BUF_LEN) ? LFSRAM_BUF_LEN : (1280 - i);
         ret = write(fd, buf, chunk);
@@ -1451,7 +1454,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamVerifyFail, Function | MediumTe
     ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
     ret = lseek(fd, 600, SEEK_SET); /* 600: 第 2 块中段 */
     ICUNIT_GOTO_EQUAL(ret, 600, ret, EXIT);
-    (void)memset_s(buf, sizeof(buf), 'C', 64); /* 64: 恰好填满写缓存 */
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'C', 64); /* 64: 恰好填满写缓存 */
     g_lfsRamVerifyFail = 1;
     ret = write(fd, buf, 64);
     ICUNIT_GOTO_EQUAL(ret, 64, ret, EXIT);
@@ -1487,7 +1490,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamVerifyFail, Function | MediumTe
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     fd = open("/lfsram/vf/newf", O_RDONLY);
     ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
-    ret = read(fd, buf, sizeof(buf));
+    ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
     ICUNIT_GOTO_EQUAL(ret, (int)strlen("vf"), ret, EXIT);
     ret = close(fd);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
@@ -1523,7 +1526,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamReadFailScan, Function | Medium
     int err;
     int fd;
     int blocks = 0;
-    char buf[LFSRAM_BUF_LEN];
+    char *buf = g_lfsRamBuf; /* 族级共享缓冲(首尾托管), 免占任务栈 */
     struct stat st = { 0 };
     struct lfs_fsinfo fsinfo = { 0 };
     DIR *dir = NULL;
@@ -1542,9 +1545,9 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamReadFailScan, Function | Medium
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     fd = open("/lfsram/rff", O_CREAT | O_TRUNC | O_WRONLY, 0666);
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
-    (void)memset_s(buf, sizeof(buf), 'F', sizeof(buf));
-    ret = write(fd, buf, sizeof(buf));
-    ICUNIT_GOTO_EQUAL(ret, (int)sizeof(buf), ret, EXIT);
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'F', LFSRAM_RW_BUF_LEN);
+    ret = write(fd, buf, LFSRAM_RW_BUF_LEN);
+    ICUNIT_GOTO_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret, EXIT);
     ret = close(fd);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     ret = mkdir("/lfsram/rfd", 0777);
@@ -1565,8 +1568,8 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamReadFailScan, Function | Medium
     ICUNIT_GOTO_NOT_EQUAL(dent, NULL, dent, EXIT);
     fd = open("/lfsram/rff", O_RDONLY);
     ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
-    ret = read(fd, buf, sizeof(buf));
-    ICUNIT_GOTO_EQUAL(ret, (int)sizeof(buf), ret, EXIT);
+    ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
+    ICUNIT_GOTO_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret, EXIT);
     ret = lseek(fd, 0, SEEK_SET);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     err = lfs_fs_stat(&g_lfsRamDl, &fsinfo);
@@ -1581,7 +1584,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamReadFailScan, Function | Medium
     dent = readdir(dir);
     ICUNIT_GOTO_EQUAL(dent, NULL, dent, EXIT);
     /* 文件读: 读路径错误传播 */
-    ret = read(fd, buf, sizeof(buf));
+    ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
     ICUNIT_GOTO_EQUAL(ret, -1, ret, EXIT);
     /* stat/mkdir: 目录查找错误传播 */
     ret = stat("/lfsram/rff", &st);
@@ -1597,8 +1600,8 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamReadFailScan, Function | Medium
     /* 恢复开关后全部恢复正常 */
     dent = readdir(dir);
     ICUNIT_GOTO_NOT_EQUAL(dent, NULL, dent, EXIT);
-    ret = read(fd, buf, sizeof(buf));
-    ICUNIT_GOTO_EQUAL(ret, (int)sizeof(buf), ret, EXIT);
+    ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
+    ICUNIT_GOTO_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret, EXIT);
     ret = stat("/lfsram/rff", &st);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     err = lfs_fs_stat(&g_lfsRamDl, &fsinfo);
@@ -1639,7 +1642,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamFullDiskOps, Function | MediumT
     int fd;
     int i;
     int full = 0;
-    static char buf[LFSRAM_BUF_LEN]; /* 静态 1KB 缓冲, 避免占用任务栈 */
+    char *buf = g_lfsRamBuf; /* 族级共享缓冲(首尾托管), 免占任务栈 */
     lfs_file_t file;
     /* 级联容错: 清除可能遗留的错误注入与挂载 */
     g_lfsRamErrMask = 0;
@@ -1673,7 +1676,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamFullDiskOps, Function | MediumT
     /* 逐文件写满: 每个文件写 1KB(超出 inline 上限, 占用一个数据块)即关闭
      * (成功关闭提交 ctz, 块均被追踪); 分配失败的前缀为空文件不占块,
      * 保证满盘状态稳定 */
-    (void)memset_s(buf, sizeof(buf), 'D', sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 'D', LFSRAM_RW_BUF_LEN);
     full = 0;
     for (i = 0; i < LFSRAM_EXHAUST_CAP; i++) {
         char name[32]; /* 32: 文件名缓冲 */
@@ -1681,7 +1684,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamFullDiskOps, Function | MediumT
         ICUNIT_GOTO_EQUAL(ret > 0, 1, ret, EXIT);
         fd = open(name, O_CREAT | O_TRUNC | O_WRONLY, 0666);
         ICUNIT_GOTO_NOT_EQUAL(fd, -1, fd, EXIT);
-        ret = write(fd, buf, sizeof(buf));
+        ret = write(fd, buf, LFSRAM_RW_BUF_LEN);
         if (ret == -1) {
             /* 首块分配即失败: 该文件为空, 磁盘已满 */
             (void)close(fd); /* ERRED 文件 close 静默返回, 不断言 */
@@ -1689,7 +1692,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamFullDiskOps, Function | MediumT
             full = 1;
             break;
         }
-        ICUNIT_GOTO_EQUAL(ret, (int)sizeof(buf), ret, EXIT);
+        ICUNIT_GOTO_EQUAL(ret, (int)LFSRAM_RW_BUF_LEN, ret, EXIT);
         ret = close(fd);
         ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     }
@@ -1754,7 +1757,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamMountCfgMismatch, Function | Me
 {
     int ret;
     int fd;
-    char buf[LFSRAM_BUF_LEN];
+    char *buf = g_lfsRamBuf; /* 族级共享缓冲(首尾托管), 免占任务栈 */
     struct stat st = { 0 };
     /* 级联容错: 清除可能遗留的错误注入与挂载 */
     g_lfsRamErrMask = 0;
@@ -1795,8 +1798,8 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamMountCfgMismatch, Function | Me
     ICUNIT_ASSERT_EQUAL(ret, (int)strlen("newgeo"), ret);
     ret = lseek(fd, 0, SEEK_SET);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
-    (void)memset_s(buf, sizeof(buf), 0, sizeof(buf));
-    ret = read(fd, buf, sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 0, LFSRAM_RW_BUF_LEN);
+    ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
     ICUNIT_ASSERT_EQUAL(ret, (int)strlen("newgeo"), ret);
     ret = strcmp(buf, "newgeo");
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -1812,8 +1815,8 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamMountCfgMismatch, Function | Me
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     fd = open("/lfsram2/newf", O_RDONLY);
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
-    (void)memset_s(buf, sizeof(buf), 0, sizeof(buf));
-    ret = read(fd, buf, sizeof(buf));
+    (void)memset_s(buf, LFSRAM_RW_BUF_LEN, 0, LFSRAM_RW_BUF_LEN);
+    ret = read(fd, buf, LFSRAM_RW_BUF_LEN);
     ICUNIT_ASSERT_EQUAL(ret, (int)strlen("newgeo"), ret);
     ret = close(fd);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -1826,12 +1829,16 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRamMountCfgMismatch, Function | Me
 
 void PosixFsLfsRamTest(void)
 {
-    /* 设备存储按需申请(见 g_lfsRamDev 注释); 失败则整族跳过, 防止用例
-     * 对 NULL 设备连锁崩溃 */
+    /* 设备存储与共享读写缓冲按需申请(见各自注释); 任一失败则整族跳过,
+     * 防止用例对 NULL 指针连锁崩溃 */
     g_lfsRamDev = (UINT8 *)LOS_MemAlloc(LOSCFG_SYS_HEAP_ADDR, LFSRAM_DEV_SIZE);
-    if (g_lfsRamDev == NULL) {
-        dprintf("PosixFsLfsRamTest: alloc %u bytes failed, skip\n",
-                (UINT32)LFSRAM_DEV_SIZE);
+    g_lfsRamBuf = (char *)LOS_MemAlloc(LOSCFG_SYS_HEAP_ADDR, LFSRAM_RW_BUF_LEN);
+    if (g_lfsRamDev == NULL || g_lfsRamBuf == NULL) {
+        dprintf("PosixFsLfsRamTest: alloc dev/buf failed, skip\n");
+        (void)LOS_MemFree(LOSCFG_SYS_HEAP_ADDR, g_lfsRamDev);
+        (void)LOS_MemFree(LOSCFG_SYS_HEAP_ADDR, g_lfsRamBuf);
+        g_lfsRamDev = NULL;
+        g_lfsRamBuf = NULL;
         return;
     }
 
@@ -1866,5 +1873,7 @@ void PosixFsLfsRamTest(void)
     (void)umount("/lfsro");
     (void)umount("/lfsram2");
     (void)LOS_MemFree(LOSCFG_SYS_HEAP_ADDR, g_lfsRamDev);
+    (void)LOS_MemFree(LOSCFG_SYS_HEAP_ADDR, g_lfsRamBuf);
     g_lfsRamDev = NULL;
+    g_lfsRamBuf = NULL;
 }

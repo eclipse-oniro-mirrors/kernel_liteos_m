@@ -45,7 +45,7 @@ STATIC VOID *app_task(UINT32 arg)
 {
     (VOID)arg;
     PRINTK("[app] task enter\n");
-#if defined(LOSCFG_RK3568_UART) && defined(LOSCFG_SHELL)
+#if defined(LOSCFG_RK3588_UART) && defined(LOSCFG_SHELL)
     /* osCmdReg() pends the shell command mutex on entry, which reads the
      * current task pointer (TPIDR_EL1) - NULL before LOS_Start(). The
      * uart_test registration is therefore deferred to the first app task
@@ -320,7 +320,7 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
         if (ret != LOS_OK) {
             PRINT_ERR("[boot] Shell init failed: 0x%x\n", ret);
         }
-#if defined(LOSCFG_RK3568_UART) && defined(LOSCFG_SHELL)
+#if defined(LOSCFG_RK3588_UART) && defined(LOSCFG_SHELL)
         {
             /* uart_test self-test command (board/uart.c, §8.3 of the
              * UART driver plan): liteos_m registers shell commands

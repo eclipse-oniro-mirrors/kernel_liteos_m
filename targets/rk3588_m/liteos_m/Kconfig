@@ -26,6 +26,22 @@ config MCS
         - the mica/rpmsg service task is created at boot.
       When disabled the board owns the UART itself (standalone bring-up).
 
+config RK3588_UART
+    bool "Enable the RK3588 UART driver (Modbus-RTU oriented, uart_drv.h API)"
+    default n
+    depends on PLATFORM_RK3588_M
+    depends on PLATFORM_HWI_WITH_ARG
+    help
+      Interrupt-driven DW 8250 UART driver for UART1~UART9 (board/uart.c,
+      API in include/uart_drv.h): per-port RX/TX ring buffers + semaphore
+      blocking semantics, line-synchronous write (LSR TEMT anchored),
+      CRU/IOC/GIC profile bring-up, and the uart_test shell command.
+      Independent of the console driver (uart_porting.c): the protocol
+      layer passes a port id (1..9) and gets it initialized - UART2 is
+      shared with the Linux master console, caller-owned risk.
+      RS485 direction control is out of scope (auto-direction
+      transceiver); the optional RX echo suppression is a profile flag.
+
 # Real-time data-plane options (MCS_NET / MCS_CAN) live with the board
 # sources one level down; rsource is relative to this file (this file is
 # reached as $(DEVICE_PATH)/Kconfig through the board symlink).

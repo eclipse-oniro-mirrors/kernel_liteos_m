@@ -17,6 +17,9 @@
 #include "soc.h"
 #include "pmp_init.h"
 #include "riscv_hal.h"
+#ifdef LOSCFG_ARCH_CACHE
+#include "arch/cache.h"
+#endif
 
 #ifdef LOSCFG_SHELL
 #include "show.h"
@@ -64,6 +67,17 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
      * 详见 pmp_init.c 与 初始化pmp解析.md §11。
      */
     pmp_init();
+
+#ifdef LOSCFG_ARCH_CACHE
+    /* Cache init: flush ICache + invalidate DCache before enable, matching
+     * fbb_ws63 cpu_cache_init() in main.c. Without this, enabling ICache
+     * with stale lines causes illegal-instruction trap on first fetch. */
+    ArchICacheFlush();
+    ArchDCacheInvalidate();
+    ArchICacheEnable(CACHE_32KB);
+    ArchICachePrefetchEnable(CACHE_PREF_1_LINES);
+    ArchDCacheEnable(CACHE_4KB);
+#endif
 
     ws63_board_init();
     dprintf("\nWS63 ENTER MAIN\n");

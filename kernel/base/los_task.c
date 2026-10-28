@@ -48,6 +48,9 @@
 #include "los_sem.h"
 #include "los_sem_pri.h"
 #include "los_timer.h"
+#if (LOSCFG_KERNEL_SIGNAL == 1)
+#include "los_signal.h"
+#endif
 #if (LOSCFG_BASE_CORE_CPUP == 1)
 #include "los_cpup_pri.h"
 #endif
@@ -1470,10 +1473,7 @@ LITE_OS_SEC_TEXT_INIT STATIC INLINE VOID OsTaskResourceReclaim(LosTaskCB *taskCB
     OsCpupCBTaskDelete(taskCB->taskId);
 #endif
 #if (LOSCFG_KERNEL_SIGNAL == 1)
-    if (taskCB->sig != NULL) {
-        LOS_MemFree(OS_SYS_MEM_ADDR, taskCB->sig);
-        taskCB->sig = NULL;
-    }
+    OsSignalTaskDelete(taskCB);
 #endif
     LOSCFG_TASK_DELETE_EXTENSION_HOOK(taskCB);
 

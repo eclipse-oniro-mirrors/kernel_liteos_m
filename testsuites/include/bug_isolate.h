@@ -227,10 +227,11 @@
                                                 * destroy 失败早退跳过 free(:183-187), 每对
                                                 * init/destroy 泄漏一个堆块; 隔离点在
                                                 * It_posix_pthread.c 聚合注册点 */
-#define KERNEL_BUG_19_SIGNAL_TASKDEL_LEAK 0 /* ItLosSignal009: 删除带未处理待决信号的任务,
+#define KERNEL_BUG_19_SIGNAL_TASKDEL_LEAK 1 /* ItLosSignal009: 删除带未处理待决信号的任务,
                                               * OsTaskResourceReclaim(los_task.c:1451)只释放
                                               * sigCB 不遍历 sigInfoList, OsSigInfoNode 永久
-                                              * 泄漏; 隔离点在 It_los_signal.c 聚合注册点 */
+                                              * 泄漏; 已修复: 回收统一走 OsSignalTaskDelete
+                                              * 遍历释放节点; 本宏=1 恢复用例作为回归看护 */
 #define POSIX_BUG_20_PTHREAD_CANCEL_KEY_LEAK 0 /* ItPosixPthread044: 异步取消线程
                                                  * DoPthreadCancel(pthread.c:449-453)不释放
                                                  * TSD key 数组(512B)且跳过析构器(仅

@@ -152,6 +152,7 @@ typedef struct {
 UINT32 OsSignalInit(VOID);
 UINTPTR OsSignalTaskContextRestore(VOID);
 BOOL OsSignalRestorePending(VOID);
+VOID OsSignalTaskDelete(VOID *task);
 
 /**
  * @ingroup los_signal

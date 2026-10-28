@@ -69,11 +69,12 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
     pmp_init();
 
 #ifdef LOSCFG_ARCH_CACHE
-    /* Cache init: flush ICache + invalidate DCache before enable, matching
-     * fbb_ws63 cpu_cache_init() in main.c. Without this, enabling ICache
-     * with stale lines causes illegal-instruction trap on first fetch. */
+    /* Cache init: flush ICache before enable. DCache invalidate is skipped
+     * because ArchDCacheInvalidate() (full pure DCIV, no writeback) at -O0
+     * has a stack frame and discards main's own dirty stack saves (ra/s0).
+     * fbb_ws63 cpu_cache_init does this at -O2 (leaf-optimized, no frame);
+     * at -O0 we cannot safely call full invalidate from a stacked function. */
     ArchICacheFlush();
-    ArchDCacheInvalidate();
     ArchICacheEnable(CACHE_32KB);
     ArchICachePrefetchEnable(CACHE_PREF_1_LINES);
     ArchDCacheEnable(CACHE_4KB);

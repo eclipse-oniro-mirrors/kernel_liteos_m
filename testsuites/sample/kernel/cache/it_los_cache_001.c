@@ -14,31 +14,31 @@ static UINT32 TestCase(VOID)
      * change ICache size → enable ICache. After each enable, flush ICache
      * to clear stale lines beyond the new size. Restore 32KB at the end. */
     ArchDCacheFlush();
-    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_DISABLE) : "memory");
+    ArchICacheDisable();
     ArchICacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
     ArchDCacheFlush();
-    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_DISABLE) : "memory");
+    ArchICacheDisable();
     ArchICacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_8KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
     ArchDCacheFlush();
-    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_DISABLE) : "memory");
+    ArchICacheDisable();
     ArchICacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_16KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
     ArchDCacheFlush();
-    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_DISABLE) : "memory");
+    ArchICacheDisable();
     ArchICacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
     ArchDCacheFlush();
-    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_DISABLE) : "memory");
+    ArchICacheDisable();
     ArchICacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_64KB), LOS_OK, LOS_OK);

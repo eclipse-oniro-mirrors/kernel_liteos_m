@@ -56,7 +56,6 @@ typedef enum {
  */
 #define ICCTL                    0x7C0
 #define ICCTL_ENABLE             0x1
-#define ICCTL_DISABLE            0x0
 
 /*
  * Bit[0]   DCEN  Data cache enable (1=enabled). Default disabled.
@@ -64,7 +63,6 @@ typedef enum {
  */
 #define DCCTL                    0x7C1
 #define DCCTL_ENABLE             0x1
-#define DCCTL_DISABLE            0x0
 
 /*
  * Bit[0]  VA    Instruction cache invalidation by all or VA: 1b0=all, 1b1=VA.

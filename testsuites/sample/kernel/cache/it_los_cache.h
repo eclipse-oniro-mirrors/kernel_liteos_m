@@ -37,6 +37,19 @@ extern VOID ItLosCache015(VOID);
 extern VOID ItLosCache016(VOID);
 extern VOID ItLosCache017(VOID);
 
+/* Disable ICache/DCache by writing ICCTL/DCCTL bit0=0.
+ * Used in test cases before changing cache size to avoid stale lines
+ * and DCache side effects. Platform-specific (RISC-V CSR). */
+STATIC INLINE VOID ArchICacheDisable(VOID)
+{
+    __asm__ __volatile__("csrw %0, zero" :: "i"(ICCTL) : "memory");
+}
+
+STATIC INLINE VOID ArchDCacheDisable(VOID)
+{
+    __asm__ __volatile__("csrw %0, zero" :: "i"(DCCTL) : "memory");
+}
+
 #ifdef __cplusplus
 #if __cplusplus
 }

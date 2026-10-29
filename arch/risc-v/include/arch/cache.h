@@ -18,6 +18,8 @@
 #define _ARCH_CACHE_H
 
 #include "los_typedef.h"
+#include "los_toolchain.h"
+#include "los_builddef.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -98,7 +100,17 @@ typedef enum {
  * @param  icclSize [IN] The Instruction cache size (one of CacheSize).
  * @retval #LOS_OK on success; non-zero on invalid size.
  */
+#ifdef LOSCFG_ARCH_LINX_M
+UINT32 ArchICacheEnableLinxM(CacheSize icclSize);
+UINT32 ArchICacheEnableNonLinxM(CacheSize icclSize);
+STATIC INLINE LITE_OS_SEC_TEXT UINT32 ArchICacheEnable(CacheSize icclSize)
+{
+    ArchICacheEnableLinxM(icclSize);
+    return LOS_OK;
+}
+#else
 UINT32 ArchICacheEnable(CacheSize icclSize);
+#endif
 
 /**
  * @ingroup cache
@@ -106,7 +118,17 @@ UINT32 ArchICacheEnable(CacheSize icclSize);
  * @param  dcclSize [IN] The Data cache size (one of CacheSize).
  * @retval #LOS_OK on success; non-zero on invalid size.
  */
+#ifdef LOSCFG_ARCH_LINX_M
+UINT32 ArchDCacheEnableLinxM(CacheSize dcclSize);
+UINT32 ArchDCacheEnableNonLinxM(CacheSize dcclSize);
+STATIC INLINE UINT32 ArchDCacheEnable(CacheSize dcclSize)
+{
+    ArchDCacheEnableLinxM(dcclSize);
+    return LOS_OK;
+}
+#else
 UINT32 ArchDCacheEnable(CacheSize dcclSize);
+#endif
 
 /**
  * @ingroup cache
@@ -213,7 +235,14 @@ VOID ArchDCacheFlush(VOID);
  * @ingroup cache
  * @brief invalidate all DCache.
  */
+#ifdef LOSCFG_ARCH_LINX_M
+VOID ArchICacheInvalid(VOID);
+VOID ArchICacheInvAll(VOID);
+VOID ArchDCacheInvalid(VOID);
+VOID ArchDCacheInvAll(VOID);
+#else
 VOID ArchDCacheInvalidate(VOID);
+#endif
 
 #define flush_dcache(start, end) ArchDCacheFlushByAddr(start, end)
 #define flush_icache() ArchICacheFlush()

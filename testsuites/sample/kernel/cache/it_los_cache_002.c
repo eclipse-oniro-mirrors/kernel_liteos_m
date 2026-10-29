@@ -13,16 +13,24 @@ static UINT32 TestCase(VOID)
      * flush after each change to avoid stale lines. Restore 4KB (main's
      * config) at the end.
      * Note: NonLinxM Enable (131) uses bext 0x155 which allows CACHE_64KB;
-     * LinxM Enable (170) ignores size arg. Both return LOS_OK for 64KB. */
+     * LinxM Enable (170) ignores size arg. Both return LOS_OK for 64KB.
+     * ArchDCacheFlush before ArchDCacheEnable: csrw DCCTL may affect DCache,
+     * flush ensures dirty stack lines are written back to SRAM first. */
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_8KB), LOS_OK, LOS_OK);
     ArchDCacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_16KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ArchDCacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
     ArchDCacheFlush();

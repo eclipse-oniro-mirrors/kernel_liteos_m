@@ -66,9 +66,6 @@ extern "C" {
  */
 #define EMPTY_STACK                 0xCACA
 
-/* Task-context register init values: ascending low-byte 0x01..0x1e so a
- * stack dump shows the register identity; contiguous so STACK_INIT_ACC
- * (0x01010101) can drive a single init loop over the s11..ra slice. */
 #define TP_INIT_VALUE  0x01010101L
 #define SP_INIT_VALUE  0x02020202L
 #define S11_INIT_VALUE 0x04040404L

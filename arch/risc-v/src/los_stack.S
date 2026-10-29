@@ -38,6 +38,7 @@
 .global __nmi_stack_top
 /* Alias kept for code that historically uses __except_stack_top. */
 .global __except_stack_top
+.global __start_and_irq_stack_top
 
 .section ".int_stack", "wa", %nobits
 .align 4  /* 2^4 byte alignment for stacks */
@@ -53,6 +54,7 @@ __startup_stack:
 #endif
 #endif
 __startup_stack_top:
+__start_and_irq_stack_top = __startup_stack_top
 
 #ifdef LOSCFG_EXC_STACK_SIZE
 #if LOSCFG_EXC_STACK_SIZE > 0

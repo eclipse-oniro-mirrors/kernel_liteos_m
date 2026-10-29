@@ -39,8 +39,8 @@ static UINT32 UartCase002(VOID)
     ret = (UINT32)uart_init(UART_TEST_PORT, NULL);
     ICUNIT_ASSERT_EQUAL(ret, UART_ERR_PARAM, ret);
 
-    /* invalid baud */
-    attr.baudrate = 100;
+    /* invalid baud (below 23: outside the 24MHz/16 divisor range) */
+    attr.baudrate = 10;
     ret = (UINT32)uart_init(UART_TEST_PORT, &attr);
     ICUNIT_ASSERT_EQUAL(ret, UART_ERR_PARAM, ret);
 
@@ -56,10 +56,9 @@ static UINT32 UartCase002(VOID)
     ret = (UINT32)uart_init(UART_TEST_PORT, &attr);
     ICUNIT_ASSERT_EQUAL(ret, UART_ERR_PARAM, ret);
 
-    /* illegal combo: parity needs 1 stop bit (E-2 is a 12-bit frame) */
+    /* invalid parity enum value */
     attr = UartTestAttrDefault();
-    attr.parity = UART_PARITY_EVEN;
-    attr.stop_bits = 2;
+    attr.parity = (uart_parity_t)99;
     ret = (UINT32)uart_init(UART_TEST_PORT, &attr);
     ICUNIT_ASSERT_EQUAL(ret, UART_ERR_PARAM, ret);
 

@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Huawei Device Co., Ltd.
  * RK3568 AMP UART driver (DW 8250 / 16550-compatible, interrupt mode).
  *
- * Implements the 7-API Modbus-RTU oriented contract in uart_drv.h:
+ * Implements the 7-API hardware-capability contract in uart_drv.h:
  * interrupt-driven RX/TX with per-port ring buffers, semaphore blocking
  * semantics, line-synchronous write (LSR TEMT anchored) and a static
  * UART1~UART9 board profile (CRU clock / GRF pinmux / GIC SPI routing).
@@ -61,6 +61,7 @@
 #define UART_REG_FCR        0x08    /* FIFO control (write) */
 #define UART_REG_LCR        0x0C    /* line control */
 #define UART_REG_MCR        0x10    /* modem control (untouched by default, Q11) */
+#define UART_MCR_LOOP       0x10U   /* local loopback bit (test-only; init clears a stale one) */
 #define UART_REG_LSR        0x14    /* line status */
 #define UART_REG_TFL        0x80    /* DW: TX FIFO level */
 
@@ -360,6 +361,11 @@ STATIC UartPortCtx g_uartCtx[UART_PORT_MAX] = {
 /* Input clock: xin24m (24 MHz), mux defensively forced by the profile. */
 #define UART_INPUT_CLOCK    24000000UL
 
+/* Baud range = full integer-divisor range of the 16550 at 24MHz:
+ * divisor (DLL+DLH) is 16-bit, baud = 24MHz / (16 * divisor). */
+#define UART_BAUD_MIN       23U        /* 24MHz/(16*65535) ~= 22.9 */
+#define UART_BAUD_MAX       1500000U   /* 24MHz/(16*1) */
+
 /* tick helpers: timeout granularity is 1 tick (1000 Hz per Q4) */
 #define UART_MS_PER_TICK    (((1000U + LOSCFG_BASE_CORE_TICK_PER_SECOND - 1U) / \
                               LOSCFG_BASE_CORE_TICK_PER_SECOND))
@@ -424,21 +430,22 @@ STATIC UINT32 UartLcrCalc(uint8_t dataBits, uart_parity_t parity, uint8_t stopBi
     return lcr;
 }
 
-/* legal combos: E-1 / O-1 / N-2 (Q5); data_bits 5~8; baud 1200~115200 */
+/* legal combos: any parity x stop_bits (full 16550 hardware set, no
+ * protocol-level combo restriction); data_bits 5~8; baud see macros */
 STATIC BOOL UattrLineValid(uart_parity_t parity, uint8_t stopBits)
 {
     switch (parity) {
-        case UART_PARITY_EVEN:
-        case UART_PARITY_ODD:
-            return (stopBits == 1U);
         case UART_PARITY_NONE:
-            return (stopBits == 2U);
+        case UART_PARITY_ODD:
+        case UART_PARITY_EVEN:
+            return (stopBits == 1U) || (stopBits == 2U);
         default:
             return FALSE;
     }
 }
 
-/* divisor with rounding: (24MHz + baud*8) / (baud*16), error <= 0.16% */
+/* divisor with rounding: (24MHz + baud*8) / (baud*16); some standard rates
+ * above 256000 (e.g. 230400) carry >2% error at this integer division */
 STATIC INLINE UINT32 UartDivisorCalc(UINT32 baudrate)
 {
     return (UART_INPUT_CLOCK + baudrate * 8UL) / (baudrate * 16UL);
@@ -586,9 +593,23 @@ STATIC VOID UartIsrEntry(VOID *parm)
                 break;
             }
             case UART_IIR_RDA:
-            case UART_IIR_CTI:  /* RX timeout: low-latency read below trigger */
                 UartRxIsr(port);
                 break;
+            case UART_IIR_CTI: { /* RX timeout: low-latency read below trigger */
+                UINT32 lsr = UART_RD(port, UART_REG_LSR);
+                if ((lsr & (UART_LSR_DR | UART_LSR_BI)) == 0U) {
+                    /* belt-and-braces for the observed odd state: the FIFO
+                     * already drained on another path while the CTI latch
+                     * stays pending - UartRxIsr (gated on DR) would run
+                     * zero loops and never clear it, feeding a level-IRQ
+                     * storm. An RBR read is the only spec-compliant CTI
+                     * clear; the stale byte is discarded, never enters
+                     * the ring. Break (BI) is left to the RLS path. */
+                    (VOID)UART_RD(port, UART_REG_RBR);
+                }
+                UartRxIsr(port);
+                break;
+            }
             case UART_IIR_THRE:
                 UartTxIsr(port);
                 break;
@@ -809,6 +830,7 @@ int32_t uart_init(uint8_t port, const uart_attr_t *attr)
     UINT32 intSave;
     UINT32 divisor;
     UINT32 lcr;
+    UINT32 mcr;
 
     if ((port < UART_PORT_MIN) || ((UINT32)port > UART_PORT_MAX)) {
         return UART_ERR_NOT_SUP; /* UART0: PMUCRU domain, unsupported (§4.2) */
@@ -816,7 +838,7 @@ int32_t uart_init(uint8_t port, const uart_attr_t *attr)
     if (attr == NULL) {
         return UART_ERR_PARAM;
     }
-    if ((attr->baudrate < 1200U) || (attr->baudrate > 115200U) ||
+    if ((attr->baudrate < UART_BAUD_MIN) || (attr->baudrate > UART_BAUD_MAX) ||
         (attr->data_bits < 5U) || (attr->data_bits > 8U) ||
         !UattrLineValid(attr->parity, attr->stop_bits)) {
         return UART_ERR_PARAM;
@@ -880,6 +902,16 @@ int32_t uart_init(uint8_t port, const uart_attr_t *attr)
     (VOID)UART_RD(ctx, UART_REG_LCR);                    /* DLM settle barrier */
     UART_WR(ctx, UART_REG_LCR, lcr);
     (VOID)UART_RD(ctx, UART_REG_LCR);                    /* DLAB=0 settle barrier */
+    /* clear a stale MCR local-loopback possibly left by an aborted test run
+     * (e.g. slave poweroff mid-matrix): with LOOP set the RX input mux is
+     * routed internally and external traffic silently receives nothing -
+     * no error counter fires, and only a board reset used to recover.
+     * Only LOOP is cleared; DTR/RTS/OUTx keep their state (Q11: the driver
+     * does not manage modem control lines). */
+    mcr = UART_RD(ctx, UART_REG_MCR);
+    if ((mcr & UART_MCR_LOOP) != 0U) {
+        UART_WR(ctx, UART_REG_MCR, mcr & ~UART_MCR_LOOP);
+    }
     /* drain stale RX and clear pending interrupt sources */
     while ((UART_RD(ctx, UART_REG_LSR) & UART_LSR_DR) != 0) {
         (VOID)UART_RD(ctx, UART_REG_RBR);
@@ -1128,7 +1160,7 @@ int32_t uart_set_attr(uint8_t port, uint32_t baudrate, uart_parity_t parity, uin
     if (ctx->state != UART_PORT_INITED) {
         return UART_ERR_STATE;
     }
-    if ((baudrate < 1200U) || (baudrate > 115200U) || !UattrLineValid(parity, stop_bits)) {
+    if ((baudrate < UART_BAUD_MIN) || (baudrate > UART_BAUD_MAX) || !UattrLineValid(parity, stop_bits)) {
         return UART_ERR_PARAM;
     }
 
@@ -1258,9 +1290,9 @@ STATIC VOID UartTestPrintStat(const UartPortCtx *ctx, UINT32 port)
 
 /* MCR local loopback (test-only, Q11 says the driver never touches MCR -
  * this is bench instrumentation): the 16550 loops TX to RX inside the
- * chip, so the full interrupt data path is verifiable with no wiring. */
-#define UART_MCR_LOOP       0x10U
-
+ * chip, so the full interrupt data path is verifiable with no wiring.
+ * (UART_MCR_LOOP is defined with the register block above; init clears a
+ * stale one left by an aborted run.) */
 STATIC VOID UartTestMcrLoopSet(UartPortCtx *ctx, BOOL on)
 {
     UINT32 intSave = LOS_IntLock();
@@ -1370,14 +1402,17 @@ STATIC UINT32 UartTestErrPaths(UINT32 port)
     UART_CHECK("init port10", UART_ERR_NOT_SUP);
     ret = uart_init((uint8_t)port, NULL);              /* NULL attr */
     UART_CHECK("init NULL attr", UART_ERR_PARAM);
-    badAttr.stop_bits = 1;                             /* E-1 -> N-1 illegal */
-    badAttr.parity = UART_PARITY_NONE;
+    badAttr.parity = (uart_parity_t)99;                 /* parity out of enum */
     ret = uart_init((uint8_t)port, &badAttr);
-    UART_CHECK("init N-1", UART_ERR_PARAM);
+    UART_CHECK("init bad parity", UART_ERR_PARAM);
     badAttr = okAttr;
-    badAttr.baudrate = 600;
+    badAttr.stop_bits = 3;                              /* stop_bits out of 1~2 */
+    ret = uart_init((uint8_t)port, &badAttr);
+    UART_CHECK("init stop3", UART_ERR_PARAM);
+    badAttr = okAttr;
+    badAttr.baudrate = 10;
     ret = uart_init((uint8_t)port, &badAttr);          /* baud below range */
-    UART_CHECK("init baud600", UART_ERR_PARAM);
+    UART_CHECK("init baud10", UART_ERR_PARAM);
     badAttr = okAttr;
     badAttr.data_bits = 9;
     ret = uart_init((uint8_t)port, &badAttr);          /* data_bits out of 5~8 */
@@ -1398,10 +1433,10 @@ STATIC UINT32 UartTestErrPaths(UINT32 port)
     UART_CHECK("init twice", UART_ERR_STATE);
     ret = uart_set_attr((uint8_t)port, 115200, UART_PARITY_EVEN, 1);
     UART_CHECK("set_attr ok", UART_OK);
-    ret = uart_set_attr((uint8_t)port, 115200, UART_PARITY_NONE, 1);
-    UART_CHECK("set_attr N-1", UART_ERR_PARAM);
-    ret = uart_set_attr((uint8_t)port, 200000, UART_PARITY_EVEN, 1);
-    UART_CHECK("set_attr baud200k", UART_ERR_PARAM);
+    ret = uart_set_attr((uint8_t)port, 115200, UART_PARITY_EVEN, 3);
+    UART_CHECK("set_attr stop3", UART_ERR_PARAM);
+    ret = uart_set_attr((uint8_t)port, 2000000, UART_PARITY_EVEN, 1);
+    UART_CHECK("set_attr baud2M", UART_ERR_PARAM);
     ret = uart_read((uint8_t)port, (uint8_t *)dummy, 0, 100);  /* count 0 */
     UART_CHECK("read count0", 0);
     ret = uart_read((uint8_t)port, (uint8_t *)dummy, 4, -1);   /* timeout < 0 */
@@ -1410,8 +1445,8 @@ STATIC UINT32 UartTestErrPaths(UINT32 port)
     UART_CHECK("write tmo<0", UART_ERR_NOT_SUP);
     ret = uart_deinit((uint8_t)port);
     UART_CHECK("deinit ok", UART_OK);
-    ret = uart_deinit((uint8_t)port);                  /* duplicate deinit */
-    UART_CHECK("deinit twice", UART_ERR_STATE);
+    ret = uart_deinit((uint8_t)port);                  /* idempotent re-deinit */
+    UART_CHECK("deinit twice", UART_OK);
 #undef UART_CHECK
 
     PRINTK("uart%u: %u/%u checks passed\n", port, pass, total);
@@ -1519,20 +1554,26 @@ STATIC UINT32 UartTestDiag(UINT32 port)
 
 /*
  * Line-config matrix on the MCR internal loop (no wiring): every legal
- * combo E-1/O-1/N-2 x data_bits 5..8 must round-trip error free, and an
+ * combo (E/O/N x 1/2) x data_bits 5..8 must round-trip error free, and an
  * online set_attr() baud switch must keep the link clean (T1/T2 subset).
  */
 STATIC UINT32 UartTestMatrix(UINT32 port)
 {
     static const uart_attr_t combos[] = {
         { 115200, 8, UART_PARITY_EVEN, 1 }, { 115200, 8, UART_PARITY_ODD, 1 },
-        { 115200, 8, UART_PARITY_NONE, 2 }, { 115200, 7, UART_PARITY_EVEN, 1 },
-        { 115200, 7, UART_PARITY_ODD, 1 },  { 115200, 7, UART_PARITY_NONE, 2 },
+        { 115200, 8, UART_PARITY_NONE, 1 }, { 115200, 8, UART_PARITY_NONE, 2 },
+        { 115200, 7, UART_PARITY_EVEN, 1 }, { 115200, 7, UART_PARITY_ODD, 1 },
+        { 115200, 7, UART_PARITY_NONE, 1 }, { 115200, 7, UART_PARITY_NONE, 2 },
         { 115200, 6, UART_PARITY_EVEN, 1 }, { 115200, 6, UART_PARITY_ODD, 1 },
-        { 115200, 6, UART_PARITY_NONE, 2 }, { 115200, 5, UART_PARITY_EVEN, 1 },
-        { 115200, 5, UART_PARITY_ODD, 1 },  { 115200, 5, UART_PARITY_NONE, 2 },
+        { 115200, 6, UART_PARITY_NONE, 1 }, { 115200, 6, UART_PARITY_NONE, 2 },
+        { 115200, 5, UART_PARITY_EVEN, 1 }, { 115200, 5, UART_PARITY_ODD, 1 },
+        { 115200, 5, UART_PARITY_NONE, 1 }, { 115200, 5, UART_PARITY_NONE, 2 },
+        { 115200, 8, UART_PARITY_EVEN, 2 }, { 115200, 8, UART_PARITY_ODD, 2 },
+        { 115200, 7, UART_PARITY_EVEN, 2 }, { 115200, 7, UART_PARITY_ODD, 2 },
+        { 115200, 6, UART_PARITY_EVEN, 2 }, { 115200, 6, UART_PARITY_ODD, 2 },
+        { 115200, 5, UART_PARITY_EVEN, 2 }, { 115200, 5, UART_PARITY_ODD, 2 },
     };
-    static const UINT32 baudSteps[] = { 115200, 9600, 1200, 115200 };
+    static const UINT32 baudSteps[] = { 115200, 9600, 300, 1500000, 115200 };
     static UINT8 mtxBuf[64];
     UINT32 pass = 0;
     UINT32 total = 0;
@@ -1612,7 +1653,7 @@ STATIC UINT32 UartTestMatrix(UINT32 port)
         (VOID)uart_deinit((uint8_t)port);
         if (comboOk) {
             pass++;
-            PRINTK("  %u-%s-%u: PASS (115200/9600/1200 switch)\n", attr->data_bits,
+            PRINTK("  %u-%s-%u: PASS (baud-steps switch)\n", attr->data_bits,
                    (attr->parity == UART_PARITY_EVEN) ? "E" :
                    ((attr->parity == UART_PARITY_ODD) ? "O" : "N"),
                    attr->stop_bits);
@@ -1707,8 +1748,10 @@ UINT32 OsShellCmdUartTest(UINT32 argc, const CHAR **argv)
         UINT32 selfBaud = (argc >= 3U) ? (UINT32)strtoul(argv[2], &endPtr, 0) : 115200U;
         UINT32 selfLen = (argc >= 4U) ? (UINT32)strtoul(argv[3], &endPtr, 0) : UART_TEST_LEN_DEFAULT;
 
-        if ((selfBaud < 1200U) || (selfBaud > 115200U) || (selfLen == 0U) || (selfLen > UART_TEST_LEN_MAX)) {
-            PRINTK("uart_test: bad self args (baud 1200..115200, len 1..%u)\n", UART_TEST_LEN_MAX);
+        if ((selfBaud < UART_BAUD_MIN) || (selfBaud > UART_BAUD_MAX) ||
+            (selfLen == 0U) || (selfLen > UART_TEST_LEN_MAX)) {
+            PRINTK("uart_test: bad self args (baud %u..%u, len 1..%u)\n",
+                   UART_BAUD_MIN, UART_BAUD_MAX, UART_TEST_LEN_MAX);
             return (UINT32)OS_ERROR;
         }
         return UartTestLoopback(port, selfBaud, selfLen, TRUE);
@@ -1720,15 +1763,17 @@ UINT32 OsShellCmdUartTest(UINT32 argc, const CHAR **argv)
         UINT32 txBaud = (argc >= 3U) ? (UINT32)strtoul(argv[2], &endPtr, 0) : 115200U;
         UINT32 txLen = (argc >= 4U) ? (UINT32)strtoul(argv[3], &endPtr, 0) : UART_TEST_LEN_DEFAULT;
 
-        if ((txBaud < 1200U) || (txBaud > 115200U) || (txLen == 0U) || (txLen > UART_TEST_LEN_MAX)) {
-            PRINTK("uart_test: bad tx args (baud 1200..115200, len 1..%u)\n", UART_TEST_LEN_MAX);
+        if ((txBaud < UART_BAUD_MIN) || (txBaud > UART_BAUD_MAX) ||
+            (txLen == 0U) || (txLen > UART_TEST_LEN_MAX)) {
+            PRINTK("uart_test: bad tx args (baud %u..%u, len 1..%u)\n",
+                   UART_BAUD_MIN, UART_BAUD_MAX, UART_TEST_LEN_MAX);
             return (UINT32)OS_ERROR;
         }
         return UartTestTxOnly(port, txBaud, txLen);
     }
     if (argc >= 2U) {
         baud = (UINT32)strtoul(argv[1], &endPtr, 0);
-        if ((endPtr == argv[1]) || (baud < 1200U) || (baud > 115200U)) {
+        if ((endPtr == argv[1]) || (baud < UART_BAUD_MIN) || (baud > UART_BAUD_MAX)) {
             PRINTK("uart_test: bad baud '%s'\n", argv[1]);
             return (UINT32)OS_ERROR;
         }

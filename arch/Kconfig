@@ -21,12 +21,13 @@ config ARCH_CACHE
     default n
     help
       Build in the RISC-V I/D-cache maintenance interface (arch/cache.h) and
-      link the platform-provided cache archive. Each board that turns this on
-      must supply its own cache implementation matching its ABI and core CSR
-      space (e.g. ws63 links liblos_cache.a for LinxCore131; DiTing/3322 needs
-      its own archive for Linx-M with ilp32d). Boards without a cache provider
-      must leave this off so the ArchICache*/ArchDCache* symbols are not
-      referenced.
+      its open-source per-core implementation (e.g. ws63 builds
+      arch/risc-v/src/linx131/los_cache.c for LinxCore131). Each board that
+      turns this on must supply a cache implementation matching its ABI and
+      core CSR space (e.g. ws63 builds los_cache.c for the LinxCore131 custom
+      CSR space 0x7C0..0x7C7; DiTing/3322 needs its own implementation for
+      Linx-M with ilp32d). Boards without a cache provider must leave this
+      off so the ArchICache*/ArchDCache* symbols are not referenced.
 
 config ARCH_RISCV_HW_ATOMIC
     bool "RISC-V hardware Atomic (A) extension is available"

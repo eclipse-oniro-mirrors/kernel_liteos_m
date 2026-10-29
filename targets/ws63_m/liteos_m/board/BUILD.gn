@@ -54,18 +54,9 @@ config("public") {
     "-Wl,--no-whole-archive",
   ]
 
-  # Closed prebuilt cache maintenance archive (mirrors the ws63 SDK libriscv.a /
-  # hs-fbb liblitekey.a packaging). liblos_cache.a is rebuilt out-of-tree from
-  # the ws63 SDK cache sources by build/lib_a/ws63/rebuild_liblos_cache.sh and
-  # linked pristine here. Gated
-  # by LOSCFG_ARCH_CACHE; pulled after the kernel archives so its members
-  # resolve the test-suite / driver references to the ArchICache*/ArchDCache*
-  # symbols.
-  if (defined(LOSCFG_ARCH_CACHE)) {
-    ldflags += [
-      "-Wl,--whole-archive",
-      rebase_path("//kernel/liteos_m/build/lib_a/ws63/liblos_cache.a"),
-      "-Wl,--no-whole-archive",
-    ]
-  }
+  # The ws63 RISC-V (LinxCore131) I/D-cache maintenance implementation now
+  # ships as open source in arch/risc-v/src/linx131/los_cache.c (gated by
+  # LOSCFG_ARCH_CACHE), so the closed prebuilt liblos_cache.a is no longer
+  # linked here. The ArchICache*/ArchDCache* symbols resolve directly from
+  # the arch module.
 }

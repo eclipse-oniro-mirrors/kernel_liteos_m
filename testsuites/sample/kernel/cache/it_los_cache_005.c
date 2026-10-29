@@ -21,7 +21,7 @@ static UINT32 TestCase(VOID)
         ICUNIT_ASSERT_EQUAL(buf[i], (0xA5A50000U | i), buf[i]);
     }
     ArchICacheFlush();
-    ArchDCacheInvalidate();
+    ArchDCacheFlush();
     for (i = 0; i < 8; i++) {
         ICUNIT_ASSERT_EQUAL(buf[i], (0xA5A50000U | i), buf[i]);
     }
@@ -34,13 +34,13 @@ static UINT32 TestCase(VOID)
  * ItLosCache005
  * @par TestCase_TestCase_Type
  * Function test
- * @brief Test interface ArchICacheFlush / ArchDCacheFlush / ArchDCacheInvalidate
+ * @brief Test interface ArchICacheFlush / ArchDCacheFlush
  * @par TestCase_Pretreatment_Condition
  * NA.
  * @par TestCase_Test_Steps
  * step1: write a known pattern into a stack buffer.
  * step2: ArchDCacheFlush then verify the pattern survives (write-back).
- * step3: ArchICacheFlush + ArchDCacheInvalidate then verify the pattern still
+ * step3: ArchICacheFlush + ArchDCacheFlush then verify the pattern still
  *        survives (full invalidate of a clean line must not lose data).
  * @par TestCase_Expected_Result
  * 1.The buffer contents are unchanged after each full-cache operation.

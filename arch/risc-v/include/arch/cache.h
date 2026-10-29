@@ -2,11 +2,11 @@
  * Copyright (c) 2026-2026. All rights reserved.
  * Description : Cache operations HeadFile (ws63 / RISC-V LinxCore131).
  *
- * This header mirrors the ws63 SDK arch/riscv/include/arch/cache.h cache
- * interface (the public contract of the closed libriscv.a cache.c.obj). It is
- * the single public entry point for all I/D-cache maintenance on the ws63
- * RISC-V core; the implementation lives in the closed prebuilt archive
- * liblos_cache.a (see los_cache.c for the regeneration source).
+ * This header is the single public entry point for all I/D-cache
+ * maintenance on the ws63 RISC-V core. The implementation ships as
+ * open source in arch/risc-v/src/linx131/los_cache.c (gated by
+ * LOSCFG_ARCH_CACHE, compiled into the arch module); the former closed
+ * prebuilt liblos_cache.a has been removed.
  * ---------------------------------------------------------------------------- */
 
 /**

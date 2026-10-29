@@ -36,6 +36,12 @@ extern "C" {
 #define GICR_BASE                               0xFD460000UL
 /* one RD (0x10000) + one SGI (0x10000) frame per core */
 #define GICR_STRIDE_CORES                       4
+/* GICD register window (0xFD400000..0xFD40FFFF, verified on board:
+ * /proc/iomem + dtb reg + GICD_TYPER ITLinesNumber=27 -> 896 lines,
+ * IROUTER top offset 0x7CF8). Managed by LOS_GicdMmuEnable/Disable. */
+#define GICD_MMU_SIZE                           0x010000UL
+/* GICR window (4 cores x 0x30000). Never locked: interrupt delivery. */
+#define GICR_MMU_SIZE                           0x0C0000UL
 
 /* ---- UART ---- */
 #define UART2_BASE                              0xFE660000UL /* debug console, shared with Linux */

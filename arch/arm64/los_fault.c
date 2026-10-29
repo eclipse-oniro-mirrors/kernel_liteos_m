@@ -13,6 +13,7 @@
 #include "los_exc.h"
 #include "los_debug.h"
 #include "los_printf_pri.h"
+/* GICD_BASE/GICD_MMU_SIZE come via los_arch_interrupt.h -> soc.h. */
 
 ExcInfo g_excInfo = {0};
 UINT32 g_curNestCount = 0;
@@ -220,6 +221,20 @@ LITE_OS_SEC_TEXT VOID OsArm64SyncExcHandler(EXC_CONTEXT_S *frame)
     if ((ec == EC_DABT_LOW) || (ec == EC_DABT_CUR) ||
         (ec == EC_IABT_LOW) || (ec == EC_IABT_CUR)) {
         flags = OS_EXC_FLAG_FAULTADDR_VALID;
+    }
+
+    /* GICD-window fault classifier: a data abort whose FAR falls inside
+     * the GICD register window while the window is locked by
+     * LOS_GicdMmuDisable() is almost certainly a locked-state GICD
+     * access (mis-timed LOS_Hwi* call or a wild pointer); point the
+     * user at the unlock API before the generic dump. */
+    if (((ec == EC_DABT_LOW) || (ec == EC_DABT_CUR)) &&
+        (far >= (UINT64)(UINTPTR)GICD_BASE) &&
+        (far < (UINT64)(UINTPTR)(GICD_BASE + GICD_MMU_SIZE)) &&
+        LOS_GicdMmuIsLocked()) {
+        PRINTK("GICD access blocked: FAR=0x%llx is inside the GICD window "
+               "locked by LOS_GicdMmuDisable(). Call LOS_GicdMmuEnable() "
+               "before any GICD operation.\n", far);
     }
 
     HalExcHandleEntry(excType | (flags << 16), far, 0, frame);

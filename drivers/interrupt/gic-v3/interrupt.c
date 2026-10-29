@@ -28,6 +28,7 @@
 #include "los_exc.h"
 #include "los_typedef.h"
 #include "los_debug.h"
+#include "arch/mmu.h"
 #if (LOSCFG_CPUP_INCLUDE_IRQ == 1)
 #include "los_cpup_pri.h"
 #endif
@@ -350,6 +351,80 @@ WEAK VOID __stack_chk_fail(VOID)
 {
     LOS_Panic("stack-protector: Kernel stack is corrupted in: %p\n",
               __builtin_return_address(0));
+}
+
+/* ----------------------------------------------------------------------------
+ * GICD MMU access switch (AMP interrupt isolation).
+ *
+ * LOS_GicdMmuDisable/Enable remove/restore the GICD register window
+ * (GICD_BASE .. +GICD_MMU_SIZE) from this core's stage-1 page tables.
+ * While locked, any GICD access raises a Translation Fault (fail-fast,
+ * no soft interception in LOS_Hwi* on purpose). Already-enabled
+ * interrupts keep working: delivery goes through GICR/ICC and never
+ * touches GICD in software.
+ *
+ * NOT idempotent (D6): a repeat call in the same state returns
+ * LOS_ERRNO_HWI_GICD_ALREADY_LOCKED / _OPEN so that caller state
+ * mismatches surface instead of being silently absorbed.
+ * Usage contract (R2): call LOS_GicdMmuDisable only at a GICD-quiet
+ * time - no task/ISR may be inside a LOS_Hwi* call (the
+ * GicdWaitForRwp poll loop is up to ~1s long). Violations surface as
+ * a Data Abort with the FAR inside the GICD window.
+ * The GICD region lives in the same L3 table as GICR (2MB span
+ * 0xFD400000..0xFD5FFFFF), which never unmaps, so lock/unlock
+ * round-trips neither allocate nor free page-table pool entries.
+ * -------------------------------------------------------------------------- */
+STATIC volatile BOOL g_gicdMmuLocked = FALSE;
+
+LITE_OS_SEC_TEXT UINT32 LOS_GicdMmuDisable(VOID)
+{
+    UINT32 ret;
+    UINT32 intSave;
+
+    /* Keep check + unmap + TLB invalidate + flag write atomic on this
+     * core: the flag must never diverge from the page-table state
+     * (an ISR between IntRestore and the write would read the stale
+     * flag while the mapping is already gone). */
+    intSave = LOS_IntLock();
+    if (g_gicdMmuLocked) {
+        LOS_IntRestore(intSave);
+        /* D6 (ALREADY semantics): state mismatch must surface - the
+         * caller believed the window was open while it was locked. */
+        return LOS_ERRNO_HWI_GICD_ALREADY_LOCKED;
+    }
+    ret = ArchMmuUnmap(GICD_BASE, GICD_MMU_SIZE);
+    if (ret == LOS_OK) {
+        g_gicdMmuLocked = TRUE;
+    }
+    LOS_IntRestore(intSave);
+    return ret;
+}
+
+LITE_OS_SEC_TEXT UINT32 LOS_GicdMmuEnable(VOID)
+{
+    UINT32 ret;
+    UINT32 intSave;
+
+    /* Symmetric to Disable: check + map + flag write atomic. */
+    intSave = LOS_IntLock();
+    if (!g_gicdMmuLocked) {
+        LOS_IntRestore(intSave);
+        /* D6 (ALREADY semantics): "thought it was locked but is open"
+         * means the protection may already be lost silently - report. */
+        return LOS_ERRNO_HWI_GICD_ALREADY_OPEN;
+    }
+    /* Identity map, same attributes as the board 'gicd' region. */
+    ret = ArchMmuMap(GICD_BASE, GICD_BASE, GICD_MMU_SIZE, MMU_RW_NX_DEVICE_MAP);
+    if (ret == LOS_OK) {
+        g_gicdMmuLocked = FALSE;
+    }
+    LOS_IntRestore(intSave);
+    return ret;
+}
+
+LITE_OS_SEC_TEXT BOOL LOS_GicdMmuIsLocked(VOID)
+{
+    return g_gicdMmuLocked;
 }
 
 /* ****************************************************************************

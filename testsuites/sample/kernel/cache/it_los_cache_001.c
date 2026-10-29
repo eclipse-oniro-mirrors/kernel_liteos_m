@@ -9,28 +9,41 @@
 
 static UINT32 TestCase(VOID)
 {
-    /* main() enabled ICache. Changing ICache size while active requires a
-     * flush after each change to avoid stale lines beyond the new size
-     * causing instruction access fault. Restore 32KB at the end.
-     * Note: NonLinxM Enable (131) uses bext 0x155 which allows CACHE_64KB;
-     * LinxM Enable (170) ignores size arg. Both return LOS_OK for 64KB.
-     * ArchDCacheFlush before ArchICacheEnable: csrw ICCTL may affect DCache,
-     * flush ensures dirty stack lines are written back to SRAM first. */
+    /* Disable ICache before changing size to avoid stale lines / DCache side
+     * effects. Sequence: disable ICache → flush ICache → flush DCache →
+     * change ICache size → enable ICache. After each enable, flush ICache
+     * to clear stale lines beyond the new size. Restore 32KB at the end. */
+    ArchDCacheFlush();
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_DISABLE) : "memory");
+    ArchICacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
+    ArchICacheFlush();
+    ArchDCacheFlush();
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_DISABLE) : "memory");
     ArchICacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_8KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
     ArchDCacheFlush();
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_DISABLE) : "memory");
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_16KB), LOS_OK, LOS_OK);
+    ArchICacheFlush();
+    ArchDCacheFlush();
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_DISABLE) : "memory");
     ArchICacheFlush();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
     ArchDCacheFlush();
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_DISABLE) : "memory");
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
+    ArchDCacheFlush();
     return LOS_OK;
 }
 

@@ -23,6 +23,7 @@ static_library("test_uart") {
     "It_los_uart_003.c",
     "It_los_uart_004.c",
     "It_los_uart_005.c",
+    "It_los_uart_006.c",
   ]
 
   include_dirs = [

@@ -26,4 +26,5 @@ VOID ItSuiteLosUart(VOID)
     ItLosUart003();
     ItLosUart004();
     ItLosUart005();
+    ItLosUart006();
 }

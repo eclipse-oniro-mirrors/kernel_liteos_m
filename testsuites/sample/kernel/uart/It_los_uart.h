@@ -65,5 +65,6 @@ VOID ItLosUart002(VOID);
 VOID ItLosUart003(VOID);
 VOID ItLosUart004(VOID);
 VOID ItLosUart005(VOID);
+VOID ItLosUart006(VOID);
 
 #endif /* _IT_LOS_UART_H */

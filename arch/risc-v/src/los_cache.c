@@ -6,11 +6,12 @@
  * Both cores share the same custom CSR space (0x7C0..0x7C7), alignment
  * helpers, and boundary-writeback logic. All multi-step maintenance
  * (DCacheOperate, ICacheFlushByVa, PrefetchEnable, full-cache Flush/Invalid)
- * uniformly uses LOS_IntLock/LOS_IntRestore for safety — this is a superset
- * of the 131 binary (no lock) and the 170 binary (with lock).
+ * uniformly uses LOS_IntLock/LOS_IntRestore for safety.
  *
- * Only Enable and full-invalidate symbol sets remain #ifdef-guarded because
- * 170 splits Enable into LinxM/NonLinxM and adds ArchICacheInvalid/InvAll.
+ * Enable: always provides LinxM + NonLinxM symbols; the inline wrapper
+ * in cache.h selects LinxM (170) or NonLinxM (131) via LOSCFG_ARCH_LINX_M.
+ * Full-invalidate: always provides Invalid (with IntLock) + InvAll (without);
+ * ArchDCacheInvalidate is kept as a compatibility alias for InvAll.
  */
 
 #include "arch/cache.h"
@@ -51,8 +52,7 @@ LITE_OS_SEC_TEXT_MINOR STATIC VOID DCacheOperate(UINTPTR baseAddr, UINT32 size, 
     }
 }
 
-/* ---- Enable (only divergent point: 170 splits LinxM/NonLinxM) ---- */
-#ifdef LOSCFG_ARCH_LINX_M
+/* ---- Enable: LinxM (fixed config) + NonLinxM (bext validation) ---- */
 
 LITE_OS_SEC_TEXT UINT32 ArchICacheEnableLinxM(CacheSize icclSize)
 {
@@ -102,29 +102,26 @@ LITE_OS_SEC_TEXT UINT32 ArchDCacheEnableNonLinxM(CacheSize dcclSize)
     return LOS_OK;
 }
 
-#else /* LinxCore131: single Enable, no LinxM/NonLinxM split */
-
+/* Public wrapper: selects LinxM or NonLinxM at compile time. */
 LITE_OS_SEC_TEXT UINT32 ArchICacheEnable(CacheSize icclSize)
 {
-    if (((UINT32)icclSize & ~CACHE_SIZE_LOW_MASK) != 0) {
-        return LOS_NOK;
-    }
-    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)icclSize | ICCTL_ENABLE) : "memory");
-    return LOS_OK;
+#ifdef LOSCFG_ARCH_LINX_M
+    return ArchICacheEnableLinxM(icclSize);
+#else
+    return ArchICacheEnableNonLinxM(icclSize);
+#endif
 }
 
 LITE_OS_SEC_TEXT UINT32 ArchDCacheEnable(CacheSize dcclSize)
 {
-    if (((UINT32)dcclSize & ~CACHE_SIZE_LOW_MASK) != 0) {
-        return LOS_NOK;
-    }
-    __asm__ __volatile__("csrw %0, %1" :: "i"(DCCTL), "r"((UINTPTR)dcclSize | DCCTL_ENABLE) : "memory");
-    return LOS_OK;
+#ifdef LOSCFG_ARCH_LINX_M
+    return ArchDCacheEnableLinxM(dcclSize);
+#else
+    return ArchDCacheEnableNonLinxM(dcclSize);
+#endif
 }
 
-#endif /* LOSCFG_ARCH_LINX_M */
-
-/* ---- PrefetchEnable (unified: IntLock + fence for both cores) ---- */
+/* ---- PrefetchEnable (unified: IntLock + fence) ---- */
 LITE_OS_SEC_TEXT UINT32 ArchICachePrefetchEnable(CachePrefLines iclValue)
 {
     if (iclValue > CACHE_PREF_8_LINES) {
@@ -152,7 +149,7 @@ LITE_OS_SEC_TEXT UINT32 ArchDCachePrefetchEnable(CachePrefLines iclValue, CacheP
     return LOS_OK;
 }
 
-/* ---- ByVa (unified: IntLock per line in DCacheOperate and ICacheFlushByVa) ---- */
+/* ---- ByVa (unified: IntLock per line) ---- */
 LITE_OS_SEC_TEXT VOID ArchDCacheFlushByVa(UINTPTR baseAddr, UINT32 size)
 {
     DCacheOperate(baseAddr, size, DCACHE_FLUSH_BY_VA);
@@ -220,7 +217,7 @@ LITE_OS_SEC_TEXT VOID ArchDCacheInvByAddr(UINTPTR startAddr, UINTPTR endAddr)
     ArchDCacheInvByVa(alignedStart, (UINT32)(alignedEnd - alignedStart));
 }
 
-/* ---- Full-cache (unified: IntLock for Flush; symbol set divergent) ---- */
+/* ---- Full-cache (unified: Invalid with IntLock, InvAll without) ---- */
 LITE_OS_SEC_TEXT VOID ArchICacheFlush(VOID)
 {
     UINT32 intSave = LOS_IntLock();
@@ -239,8 +236,6 @@ LITE_OS_SEC_TEXT VOID ArchDCacheFlush(VOID)
     LOS_IntRestore(intSave);
 }
 
-#ifdef LOSCFG_ARCH_LINX_M
-/* 170: Invalid (with IntLock) + InvAll (without) for ICache/DCache */
 LITE_OS_SEC_TEXT VOID ArchICacheInvalid(VOID)
 {
     UINT32 intSave = LOS_IntLock();
@@ -271,13 +266,11 @@ LITE_OS_SEC_TEXT VOID ArchDCacheInvAll(VOID)
     __asm__ __volatile__("fence" ::: "memory");
 }
 
-#else /* LinxCore131: single ArchDCacheInvalidate (no IntLock, matches binary) */
+/* Compatibility alias: ArchDCacheInvalidate = ArchDCacheInvAll (no IntLock) */
 LITE_OS_SEC_TEXT VOID ArchDCacheInvalidate(VOID)
 {
-    __asm__ __volatile__("csrw %0, %1" :: "i"(DCMAINT), "r"((UINTPTR)DCACHE_INV_BY_ALL) : "memory");
-    __asm__ __volatile__("fence" ::: "memory");
+    ArchDCacheInvAll();
 }
-#endif /* LOSCFG_ARCH_LINX_M */
 
 #ifdef __cplusplus
 #if __cplusplus

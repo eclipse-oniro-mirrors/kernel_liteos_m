@@ -12,8 +12,8 @@ static UINT32 TestCase(VOID)
     /* main() enabled ICache. Changing ICache size while active requires a
      * flush after each change to avoid stale lines beyond the new size
      * causing instruction access fault. Restore 32KB at the end.
-     * Note: 170 LinxM Enable ignores the size arg (fixed config), so
-     * CACHE_64KB returns LOS_OK on 170; only 131 rejects it. */
+     * Note: NonLinxM Enable (131) uses bext 0x155 which allows CACHE_64KB;
+     * LinxM Enable (170) ignores size arg. Both return LOS_OK for 64KB. */
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_8KB), LOS_OK, LOS_OK);
@@ -22,13 +22,7 @@ static UINT32 TestCase(VOID)
     ArchICacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
-#ifdef LOSCFG_ARCH_LINX_M
-    /* 170 LinxM: fixed config, ignores size arg, always returns LOS_OK */
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
-#else
-    /* 131: andi -7 check rejects CACHE_64KB */
-    ICUNIT_ASSERT_NOT_EQUAL(ArchICacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
-#endif
     ArchICacheFlush();
     return LOS_OK;
 }

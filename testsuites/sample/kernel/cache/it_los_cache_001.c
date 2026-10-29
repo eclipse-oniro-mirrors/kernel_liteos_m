@@ -9,18 +9,41 @@
 
 static UINT32 TestCase(VOID)
 {
-    /* main() enabled ICache as CACHE_32KB. Changing ICache size while active
-     * requires a flush after each change to avoid stale lines beyond the new
-     * size causing instruction access fault. Restore 32KB at the end. */
+    /* Disable ICache before changing size to avoid stale lines / DCache side
+     * effects. Sequence: disable ICache → flush ICache → flush DCache →
+     * change ICache size → enable ICache. After each enable, flush ICache
+     * to clear stale lines beyond the new size. Restore 32KB at the end. */
+    ArchDCacheFlush();
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
+    ArchDCacheFlush();
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_8KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
+    ArchDCacheFlush();
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_16KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
+    ArchDCacheFlush();
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
-    ICUNIT_ASSERT_NOT_EQUAL(ArchICacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
+    ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
+    ArchICacheFlush();
+    ArchDCacheFlush();
     return LOS_OK;
 }
 

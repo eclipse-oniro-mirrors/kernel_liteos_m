@@ -31,15 +31,10 @@ kernel_module("arch") {
     sources += [ "linx131/trap.S" ]
   }
 
-  # Cache maintenance: per-core implementation to accommodate interface
-  # differences (131 vs 170 have different symbol sets, Enable branches,
-  # CSR layouts). Gated by LOSCFG_ARCH_CACHE.
+  # Cache maintenance: unified for LinxCore131/170. Differences are handled
+  # via LOSCFG_ARCH_LINX_M (#ifdef in los_cache.c). Gated by LOSCFG_ARCH_CACHE.
   if (defined(LOSCFG_ARCH_CACHE)) {
-    if (defined(LOSCFG_ARCH_LINXCORE_131)) {
-      sources += [ "linx131/los_cache.c" ]
-    } else if (defined(LOSCFG_ARCH_LINXCORE_170)) {
-      # sources += [ "linx170/los_cache.c" ]  # TODO: 3322/DiTing cache
-    }
+    sources += [ "los_cache.c" ]
   }
   configs += [ "$LITEOSTOPDIR:warn_config" ]
 }

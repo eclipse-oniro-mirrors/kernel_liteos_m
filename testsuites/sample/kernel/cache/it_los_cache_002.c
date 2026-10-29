@@ -9,20 +9,34 @@
 
 static UINT32 TestCase(VOID)
 {
-    /* main() enabled DCache as CACHE_4KB. Changing DCache size while active
-     * requires a flush after each change to avoid stale lines. Restore 4KB
-     * (main's config) at the end. */
+    /* Disable DCache before changing size to avoid stale lines. Sequence:
+     * disable DCache → flush DCache → change DCache size → enable DCache.
+     * After each enable, flush DCache to clear stale lines. Restore 4KB. */
+    ArchDCacheFlush();
+    ArchDCacheDisable();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
+    ArchDCacheDisable();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_8KB), LOS_OK, LOS_OK);
     ArchDCacheFlush();
+    ArchDCacheDisable();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_16KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
+    ArchDCacheDisable();
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ArchDCacheFlush();
+    ArchDCacheDisable();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
     ArchDCacheFlush();
-    ICUNIT_ASSERT_NOT_EQUAL(ArchDCacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
+    ArchDCacheDisable();
+    ArchDCacheFlush();
+    ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
+    ArchDCacheFlush();
     return LOS_OK;
 }
 

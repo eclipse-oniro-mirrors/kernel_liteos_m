@@ -17,6 +17,9 @@
 #include "board.h"
 #include "watchdog.h"
 #include "dmesg_pri.h"
+#ifdef LOSCFG_ARCH_CACHE
+#include "arch/cache.h"
+#endif
 
 #if defined(LOSCFG_TEST)
 extern unsigned int LosAppInit(VOID);
@@ -156,6 +159,19 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
 
     pmp_init();
     PRINTK("main: pmp_init ok\n");
+
+#ifdef LOSCFG_ARCH_CACHE
+    /* Cache init: flush ICache + DCache before enable, matching fbb 3322
+     * OsCacheInit. Use ArchDCacheFlush() (writeback+invalidate, safe for
+     * stack) instead of ArchDCacheInvAll() (pure DCIV, no writeback). */
+    ArchICacheFlush();
+    ArchDCacheFlush();
+    (VOID)ArchICacheEnable(CACHE_64KB);
+    (VOID)ArchICachePrefetchEnable(CACHE_PREF_1_LINES);
+    (VOID)ArchDCacheEnable(CACHE_64KB);
+    (VOID)ArchDCachePrefetchEnable(CACHE_PREF_1_LINES, CACHE_PREF_1_LINES);
+    PRINTK("main: cache_init ok\n");
+#endif
 
     hi3322_board_init();
 

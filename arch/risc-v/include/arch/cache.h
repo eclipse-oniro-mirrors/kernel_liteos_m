@@ -94,6 +94,19 @@ typedef enum {
 #define IAPEN                    0x1
 #define SAPEN                    (0x1U << 4)
 
+/* APREFI bit layout: bit0=IAPEN, bits[3:1]=ICL (prefetch line count) */
+#define APREFI_ICL_SHIFT         1
+
+/* APREFD bit layout: bit0=IAPEN, bits[3:1]=ICL, bit4=SAPEN, bits[7:5]=SCL */
+#define APREFD_ICL_SHIFT         1
+#define APREFD_SCL_SHIFT         5
+
+/* Bitmask of valid CacheSize values: 0x155 = bits 0,2,4,6,8 set
+ * (CACHE_4KB=0, CACHE_8KB=2, CACHE_16KB=4, CACHE_32KB=6, CACHE_64KB=8) */
+#define CACHE_SIZE_MASK          0x155U
+/* Low-3-bit mask for CacheSize validation (131 style): rejects CACHE_64KB */
+#define CACHE_SIZE_LOW_MASK      0x7U
+
 /**
  * @ingroup cache
  * @brief enable ICache.

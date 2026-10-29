@@ -44,8 +44,8 @@ LITE_OS_SEC_TEXT_MINOR STATIC VOID DCacheOperate(UINTPTR baseAddr, UINT32 size, 
     UINTPTR addr;
     for (addr = alignedBase; addr < end; addr += CACHE_LINE_SIZE) {
         UINT32 intSave = LOS_IntLock();
-        __asm__ __volatile__("csrw 0x7c5, %0" :: "r"(addr) : "memory"); /* DCINCVA */
-        __asm__ __volatile__("csrw 0x7c3, %0" :: "r"(op) : "memory");   /* DCMAINT */
+        __asm__ __volatile__("csrw %0, %1" :: "i"(DCINCVA), "r"(addr) : "memory");
+        __asm__ __volatile__("csrw %0, %1" :: "i"(DCMAINT), "r"(op) : "memory");
         __asm__ __volatile__("fence" ::: "memory");
         LOS_IntRestore(intSave);
     }
@@ -59,7 +59,7 @@ LITE_OS_SEC_TEXT UINT32 ArchICacheEnableLinxM(CacheSize icclSize)
     (VOID)icclSize;
     UINT32 intSave = LOS_IntLock();
     __asm__ __volatile__("fence" ::: "memory");
-    __asm__ __volatile__("csrw 0x7c0, %0" :: "r"((UINTPTR)1) : "memory"); /* ICCTL */
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)ICCTL_ENABLE) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
     LOS_IntRestore(intSave);
     return LOS_OK;
@@ -67,12 +67,12 @@ LITE_OS_SEC_TEXT UINT32 ArchICacheEnableLinxM(CacheSize icclSize)
 
 LITE_OS_SEC_TEXT UINT32 ArchICacheEnableNonLinxM(CacheSize icclSize)
 {
-    if ((((UINT32)1 << icclSize) & 0x155U) == 0) {
+    if ((((UINT32)1 << icclSize) & CACHE_SIZE_MASK) == 0) {
         return LOS_NOK;
     }
     UINT32 intSave = LOS_IntLock();
     __asm__ __volatile__("fence" ::: "memory");
-    __asm__ __volatile__("csrw 0x7c0, %0" :: "r"((UINTPTR)icclSize | ICCTL_ENABLE) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)icclSize | ICCTL_ENABLE) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
     LOS_IntRestore(intSave);
     return LOS_OK;
@@ -83,7 +83,7 @@ LITE_OS_SEC_TEXT UINT32 ArchDCacheEnableLinxM(CacheSize dcclSize)
     (VOID)dcclSize;
     UINT32 intSave = LOS_IntLock();
     __asm__ __volatile__("fence" ::: "memory");
-    __asm__ __volatile__("csrw 0x7c1, %0" :: "r"((UINTPTR)1) : "memory"); /* DCCTL */
+    __asm__ __volatile__("csrw %0, %1" :: "i"(DCCTL), "r"((UINTPTR)DCCTL_ENABLE) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
     LOS_IntRestore(intSave);
     return LOS_OK;
@@ -91,12 +91,12 @@ LITE_OS_SEC_TEXT UINT32 ArchDCacheEnableLinxM(CacheSize dcclSize)
 
 LITE_OS_SEC_TEXT UINT32 ArchDCacheEnableNonLinxM(CacheSize dcclSize)
 {
-    if ((((UINT32)1 << dcclSize) & 0x155U) == 0) {
+    if ((((UINT32)1 << dcclSize) & CACHE_SIZE_MASK) == 0) {
         return LOS_NOK;
     }
     UINT32 intSave = LOS_IntLock();
     __asm__ __volatile__("fence" ::: "memory");
-    __asm__ __volatile__("csrw 0x7c1, %0" :: "r"((UINTPTR)dcclSize | DCCTL_ENABLE) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(DCCTL), "r"((UINTPTR)dcclSize | DCCTL_ENABLE) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
     LOS_IntRestore(intSave);
     return LOS_OK;
@@ -106,19 +106,19 @@ LITE_OS_SEC_TEXT UINT32 ArchDCacheEnableNonLinxM(CacheSize dcclSize)
 
 LITE_OS_SEC_TEXT UINT32 ArchICacheEnable(CacheSize icclSize)
 {
-    if (((UINT32)icclSize & ~0x7U) != 0) {
+    if (((UINT32)icclSize & ~CACHE_SIZE_LOW_MASK) != 0) {
         return LOS_NOK;
     }
-    __asm__ __volatile__("csrw 0x7c0, %0" :: "r"((UINTPTR)icclSize | ICCTL_ENABLE) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICCTL), "r"((UINTPTR)icclSize | ICCTL_ENABLE) : "memory");
     return LOS_OK;
 }
 
 LITE_OS_SEC_TEXT UINT32 ArchDCacheEnable(CacheSize dcclSize)
 {
-    if (((UINT32)dcclSize & ~0x7U) != 0) {
+    if (((UINT32)dcclSize & ~CACHE_SIZE_LOW_MASK) != 0) {
         return LOS_NOK;
     }
-    __asm__ __volatile__("csrw 0x7c1, %0" :: "r"((UINTPTR)dcclSize | DCCTL_ENABLE) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(DCCTL), "r"((UINTPTR)dcclSize | DCCTL_ENABLE) : "memory");
     return LOS_OK;
 }
 
@@ -131,7 +131,8 @@ LITE_OS_SEC_TEXT UINT32 ArchICachePrefetchEnable(CachePrefLines iclValue)
         return LOS_NOK;
     }
     UINT32 intSave = LOS_IntLock();
-    __asm__ __volatile__("csrw 0x7c6, %0" :: "r"((UINTPTR)iclValue << 1 | IAPEN) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(APREFI),
+                         "r"((UINTPTR)iclValue << APREFI_ICL_SHIFT | IAPEN) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
     LOS_IntRestore(intSave);
     return LOS_OK;
@@ -142,9 +143,10 @@ LITE_OS_SEC_TEXT UINT32 ArchDCachePrefetchEnable(CachePrefLines iclValue, CacheP
     if (iclValue > CACHE_PREF_8_LINES || sclValue > CACHE_PREF_8_LINES) {
         return LOS_NOK;
     }
-    UINTPTR cfg = ((UINTPTR)sclValue << 5) | ((UINTPTR)iclValue << 1) | IAPEN | SAPEN;
+    UINTPTR cfg = ((UINTPTR)sclValue << APREFD_SCL_SHIFT) |
+                  ((UINTPTR)iclValue << APREFD_ICL_SHIFT) | IAPEN | SAPEN;
     UINT32 intSave = LOS_IntLock();
-    __asm__ __volatile__("csrw 0x7c7, %0" :: "r"(cfg) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(APREFD), "r"(cfg) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
     LOS_IntRestore(intSave);
     return LOS_OK;
@@ -168,8 +170,8 @@ LITE_OS_SEC_TEXT VOID ArchICacheFlushByVa(UINTPTR baseAddr, UINT32 size)
     UINTPTR addr;
     for (addr = alignedBase; addr < end; addr += CACHE_LINE_SIZE) {
         UINT32 intSave = LOS_IntLock();
-        __asm__ __volatile__("csrw 0x7c4, %0" :: "r"(addr) : "memory"); /* ICINCVA */
-        __asm__ __volatile__("csrw 0x7c2, %0" :: "r"((UINTPTR)ICACHE_BY_VA) : "memory"); /* ICMAINT */
+        __asm__ __volatile__("csrw %0, %1" :: "i"(ICINCVA), "r"(addr) : "memory");
+        __asm__ __volatile__("csrw %0, %1" :: "i"(ICMAINT), "r"((UINTPTR)ICACHE_BY_VA) : "memory");
         __asm__ __volatile__("fence" ::: "memory");
         LOS_IntRestore(intSave);
     }
@@ -223,7 +225,7 @@ LITE_OS_SEC_TEXT VOID ArchICacheFlush(VOID)
 {
     UINT32 intSave = LOS_IntLock();
     __asm__ __volatile__("fence" ::: "memory");
-    __asm__ __volatile__("csrw 0x7c2, %0" :: "r"((UINTPTR)ICACHE_BY_ALL) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICMAINT), "r"((UINTPTR)ICACHE_BY_ALL) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
     LOS_IntRestore(intSave);
 }
@@ -232,7 +234,7 @@ LITE_OS_SEC_TEXT VOID ArchDCacheFlush(VOID)
 {
     UINT32 intSave = LOS_IntLock();
     __asm__ __volatile__("fence" ::: "memory");
-    __asm__ __volatile__("csrw 0x7c3, %0" :: "r"((UINTPTR)DCACHE_FLUSH_ALL) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(DCMAINT), "r"((UINTPTR)DCACHE_FLUSH_ALL) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
     LOS_IntRestore(intSave);
 }
@@ -243,14 +245,14 @@ LITE_OS_SEC_TEXT VOID ArchICacheInvalid(VOID)
 {
     UINT32 intSave = LOS_IntLock();
     __asm__ __volatile__("fence" ::: "memory");
-    __asm__ __volatile__("csrw 0x7c2, %0" :: "r"((UINTPTR)ICACHE_BY_ALL) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICMAINT), "r"((UINTPTR)ICACHE_BY_ALL) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
     LOS_IntRestore(intSave);
 }
 
 LITE_OS_SEC_TEXT VOID ArchICacheInvAll(VOID)
 {
-    __asm__ __volatile__("csrw 0x7c2, %0" :: "r"((UINTPTR)ICACHE_BY_ALL) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(ICMAINT), "r"((UINTPTR)ICACHE_BY_ALL) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
 }
 
@@ -258,21 +260,21 @@ LITE_OS_SEC_TEXT VOID ArchDCacheInvalid(VOID)
 {
     UINT32 intSave = LOS_IntLock();
     __asm__ __volatile__("fence" ::: "memory");
-    __asm__ __volatile__("csrw 0x7c3, %0" :: "r"((UINTPTR)DCACHE_INV_BY_ALL) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(DCMAINT), "r"((UINTPTR)DCACHE_INV_BY_ALL) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
     LOS_IntRestore(intSave);
 }
 
 LITE_OS_SEC_TEXT VOID ArchDCacheInvAll(VOID)
 {
-    __asm__ __volatile__("csrw 0x7c3, %0" :: "r"((UINTPTR)DCACHE_INV_BY_ALL) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(DCMAINT), "r"((UINTPTR)DCACHE_INV_BY_ALL) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
 }
 
 #else /* LinxCore131: single ArchDCacheInvalidate (no IntLock, matches binary) */
 LITE_OS_SEC_TEXT VOID ArchDCacheInvalidate(VOID)
 {
-    __asm__ __volatile__("csrw 0x7c3, %0" :: "r"((UINTPTR)DCACHE_INV_BY_ALL) : "memory");
+    __asm__ __volatile__("csrw %0, %1" :: "i"(DCMAINT), "r"((UINTPTR)DCACHE_INV_BY_ALL) : "memory");
     __asm__ __volatile__("fence" ::: "memory");
 }
 #endif /* LOSCFG_ARCH_LINX_M */

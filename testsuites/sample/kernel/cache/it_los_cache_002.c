@@ -9,9 +9,11 @@
 
 static UINT32 TestCase(VOID)
 {
-    /* main() enabled DCache as CACHE_4KB. Changing DCache size while active
-     * requires a flush after each change to avoid stale lines. Restore 4KB
-     * (main's config) at the end. */
+    /* main() enabled DCache. Changing DCache size while active requires a
+     * flush after each change to avoid stale lines. Restore 4KB (main's
+     * config) at the end.
+     * Note: 170 LinxM Enable ignores the size arg (fixed config), so
+     * CACHE_64KB returns LOS_OK on 170; only 131 rejects it. */
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_8KB), LOS_OK, LOS_OK);
@@ -22,7 +24,14 @@ static UINT32 TestCase(VOID)
     ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
     ArchDCacheFlush();
+#ifdef LOSCFG_ARCH_LINX_M
+    /* 170 LinxM: fixed config, ignores size arg, always returns LOS_OK */
+    ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
+#else
+    /* 131: andi -7 check rejects CACHE_64KB */
     ICUNIT_ASSERT_NOT_EQUAL(ArchDCacheEnable(CACHE_64KB), LOS_OK, LOS_OK);
+#endif
+    ArchDCacheFlush();
     return LOS_OK;
 }
 

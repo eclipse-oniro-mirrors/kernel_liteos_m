@@ -16,7 +16,6 @@
 #include "it_los_hwi.h"
 #include "arch/mmu.h"
 
-#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
 
 /* 用例简要描述: GICD 锁定/解锁往返的页表池零消耗(T6/R1) - 与 GICR 同 L3 表
  * 共生, 往返只清/填 PTE 不动页表池, 三点统计对比四字段不变。 */
@@ -81,9 +80,6 @@ EXIT:
  */
 VOID ItLosHwi056(VOID)
 {
-#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
     /* 页表池往返零消耗 */
     TEST_ADD_CASE("ItLosHwi056", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL1, TEST_FUNCTION);
-#endif
 }
-#endif /* LOSCFG_ARM_GIC_V3 && LOSCFG_MCS */

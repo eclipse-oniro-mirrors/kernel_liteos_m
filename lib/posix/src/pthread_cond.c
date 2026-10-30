@@ -156,7 +156,13 @@ int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
         return ENOMEM;
     }
 
-    (VOID)pthread_mutex_init(cond->mutex, NULL);
+    ret = pthread_mutex_init(cond->mutex, NULL);
+    if (ret != 0) {
+        free(cond->mutex);
+        cond->mutex = NULL;
+        (VOID)LOS_EventDestroy(&(cond->event));
+        return ret;
+    }
 
     cond->value = 0;
     (VOID)pthread_mutex_lock(cond->mutex);

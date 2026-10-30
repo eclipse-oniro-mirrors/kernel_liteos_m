@@ -58,11 +58,11 @@ static VOID *Pipe005Reader(VOID *arg)
         LOS_TaskDelay(1);
     }
 
-    /* 再延时确保主任务已真正挂入 writeSem 等待(pipe.c:585) */
+    /* 再延时确保主任务已真正挂入 writeSem 等待(pipe.c:583) */
     LOS_TaskDelay(PIPE005_READER_DELAY);
 
     /* 读走 64B: 缓冲非空(roll==TRUE)不走读阻塞分支, 读后 PIPE_RW_POST(writeSem)
-     * (pipe.c:549) 唤醒阻塞的写者; 读出内容应为首轮写入的前 64B */
+     * (pipe.c:547) 唤醒阻塞的写者; 读出内容应为首轮写入的前 64B */
     ret = read(g_pipe005Fds[0], rbuf, PIPE005_MORE_LEN);
     ICUNIT_GOTO_EQUAL(ret, (ssize_t)PIPE005_MORE_LEN, ret, EXIT);
     ICUNIT_GOTO_EQUAL(memcmp(rbuf, g_pipe005Fill, PIPE005_MORE_LEN), 0, rbuf[0], EXIT);
@@ -102,7 +102,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret32, 0, ret32, EXIT_CLOSE);
 
     /* 缓冲已满再写 64B: PipeRingbufferWrite 返回 0, 走写满阻塞分支
-     * (pipe.c:579-591: POST readSem + PIPE_RW_WAIT/pend writeSem), 等子任务读走数据唤醒 */
+     * (pipe.c:578-586: POST readSem + PIPE_RW_WAIT/pend writeSem), 等子任务读走数据唤醒 */
     g_pipe005Ready = 1;
     tickStart = LOS_TickCountGet();
     ret = write(g_pipe005Fds[1], g_pipe005More, PIPE005_MORE_LEN);
@@ -142,7 +142,7 @@ EXIT:
  * @tc.name: ItPosixPipe005
  * @tc.desc: pipe 写满阻塞唤醒(主任务写满后继续写阻塞, 子任务读走数据腾空间唤醒)
  * @tc.type: FUNC
- * 覆盖目标: pipe.c:577-591（PipeWrite 写满阻塞等待分支, gcov 第 1 轮）
+ * 覆盖目标: pipe.c:575-588（PipeWrite 写满阻塞等待分支, gcov 第 1 轮）
  */
 VOID ItPosixPipe005(VOID)
 {

@@ -49,12 +49,13 @@ struct PollWaitQueue {
 
 struct PollTable;
 struct PollWaitNode {
-    LOS_DL_LIST node;
+    LOS_DL_LIST wqNode;
+    LOS_DL_LIST tableNode;
     struct PollTable *table;
 };
 
 struct PollTable {
-    struct PollWaitNode *node;
+    LOS_DL_LIST node;
     PollEvent event;
     UINT32 sem;
     BOOL addQueueFlag;

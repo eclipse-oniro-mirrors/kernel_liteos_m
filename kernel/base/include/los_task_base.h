@@ -227,7 +227,6 @@ typedef struct LosTaskCB {
 #ifdef LOSCFG_TASK_STRUCT_EXTENSION
     LOSCFG_TASK_STRUCT_EXTENSION;                         /**< Task extension field */
 #endif
-    void *rwList;
 } LosTaskCB;
 
 extern SPIN_LOCK_S g_taskSpin;

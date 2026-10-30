@@ -239,12 +239,7 @@ LITE_TEST_CASE(PosixStdlibStrtodTest, testStdlibStrtoullRange001, Function | Med
     return 0;
 }
 
-/* 用例简要描述: sscanf 宽度截断跳空白与十六进制回退 */
-/* BUG_13 隔离: vsscanf 栈上伪 FILE{.lock=-1} 经移植版 __lockfile 直接
- * pthread_mutex_lock((pthread_mutex_t *)-1) 硬故障(qemu Type=4,
- * FaultAddr 0xfffffffc), 修复后置 1 恢复(LIBC_BUG_13_VSSCANF_LOCK)。
- * 同族 __shgetc 覆盖由 testStdioFscanfFile001(fopen 真实 FILE, 锁有效)承接。 */
-#if defined(LIBC_BUG_13_VSSCANF_LOCK) && LIBC_BUG_13_VSSCANF_LOCK == 1
+/* 用例简要描述: sscanf 宽度截断跳空白与裸 0x 前缀匹配失败（musl 语义） */
 LITE_TEST_CASE(PosixStdlibStrtodTest, testStdlibSscanfInt001, Function | MediumTest | Level1)
 {
     int value = 0;
@@ -260,15 +255,21 @@ LITE_TEST_CASE(PosixStdlibStrtodTest, testStdlibSscanfInt001, Function | MediumT
     ICUNIT_ASSERT_EQUAL(ret, 1, ret);
     ICUNIT_ASSERT_EQUAL(value, 42, value);
 
-    /* "%x" 输入 "0x"：intscan pok==0 路径（:48）回退返回 0 */
+    /* "%x" 输入 "0x"：intscan pok==0 路径（:48）—— __shgetc EOF 分支已置
+     * shlim=-1（shgetc.c:26），shunget 宏空转（shgetc.h:30），shlim(f,0) 又将
+     * shcnt 基准重置到当前位置（shgetc.c:11）使 shcnt 归 0，vfscanf 判
+     * match_fail。musl 语义：裸 "0x" 前缀整体判匹配失败，返回 0 且不赋值
+     * （glibc/POSIX "最长可匹配前缀" 语义则消费 "0" 返回 1，此处不适用） */
+    value = 42;
     ret = sscanf("0x", "%x", &value);
-    ICUNIT_ASSERT_EQUAL(ret, 1, ret);
-    ICUNIT_ASSERT_EQUAL(value, 0, value);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ICUNIT_ASSERT_EQUAL(value, 42, value); /* match_fail 路径不执行 store_int */
 
-    /* "0xg"：'g' 非十六进制数字，同样回退为 0 */
+    /* "0xg"：'g' 非十六进制数字，同样走 match_fail 返回 0 */
+    value = 42;
     ret = sscanf("0xg", "%x", &value);
-    ICUNIT_ASSERT_EQUAL(ret, 1, ret);
-    ICUNIT_ASSERT_EQUAL(value, 0, value);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ICUNIT_ASSERT_EQUAL(value, 42, value);
 
     /* 赋值抑制 "*"：跳过 123 读 456 */
     ret = sscanf("123 456", "%*d %d", &value);
@@ -276,7 +277,6 @@ LITE_TEST_CASE(PosixStdlibStrtodTest, testStdlibSscanfInt001, Function | MediumT
     ICUNIT_ASSERT_EQUAL(value, 456, value);
     return 0;
 }
-#endif /* LIBC_BUG_13_VSSCANF_LOCK */
 
 RUN_TEST_SUITE(PosixStdlibStrtodTest);
 
@@ -287,9 +287,7 @@ void PosixStdlibStrtodFuncTest(void)
     RUN_ONE_TESTCASE(testStdlibStrtodLiteral001);
     RUN_ONE_TESTCASE(testStdlibStrtodForm001);
     RUN_ONE_TESTCASE(testStdlibStrtoullRange001);
-#if defined(LIBC_BUG_13_VSSCANF_LOCK) && LIBC_BUG_13_VSSCANF_LOCK == 1
     RUN_ONE_TESTCASE(testStdlibSscanfInt001);
-#endif
 
     return;
 }

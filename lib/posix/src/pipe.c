@@ -44,7 +44,6 @@
 #define PIPE_DEV_NUM            32
 #define PIPE_FD_NUM             (PIPE_DEV_NUM << 1)
 #define PIPE_DEV_NAME_MAX       32
-#define PIPE_DEV_FD_BITMAP_LEN  ((PIPE_FD_NUM >> 5) + 1)
 #define PIPE_DEV_BUF_SIZE       1024
 #define PIPE_READ               1
 #define PIPE_WRITE              2
@@ -110,7 +109,6 @@ STATIC LOS_DL_LIST g_devList = {&g_devList, &g_devList};
 STATIC UINT32 g_devListMutex = LOSCFG_BASE_IPC_MUX_LIMIT;
 
 STATIC UINT32 g_devNumBitmap = 0;
-STATIC UINT32 g_devFdBitmap[PIPE_DEV_FD_BITMAP_LEN] = {0};
 STATIC struct PipeFdDev g_devFd[PIPE_FD_NUM] = {0};
 STATIC UINT32 g_devFdMutex = LOSCFG_BASE_IPC_MUX_LIMIT;
 STATIC INT32 g_devStartFd = 0;
@@ -310,27 +308,23 @@ STATIC INT32 PipeDevUnregister(struct PipeDev *dev)
 
 STATIC INT32 PipeDevFdAlloc(VOID)
 {
-    UINT32 i = 0;
-    INT32 fd = 0;
+    INT32 fd;
 
-    while (g_devFdBitmap[i] & (1U << fd)) {
-        fd++;
-        if (fd == 32) { /* 32: bit index max is 32. */
-            i++;
-            fd = 0;
-        }
-
-        if (i == PIPE_DEV_FD_BITMAP_LEN) {
-            return -1;
+    for (fd = 0; fd < PIPE_FD_NUM; fd++) {
+        if (g_devFd[fd].dev == NULL) {
+            return fd;
         }
     }
-    g_devFdBitmap[i] |= (1U << fd);
-    return (fd + (i << 5)); /* 5: i is the multiple of 32. */
+    return -1;
 }
 
 STATIC VOID PipeDevFdFree(INT32 fd)
 {
-    g_devFdBitmap[fd >> 5] &= ~(1U << (fd & 0x1F)); /* 5: fd is the multiple of 32. */
+    if ((fd < 0) || (fd >= PIPE_FD_NUM)) {
+        return;
+    }
+    g_devFd[fd].dev = NULL;
+    g_devFd[fd].openFlag = FALSE;
 }
 
 STATIC VOID PipePollNotify(struct PipeDev *dev, PollEvent event)
@@ -365,13 +359,13 @@ INT32 PipeOpen(const CHAR *path, INT32 openFlag, INT32 minFd)
         return -1;
     }
 
+    (VOID)LOS_MuxPend(g_devFdMutex, LOS_WAIT_FOREVER);
     fd = PipeDevFdAlloc();
     if (fd < 0) {
+        (VOID)LOS_MuxPost(g_devFdMutex);
         errno = EBUSY;
         return -1;
     }
-
-    (VOID)LOS_MuxPend(g_devFdMutex, LOS_WAIT_FOREVER);
     g_devFd[fd].dev = dev;
     g_devFd[fd].openFlag = openFlag;
     g_devStartFd = minFd;
@@ -389,7 +383,9 @@ INT32 PipeOpen(const CHAR *path, INT32 openFlag, INT32 minFd)
         dev->ringBuffer = LOS_MemAlloc(OS_SYS_MEM_ADDR, PIPE_DEV_BUF_SIZE);
         if (dev->ringBuffer == NULL) {
             PIPE_DEV_UNLOCK(dev->mutex);
+            (VOID)LOS_MuxPend(g_devFdMutex, LOS_WAIT_FOREVER);
             PipeDevFdFree(fd);
+            (VOID)LOS_MuxPost(g_devFdMutex);
             errno = ENOMEM;
             return -1;
         }
@@ -433,8 +429,6 @@ INT32 PipeClose(INT32 fd)
     }
     fd -= g_devStartFd;
     openFlag = g_devFd[fd].openFlag;
-    g_devFd[fd].dev = NULL;
-    g_devFd[fd].openFlag = FALSE;
     PipeDevFdFree(fd);
     (VOID)LOS_MuxPost(g_devFdMutex);
 

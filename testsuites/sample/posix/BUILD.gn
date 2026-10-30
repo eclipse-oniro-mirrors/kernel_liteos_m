@@ -243,6 +243,7 @@ static_library("test_posix") {
     "rwlock/It_posix_rwlock_078.c",
     "rwlock/It_posix_rwlock_079.c",
     "rwlock/It_posix_rwlock_080.c",
+    "rwlock/It_posix_rwlock_081.c",
     "time/It_posix_time.c",
     "time/It_posix_time_001.c",
     "time/It_posix_time_002.c",

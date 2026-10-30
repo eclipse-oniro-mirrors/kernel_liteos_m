@@ -29,6 +29,10 @@
  */
 
 #include "posix_test.h"
+extern void PosixPthreadRwlockTrySharedFuncTest(void);
+#ifdef LOSCFG_POSIX_PIPE_API
+extern void PosixIoPollFuncTest(void);
+#endif
 #if (LOSCFG_FS_YAFFS == 1)
 extern VOID PosixFsYaffsTest(VOID);
 #endif
@@ -36,6 +40,10 @@ extern void PosixStdlibStrtodFuncTest(void);
 extern void PosixLocaleFuncTest(void);
 void ItSuitePosixUnittest(void)
 {
+    PosixPthreadRwlockTrySharedFuncTest();
+#ifdef LOSCFG_POSIX_PIPE_API
+    PosixIoPollFuncTest();
+#endif
     PosixCtypeFuncTest();
     PosixIsdigitFuncTest();
     PosixIslowerFuncTest();

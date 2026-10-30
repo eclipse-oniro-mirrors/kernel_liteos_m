@@ -15,7 +15,6 @@
  */
 #include "it_los_hwi.h"
 
-#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
 
 /* 用例简要描述: 锁定态 GICD 访问 fault 注入(T2/A1 板级专项)。
  * 必须为测试序列最后一个用例: 注入的 Translation Fault 经 GICD-locked
@@ -67,8 +66,5 @@ EXIT:
  */
 VOID ItLosHwi057(VOID)
 {
-#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
     TEST_ADD_CASE("ItLosHwi057", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL1, TEST_FUNCTION);
-#endif
 }
-#endif /* LOSCFG_ARM_GIC_V3 && LOSCFG_MCS */

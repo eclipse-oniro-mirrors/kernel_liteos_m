@@ -15,7 +15,6 @@
  */
 #include "it_los_hwi.h"
 
-#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
 
 /* 循环次数: 自动化用例内取 100 控制时长(全量套件场景);
  * 1000 次压力循环为上板专项(T6 全量口径)。 */
@@ -91,9 +90,6 @@ EXIT:
  */
 VOID ItLosHwi054(VOID)
 {
-#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
     /* 状态机往返/幂等/压力循环 */
     TEST_ADD_CASE("ItLosHwi054", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL1, TEST_FUNCTION);
-#endif
 }
-#endif /* LOSCFG_ARM_GIC_V3 && LOSCFG_MCS */

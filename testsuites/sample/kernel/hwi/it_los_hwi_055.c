@@ -16,7 +16,6 @@
 #include "it_los_hwi.h"
 #include "los_tick.h"
 
-#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
 
 /* Sleep 2x and assert >= 1x: the upstream (evolve) tick path has the
  * known mid-period-origin phase shortfall (TaskDelay(N) may only sleep
@@ -82,9 +81,6 @@ EXIT:
  */
 VOID ItLosHwi055(VOID)
 {
-#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
     /* 锁定期间中断投递独立性 */
     TEST_ADD_CASE("ItLosHwi055", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL1, TEST_FUNCTION);
-#endif
 }
-#endif /* LOSCFG_ARM_GIC_V3 && LOSCFG_MCS */

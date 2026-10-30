@@ -126,7 +126,7 @@ UINT64 OsSchedGetNextExpireTime(UINT64 startTime)
     if (rollSum == OS_SORT_LINK_UINT64_MAX) {
         return OS_SCHED_MAX_RESPONSE_TIME - g_tickResponsePrecision;
     }
-    return startTime + rollSum;
+    return startTime + OS_SYS_TICK_TO_CYCLE(rollSum);
 }
 
 STATIC INLINE UINT32 OsTickRollSumToTicks(UINT64 rollSum)

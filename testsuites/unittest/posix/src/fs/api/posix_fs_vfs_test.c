@@ -41,6 +41,7 @@
 #include "posix_fs_test.h"
 #include "los_fs.h"
 #include "vfs_operations.h"
+#include "vfs_maps.h"   /* VfsFsMapGet / struct FsMap.fsRefs: 引用计数回归观测口 */
 #include <sys/statfs.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -61,6 +62,7 @@ static volatile int g_vfsTsReaddirEof = 0;    /* readdir 第二次返回 EOF */
 static volatile off_t g_vfsTsLseekMagic = -1; /* lseek(SEEK_SET, magic) 返回失败 */
 static volatile int g_vfsTsLseekCurFail = 0;  /* 置 1 时 lseek(SEEK_CUR, 0) 返回失败 */
 static volatile int g_vfsTsMountRo = 0;       /* mount 后将 mp 置为只读 */
+static volatile int g_vfsTsMountFail = 0;     /* mount 操作返回失败(驱动 mount errout 路径) */
 static char g_vfsTsBuf[VFS_TEST_BUF_LEN];     /* 共享文件内容缓冲 */
 static int g_vfsTsMountCnt = 0;
 
@@ -70,6 +72,10 @@ static int VfsTsMount(struct MountPoint *mp, unsigned long mountflags, const voi
     (void)mountflags;
     (void)data;
     g_vfsTsMountCnt++;
+    if (g_vfsTsMountFail) {
+        errno = EFAULT; /* 模拟底层挂载失败: mount() 走 errout */
+        return -1;
+    }
     if (g_vfsTsMountRo) {
         mp->mWriteEnable = 0; /* 模拟只读挂载, 覆盖 mWriteEnable=FALSE 分支 */
     }
@@ -512,6 +518,109 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsVfsUmount2, Function | MediumTest | L
     ret = umount2(NULL, MNT_FORCE);
     ICUNIT_ASSERT_EQUAL(ret, -1, ret);
 
+    return POSIX_FS_NO_ERROR;
+}
+
+/* 保证 "testfs" 已注册(单跑本文件用例时 TestFsVfsRegister 可能未执行) */
+static struct FsMap *VfsTsEnsureTestFs(void)
+{
+    struct FsMap *fs = VfsFsMapGet("testfs");
+
+    if (fs == NULL) {
+        if (LOS_FsRegister("testfs", &g_vfsTsMops, &g_vfsTsFops, NULL) != 0) {
+            return NULL;
+        }
+        fs = VfsFsMapGet("testfs");
+    }
+    return fs;
+}
+
+/* 用例简要描述: 挂载点内子路径不得被 umount/umount2/remount 命中父挂载点 */
+/* *
+ * @tc.number   SUB_KERNEL_FS_VFS_UMOUNT_SUBPATH
+ * @tc.name     VfsUmountSubPath
+ * @tc.desc     umount/umount2/MS_REMOUNT 只接受挂载点根, 子路径返回 EINVAL 且不卸载父挂载点
+ */
+LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsVfsUmountSubPath, Function | MediumTest | Level1)
+{
+    int ret;
+
+    ICUNIT_ASSERT_NOT_EQUAL(VfsTsEnsureTestFs(), NULL, -1);
+
+    /* 独立挂载点: 避免误卸载板级 /littlefs 造成后续用例连锁失败 */
+    ret = mount(NULL, "/vfsSub", "testfs", 0, NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+
+    /* umount 挂载点内子路径: EINVAL */
+    errno = 0;
+    ret = umount("/vfsSub/child");
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    ICUNIT_ASSERT_EQUAL(errno, EINVAL, errno);
+
+    /* 冗余斜杠变体同样不得命中挂载点 */
+    errno = 0;
+    ret = umount("//vfsSub//child");
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    ICUNIT_ASSERT_EQUAL(errno, EINVAL, errno);
+
+    /* umount2 同款 */
+    errno = 0;
+    ret = umount2("/vfsSub/child", 0);
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    ICUNIT_ASSERT_EQUAL(errno, EINVAL, errno);
+
+    /* MS_REMOUNT 子路径不得命中父挂载点(亦不触发底层 mount 回调) */
+    g_vfsTsMountCnt = 0;
+    errno = 0;
+    ret = mount(NULL, "/vfsSub/child", "testfs", MS_REMOUNT, NULL);
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    ICUNIT_ASSERT_EQUAL(errno, EINVAL, errno);
+    ICUNIT_ASSERT_EQUAL(g_vfsTsMountCnt, 0, g_vfsTsMountCnt);
+
+    /* 前缀近似但非挂载点: ENOENT */
+    errno = 0;
+    ret = umount("/vfsSub2");
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
+
+    /* 尾斜杠等价于挂载点根: 卸载成功(同时证明父挂载点未被上面的误操作摘除) */
+    ret = umount("/vfsSub/");
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    return POSIX_FS_NO_ERROR;
+}
+
+/* 用例简要描述: fsRefs 仅统计成功挂载, 失败路径不得残留计数 */
+/* *
+ * @tc.number   SUB_KERNEL_FS_VFS_FSREFS_SYMMETRIC
+ * @tc.name     VfsFsRefsSymmetric
+ * @tc.desc     mount 失败不改变 fsRefs, 挂载成功 +1 与卸载成功 -1 对称
+ */
+LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsVfsFsRefsSymmetric, Function | MediumTest | Level1)
+{
+    int ret;
+    struct FsMap *fs = VfsTsEnsureTestFs();
+    UINT32 before;
+
+    ICUNIT_ASSERT_NOT_EQUAL(fs, NULL, -1);
+    before = fs->fsRefs;
+
+    /* 两次底层挂载失败: 计数必须保持不变(修复前每次失败 +1) */
+    g_vfsTsMountFail = 1;
+    ret = mount(NULL, "/vfsFr0", "testfs", 0, NULL);
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    ret = mount(NULL, "/vfsFr1", "testfs", 0, NULL);
+    ICUNIT_ASSERT_EQUAL(ret, -1, ret);
+    g_vfsTsMountFail = 0;
+    ICUNIT_ASSERT_EQUAL((int)fs->fsRefs, (int)before, (int)fs->fsRefs);
+
+    /* 成功挂载 +1, 卸载成功 -1 */
+    ret = mount(NULL, "/vfsFr2", "testfs", 0, NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ICUNIT_ASSERT_EQUAL((int)fs->fsRefs, (int)(before + 1), (int)fs->fsRefs);
+
+    ret = umount("/vfsFr2");
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    ICUNIT_ASSERT_EQUAL((int)fs->fsRefs, (int)before, (int)fs->fsRefs);
     return POSIX_FS_NO_ERROR;
 }
 
@@ -1071,6 +1180,8 @@ void PosixFsVfsTest(void)
     RUN_ONE_TESTCASE(TestFsVfsRegister);
     RUN_ONE_TESTCASE(TestFsVfsMountUmount);
     RUN_ONE_TESTCASE(TestFsVfsUmount2);
+    RUN_ONE_TESTCASE(TestFsVfsUmountSubPath);
+    RUN_ONE_TESTCASE(TestFsVfsFsRefsSymmetric);
     RUN_ONE_TESTCASE(TestFsVfsRemountStatfs);
     RUN_ONE_TESTCASE(TestFsVfsFileOps);
     RUN_ONE_TESTCASE(TestFsVfsRdonlyMp);

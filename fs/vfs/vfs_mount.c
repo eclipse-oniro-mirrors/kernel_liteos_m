@@ -168,6 +168,47 @@ struct MountPoint *VfsMpFind(const char *path, const char **pathInMp)
 }
 #endif
 
+/*
+ * Whether target names exactly the mount point root. Redundant and trailing
+ * '/' are ignored on both sides; any deeper component means the target is a
+ * sub path inside the mount point, which umount()/remount must reject.
+ */
+STATIC BOOL VfsMpPathIsRoot(const struct MountPoint *mp, const char *target)
+{
+    const char *mPath = NULL;
+    const char *tPath = target;
+
+    if ((mp == NULL) || (mp->mPath == NULL) || (tPath == NULL)) {
+        return FALSE;
+    }
+    mPath = mp->mPath;
+
+    for (;;) {
+        while (*mPath == '/') {
+            mPath++;
+        }
+        while (*tPath == '/') {
+            tPath++;
+        }
+        if ((*mPath == '\0') || (*tPath == '\0')) {
+            break;
+        }
+        if (*mPath != *tPath) {
+            return FALSE;
+        }
+        mPath++;
+        tPath++;
+    }
+
+    return (*mPath == '\0') && (*tPath == '\0');
+}
+
+/*
+ * Fill in a new mount point structure. NOTE: fsRefs is NOT counted here --
+ * the caller counts it only after the fs mount callback succeeded, so that
+ * every failure path of this function and of mount() stays symmetric with
+ * the fsRefs-- in umount()/umount2().
+ */
 STATIC struct MountPoint *VfsMountPointInit(const char *source, const char *target,
         const char *fsType, unsigned long mountflags)
 {
@@ -235,7 +276,7 @@ STATIC int VfsRemount(const char *source, const char *target,
     struct MountPoint *mp;
 
     mp = VfsMpFind(target, NULL);
-    if (mp == NULL) {
+    if ((mp == NULL) || (VfsMpPathIsRoot(mp, target) == FALSE)) {
         errno = EINVAL;
         return (int)LOS_NOK;
     }
@@ -297,6 +338,7 @@ int mount(const char *source, const char *target,
 
     mp->mNext = g_mountPoints;
     g_mountPoints = mp;
+    mp->mFs->fsRefs++; /* count the mounted fs only on success */
     LOS_FsUnlock();
     return LOS_OK;
 
@@ -318,7 +360,19 @@ int umount(const char *target)
     }
 
     mp = VfsMpFind(target, NULL);
-    if ((mp == NULL) || (mp->mRefs != 0)) {
+    if (mp == NULL) {
+        errno = ENOENT;
+        goto errout;
+    }
+
+    /* umount() only accepts the mount point itself, not a path inside it */
+    if (VfsMpPathIsRoot(mp, target) == FALSE) {
+        errno = EINVAL;
+        goto errout;
+    }
+
+    if (mp->mRefs != 0) {
+        errno = EBUSY;
         goto errout;
     }
 
@@ -342,7 +396,7 @@ int umount(const char *target)
     return LOS_OK;
 
 errout:
-    PRINT_ERR("umount2 failed, target %s.\n", target);
+    PRINT_ERR("umount failed, target %s.\n", target);
     LOS_FsUnlock();
     return (int)LOS_NOK;
 }
@@ -373,8 +427,23 @@ int umount2(const char *target, int flag)
     }
 
     mp = VfsMpFind(target, NULL);
-    if ((mp == NULL) || (mp->mRefs != 0) ||
-        (mp->mFs == NULL) || (mp->mFs->fsMops == NULL) ||
+    if (mp == NULL) {
+        errno = ENOENT;
+        goto errout;
+    }
+
+    /* umount2() only accepts the mount point itself, not a path inside it */
+    if (VfsMpPathIsRoot(mp, target) == FALSE) {
+        errno = EINVAL;
+        goto errout;
+    }
+
+    if (mp->mRefs != 0) {
+        errno = EBUSY;
+        goto errout;
+    }
+
+    if ((mp->mFs == NULL) || (mp->mFs->fsMops == NULL) ||
         (mp->mFs->fsMops->umount2 == NULL)) {
         goto errout;
     }

@@ -16,7 +16,8 @@ VOID board_init(VOID)
      * main(): identity map, I-cache, and the D-cache for the whole Normal-WB
      * runtime space. Regions that must not cache carry their own attributes
      * there: the openamp shared window (0x74000000..0x740FFFFF) is
-     * Device-mapped (vrings + net ctrl block, polled/DMAd by the Linux
-     * master) and the net DMA pools (0x76000000..0x761FFFFF) are
-     * Normal Non-Cacheable (GMAC is not IO-coherent). Nothing left here. */
+     * Normal Non-Cacheable (vrings + the resource table at 0x740F0000,
+     * polled/DMAd/loaded by the Linux master) and the net DMA pools
+     * (0x76000000..0x761FFFFF) are Normal Non-Cacheable (GMAC is not
+     * IO-coherent). Nothing left here. */
 }

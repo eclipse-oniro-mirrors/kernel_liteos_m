@@ -133,6 +133,15 @@ static void handle_ipi(void)
     /* read resource table status */
     rsc_table_get(&rsc, &rsc_size);
     rsc_table = (struct fw_resource_table *)rsc;
+    /*
+     * The resource table now sits in the shared window head
+     * (board.ld RSC_MEM @0x740F0000), Normal-NC on both sides, so
+     * reserved[0] is read straight from DRAM and every ack is visible
+     * to the master immediately. The cache ops stay: they keep this
+     * handler correct for any mapping (no-ops on NC).
+     */
+    metal_cache_invalidate(&rsc_table->reserved[0],
+                           sizeof(rsc_table->reserved[0]));
     mica_mb();
 
     status = rsc_table->reserved[0];
@@ -146,6 +155,9 @@ static void handle_ipi(void)
         reset_vq();
         rsc_table->reserved[0] = 0;
         mica_mb();
+        /* no-op on the NC mapping but keeps this correct for any layout */
+        metal_cache_flush(&rsc_table->reserved[0],
+                          sizeof(rsc_table->reserved[0]));
     } else if (status == CPU_OFF_FUNCID) {
         /* power-off request */
         if (g_ped_mica_config->sys_ops.system_poweroff) {
@@ -212,8 +224,28 @@ platform_create_vdev(void *rsc_table, struct metal_io_region *rsc_io)
     if (!vdev)
         return NULL;
 
+    /* TEMP trace: what does the device-side wait actually observe? */
+    mica_log("[openamp] vdev created, status=0x%x (waiting remote ready)\n",
+             (vdev->func && vdev->func->get_status) ?
+             vdev->func->get_status(vdev) : 0xFFFF);
+
+    /*
+     * The rsc table is Normal-NC: a DRIVER_OK written by a previous
+     * master session survives reboots and makes wait_remote_ready pass
+     * immediately. The remote would then finish its rpmsg setup before
+     * the master allocated any vring buffers, and the first
+     * rpmsg_create_ept (NS announce) blocks forever with no free
+     * buffer - the master then times out waiting for the announce.
+     * Clear the stale status so we really wait for THIS master.
+     */
+    if (vdev->func && vdev->func->set_status)
+        vdev->func->set_status(vdev, 0);
+
     /* wait master rpmsg init completion */
     rproc_virtio_wait_remote_ready(vdev);
+    mica_log("[openamp] remote ready, status=0x%x\n",
+             (vdev->func && vdev->func->get_status) ?
+             vdev->func->get_status(vdev) : 0xFFFF);
 
     vring_rsc = rsc_table_get_vring0(rsc_table);
     mica_log("[openamp]: get vring0: da %lx\n", vring_rsc->da);
@@ -233,6 +265,7 @@ platform_create_vdev(void *rsc_table, struct metal_io_region *rsc_io)
     if (ret)
         goto failed;
 
+    mica_log("[openamp] vrings inited, entering rpmsg_init_vdev\n");
     return vdev;
 
 failed:
@@ -312,6 +345,7 @@ static int ped_baremetal_init_rpmsg(struct mica_config *config)
 
     /* setup g_rvdev */
     err = rpmsg_init_vdev_with_config(&g_rvdev, g_vdev, NULL, shm_io, NULL, RPMSG_VIRTIO_CONSOLE_CONFIG);
+    mica_log("[openamp] rpmsg_init_vdev_with_config ret=%d\n", err);
     if (err) {
         mica_log("[openamp] rpmsg_init_vdev_with_config failed %d\n", err);
         goto cleanup_vdev;

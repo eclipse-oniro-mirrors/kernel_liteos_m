@@ -573,14 +573,11 @@ static int CanRxPopOne(struct CanDevice *d)
         return 0;                       /* consumed, not delivered */
     }
     /* same frame again OUTSIDE the window: not the duplicate copy -
-     * surfaced for bring-up (should never happen in the demo) */
-    if ((d->diag_dupmiss < 40) && d->prev_rx_valid &&
-        (f.id == d->prev_rx.id) && (f.flags == d->prev_rx.flags) &&
-        (f.dlc == d->prev_rx.dlc) && ((uint32_t)(ts - d->prev_rx_ts) > CAN_DUP_TS_WINDOW)) {
-        d->diag_dupmiss++;
-        PRINT_ERR("[can][diag] dup-miss: id=%x ts=%08x prev=%08x\n",
-                  f.id, ts, d->prev_rx_ts);
-    }
+     * bring-up diagnostic REMOVED 2026-10-30: repeated identical peer
+     * frames (the analyzer test) trip it on every frame and the
+     * PRINT_ERR spun on the shared UART2 LSR from interrupt context,
+     * wedging the whole slave core (see CanSettleDelay note). The
+     * dup_suppressed counter above still records genuine duplicates. */
     d->prev_rx = f;
     d->prev_rx_ts = ts;
     d->prev_rx_valid = 1;
@@ -596,36 +593,52 @@ static int CanRxPopOne(struct CanDevice *d)
     return 1;
 }
 
-/* ~20us settle spin: the RXFC fill counter lags the pop (RK3568
+/* ~100us settle spin: the RXFC fill counter lags the pop (RK3568
  * erratum 5 at the 100MHz bit clock), so the drain loop re-reads it
- * only after this window. The RK3588 IP is the same family - keeping
- * the settle is harmless even if its counter does not lag. Generic-
- * timer based: core frequency independent. */
+ * only after this window. The RK3588 IP is the same family.
+ * Instruction-count based, NOT generic-timer: CNTVCT freezes
+ * intermittently on this board (measured 2026-10-18 during the
+ * can_test rx window and again 2026-10-30 under analyzer traffic:
+ * the drain path wedged forever inside the deadline while-loop after
+ * the counter stopped advancing, freezing the rx task and the ISR).
+ * 300000 nops @ ~3 cycles on the A76 ~ 500us at 1.8GHz - deliberately
+ * generous: a short settle lets a stale fill count survive, the drain
+ * then pops an EMPTY fifo, and reading RXFRD off an empty fifo wedges
+ * the AXI bus and freezes the whole slave core (measured 2026-10-30:
+ * irq froze at 2, phase=0, ring held an unread frame). */
 static void CanSettleDelay(void)
 {
-    uint64_t deadline = CanCntpct() + CanUsToTicks(20);
+    volatile uint32_t n = 300000;
 
-    while (!CanTimeReached(deadline)) {
+    while (n--) {
         __asm__ volatile("nop");
     }
 }
 
-/* Drain everything the hardware fifo holds (depth 6, cnt is 3-bit).
- * One settle spin between pops: re-reading RXFC immediately after a
- * pop can still show the pre-pop count and yield a ghost element. */
+/* Drain the hardware fifo (depth 6, cnt is 3-bit). QUOTA mode: read
+ * the fill counter ONCE per outer round and pop at most that many
+ * elements - never re-read the counter immediately after a pop (a
+ * stale count yields a ghost element and an empty-fifo RXFRD read,
+ * which wedges the AXI bus; see CanSettleDelay). Frames arriving
+ * meanwhile stay in the fifo and are picked up by the next RX_FINISH
+ * interrupt / Recv() call. */
 static void CanRxDrain(struct CanDevice *d)
 {
-    uint32_t pass = 0;
+    uint32_t popped = 0;
 
-    while (pass < 2 * d->port->rx_fifo_depth + 2) {
-        uint32_t fc = (CanRegRead(d, CAN_RXFC) & RX_FIFO_CNT_MASK) >>
-                      RX_FIFO_CNT_SHIFT;
-        if (fc == 0) {
+    while (popped < 2 * d->port->rx_fifo_depth + 2) {
+        uint32_t quota = (CanRegRead(d, CAN_RXFC) & RX_FIFO_CNT_MASK) >>
+                         RX_FIFO_CNT_SHIFT;
+        uint32_t i;
+
+        if (quota == 0) {
             break;
         }
-        (VOID)CanRxPopOne(d);
-        CanSettleDelay();
-        pass++;
+        for (i = 0; i < quota; i++) {
+            (VOID)CanRxPopOne(d);
+            CanSettleDelay();
+        }
+        popped += quota;
     }
 }
 

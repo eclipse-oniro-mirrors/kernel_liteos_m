@@ -93,4 +93,6 @@ extern void TimeFuncTest(void);
 
 extern void CmsisFuncTest(void);
 
+void KernelVerifyFuncTest(void);
+
 #endif

@@ -227,6 +227,11 @@ typedef struct LosTaskCB {
 #ifdef LOSCFG_TASK_STRUCT_EXTENSION
     LOSCFG_TASK_STRUCT_EXTENSION;                         /**< Task extension field */
 #endif
+#ifdef LOSCFG_BOX
+    VOID                        *boxCB;                   /**< Owning box, NULL for kernel tasks */
+    VOID                        *userStackPointer;        /**< User-mode stack pointer (dual-stack) */
+    UINT32                       syscallNestCnt;           /**< Syscall nesting count */
+#endif
 } LosTaskCB;
 
 extern SPIN_LOCK_S g_taskSpin;

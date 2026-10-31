@@ -4,6 +4,14 @@ config KERNEL_MEM_ALLOC
     bool "Dynamic Memory Management"
     default y
 
+config USR_MEM_ALLOC
+    bool "User Dynamic Memory Management"
+    default y
+    depends on BOX
+    select BASE_IPC_MUX
+    help
+      This option will change memory type as user alloc
+
 if KERNEL_MEM_ALLOC
 choice
     prompt "Dynamic Memory Management Algorithm"

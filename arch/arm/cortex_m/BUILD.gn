@@ -45,8 +45,29 @@ kernel_module(module_name) {
     sources += [ "los_timer.c" ]
   }
   configs += [ "$LITEOSTOPDIR:warn_config" ]
+
+  if (defined(LOSCFG_BOX)) {
+    # los_dispatch.S includes the generated box offsets header - the
+    # offsets action must run before this module compiles (ordering only;
+    # recompilation is driven by the action touching the source on real
+    # changes - no depfiles in this build, pitfall 27).
+    # Resolved per-target via the GN arg, not hardcoded to one board.
+    deps = [ "//kernel/liteos_m/targets/${device_name}/liteos_m/box/offsets:gen_box_offsets" ]
+  }
 }
 
 config("public") {
   include_dirs = [ "." ]
+}
+
+# BOX syscall interface root (kernel world). The rename header and the
+# syscall def list live here - refs layout arch_s/arm/cortex_m/syscalls/
+# include/. Applied explicitly (and conditionally on LOSCFG_BOX) by the
+# modules whose TUs must see the rename: kernel/base (renames the
+# LOS_TaskDelay definition) and the target's box module (table, veneers,
+# kernel sources). Never merge this into config("public") above: the
+# top-level kernel config aggregates arch:public into every
+# kernel_module, including the box usr world (design doc pitfall 28).
+config("box_syscalls") {
+  include_dirs = [ "syscalls/include" ]
 }

@@ -85,10 +85,12 @@ menu "Platform"
 config PLATFORM
     string
     default "virt"            if PLATFORM_QEMU_ARM_VIRT_CM7 || PLATFORM_QEMU_ARM_VIRT_CM4 || PLATFORM_QEMU_ARM_VIRT_CM55 || PRODUCT_QEMU_RISCV32_VIRT || PLATFORM_QEMU_CSKY_SMARTL || PLATFORM_QEMU_XTENSA_ESP32
+    default "stm32f407vet6"   if PLATFORM_STM32F407VET6
 
 config DEVICE_COMPANY
     string
     default "qemu" if PLATFORM_QEMU_ARM_VIRT_CM7 || PLATFORM_QEMU_ARM_VIRT_CM4 || PLATFORM_QEMU_ARM_VIRT_CM55 || PRODUCT_QEMU_RISCV32_VIRT || PLATFORM_QEMU_CSKY_SMARTL || PLATFORM_QEMU_XTENSA_ESP32
+    default "st"   if PLATFORM_STM32F407VET6
 
 choice
     prompt "Chip"
@@ -148,6 +150,13 @@ config PLATFORM_NRF52832
     select ARCH_CORTEX_M4
     help
         Nordic nRF52832 dev board (ARM Cortex-M4F, 512KB Flash / 64KB RAM).
+
+config PLATFORM_STM32F407VET6
+    bool "stm32f407vet6"
+    select ARCH_CORTEX_M4
+    help
+        STM32F407VET6 dev board (ARM Cortex-M4F, 512KB Flash / 128KB+64KB RAM),
+        UART demo on USART1 PA9/PA10, running on the default HSI 16MHz clock.
 
 config PLATFORM_HI3322
     bool "hi3322"
@@ -434,6 +443,114 @@ config SECURE
 config MPU_ENABLE
     bool "Enable MPU"
     default n
+
+config BOX
+    bool "Enable Box"
+    help
+      This represents to be support to open boxes in Safety LiteOs.
+
+config BASE_BOX_MAX_LIMIT
+    int "Max Number of Boxes"
+    default 4
+    help
+      This represents the maximum number of boxes in Safety LiteOs.
+
+    source "targets/Kconfig.box"
+
+config BASE_IPC_PERM
+    bool "Enable Ipc permission"
+    default n
+    help
+      This option is used to enable ipc permission
+
+config BASE_SYSCALL_PERM
+    bool "Enable Syscall Permission"
+    default n
+    help
+      This option is used to enable syscall permission
+
+config BASE_DRVBOX_NUM
+    int "Number of drvbox" if DRVBOX_KERNEL_MODE
+    range 1 BASE_BOX_MAX_LIMIT if DRVBOX_KERNEL_MODE
+    default 1
+    depends on BASE_BOX_MAX_LIMIT > 1
+    help
+      This represents the number of drvbox.
+
+config SID_NAME_MAX_LEN
+    int "Max len of sId name"
+    range 1 32
+    default 16
+    help
+      This represents the maximum len of sId name in Safety LiteOs
+
+config RAND_SID
+    bool "Random SId value"
+    help
+      Use randomized SId value.
+
+config DRVBOX_KERNEL_MODE
+    bool "Enable Kernel Mode of Driver Box"
+    default n
+    depends on ARCH_RISCV32 && RISCV_EPMP
+    help
+      This represents support kernel mode of driver box.
+
+config BOX_KERNEL_MEM
+    bool "Enable Kernel Mem Pool For Box"
+    default n
+    depends on KERNEL_MEM_ALLOC
+    help
+      This represents support creation of kernel mem pool by box.
+
+config TASK_STACK_REUSE
+    bool "Enable User Stack and Kernel Stack Reuse"
+    default n
+    depends on BOX_KERNEL_MEM && ARCH_RISV32 && !DYNAMIC_BOX
+    help
+      This option enables reuse of user stack and kernel stack.
+
+config DYNAMIC_MEM_PROT_ENABLE
+    bool "Enable Dynamic Config Memory Protection"
+    default n
+    depends on APC_ENABLE
+    help
+      This option will enable dynamic config memory protection
+
+config BASE_SID_LIMIT
+    int "Max Kernel SId number"
+    default 64
+    range 1 1024
+    help
+      This represents the max number of kernel SId, which should be larger then total ipc number.
+
+config BASE_SID_LIST
+    bool "Enable SIdObj/EntityObj Double List"
+    default y
+    help
+      This option will enable SIdObj/EntityObj double list.
+
+menuconfig BASE_IPC_RECOVER
+    bool "Enable IPC Recover"
+    default y
+
+if BASE_IPC_RECOVER
+
+config IPC_RECOVER_NODE_LIMIT
+    int "Max IPC Recover Node Number"
+    default 8
+    depends on BASE_IPC_RECOVER
+    help
+      This represents the number of IPC recover node size.
+
+config IPC_RECOVER_TIMEOUT
+    int "IPC recover timeout which unit is schedule tick."
+    default 100
+    depends on BASE_IPC_RECOVER
+    help
+      This represents the maximum time of waiting for IPC recover.
+
+endif # BASE_IPC_RECOVER
 endmenu
 
 orsource "testsuites/Kconfig"

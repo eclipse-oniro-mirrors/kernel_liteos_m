@@ -1,0 +1,2 @@
+group("stm32f407vet6_mini") {
+}

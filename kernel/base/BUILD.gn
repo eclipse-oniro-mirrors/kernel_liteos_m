@@ -55,7 +55,16 @@ kernel_module(module_name) {
     "include",
     "../extended/backtrace",
     "../extended/trace",
-    "../extended/trace/cnv" ]
+    "../extended/trace/cnv",
+  ]
+
+  if (defined(LOSCFG_BOX)) {
+    # BOX rename root - the config lives in the arch module next to the
+    # headers. kernel/base has no dep edge on arch and arch:public is
+    # globally aggregated, so this stays an explicit conditional
+    # reference (inert when LOSCFG_BOX is off).
+    configs += [ "$LITEOSTOPDIR/arch/arm/cortex_m:box_syscalls" ]
+  }
 
   if (defined(LOSCFG_BASE_IPC_EVENT)) {
     sources += [ "los_event.c" ]

@@ -363,29 +363,27 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
     PRINTK("[boot] app task ok\n");
 
 #ifdef LOSCFG_MCS_NET
-    /* Real-time NIC user demo (GMAC1 data plane; master mcs_net.ko must
-     * have brought the port up first - see net_test.c) */
-    {
-        extern UINT32 NetTestTaskInit(VOID);
-        ret = NetTestTaskInit();
-        if (ret != LOS_OK) {
-            PRINT_ERR("[boot] NetTestTaskInit failed: 0x%x\n", ret);
-        }
-        PRINTK("[boot] net task ok\n");
-    }
+    /* GMAC1 data-plane demo (net_test.c) is NOT started: the NIC use case
+     * is out of scope for this verification round (master mcs_net.ko not
+     * exercised); it also spams the console with tx -11 lines. The net
+     * stack itself stays compiled in - re-enable by calling NetTestTaskInit
+     * here once the NIC path is under test again. */
+    PRINTK("[boot] net demo task skipped (NIC use case disabled)\n");
 #endif
 
 #ifdef LOSCFG_MCS_CAN
-    /* Real-time CAN self-test (CAN1/CAN2 loopback phases, classic +
-     * CAN-FD; master mcs_can.ko must have brought the ports up first -
-     * see can_test.c) */
+    /* CAN RX verification demo (can_rx_demo.c): receive-only task that
+     * publishes rx stats + the most recent frame to the CAN1 ctrl page
+     * (0x740ff140) for the master to read via devmem - no console
+     * dependency. Used for the J11 analyzer verification; the 20-phase
+     * can_test suite (CanTestTaskInit) ran clean in loopback before. */
     {
-        extern UINT32 CanTestTaskInit(VOID);
-        ret = CanTestTaskInit();
+        extern UINT32 CanRxDemoTaskInit(VOID);
+        ret = CanRxDemoTaskInit();
         if (ret != LOS_OK) {
-            PRINT_ERR("[boot] CanTestTaskInit failed: 0x%x\n", ret);
+            PRINT_ERR("[boot] CanRxDemoTaskInit failed: 0x%x\n", ret);
         }
-        PRINTK("[boot] can task ok\n");
+        PRINTK("[boot] can rx demo task ok\n");
     }
 #endif
 

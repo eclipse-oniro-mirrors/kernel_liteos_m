@@ -42,6 +42,7 @@ kernel_module(module_name) {
     sources += [
       "can/can_rk3588.c",
       "can_test.c",
+      "can_rx_demo.c",
     ]
   }
 

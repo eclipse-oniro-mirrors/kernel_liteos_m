@@ -1,6 +1,6 @@
 /*
- * RK3568 AMP liteos_m linker script (AArch64, ELF loaded by the
- * OpenHarmony mcs_km loader / mica_test into the mcs reserved window).
+ * RK3588 AMP liteos_m linker script (AArch64, ELF loaded by the
+ * OpenHarmony mcs_km loader / slave_boot into the mcs reserved window).
  *
  * Memory contract with the Linux side (must match mcs_km.ko and the
  * master DTS oh_rt reserved-memory node, see kernel/liteos_m
@@ -15,6 +15,20 @@
  *   - .resource_table must stay a loaded section: the master-side
  *                   remoteproc loader parses it from the ELF and writes
  *                   the allocated vring device addresses back into it.
+ *   - .resource_table is placed at 0x740F0000 inside the shared window
+ *                   head, NOT in the WB image data: both sides reach it
+ *                   straight through DRAM (Normal-NC on each side).
+ *                   In the WB data region the PSCI status handshake in
+ *                   reserved[0] broke: the vdev descriptor fields share
+ *                   the same 64B cache line, the remote kept the line
+ *                   dirty after vdev setup, and the DC IVAC "invalidate"
+ *                   in its IPI handler (architecturally a write-back to
+ *                   PoC for dirty lines) pushed the stale CPU_ON value
+ *                   back over the master's SYSTEM_RESET, so the attach
+ *                   handshake timed out and PSCI CPU_ON failed with
+ *                   ALREADY_ON. The fixed offset sits above the
+ *                   master-allocated vrings and below the bring-up CAN
+ *                   ctrl block at 0x740FF000.
  */
 
 ENTRY(arm64_entry)
@@ -25,6 +39,7 @@ OUTPUT_ARCH(aarch64)
 MEMORY
 {
     RTOS_RAM (rwx) : ORIGIN = 0x74100000, LENGTH = 63M
+    RSC_MEM  (rw)  : ORIGIN = 0x740F0000, LENGTH = 4K
 }
 
 SECTIONS
@@ -92,16 +107,17 @@ SECTIONS
     } > RTOS_RAM
 
     /*
-     * MICA/remoteproc resource table: page aligned at the tail of the
-     * data region, kept, so the Linux side can locate and map it
-     * independently of other sections.
+     * MICA/remoteproc resource table: placed in the shared window head
+     * (RSC_MEM, Normal-NC both sides, see header comment), kept, so the
+     * Linux side can locate and map it independently of other sections
+     * and the reserved[0] PSCI status handshake goes straight to DRAM.
      */
     .resource_table : ALIGN(0x8) {
         __resource_table_start = .;
         KEEP(*(.resource_table))
         . = ALIGN(0x8);
         __resource_table_end = .;
-    } > RTOS_RAM
+    } > RSC_MEM
 
     .bss (NOLOAD) : ALIGN(0x8) {
         __bss_start = .;

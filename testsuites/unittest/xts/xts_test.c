@@ -56,4 +56,5 @@ void XtsTestSuite(void)
 #if defined(LOSCFG_KAL_CMSIS)
     CmsisFuncTest();
 #endif
+    KernelVerifyFuncTest();
 }

@@ -78,6 +78,10 @@ static UINT32 TestCase009(VOID)
     CPUP_INFO_S taskCpup[LOSCFG_BASE_CORE_TSK_LIMIT + 1] = {0};
     TSK_INIT_PARAM_S param = {0};
 
+    /* CPUP 统计由周期为 1 秒的软件定时器采样: 重置并等一个采样周期, 保证查询时统计已就绪 */
+    LOS_CpupReset();
+    LOS_TaskDelay(LOSCFG_BASE_CORE_TICK_PER_SECOND + 20);
+
     /* F-Inv: NULL 出参 → LOS_ERRNO_CPUP_TASK_PTR_NULL(los_cpup.c:729-731) */
     ret = LOS_AllCpuUsage(2, NULL, CPUP_ALL_TIME, 1);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_CPUP_TASK_PTR_NULL, ret);

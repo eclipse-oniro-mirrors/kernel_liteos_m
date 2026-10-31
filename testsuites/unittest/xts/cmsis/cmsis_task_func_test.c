@@ -335,9 +335,17 @@ static void CmsisThreadResumeFunc002(void const *argument)
 {
     (void)argument;
     osStatus_t status;
+    UINT32 wait;
     g_cmsisTestTaskCount++;
     TEST_DELAY(g_cmsisTestTaskCount, TESTCOUNT_NUM_2, TEST_WAIT_TIMEOUT);
     ICUNIT_ASSERT_EQUAL_VOID(g_cmsisTestTaskCount, TESTCOUNT_NUM_2, g_cmsisTestTaskCount);
+    /* 等 Func001 真正挂起后再 Resume(本移植层挂起态为 osThreadBlocked) */
+    for (wait = 0; wait < TEST_WAIT_TIMEOUT; wait++) {
+        if (osThreadGetState(g_puwTaskID01) == osThreadBlocked) {
+            break;
+        }
+        osDelay(1);
+    }
     status = osThreadResume(g_puwTaskID01);
     ICUNIT_ASSERT_EQUAL_VOID(status, osOK, status);
     status = osDelay(DELAY_TICKS_5);

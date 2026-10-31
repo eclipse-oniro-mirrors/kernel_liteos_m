@@ -36,13 +36,16 @@
 
 #define SEM_READ_UINT32(_register_, _value_) ((_value_) = *((volatile UINT32 *)(_register_)))
 
+static UINT32 g_swTmrID;
+
 static VOID SwtmrF01(void)
 {
     UINT32 ret;
     ret = LOS_SemPost(g_usSemID);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
-    if (g_testCount >= 0xf) {
+    /* 终判用严格相等: 周期回调在主任务停表前可能重入 */
+    if (g_testCount == 0xf) {
         LOS_TaskDelete(g_testTaskID01);
         g_testCount++;
     }
@@ -51,6 +54,11 @@ static VOID SwtmrF01(void)
 static VOID TaskF01(void)
 {
     UINT32 ret;
+
+    /* 同步 tick 起点后启动定时器, 保证本任务先就绪再产生首个 post */
+    LOS_TaskDelay(1);
+    ret = LOS_SwtmrStart(g_swTmrID);
+    ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
     while (1) {
         g_testCount++;
@@ -62,7 +70,6 @@ static VOID TaskF01(void)
 static UINT32 Testcase(VOID)
 {
     UINT32 ret;
-    UINT32 swTmrID;
     int value;
 
     TSK_INIT_PARAM_S task1 = { 0 };
@@ -78,13 +85,11 @@ static UINT32 Testcase(VOID)
     ret = LOS_SemCreate(1, &g_usSemID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0);
+    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &g_swTmrID, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     LOS_SemPend(g_usSemID, LOS_NO_WAIT);
-    ret = LOS_SwtmrStart(swTmrID);
 
-    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
@@ -92,12 +97,12 @@ static UINT32 Testcase(VOID)
         (void)value;
     }
 
-    LOS_SwtmrStop(swTmrID);
+    LOS_SwtmrStop(g_swTmrID);
     ICUNIT_GOTO_EQUAL(g_testCount, 0x10, g_testCount, EXIT);
 
     (VOID)LOS_TaskDelete(g_testTaskID01);
 
-    ret = LOS_SwtmrDelete(swTmrID);
+    ret = LOS_SwtmrDelete(g_swTmrID);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SemDelete(g_usSemID);
@@ -105,8 +110,8 @@ static UINT32 Testcase(VOID)
     return LOS_OK;
 
 EXIT:
-    LOS_SwtmrStop(swTmrID);
-    LOS_SwtmrDelete(swTmrID);
+    LOS_SwtmrStop(g_swTmrID);
+    LOS_SwtmrDelete(g_swTmrID);
     LOS_TaskDelete(g_testTaskID01);
     LOS_SemDelete(g_usSemID);
     return LOS_OK;

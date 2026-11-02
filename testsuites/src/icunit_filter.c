@@ -72,6 +72,57 @@ void IcResumeReport(void)
     }
 }
 
+/* ============================================================================
+ * skip 组件：用例屏蔽名单（与包含表 icunit_case_filter.h 相对）。
+ * X-macro：每条 ICUNIT_SKIP_ENTRY(name) 展开成 "name",，由 #include 把
+ * icunit_case_skip.h 里的屏蔽名表直接喂进数组初始化。
+ * 头文件留空 → 数组为 {NULL} → 跳过项数 0 → 无屏蔽。
+ * 建议调用序：IcFilterHit → IcResumeHit → IcSkipHit（iCunit.c 的
+ * ICunitAddCase 即此序：续跑未达恢复点前 IcResumeHit 已拦下全部用例，
+ * 恢复点后本表照常生效）。
+ * ========================================================================== */
+#define ICUNIT_SKIP_ENTRY(name) name,
+static const iCHAR *g_skipList[] = {
+#include "icunit_case_skip.h"
+    NULL
+};
+#undef ICUNIT_SKIP_ENTRY
+
+/* 编译期算出跳过项数（不含 NULL 哨兵）。 */
+#define ICUNIT_SKIP_COUNT (sizeof(g_skipList) / sizeof(g_skipList[0]) - 1)
+
+/* 命中标记，BSS 零初始化；尺寸 = 项数 + 1，保证空表时也为合法数组。 */
+static iUINT32 g_skipMatchedFlag[ICUNIT_SKIP_COUNT + 1];
+
+/* 命中跳过表的用例跳过（遍历但不进入）；表为空时永远放行。 */
+iUINT32 IcSkipHit(const iCHAR *caseName)
+{
+    iUINT16 i;
+
+    for (i = 0; i < (iUINT16)ICUNIT_SKIP_COUNT; i++) {
+        if (strcmp(g_skipList[i], caseName) == 0) {
+            g_skipMatchedFlag[i] = TRUE;
+            dprintf("  [Skip]-%s (in skip list, skipped)\n", caseName);
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+/* 跳过表中未命中的条目——三种可能: 名字写错 / 用例未编译进来 /
+ * 前置检查已拦下未到达 skip 判定（包含表过滤或续跑点之前）。提示防静默失效。 */
+void IcSkipReport(void)
+{
+    iUINT16 i;
+
+    for (i = 0; i < (iUINT16)ICUNIT_SKIP_COUNT; i++) {
+        if (!g_skipMatchedFlag[i]) {
+            dprintf("[Skip] not found: %s (wrong name, not compiled in, or filtered before skip check)\n",
+                    g_skipList[i]);
+        }
+    }
+}
+
 /* X-macro：每条 ICUNIT_FILTER_ENTRY(name) 展开成 "name",，
  * 由 #include 把 icunit_case_filter.h 里的名表直接喂进数组初始化。
  * 头文件留空 → 数组为 {NULL} → 过滤项数 0 → 跑全量。 */

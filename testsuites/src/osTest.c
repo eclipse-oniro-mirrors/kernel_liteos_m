@@ -364,6 +364,7 @@ VOID TestTaskEntry(VOID)
     dprintf("[FuzzGuard] redirected %u mutations away from live resources\n", FuzzGuardRedirectCount());
 #endif
     IcFilterReportNotFound();
+    IcSkipReport();
     IcResumeReport();
     ICunitPrintFailLogs();
     ICunitPrintTimeStats();

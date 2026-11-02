@@ -93,6 +93,18 @@ SECTIONS
         KEEP(*(.liteos.table.dynload_gsymbol.finish))
         KEEP(*(SORT(.liteos.table.*)))
         . = ALIGN(8);
+        /* gcov 构造函数表: 随 .data 拷贝循环进 DTCM（仅 ~0.5KB，裸机无需
+         * flash XIP 读表），TEST_GcovRunConstructors() 上电后遍历注册。
+         * 不开覆盖率时为空段，镜像不变。 */
+        __init_array_start = .;
+        KEEP(*(.init_array))
+        KEEP(*(.init_array.*))
+        __init_array_end = .;
+        __fini_array_start = .;
+        KEEP(*(.fini_array))
+        KEEP(*(.fini_array.*))
+        __fini_array_end = .;
+        . = ALIGN(8);
         __data_end = .;
     } > DTCM AT > FLASH_PROGRAM
 

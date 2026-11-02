@@ -128,6 +128,36 @@ def payload_to_gcda(blob, version=None):
     return None
 
 
+def decode_payload_legacy_v2(blob):
+    """Legacy-v2 streaming payload (clang): stamp, per-fn records until end."""
+    # per-fn record: {ident, lnck, cfgck, n_ctrs, n_ctrs * gcov_type}
+    if len(blob) < 4:
+        return None
+    stamp = u32(blob, 0)
+    off = 4
+    fns = []
+    while off + 16 <= len(blob):
+        ident = u32(blob, off)
+        lnck = u32(blob, off + 4)
+        cfgck = u32(blob, off + 8)
+        nctrs = u32(blob, off + 12)
+        off += 16
+        ctrs = []
+        ok = True
+        for _ in range(nctrs):
+            if off + 8 > len(blob):
+                ok = False
+                break
+            ctrs.append(i64(blob, off))
+            off += 8
+        if not ok:
+            break
+        fns.append((ident, lnck, cfgck, ctrs))
+    if not fns:
+        return None
+    return stamp, fns
+
+
 def gcno_version(gcda_path):
     """Read the version word from the .gcno next to the target .gcda.
 
@@ -169,8 +199,13 @@ def parse_log(log_path):
         if line.startswith('GCOV_BEGIN '):
             cur_file = line[len('GCOV_BEGIN '):].strip()
             cur_b64 = []
+            cur_fmt = 'v1'
             continue
         if line == 'GCOV_DATA':
+            cur_fmt = 'v1'
+            continue
+        if line == 'GCOV_DATA2':
+            cur_fmt = 'v2'
             continue
         if line == 'GCOV_END':
             if cur_file is not None:
@@ -180,7 +215,11 @@ def parse_log(log_path):
                 if raw.endswith('=A'):
                     raw = raw[:-1] + '='
                 blob = base64.b64decode(raw) if raw else b''
-                data = payload_to_gcda(blob, gcno_version(cur_file))
+                if cur_fmt == 'v2':
+                    v2 = decode_payload_legacy_v2(blob)
+                    data = build_gcda_legacy(v2[0], v2[1], gcno_version(cur_file)) if v2 else None
+                else:
+                    data = payload_to_gcda(blob, gcno_version(cur_file))
                 if data is not None:
                     files[cur_file] = data
             cur_file = None

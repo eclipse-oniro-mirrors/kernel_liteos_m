@@ -41,7 +41,7 @@ extern void RamLfsSetBlocks(unsigned int blocks);
 VOID ItSuiteLosDynload(VOID)
 {
 #if defined(LOSCFG_PLATFORM_HI3322)
-    RamLfsSetBlocks(20);
+    RamLfsSetBlocks(40); /* 40×2048B=80KB, 与原 20×4096 等字节预算(块几何改 2048B 见板级 ram_lfs_backend.c) */
 #endif
     if (TestFsVolumeEnsure() != 0) {
         dprintf("ItSuiteLosDynload: TEST_ROOT volume unavailable, FS cases will fail\n");
@@ -86,6 +86,6 @@ VOID ItSuiteLosDynload(VOID)
 
     (VOID)TestFsVolumeRelease();
 #if defined(LOSCFG_PLATFORM_HI3322)
-    RamLfsSetBlocks(32); /* 复位默认几何(FS/stdio/shell 域沿用 32 块) */
+    RamLfsSetBlocks(24); /* 复位默认几何(FS/stdio/shell 域沿用 24 块) */
 #endif
 }

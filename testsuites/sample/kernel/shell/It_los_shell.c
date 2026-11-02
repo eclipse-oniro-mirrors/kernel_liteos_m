@@ -31,12 +31,12 @@
 
 #include "It_los_shell.h"
 
-/* RAM 盘挂载钩子(强符号由 ws63 ram_lfs_backend.c / 弱默认 posix_test.c 提供)。
- * ws63: RamLfsSetBlocks 在 shell 域临时上调盘几何(具具需 ~22 数据块),
+/* RAM 盘挂载钩子(强符号由 ws63/hi3322 板级 ram_lfs_backend.c / 弱默认 posix_test.c 提供)。
+ * ws63/hi3322: RamLfsSetBlocks 在 shell 域临时上调盘几何(具具需 ~22-40 数据块),
  * 每个 vfs 用例间新鲜重挂(清 tc12-15 残留孤儿块), 套件结束复位默认几何。 */
 extern int TestFsVolumeEnsure(void);
 extern int TestFsVolumeRelease(void);
-#ifdef LOSCFG_PLATFORM_WS63_M
+#if defined(LOSCFG_PLATFORM_WS63_M) || defined(LOSCFG_PLATFORM_HI3322)
 extern void RamLfsSetBlocks(unsigned int blocks);
 #endif
 #if defined(LOSCFG_FS_LITTLEFS)
@@ -97,11 +97,12 @@ VOID ItSuiteLosShell(VOID)
     (VOID)TestFsVolumeRelease();
     (VOID)TestFsVolumeEnsure();
     ItLosShell014(); /* cp 全分支(含通配符/深路径/fd 耗尽) */
-#if defined(LOSCFG_FS_LITTLEFS) && defined(LOSCFG_PLATFORM_WS63_M)
-    /* ws63 RAM 盘窗口扩容: Shell015 具具 17 个 mkdir(littlefs 每目录 2 块冗余
+#if defined(LOSCFG_FS_LITTLEFS) && (defined(LOSCFG_PLATFORM_WS63_M) || defined(LOSCFG_PLATFORM_HI3322))
+    /* ws63/hi3322 RAM 盘窗口扩容: Shell015 具具 17 个 mkdir(littlefs 每目录 2 块冗余
      * 元数据对): 2(超级/根)+2(tc15)+16*2=36 块 + 提交余量 > 默认 24 块(48KB),
-     * 实测第 12 个 mkdir 即 ENOSPC(errno=28)。40 块(80KB)余量充足; 套件结束
-     * 复位默认几何(FS/stdio 域沿用 24 块, 堆预算见 ram_lfs_backend.c 头注)。 */
+     * 实测第 12 个 mkdir 即 ENOSPC(errno=28)。40 块(80KB)余量充足(两板同为
+     * 2048B 块几何, hi3322 ~180KB 堆实测 80KB 级申请可满足); 套件结束
+     * 复位默认几何(FS/stdio 域沿用 24 块, 堆预算见各板 ram_lfs_backend.c 头注)。 */
     RamLfsSetBlocks(40);
 #endif
     (VOID)TestFsVolumeRelease();
@@ -121,7 +122,7 @@ VOID ItSuiteLosShell(VOID)
 #endif
 #if defined(LOSCFG_FS_LITTLEFS)
     (VOID)TestFsVolumeRelease();
-#if defined(LOSCFG_PLATFORM_WS63_M)
+#if defined(LOSCFG_PLATFORM_WS63_M) || defined(LOSCFG_PLATFORM_HI3322)
     RamLfsSetBlocks(24); /* 复位 FS/stdio 域默认几何 */
 #endif
 #endif

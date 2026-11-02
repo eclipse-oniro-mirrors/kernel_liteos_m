@@ -338,7 +338,6 @@ int mount(const char *source, const char *target,
 
     mp->mNext = g_mountPoints;
     g_mountPoints = mp;
-    mp->mFs->fsRefs++; /* count the mounted fs only on success */
     LOS_FsUnlock();
     return LOS_OK;
 

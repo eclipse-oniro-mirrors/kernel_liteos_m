@@ -1780,6 +1780,10 @@ uint32_t osThreadFlagsSet(osThreadId_t thread_id, uint32_t flags)
         return (uint32_t)osFlagsErrorParameter;
     }
 
+    if (taskCB->taskStatus & OS_TASK_STATUS_UNUSED) {
+        return (uint32_t)osFlagsErrorResource;
+    }
+
     eventCB = &(taskCB->event);
     eventSave = eventCB->uwEventID;
     ret = LOS_EventWrite(eventCB, (UINT32)flags);

@@ -183,7 +183,7 @@ LITE_TEST_CASE(PthreadBasicApiTestSuite, testPthreadDetach, Function | MediumTes
     ret = pthread_detach(tid);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ret = pthread_join(tid, NULL);
-    ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
+    ICUNIT_ASSERT_EQUAL(ret, ESRCH, ret);
     return 0;
 }
 

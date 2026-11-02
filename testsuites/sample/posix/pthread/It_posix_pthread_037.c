@@ -77,11 +77,11 @@ static UINT32 Testcase(VOID)
 
     /* 1. pthread_setschedparam(:278) */
     ret = pthread_setschedparam(self, SCHED_RR, &sp);
-    ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
+    ICUNIT_ASSERT_EQUAL(ret, ESRCH, ret);
 
     /* 2. pthread_setschedprio(:302) */
     ret = pthread_setschedprio(self, LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO);
-    ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
+    ICUNIT_ASSERT_EQUAL(ret, ESRCH, ret);
 
     /* 3. pthread_once(:320, 调用者非 pthread) */
     ret = pthread_once(&g_pthread037Once, Pthread037OnceRoutine);
@@ -97,19 +97,19 @@ static UINT32 Testcase(VOID)
 
     /* 6. pthread_cancel(:468) */
     ret = pthread_cancel(self);
-    ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
+    ICUNIT_ASSERT_EQUAL(ret, ESRCH, ret);
 
     /* 7. pthread_detach(:538) */
     ret = pthread_detach(self);
-    ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
+    ICUNIT_ASSERT_EQUAL(ret, ESRCH, ret);
 
     /* 8. pthread_setname_np(:604) */
     ret = pthread_setname_np(self, "tcases037");
-    ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
+    ICUNIT_ASSERT_EQUAL(ret, ESRCH, ret);
 
     /* 9. pthread_getname_np(:641) */
     ret = pthread_getname_np(self, nameBuf, sizeof(nameBuf));
-    ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
+    ICUNIT_ASSERT_EQUAL(ret, ESRCH, ret);
 
     /* 10. pthread_key_create(:692, 调用者非 pthread) */
     ret = pthread_key_create(&g_pthread037Key, NULL);
@@ -129,7 +129,7 @@ static UINT32 Testcase(VOID)
 
     /* 非法线程 id(超出任务上限)同样被拒 */
     ret = pthread_cancel((pthread_t)(LOSCFG_BASE_CORE_TSK_LIMIT + 1));
-    ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
+    ICUNIT_ASSERT_EQUAL(ret, ESRCH, ret);
 
     return LOS_OK;
 }

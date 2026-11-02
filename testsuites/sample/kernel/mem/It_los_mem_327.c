@@ -41,7 +41,6 @@
 #define MEM_TC327_USED_FLAG     0x80000000U
 #define MEM_TC327_ALIGNED_FLAG  0x40000000U
 
-STATIC UINT8 g_memPoolTC327[MEM_TC327_POOL_SIZE] __attribute__((aligned(64)));
 
 /* 用例简要描述: 双标志gap字Free返回NOK可恢复 */
 static UINT32 TestCase(VOID)
@@ -56,13 +55,13 @@ static UINT32 TestCase(VOID)
     INT32 keepCnt = 0;
     INT32 i;
 
-    ret = LOS_MemPoolInit(g_memPoolTC327, MEM_TC327_POOL_SIZE, 0);
+    ret = LOS_MemPoolInit(g_memTcPoolA, MEM_TC327_POOL_SIZE, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* 前置: 分配到带 gap 字的对齐块(gap 字= alignedPtr-4 处 ALIGNED|gapSize);
      * 若本次 AllocAlign 天然对齐无 gap 字, 保留该块换相位重试(有界 16 次) */
     for (try = 0; try < MEM_TC327_TRY_MAX; try++) {
-        ptr = LOS_MemAllocAlign(g_memPoolTC327, MEM_TC327_ALLOC, MEM_TC327_ALIGN);
+        ptr = LOS_MemAllocAlign(g_memTcPoolA, MEM_TC327_ALLOC, MEM_TC327_ALIGN);
         ICUNIT_GOTO_NOT_EQUAL(ptr, NULL, 0, EXIT);
         keep[keepCnt++] = ptr;
         gapWord = *((UINT32 *)((UINTPTR)ptr - sizeof(UINT32)));
@@ -80,7 +79,7 @@ static UINT32 TestCase(VOID)
      * -> LOS_MemFree 返回 LOS_NOK */
     corrupted = 1;
     *((UINT32 *)((UINTPTR)ptr - sizeof(UINT32))) = MEM_TC327_USED_FLAG | MEM_TC327_ALIGNED_FLAG;
-    ret = LOS_MemFree(g_memPoolTC327, ptr);
+    ret = LOS_MemFree(g_memTcPoolA, ptr);
     if (ret == LOS_OK) { /* 防御: 非预期成功则避免 EXIT 双重释放 */
         keep[keepCnt - 1] = NULL;
         ptr = NULL;
@@ -90,17 +89,17 @@ static UINT32 TestCase(VOID)
     /* ---- 恢复 -> 断言功能正常 ---- */
     *((UINT32 *)((UINTPTR)ptr - sizeof(UINT32))) = gapBackup;
     corrupted = 0;
-    ret = LOS_MemFree(g_memPoolTC327, ptr);
+    ret = LOS_MemFree(g_memTcPoolA, ptr);
     if (ret == LOS_OK) {
         keep[keepCnt - 1] = NULL;
         ptr = NULL;
     }
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_MemIntegrityCheck(g_memPoolTC327);
+    ret = LOS_MemIntegrityCheck(g_memTcPoolA);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_MemDeInit(g_memPoolTC327);
+    ret = LOS_MemDeInit(g_memTcPoolA);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
 EXIT:
@@ -110,11 +109,11 @@ EXIT:
     }
     for (i = 0; i < keepCnt; i++) {
         if (keep[i] != NULL) {
-            (VOID)LOS_MemFree(g_memPoolTC327, keep[i]);
+            (VOID)LOS_MemFree(g_memTcPoolA, keep[i]);
             keep[i] = NULL;
         }
     }
-    (VOID)LOS_MemDeInit(g_memPoolTC327);
+    (VOID)LOS_MemDeInit(g_memTcPoolA);
     return LOS_OK;
 }
 

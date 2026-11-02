@@ -239,6 +239,17 @@ static UINT32 TestCase(VOID)
     ICUNIT_GOTO_EQUAL(g_period006 >= PM006_MIN_CYCLES, TRUE, g_period006, EXIT);
     ICUNIT_GOTO_EQUAL(g_period006 <= PM006_MAX_CYCLES, TRUE, g_period006, EXIT);
 
+    /* 后置: 辅助任务有界等待自然退出(成功路径同样必须等待, 否则其 8KB 栈以
+     * "泄漏"形态泄入后续用例的内存窗口; 延时态删除被问题13禁止) */
+    if (g_auxTid006 != 0) {
+        suspendLoop = 0;
+        while ((g_auxDone006 == 0) && (suspendLoop < PM006_AUX_TICKS * 4)) {
+            suspendLoop++;
+            (VOID)LOS_TaskDelay(1);
+        }
+        g_auxTid006 = 0;
+    }
+
     return LOS_OK;
 
 EXIT:

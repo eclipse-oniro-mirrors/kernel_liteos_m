@@ -34,6 +34,9 @@
 void *g_memPool = NULL;
 void *g_testPool = NULL;
 
+UINT8 g_memTcPoolA[TEST_POOL_SIZE] __attribute__((aligned(64)));
+UINT8 g_memTcPoolB[TEST_POOL_SIZE] __attribute__((aligned(64)));
+
 void MemStart(void)
 {
     g_memPool = LOS_MemAlloc(LOSCFG_SYS_HEAP_ADDR, TEST_MEM_SIZE);

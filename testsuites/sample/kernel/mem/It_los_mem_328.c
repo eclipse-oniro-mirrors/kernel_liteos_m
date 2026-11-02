@@ -35,7 +35,6 @@
 
 #define MEM_TC328_POOL_SIZE     0x1000
 
-STATIC UINT8 g_memPoolTC328[MEM_TC328_POOL_SIZE] __attribute__((aligned(64)));
 
 /* 用例简要描述: 尾节点magic破坏后InfoGet返回NOK */
 static UINT32 TestCase(VOID)
@@ -48,12 +47,12 @@ static UINT32 TestCase(VOID)
     LOS_MEM_POOL_STATUS poolStatus = {0};
     TestMemDynNodeBF *endNode = NULL;
 
-    ret = LOS_MemPoolInit(g_memPoolTC328, MEM_TC328_POOL_SIZE, 0);
+    ret = LOS_MemPoolInit(g_memTcPoolA, MEM_TC328_POOL_SIZE, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* END 节点 = pool + poolSize - 节点头大小(白盒偏移, 结构副本见 It_los_mem.h) */
-    endNode = (TestMemDynNodeBF *)(VOID *)((UINTPTR)g_memPoolTC328 +
-        LOS_MemPoolSizeGet(g_memPoolTC328) - TEST_BF_NODE_HEAD_SIZE);
+    endNode = (TestMemDynNodeBF *)(VOID *)((UINTPTR)g_memTcPoolA +
+        LOS_MemPoolSizeGet(g_memTcPoolA) - TEST_BF_NODE_HEAD_SIZE);
 
     poolNumBefore = LOS_MemPoolList();
 
@@ -63,7 +62,7 @@ static UINT32 TestCase(VOID)
     endNode->selfNode.magic = 0; /* 破坏地址异或 magic */
 
     /* OsMemInfoGet 尾节点 magic 校验失败 -> PRINT_ERR + LOS_NOK(bestfit 1295-1297) */
-    ret = LOS_MemInfoGet(g_memPoolTC328, &poolStatus);
+    ret = LOS_MemInfoGet(g_memTcPoolA, &poolStatus);
     ICUNIT_GOTO_EQUAL(ret, LOS_NOK, ret, EXIT);
 
     /* 破坏窗口内 LOS_MemPoolList: OsMemInfoPrint 对坏池早退(1332-1333),
@@ -75,10 +74,10 @@ static UINT32 TestCase(VOID)
     endNode->selfNode.magic = magicBackup;
     corrupted = 0;
 
-    ret = LOS_MemInfoGet(g_memPoolTC328, &poolStatus);
+    ret = LOS_MemInfoGet(g_memTcPoolA, &poolStatus);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_MemDeInit(g_memPoolTC328);
+    ret = LOS_MemDeInit(g_memTcPoolA);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
 EXIT:
@@ -86,7 +85,7 @@ EXIT:
         /* 破坏态下断言失败跳转至此: 先恢复原值再返回, 保证池不被污染 */
         endNode->selfNode.magic = magicBackup;
     }
-    (VOID)LOS_MemDeInit(g_memPoolTC328);
+    (VOID)LOS_MemDeInit(g_memTcPoolA);
     return LOS_OK;
 }
 

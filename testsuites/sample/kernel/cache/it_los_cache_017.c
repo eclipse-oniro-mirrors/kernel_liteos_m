@@ -18,6 +18,10 @@ static UINT32 TestCase(VOID)
     UINT32 i;
     UINT32 loop;
 
+    /* 规范调用: 改尺寸前先退使能并双清, 使能后再清(同 ItLosCache001 序列) */
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     (VOID)ArchICacheEnable(CACHE_32KB);
     ArchICacheFlush();
     (VOID)ArchDCacheEnable(CACHE_4KB);

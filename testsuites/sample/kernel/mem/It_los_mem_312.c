@@ -40,7 +40,6 @@
 #define MEMBOX_TC312_SMALL_SIZE 0x20    /* 32, 命中 slab 类(blkSz 16/32/64/128) */
 #define MEMBOX_TC312_LARGE_SIZE 0x100   /* 256, > SLAB_MEM_MAX_SIZE(128), 必走堆路径(los_slabmem.c:333) */
 
-STATIC UINT8 g_slabPoolTC312[MEMBOX_TC312_POOL_SIZE] __attribute__((aligned(8)));
 
 static UINT32 TestCase(VOID)
 {
@@ -60,53 +59,53 @@ static UINT32 TestCase(VOID)
     LOS_SlabSizeCfg(cfgLarge, SLAB_MEM_COUNT);
 
     /* F-Pos: bestfit_little 下 LOS_MemPoolInit(attr=SLAB_MSK) 建专属 slab 池 */
-    ret = LOS_MemPoolInit(g_slabPoolTC312, MEMBOX_TC312_POOL_SIZE, LOS_MEM_INIT_ATTR_SLAB_MSK);
+    ret = LOS_MemPoolInit(g_memTcPoolA, MEMBOX_TC312_POOL_SIZE, LOS_MEM_INIT_ATTR_SLAB_MSK);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     poolInit = TRUE;
 
     /* 注: slab 专属池内部分配对 LOS_MemTotalUsedGet 水位透明(建池时整个 slab 区已是
      * 一个已用堆节点, slab 类内部分配/释放不改堆节点标记), 故不使用水位对比断言。 */
-    usedBefore = LOS_MemTotalUsedGet(g_slabPoolTC312);
+    usedBefore = LOS_MemTotalUsedGet(g_memTcPoolA);
 
     /* F-Pos: 小对象(0x20 <= SLAB_MEM_MAX_SIZE=128)命中 slab 类, 分配+写+释放行为验证 */
-    smallBlk = LOS_MemAlloc(g_slabPoolTC312, MEMBOX_TC312_SMALL_SIZE);
+    smallBlk = LOS_MemAlloc(g_memTcPoolA, MEMBOX_TC312_SMALL_SIZE);
     ICUNIT_GOTO_NOT_EQUAL(smallBlk, NULL, 0, EXIT);
     (VOID)memset_s(smallBlk, MEMBOX_TC312_SMALL_SIZE, 0x5A, MEMBOX_TC312_SMALL_SIZE);
-    ret = LOS_MemFree(g_slabPoolTC312, smallBlk);
+    ret = LOS_MemFree(g_memTcPoolA, smallBlk);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     smallBlk = NULL;
 
     /* F-BVA: 重复小对象分配释放循环(slabs 生命周期稳定性, 5: 循环次数) */
     for (i = 0; i < 5; i++) {
-        smallBlk = LOS_MemAlloc(g_slabPoolTC312, MEMBOX_TC312_SMALL_SIZE);
+        smallBlk = LOS_MemAlloc(g_memTcPoolA, MEMBOX_TC312_SMALL_SIZE);
         ICUNIT_GOTO_NOT_EQUAL(smallBlk, NULL, i, EXIT);
-        ret = LOS_MemFree(g_slabPoolTC312, smallBlk);
+        ret = LOS_MemFree(g_memTcPoolA, smallBlk);
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
         smallBlk = NULL;
     }
 
     /* F-BVA: 超过 slab 类上限(SLAB_MEM_MAX_SIZE=128)的请求走堆路径, 分配+释放行为验证 */
-    largeBlk = LOS_MemAlloc(g_slabPoolTC312, MEMBOX_TC312_LARGE_SIZE);
+    largeBlk = LOS_MemAlloc(g_memTcPoolA, MEMBOX_TC312_LARGE_SIZE);
     ICUNIT_GOTO_NOT_EQUAL(largeBlk, NULL, 0, EXIT);
     (VOID)memset_s(largeBlk, MEMBOX_TC312_LARGE_SIZE, 0xA5, MEMBOX_TC312_LARGE_SIZE);
-    ret = LOS_MemFree(g_slabPoolTC312, largeBlk);
+    ret = LOS_MemFree(g_memTcPoolA, largeBlk);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     largeBlk = NULL;
-    usedAfter = LOS_MemTotalUsedGet(g_slabPoolTC312);
+    usedAfter = LOS_MemTotalUsedGet(g_memTcPoolA);
     ICUNIT_GOTO_EQUAL(usedAfter, usedBefore, usedAfter - usedBefore, EXIT);
 
 EXIT:
     if (smallBlk != NULL) {
-        (VOID)LOS_MemFree(g_slabPoolTC312, smallBlk);
+        (VOID)LOS_MemFree(g_memTcPoolA, smallBlk);
         smallBlk = NULL;
     }
     if (largeBlk != NULL) {
-        (VOID)LOS_MemFree(g_slabPoolTC312, largeBlk);
+        (VOID)LOS_MemFree(g_memTcPoolA, largeBlk);
         largeBlk = NULL;
     }
     if (poolInit == TRUE) {
 #if (LOSCFG_MEM_MUL_POOL == 1)
-        (VOID)LOS_MemDeInit(g_slabPoolTC312);
+        (VOID)LOS_MemDeInit(g_memTcPoolA);
 #endif
     }
     /* D1: 出口恢复编译默认配置 */

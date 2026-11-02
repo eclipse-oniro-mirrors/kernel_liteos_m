@@ -294,6 +294,12 @@ EXIT:
 static pthread_cond_t g_pthread_cond;
 static pthread_mutex_t g_pthread_mutex;
 #define TEST_THREAD_COUNT 5
+/* 右值化并发线程栈: 等待者/轻量线程为浅调用链(锁/条件等待/退出路径), 0x800 足够
+ * (同族先例 It_posix_pthread_036); 须再创建子线程的 worker 因 pthread_create 调用链
+ * 较深, 用平台默认栈 0x1000。避免 5x8KB 并发足迹在堆余量紧张的构建(如 gcov -O0)
+ * 下耗尽堆, 使后续用例的线程创建失败。 */
+#define TEST_WAITER_STACK_SIZE  0x800
+#define TEST_WORKER_STACK_SIZE  0x1000
 static void *PthreadCondFunc001(void *arg)
 {
     int ret;
@@ -324,6 +330,7 @@ static VOID *PthreadFunc06(void *argument)
     int ret;
     int i;
     int createdCount = 0;
+    int joinedCount = 0;
     pthread_attr_t attr;
     struct sched_param schedParam = { 0 };
     pthread_t thread[TEST_THREAD_COUNT];
@@ -333,7 +340,7 @@ static VOID *PthreadFunc06(void *argument)
     ret = pthread_attr_init(&attr);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
-    ret = pthread_attr_setstacksize(&attr, OS_TSK_TEST_STACK_SIZE);
+    ret = pthread_attr_setstacksize(&attr, TEST_WAITER_STACK_SIZE);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
     ret = pthread_getschedparam(pthread_self(), &policy, &schedParam);
@@ -371,10 +378,11 @@ static VOID *PthreadFunc06(void *argument)
     for (i = 0; i < TEST_THREAD_COUNT; i++) {
         ret = pthread_join(thread[i], NULL);
         ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
+        joinedCount++;
     }
 
 EXIT:
-    for (i = 0; i < createdCount; i++) {
+    for (i = joinedCount; i < createdCount; i++) {
         pthread_join(thread[i], NULL);
     }
     return NULL;
@@ -401,7 +409,7 @@ static UINT32 TestPthread006(VOID)
     ret = pthread_attr_init(&attr);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_COND);
 
-    ret = pthread_attr_setstacksize(&attr, OS_TSK_TEST_STACK_SIZE);
+    ret = pthread_attr_setstacksize(&attr, TEST_WORKER_STACK_SIZE);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_ATTR);
 
     schedParam.sched_priority = TASK_PRIO_TEST - 1;
@@ -465,6 +473,7 @@ static VOID *PthreadFunc07(void *argument)
     int ret;
     int i;
     int createdCount = 0;
+    int joinedCount = 0;
     pthread_attr_t attr;
     struct sched_param schedParam = { 0 };
     pthread_t thread[TEST_THREAD_COUNT];
@@ -477,7 +486,7 @@ static VOID *PthreadFunc07(void *argument)
     ret = pthread_attr_init(&attr);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
-    ret = pthread_attr_setstacksize(&attr, OS_TSK_TEST_STACK_SIZE);
+    ret = pthread_attr_setstacksize(&attr, TEST_WAITER_STACK_SIZE);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
     ret = pthread_getschedparam(pthread_self(), &policy, &schedParam);
@@ -504,12 +513,13 @@ static VOID *PthreadFunc07(void *argument)
     for (i = 0; i < TEST_THREAD_COUNT; i++) {
         ret = pthread_join(thread[i], NULL);
         ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
+        joinedCount++;
     }
 
     ICUNIT_GOTO_EQUAL(g_testCount, 10, g_testCount, EXIT); /* 10: Twice per thread */
 
 EXIT:
-    for (i = 0; i < createdCount; i++) {
+    for (i = joinedCount; i < createdCount; i++) {
         pthread_join(thread[i], NULL);
     }
     return NULL;
@@ -533,7 +543,7 @@ static UINT32 TestPthread007(VOID)
     ret = pthread_attr_init(&attr);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_COND);
 
-    ret = pthread_attr_setstacksize(&attr, OS_TSK_TEST_STACK_SIZE);
+    ret = pthread_attr_setstacksize(&attr, TEST_WORKER_STACK_SIZE);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_ATTR);
 
     schedParam.sched_priority = TASK_PRIO_TEST - 1;
@@ -632,7 +642,7 @@ static UINT32 TestPthread008(VOID)
     ret = pthread_attr_init(&attr);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
-    ret = pthread_attr_setstacksize(&attr, OS_TSK_TEST_STACK_SIZE);
+    ret = pthread_attr_setstacksize(&attr, TEST_WAITER_STACK_SIZE);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     schedParam.sched_priority = TASK_PRIO_TEST - 1;
@@ -687,7 +697,7 @@ static UINT32 TestPthread009(VOID)
     ret = pthread_attr_init(&attr);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
-    ret = pthread_attr_setstacksize(&attr, OS_TSK_TEST_STACK_SIZE);
+    ret = pthread_attr_setstacksize(&attr, TEST_WAITER_STACK_SIZE);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     schedParam.sched_priority = TASK_PRIO_TEST + 1;

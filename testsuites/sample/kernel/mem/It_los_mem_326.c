@@ -39,7 +39,6 @@
 #define MEM_TC326_USED_FLAG     0x80000000U
 #define MEM_TC326_ALIGNED_FLAG  0x40000000U
 
-STATIC UINT8 g_memPoolTC326[MEM_TC326_POOL_SIZE] __attribute__((aligned(64)));
 
 /* 用例简要描述: 坏gap字Mfree返回NOK恢复后正常 */
 static UINT32 TestCase(VOID)
@@ -49,11 +48,11 @@ static UINT32 TestCase(VOID)
     UINT32 corrupted = 0;
     VOID *ptr = NULL;
 
-    ret = LOS_MemPoolInit(g_memPoolTC326, MEM_TC326_POOL_SIZE, 0);
+    ret = LOS_MemPoolInit(g_memTcPoolA, MEM_TC326_POOL_SIZE, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* 普通分配: ptr-4 即节点头 sizeAndFlag 字(USED 置位, ALIGNED 清零) */
-    ptr = LOS_MemMalloc(g_memPoolTC326, 0x20, MEM_TC326_MOD_ID);
+    ptr = LOS_MemMalloc(g_memTcPoolA, 0x20, MEM_TC326_MOD_ID);
     ICUNIT_GOTO_NOT_EQUAL(ptr, NULL, 0, EXIT);
 
     /* ---- fuzz: 保存原值 -> 破坏 -> 断言安全失败 ---- */
@@ -63,7 +62,7 @@ static UINT32 TestCase(VOID)
      * -> LOS_MemMfree 返回 LOS_NOK */
     corrupted = 1;
     *((UINT32 *)((UINTPTR)ptr - sizeof(UINT32))) = MEM_TC326_USED_FLAG | MEM_TC326_ALIGNED_FLAG;
-    ret = LOS_MemMfree(g_memPoolTC326, ptr, MEM_TC326_MOD_ID);
+    ret = LOS_MemMfree(g_memTcPoolA, ptr, MEM_TC326_MOD_ID);
     if (ret == LOS_OK) { /* 防御: 非预期成功则避免 EXIT 双重释放 */
         ptr = NULL;
     }
@@ -71,7 +70,7 @@ static UINT32 TestCase(VOID)
 
     /* 坏值 2: ALIGNED|6(解码 gapSize=6 未按 OS_MEM_ALIGN_SIZE 对齐) -> 2299-2301 */
     *((UINT32 *)((UINTPTR)ptr - sizeof(UINT32))) = MEM_TC326_ALIGNED_FLAG | 6;
-    ret = LOS_MemMfree(g_memPoolTC326, ptr, MEM_TC326_MOD_ID);
+    ret = LOS_MemMfree(g_memTcPoolA, ptr, MEM_TC326_MOD_ID);
     if (ret == LOS_OK) { /* 防御: 非预期成功则避免 EXIT 双重释放 */
         ptr = NULL;
     }
@@ -80,13 +79,13 @@ static UINT32 TestCase(VOID)
     /* ---- 恢复 -> 断言功能正常 ---- */
     *((UINT32 *)((UINTPTR)ptr - sizeof(UINT32))) = wordBackup;
     corrupted = 0;
-    ret = LOS_MemMfree(g_memPoolTC326, ptr, MEM_TC326_MOD_ID);
+    ret = LOS_MemMfree(g_memTcPoolA, ptr, MEM_TC326_MOD_ID);
     if (ret == LOS_OK) {
         ptr = NULL;
     }
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_MemDeInit(g_memPoolTC326);
+    ret = LOS_MemDeInit(g_memTcPoolA);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
 EXIT:
@@ -95,10 +94,10 @@ EXIT:
         *((UINT32 *)((UINTPTR)ptr - sizeof(UINT32))) = wordBackup;
     }
     if (ptr != NULL) {
-        (VOID)LOS_MemMfree(g_memPoolTC326, ptr, MEM_TC326_MOD_ID);
+        (VOID)LOS_MemMfree(g_memTcPoolA, ptr, MEM_TC326_MOD_ID);
         ptr = NULL;
     }
-    (VOID)LOS_MemDeInit(g_memPoolTC326);
+    (VOID)LOS_MemDeInit(g_memTcPoolA);
     return LOS_OK;
 }
 

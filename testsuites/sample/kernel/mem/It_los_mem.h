@@ -59,6 +59,15 @@ extern "C" {
 
 #define TEST_POOL_SIZE (1 * 8 * 1024)
 
+/* 共享测试池: 单/双池内存类用例(TC050/053/057/312/316/317/325~329)的池缓冲复用,
+ * 替代各用例私有静态池(原合计~68KB .bss)。用例串行执行且各自 MemPoolInit/MemDeInit,
+ * 无跨用例池状态依赖; 静态数组置于 LMS 监管堆之外(维持"nested-pool 冲突规避"约束)。
+ * 多区域邻接布局类用例(TC46/47)与 membox 微池(TC310/311)不适用本复用。
+ * A 池按最严约束定义(aligned(64): TC325~329 的 AllocAlign 契约; 8KB: 最大用例尺寸),
+ * 各用例仍以自己的 SIZE(≤8KB) Init, 断言语义不变; B 池专供双池用例(TC316)。 */
+extern UINT8 g_memTcPoolA[TEST_POOL_SIZE];
+extern UINT8 g_memTcPoolB[TEST_POOL_SIZE];
+
 #define RANDOM(x) (rand() % (x))
 
 #define LOS_INIT_MEM LOS_MemInit

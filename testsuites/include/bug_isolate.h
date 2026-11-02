@@ -100,15 +100,19 @@
                                                * 单跑相位敏感不现; 隔离点在 It_los_pm.c 聚合注册点,
                                                * 仅 tickless 板隔离, ws63(周期 tick)构造上不可触发
                                                * 照常执行; 修复后置 1 恢复 */
-#define KERNEL_BUG_12_PM_TICKTIMER_PERIODIC_DEAD 0 /* ItLosPm006: 周期 tick 板(ws63) PM tickless 停表链
+#define KERNEL_BUG_12_PM_TICKTIMER_PERIODIC_DEAD 1 /* ItLosPm006: 周期 tick 板(ws63) PM tickless 停表链
                                                     * 失效(BUG_12, BUG_11 孪生缺陷): 周期模式
                                                     * OsSchedGetNextExpireTime 返回 currTime+rollSum
                                                     * (tick 数被当 cycle 数相加), realSleepTime 语义
                                                     * 错误 -> sleepCycle 恒 0/垃圾值 -> tickLock/
                                                     * timerStart 停表链永不正确执行; 用例断言修复后
                                                     * 契约(timerStart 计数>=1 且编程周期在一个 tick
-                                                    * 以上), 修复前置 1 将失败; 隔离点在 It_los_pm.c
-                                                    * 聚合注册点(仅周期 tick 板) */
+                                                    * 以上); 已修复: los_sched_tick.c:129 周期分支
+                                                    * startTime+rollSum 改为 startTime+
+                                                    * OS_SYS_TICK_TO_CYCLE(rollSum)(commit
+                                                    * 84d6dfa6); 置 1 恢复 ItLosPm006 作为回归看护
+                                                    * 常跑; 隔离点在 It_los_pm.c 聚合注册点(仅周期
+                                                    * tick 板守本宏, qemu tickless 板由 BUG_11 宏守卫) */
 
 #define KERNEL_BUG_14_DYNLOAD_SHN_COMMON 0 /* ItLosDynload016(!1194 dynload 新模块): 加载含 SHN_COMMON
                                             * 符号的 ET_REL 对象越界崩溃。【现象】LOS_MemLoad 加载带

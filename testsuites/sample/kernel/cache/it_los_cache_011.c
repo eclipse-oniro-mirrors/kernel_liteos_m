@@ -14,6 +14,11 @@ static UINT32 TestCase(VOID)
     static volatile UINT32 buf[32];
     UINT32 i;
 
+    /* 规范调用(同 ItLosCache001 序列): 改 I-cache 尺寸前先退使能并双清, 使能后
+     * 立即再清——ICS 切换会重解释 tag 表项, 暴露跨启动残留的 data RAM 陈旧行 */
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchDCacheEnable(CACHE_4KB), LOS_OK, LOS_OK);

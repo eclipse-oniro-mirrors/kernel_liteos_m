@@ -48,6 +48,15 @@ REPO_ROOT=$(cd "$HERE/../../../../.." && pwd)  # testsuites/src/gcov -> morpheus
 # RV_GCOV is inside the repo; ARM_GCOV is on the system PATH (outside repo)
 RV_GCOV="$REPO_ROOT/device/soc/hisilicon/ws63v100/sdk/tools/bin/compiler/riscv/cc_riscv32_musl_100/cc_riscv32_musl/bin/riscv32-linux-musl-gcov"
 ARM_GCOV="$(command -v arm-none-eabi-gcov || echo "$REPO_ROOT/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gcov")"
+# clang 板（hi3322/BiSheng）：llvm-cov 的 gcov 兼容模式（必须带 gcov 子命令，lcov 需可执行文件 → shim 包装）
+LLVM_COV="$REPO_ROOT/prebuilts/clang/ohos/linux-x86_64/llvm/bin/llvm-cov"
+LLVM_GCOV=""
+if [ -x "$LLVM_COV" ]; then
+    LLVM_GCOV="$REPO_ROOT/out/.llvm_cov_gcov.sh"
+    mkdir -p "$(dirname "$LLVM_GCOV")"
+    printf '#!/bin/bash\nexec "%s" gcov "$@"\n' "$LLVM_COV" > "$LLVM_GCOV"
+    chmod +x "$LLVM_GCOV"
+fi
 
 echo "=== step 1: reconstruct .gcda from serial log ==="
 python3 "$HERE/parse_gcov_log.py" "$LOG_PATH"
@@ -66,14 +75,23 @@ case "$FIRST_GCDA" in
     *)       BUILD_DIR=$(dirname "$FIRST_GCDA") ;;
 esac
 
+STALE_GCDAS=$(find "$BUILD_DIR" -name '*.gcda' 2>/dev/null | \
+    grep -Fxv -f <(grep -a '^GCOV_BEGIN ' "$LOG_PATH" | sed 's/^GCOV_BEGIN //;s/\r$//') || true)
+if [ -n "$STALE_GCDAS" ]; then
+    echo "=== step 1.5: drop $(printf '%s\n' "$STALE_GCDAS" | wc -l) stale .gcda not dumped in this run ==="
+    printf '%s\n' "$STALE_GCDAS" | while IFS= read -r f; do rm -f "$f"; done
+fi
+
 # Read the .gcno version word (LE u32 at offset 4) and pick the gcov tool
 GCNO="${FIRST_GCDA%.gcda}.gcno"
 GCOV_VER=$(od -An -tx4 -j4 -N4 "$GCNO" 2>/dev/null | tr -d ' \n')
 case "$GCOV_VER" in
     4137332a) GCOV_TOOL="$RV_GCOV"; TOOL_DESC="riscv32-linux-musl-gcov 7.3" ;;
     42303372) GCOV_TOOL="$ARM_GCOV"; TOOL_DESC="arm-none-eabi-gcov 10.3.1" ;;
+    3430382a) GCOV_TOOL="$LLVM_GCOV"; TOOL_DESC="llvm-cov gcov (BiSheng clang 15)" ;;
     *) echo "unknown .gcno version word: '$GCOV_VER' ($GCNO)" >&2; exit 1 ;;
 esac
+[ -n "$GCOV_TOOL" ] || { echo "gcov tool unavailable for version '$GCOV_VER'" >&2; exit 1; }
 
 # Board name for default output paths
 case "$BUILD_DIR" in
@@ -98,8 +116,19 @@ lcov --capture \
      --output-file "$INFO_OUT" \
      --rc derive_function_end_line=0 \
      --rc lcov_branch_coverage=1 \
-     --ignore-errors mismatch,inconsistent,unused,empty,range,negative \
+     --ignore-errors mismatch,inconsistent,unused,empty,range,negative,source \
      2>&1 | tail -8
+
+BAD_SF=$(grep -c "^SF:$REPO_ROOT/out/" "$INFO_OUT" || true)
+if [ "${BAD_SF:-0}" -gt 0 ]; then
+    echo "=== step 2.5: drop $BAD_SF bogus SF path(s) under build dir ==="
+    lcov --remove "$INFO_OUT" "$REPO_ROOT/out/*" \
+         --output-file "$INFO_OUT.tmp" \
+         --rc lcov_branch_coverage=1 \
+         --ignore-errors mismatch,inconsistent,unused,empty,negative,source \
+         >/dev/null
+    mv "$INFO_OUT.tmp" "$INFO_OUT"
+fi
 
 echo "=== step 3: genhtml ==="
 if [ -d "$HTML_DIR" ]; then
@@ -112,7 +141,7 @@ genhtml "$INFO_OUT" \
         --title "$BOARD coverage" \
         --branch-coverage \
         --prefix "$REPO_ROOT" \
-        --ignore-errors range,inconsistent,corrupt,unsupported \
+        --ignore-errors inconsistent,corrupt,unsupported \
         2>&1 | tail -8
 
 echo ""

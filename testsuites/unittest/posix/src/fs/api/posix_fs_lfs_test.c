@@ -218,9 +218,10 @@ EXIT:
  * @tc.name     LfsFileLarge
  * @tc.desc     引用 littlefs 上游 test_files.toml(test_files_large): 大文件分块写读与校验
  */
-#if !defined(LOSCFG_PLATFORM_WS63_M)
-/* ws63 gate: 本用例写 98KB 大文件(上游 test_files_large SIZE=98305), 需 ≥96KB 数据
- * 块的盘; ws63 测试堆(157KB)仅能提供 16KB RAM 盘, 场景不可构造(板级资源上限) */
+#if !defined(LOSCFG_PLATFORM_WS63_M) && !defined(LOSCFG_PLATFORM_HI3322)
+/* ws63/hi3322 gate: 本用例写 98KB 大文件(上游 test_files_large SIZE=98305), 需 ≥96KB 数据
+ * 块的盘; ws63 测试堆(157KB)仅能提供 16KB RAM 盘, hi3322 板级 2048B×24=48KB
+ * 默认几何同样不足(场景不可构造, 板级资源上限) */
 LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsFileLarge, Function | MediumTest | Level1)
 {
     int ret;
@@ -281,7 +282,7 @@ EXIT:
     (void)unlink(TEST_ROOT "/largef");
     return POSIX_FS_NO_ERROR;
 }
-#endif /* !LOSCFG_PLATFORM_WS63_M */
+#endif /* !WS63_M && !HI3322 */
 
 /* *
  * @tc.number   SUB_KERNEL_FS_LFS_ENTRIES_INTERSPERSED
@@ -1161,7 +1162,7 @@ void PosixFsLfsTest(void)
     RUN_ONE_TESTCASE(TestFsLfsRemountEnosys);
     RUN_ONE_TESTCASE(TestFsLfsPathsVariants);
     RUN_ONE_TESTCASE(TestFsLfsSeekBoundary);
-#if !defined(LOSCFG_PLATFORM_WS63_M)
+#if !defined(LOSCFG_PLATFORM_WS63_M) && !defined(LOSCFG_PLATFORM_HI3322)
     RUN_ONE_TESTCASE(TestFsLfsFileLarge);
 #endif
     RUN_ONE_TESTCASE(TestFsLfsEntriesInterspersed);

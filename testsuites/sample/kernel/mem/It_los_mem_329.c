@@ -37,7 +37,6 @@
 /* 池外对齐野指针(仅参与 OsMemPoolDlinkcheck 的范围比较, 不被解引用) */
 #define MEM_TC329_FOREIGN_ADDR  0xC0000000U
 
-STATIC UINT8 g_memPoolTC329[MEM_TC329_POOL_SIZE] __attribute__((aligned(64)));
 
 /* 用例简要描述: dlink头破坏后完整性检查仅打印不崩 */
 static UINT32 TestCase(VOID)
@@ -50,12 +49,12 @@ static UINT32 TestCase(VOID)
     LOS_DL_LIST *prevBackup = NULL;
     UINT32 corrupted = 0;
 
-    ret = LOS_MemPoolInit(g_memPoolTC329, MEM_TC329_POOL_SIZE, 0);
+    ret = LOS_MemPoolInit(g_memTcPoolA, MEM_TC329_POOL_SIZE, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* dlink 头数组位于 pool + sizeof(LosMemPoolInfo)(bestfit OS_MEM_HEAD_ADDR);
      * 破坏 listHead[0].pstPrev 为池外对齐地址 */
-    dlink = (LosMultipleDlinkHead *)(VOID *)((UINTPTR)g_memPoolTC329 + sizeof(TestMemPoolInfoBF));
+    dlink = (LosMultipleDlinkHead *)(VOID *)((UINTPTR)g_memTcPoolA + sizeof(TestMemPoolInfoBF));
     list0 = &dlink->listHead[0];
 
     /* ---- fuzz: 保存 -> 破坏 -> 断言安全失败(仅打印) ---- */
@@ -65,25 +64,25 @@ static UINT32 TestCase(VOID)
 
     /* LOS_MemIntegrityCheck -> OsMemPoolHeadInfoPrint -> OsMemPoolDlinkcheck 失败
      * 仅打印 dlink 头信息(bestfit 1106-1118), 节点遍历不受影响, 返回 LOS_OK */
-    ret = LOS_MemIntegrityCheck(g_memPoolTC329);
+    ret = LOS_MemIntegrityCheck(g_memTcPoolA);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* ---- 恢复 -> 断言功能正常 ---- */
     list0->pstPrev = prevBackup;
     corrupted = 0;
 
-    ret = LOS_MemIntegrityCheck(g_memPoolTC329);
+    ret = LOS_MemIntegrityCheck(g_memTcPoolA);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* 池可继续 alloc/free */
     size = 0x40;
-    ptr = LOS_MemAlloc(g_memPoolTC329, size);
+    ptr = LOS_MemAlloc(g_memTcPoolA, size);
     ICUNIT_GOTO_NOT_EQUAL(ptr, NULL, 0, EXIT);
-    ret = LOS_MemFree(g_memPoolTC329, ptr);
+    ret = LOS_MemFree(g_memTcPoolA, ptr);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     ptr = NULL;
 
-    ret = LOS_MemDeInit(g_memPoolTC329);
+    ret = LOS_MemDeInit(g_memTcPoolA);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
 EXIT:
@@ -92,10 +91,10 @@ EXIT:
         list0->pstPrev = prevBackup;
     }
     if (ptr != NULL) {
-        (VOID)LOS_MemFree(g_memPoolTC329, ptr);
+        (VOID)LOS_MemFree(g_memTcPoolA, ptr);
         ptr = NULL;
     }
-    (VOID)LOS_MemDeInit(g_memPoolTC329);
+    (VOID)LOS_MemDeInit(g_memTcPoolA);
     return LOS_OK;
 }
 

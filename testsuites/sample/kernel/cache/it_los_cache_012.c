@@ -59,7 +59,12 @@ static UINT32 TestCase(VOID)
     UINT32 readBack;
     UINT32 defects = 0;
 
+    /* 规范调用: 改尺寸前先退使能并双清, 使能后再清(同 ItLosCache001 序列) */
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     (VOID)ArchICacheEnable(CACHE_32KB);
+    ArchICacheFlush();
     (VOID)ArchDCacheEnable(CACHE_32KB);
 
     /* --- A: 按地址失效(原全量 invalidate 在任务运行中不安全, 改 by-VA) --- */
@@ -121,6 +126,7 @@ static UINT32 TestCase(VOID)
         UINT32 it, k;
         for (it = 0; it < 1000U; it++) {
             (VOID)ArchICacheEnable(CACHE_32KB);
+            ArchICacheFlush(); /* 规范: 每次使能后清 ICache */
             (VOID)ArchDCacheEnable(CACHE_32KB);
             (VOID)ArchICachePrefetchEnable(CACHE_PREF_4_LINES);
             (VOID)ArchDCachePrefetchEnable(CACHE_PREF_4_LINES, CACHE_PREF_4_LINES);

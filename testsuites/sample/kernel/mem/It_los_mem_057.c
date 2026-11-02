@@ -35,7 +35,6 @@
 
 #if defined(LOSCFG_KERNEL_MEM_BESTFIT) && (LOSCFG_MEM_MUL_MODULE == 1)
 
-STATIC UINT8 g_memPool_TC57[TEST_MEM_SIZE];
 
 /*
  * testcasename: bestfit 多模块内存计量 API（LOS_MemMalloc/MallocAlign/Mfree/Mrealloc/MusedGet）功能与边界验证
@@ -46,20 +45,20 @@ STATIC UINT8 g_memPool_TC57[TEST_MEM_SIZE];
  * precond（预置条件）
  *   1. g_testCount = 0
  *   2. LOSCFG_KERNEL_MEM_BESTFIT && LOSCFG_MEM_MUL_MODULE == 1（仅 bestfit+多模块下编译/注册）
- *   3. 静态数组 g_memPool_TC57 已用 LOS_MemPoolInit(attr=0) 初始化（不使能 slab）
+ *   3. 静态数组 g_memTcPoolA 已用 LOS_MemPoolInit(attr=0) 初始化（不使能 slab）
  *   4. 模块 A(moduleId=0) 与模块 B(moduleId=1) 起始用量均为 0
  *
  * step（测试步骤）
  *   1. LOS_MemMusedGet(modA) 取基线
- *   2. LOS_MemMalloc(g_memPool_TC57, 0x100, modA)
- *   3. LOS_MemMallocAlign(g_memPool_TC57, 0x40, 32, modB)
- *   4. LOS_MemMalloc(g_memPool_TC57, 0x80, modA) 后 LOS_MemMrealloc(g_memPool_TC57, p1, 0x200, modA)（扩容）
- *   5. LOS_MemMrealloc(g_memPool_TC57, newPtr, 0x40, modA)（缩容）
- *   6. LOS_MemMfree(g_memPool_TC57, p, modA)
- *   7. LOS_MemMfree(g_memPool_TC57, newPtr, modA) 与 LOS_MemMfree(g_memPool_TC57, pa, modB)
- *   8. LOS_MemMalloc(g_memPool_TC57, 0x40, MEM_MODULE_MAX + 1) 与 LOS_MemMusedGet(MEM_MODULE_MAX + 1)（边界：非法 moduleId）
- *   9. LOS_MemMfree(g_memPool_TC57, NULL, modA)（边界：NULL 指针）
- *  10. LOS_MemMrealloc(g_memPool_TC57, NULL, 0x40, modA) 后 LOS_MemMfree(g_memPool_TC57, p2, modA)（边界：NULL 等价 malloc）
+ *   2. LOS_MemMalloc(g_memTcPoolA, 0x100, modA)
+ *   3. LOS_MemMallocAlign(g_memTcPoolA, 0x40, 32, modB)
+ *   4. LOS_MemMalloc(g_memTcPoolA, 0x80, modA) 后 LOS_MemMrealloc(g_memTcPoolA, p1, 0x200, modA)（扩容）
+ *   5. LOS_MemMrealloc(g_memTcPoolA, newPtr, 0x40, modA)（缩容）
+ *   6. LOS_MemMfree(g_memTcPoolA, p, modA)
+ *   7. LOS_MemMfree(g_memTcPoolA, newPtr, modA) 与 LOS_MemMfree(g_memTcPoolA, pa, modB)
+ *   8. LOS_MemMalloc(g_memTcPoolA, 0x40, MEM_MODULE_MAX + 1) 与 LOS_MemMusedGet(MEM_MODULE_MAX + 1)（边界：非法 moduleId）
+ *   9. LOS_MemMfree(g_memTcPoolA, NULL, modA)（边界：NULL 指针）
+ *  10. LOS_MemMrealloc(g_memTcPoolA, NULL, 0x40, modA) 后 LOS_MemMfree(g_memTcPoolA, p2, modA)（边界：NULL 等价 malloc）
  *
  * exp（预期结果）
  *   1. modA 用量 == 0
@@ -74,7 +73,7 @@ STATIC UINT8 g_memPool_TC57[TEST_MEM_SIZE];
  *  10. Mrealloc 返回 != NULL（等价 malloc）；modA 用量增加；Mfree 返回 LOS_OK
  *
  * rstenv（环境清理）
- *   1. EXIT 标签执行 LOS_MemDeInit(g_memPool_TC57) 反初始化池
+ *   1. EXIT 标签执行 LOS_MemDeInit(g_memTcPoolA) 反初始化池
  *   2. 成功路径已释放 p/p1/pa/newPtr/p2，无跨用例节点泄漏
  */
 
@@ -94,14 +93,14 @@ static UINT32 TestCase(VOID)
     UINT32 usedModABase;      /* module A baseline (global counter may be non-zero) */
     UINT32 usedModBBase;      /* module B baseline (global counter may be non-zero) */
 
-    /* Clear the pool buffer before init: g_memPool_TC57 is a static array that
+    /* Clear the pool buffer before init: g_memTcPoolA is a static array that
      * persists across test runs; LOS_MemPoolInit rebuilds pool headers but does
      * not zero the data area. memset_s here gives a clean pool baseline. */
-    (VOID)memset_s(g_memPool_TC57, TEST_MEM_SIZE, 0, TEST_MEM_SIZE);
+    (VOID)memset_s(g_memTcPoolA, TEST_MEM_SIZE, 0, TEST_MEM_SIZE);
 
     /* Use LOS_MemPoolInit(attr=0) so slab is NOT enabled, avoiding slab
      * intercepting the small (0x40/0x80) module allocs that MEM_MUL_MODULE must track. */
-    ret = LOS_MemPoolInit(g_memPool_TC57, TEST_MEM_SIZE, 0);
+    ret = LOS_MemPoolInit(g_memTcPoolA, TEST_MEM_SIZE, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* Record module baselines: LOS_MemMusedGet is a global counter shared across
@@ -114,7 +113,7 @@ static UINT32 TestCase(VOID)
     usedBefore = LOS_MemMusedGet(modA);
 
     size = 0x100;
-    p = LOS_MemMalloc(g_memPool_TC57, size, modA);
+    p = LOS_MemMalloc(g_memTcPoolA, size, modA);
     ICUNIT_GOTO_NOT_EQUAL(p, NULL, 0, EXIT);
 
     usedAfter = LOS_MemMusedGet(modA);
@@ -124,7 +123,7 @@ static UINT32 TestCase(VOID)
     ICUNIT_GOTO_EQUAL(LOS_MemMusedGet(modB), usedModBBase, LOS_MemMusedGet(modB), EXIT);
 
     /* --- LOS_MemMallocAlign --- */
-    pa = LOS_MemMallocAlign(g_memPool_TC57, 0x40, 32, modB);
+    pa = LOS_MemMallocAlign(g_memTcPoolA, 0x40, 32, modB);
     ICUNIT_GOTO_NOT_EQUAL(pa, NULL, 0, EXIT);
     ICUNIT_GOTO_EQUAL(IS_ALIGNED_SIZE((UINT32)(UINTPTR)pa, 32), 1, 0, EXIT);
 
@@ -132,12 +131,12 @@ static UINT32 TestCase(VOID)
     ICUNIT_GOTO_EQUAL((LOS_MemMusedGet(modB) > usedModBBase), 1, 0, EXIT);
 
     /* --- LOS_MemMrealloc (grow) --- */
-    p1 = LOS_MemMalloc(g_memPool_TC57, 0x80, modA);
+    p1 = LOS_MemMalloc(g_memTcPoolA, 0x80, modA);
     ICUNIT_GOTO_NOT_EQUAL(p1, NULL, 0, EXIT);
 
     usedBefore = LOS_MemMusedGet(modA);
 
-    newPtr = LOS_MemMrealloc(g_memPool_TC57, p1, 0x200, modA);
+    newPtr = LOS_MemMrealloc(g_memTcPoolA, p1, 0x200, modA);
     ICUNIT_GOTO_NOT_EQUAL(newPtr, NULL, 0, EXIT);
 
     usedAfter = LOS_MemMusedGet(modA);
@@ -146,7 +145,7 @@ static UINT32 TestCase(VOID)
     /* --- LOS_MemMrealloc (shrink) --- */
     usedBefore = LOS_MemMusedGet(modA);
 
-    newPtr = LOS_MemMrealloc(g_memPool_TC57, newPtr, 0x40, modA);
+    newPtr = LOS_MemMrealloc(g_memTcPoolA, newPtr, 0x40, modA);
     ICUNIT_GOTO_NOT_EQUAL(newPtr, NULL, 0, EXIT);
 
     usedAfter = LOS_MemMusedGet(modA);
@@ -154,16 +153,16 @@ static UINT32 TestCase(VOID)
 
     /* --- LOS_MemMfree --- */
     usedBefore = LOS_MemMusedGet(modA);
-    ret = LOS_MemMfree(g_memPool_TC57, p, modA);
+    ret = LOS_MemMfree(g_memTcPoolA, p, modA);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     usedAfter = LOS_MemMusedGet(modA);
     ICUNIT_GOTO_EQUAL((usedAfter < usedBefore), 1, 0, EXIT);
 
     /* Free remaining allocations */
-    ret = LOS_MemMfree(g_memPool_TC57, newPtr, modA);
+    ret = LOS_MemMfree(g_memTcPoolA, newPtr, modA);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    ret = LOS_MemMfree(g_memPool_TC57, pa, modB);
+    ret = LOS_MemMfree(g_memTcPoolA, pa, modB);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* All module usage should be back to baseline (global counter, not zero) */
@@ -171,26 +170,26 @@ static UINT32 TestCase(VOID)
     ICUNIT_GOTO_EQUAL(LOS_MemMusedGet(modB), usedModBBase, LOS_MemMusedGet(modB), EXIT);
 
     /* --- Boundary: invalid module ID --- */
-    p2 = LOS_MemMalloc(g_memPool_TC57, 0x40, MEM_MODULE_MAX + 1);
+    p2 = LOS_MemMalloc(g_memTcPoolA, 0x40, MEM_MODULE_MAX + 1);
     ICUNIT_GOTO_EQUAL(p2, NULL, p2, EXIT);
 
     ret = LOS_MemMusedGet(MEM_MODULE_MAX + 1);
     ICUNIT_GOTO_EQUAL(ret, OS_NULL_INT, ret, EXIT);
 
     /* --- Boundary: NULL ptr to LOS_MemMfree --- */
-    ret = LOS_MemMfree(g_memPool_TC57, NULL, modA);
+    ret = LOS_MemMfree(g_memTcPoolA, NULL, modA);
     ICUNIT_GOTO_EQUAL(ret, LOS_NOK, ret, EXIT);
 
     /* --- Boundary: NULL ptr to LOS_MemMrealloc (acts as malloc) --- */
-    p2 = LOS_MemMrealloc(g_memPool_TC57, NULL, 0x40, modA);
+    p2 = LOS_MemMrealloc(g_memTcPoolA, NULL, 0x40, modA);
     ICUNIT_GOTO_NOT_EQUAL(p2, NULL, 0, EXIT);
     ICUNIT_GOTO_EQUAL((LOS_MemMusedGet(modA) > 0), 1, 0, EXIT);
 
-    ret = LOS_MemMfree(g_memPool_TC57, p2, modA);
+    ret = LOS_MemMfree(g_memTcPoolA, p2, modA);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
 EXIT:
-    LOS_MemDeInit(g_memPool_TC57);
+    LOS_MemDeInit(g_memTcPoolA);
     return LOS_OK;
 }
 

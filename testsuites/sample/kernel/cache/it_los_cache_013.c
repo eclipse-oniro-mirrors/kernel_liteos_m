@@ -12,12 +12,23 @@
 static UINT32 TestCase(VOID)
 {
     /* Flush after each size change to clear stale lines beyond the new size. */
+    /* 规范调用: 下方逐尺寸切换前先退使能并双清(同 ItLosCache001 序列),
+     * ICS 切换会重解释 tag 表项暴露跨启动残留的 data RAM 陈旧行 */
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_4KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_16KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
 
@@ -31,6 +42,9 @@ static UINT32 TestCase(VOID)
     ArchDCacheFlush();
 
     /* Restore main's config (ICache 32KB / DCache 4KB) */
+    ArchICacheDisable();
+    ArchICacheFlush();
+    ArchDCacheFlush();
     ICUNIT_ASSERT_EQUAL(ArchICacheEnable(CACHE_32KB), LOS_OK, LOS_OK);
     ArchICacheFlush();
 

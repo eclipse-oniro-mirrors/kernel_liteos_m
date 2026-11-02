@@ -120,15 +120,8 @@ STATIC VOID OsTaskStackFree(LosTaskCB *taskCB)
     }
 #endif
     taskCB->topOfStack = 0;
-    UINT32 taskId = taskCB->taskId;
-#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
-    VOID *hplHandle = taskCB->hpl;
-#endif
-    (VOID)memset_s(taskCB, sizeof(LosTaskCB), 0, sizeof(LosTaskCB));
-    taskCB->taskId = taskId;
     taskCB->taskStatus = OS_TASK_STATUS_UNUSED;
 #ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
-    taskCB->hpl = hplHandle;
     if (taskCB->hpl != NULL) {
         OsHplPreDelete(taskCB->hpl);
     }
@@ -1267,6 +1260,7 @@ STATIC VOID OsTaskCBInit(LosTaskCB *taskCB, const TSK_INIT_PARAM_S *initParam, V
     taskCB->taskSem         = NULL;
     taskCB->taskMux         = NULL;
     taskCB->priority        = initParam->usTaskPrio;
+    taskCB->priBitMap       = 0;
     taskCB->taskEntry       = initParam->pfnTaskEntry;
 #if (LOSCFG_BASE_IPC_EVENT == 1)
     taskCB->event.uwEventID = OS_NULL_INT;

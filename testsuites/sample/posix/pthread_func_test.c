@@ -137,7 +137,7 @@ static UINT32 TestPthread002(VOID)
 static VOID *PthreadJoinF03(void *argument)
 {
     int ret = pthread_detach(pthread_self());
-    ICUNIT_GOTO_EQUAL(ret, ESRCH, ret, EXIT);
+    ICUNIT_GOTO_EQUAL(ret, EINVAL, ret, EXIT);
 
     g_testCount++;
 EXIT:
@@ -1134,10 +1134,10 @@ static UINT32 TestPthread019(VOID)
     int oldState = -1;
     int ret;
 
-    /* 1. getschedparam: 非法线程 id(超过任务数上限, IsPthread 判假, pthread.c:415-418) → EINVAL */
+    /* 1. getschedparam: 非法线程 id(超过任务数上限, IsPthread 判假) → ESRCH */
     invalidThread = (pthread_t)(LOSCFG_BASE_CORE_TSK_LIMIT + 1);
     ret = pthread_getschedparam(invalidThread, &policy, &schedParam);
-    ICUNIT_GOTO_EQUAL(ret, EINVAL, ret, EXIT);
+    ICUNIT_GOTO_EQUAL(ret, ESRCH, ret, EXIT);
 
     /* 2. getschedparam: policy 传 NULL(pthread.c:420-422) → EINVAL */
     ret = pthread_getschedparam(pthread_self(), NULL, &schedParam);

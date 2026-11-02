@@ -343,6 +343,210 @@ LITE_TEST_CASE(PosixMathFuncTestSuite, testMathRound002, Function | MediumTest |
     }
     return 0;
 };
+
+/* 用例简要描述: pow 极端指数溢出下溢与次正规结果 */
+LITE_TEST_CASE(PosixMathFuncTestSuite, testMathPowExtreme001, Function | MediumTest | Level1)
+{
+    double ret;
+
+    /* 注：本移植 math_errhandling==2（仅异常），__math_oflow/__math_uflow
+     * 不写 errno（__math_xflow.c 无 errno 写入），故只断言值 */
+
+    /* 指数超 1024：__math_oflow → +Inf（exp_inline 大参量分支） */
+    ret = pow(2.0, 1100.0);
+    ICUNIT_ASSERT_EQUAL(ret, INFINITY, 0);
+
+    /* 深度下溢：__math_uflow → 0 */
+    ret = pow(2.0, -2000.0);
+    ICUNIT_ASSERT_EQUAL(ret, 0.0, 0);
+
+    /* 次正规域结果：1.5^-1750 ≈ 6.9e-309 ∈ (0, DBL_MIN)，
+     * 走 specialcase k<0 次正规侧（含双舍入保护） */
+    ret = pow(1.5, -1750.0);
+    ICUNIT_ASSERT_EQUAL(ret > 0.0, 1, 0);
+    ICUNIT_ASSERT_EQUAL(ret < DBL_MIN, 1, 0);
+
+    /* 巨大 |y| 快速分支（pow.c:304-318） */
+    ret = pow(2.0, 1e300);
+    ICUNIT_ASSERT_EQUAL(ret, INFINITY, 0);
+
+    ret = pow(2.0, -1e300);
+    ICUNIT_ASSERT_EQUAL(ret, 0.0, 0);
+
+    /* specialcase k>0 溢出侧（scale 指数补偿 128-133）：2^1023 可精确表示 */
+    ret = pow(2.0, 1023.0);
+    ICUNIT_ASSERT_EQUAL(ret, 8.98846567431158e307, 0);
+
+    /* specialcase k<0 次正规底：2^-1074 为最小次正规数 */
+    ret = pow(2.0, -1074.0);
+    ICUNIT_ASSERT_EQUAL(ret, 4.9406564584124654e-324, 0);
+    return 0;
+};
+
+/* 用例简要描述: pow 特殊底数指数组合的域规则 */
+LITE_TEST_CASE(PosixMathFuncTestSuite, testMathPowDomain001, Function | MediumTest | Level1)
+{
+    double ret;
+
+    /* y 为 0/Inf 的域规则（pow.c:278-293） */
+    ret = pow(1.0, INFINITY);
+    ICUNIT_ASSERT_EQUAL(ret, 1.0, 0);
+
+    ret = pow(-2.0, INFINITY);
+    ICUNIT_ASSERT_EQUAL(ret, INFINITY, 0);
+
+    ret = pow(0.5, INFINITY);
+    ICUNIT_ASSERT_EQUAL(ret, 0.0, 0);
+
+    ret = pow(NAN, 0.0);
+    ICUNIT_ASSERT_EQUAL(ret, 1.0, 0);
+
+    /* 负底整数/非整数指数（pow.c:294-302） */
+    ret = pow(-2.0, 3.0);
+    ICUNIT_ASSERT_EQUAL(ret, -8.0, 0);
+
+    ret = pow(-2.0, -3.0);
+    ICUNIT_ASSERT_EQUAL(ret, -0.125, 0);
+
+    ret = pow(-2.0, 0.5);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, ret, 0); /* NaN 自不等 */
+
+    /* x 次正规分支（pow.c:320-324 规格化）：结果下溢为 0 */
+    ret = pow(5e-324, 2.0);
+    ICUNIT_ASSERT_EQUAL(ret, 0.0, 0);
+    return 0;
+};
+
+/* 用例简要描述: fmod 零除无穷与次正规边界行为 */
+LITE_TEST_CASE(PosixMathFuncTestSuite, testMathFmodEdge001, Function | MediumTest | Level1)
+{
+    double ret;
+
+    /* y 为 0/NaN 或 x 为 Inf：走 (x*y)/(x*y) NaN 传播（fmod.c:16-17 触发条件
+     * uy==0/isnan(y)/x 为 Inf 三者，y 为 Inf 不在其列） */
+    ret = fmod(1.0, 0.0);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, ret, 0);
+
+    ret = fmod(1.0, NAN);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, ret, 0);
+
+    ret = fmod(INFINITY, 2.0);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, ret, 0);
+
+    /* y 为 Inf 且 |x|<|y|：非 NaN 路径, 原样返回 x（fmod.c:18-21）。
+     * C 标准 fmod(x,±Inf)==x（x 有限）, 与下方 5e-324 同走 return x 分支 */
+    ret = fmod(1.0, INFINITY);
+    ICUNIT_ASSERT_EQUAL(ret, 1.0, 0);
+
+    /* x==y 整除余 0 / |x|<|y| 返回 x（fmod.c:21-23） */
+    ret = fmod(3.0, 3.0);
+    ICUNIT_ASSERT_EQUAL(ret, 0.0, 0);
+
+    ret = fmod(2.0, 5.0);
+    ICUNIT_ASSERT_EQUAL(ret, 2.0, 0);
+
+    /* x 为次正规且 |x|<|y|：原样返回（fmod.c:22） */
+    ret = fmod(5e-324, 2.0);
+    ICUNIT_ASSERT_EQUAL(ret, 5e-324, 0);
+
+    /* y 为次正规：y 规格化分支（fmod.c:33-34），
+     * 2 为 2^-1074 的整数倍 → 余 0 */
+    ret = fmod(2.0, 5e-324);
+    ICUNIT_ASSERT_EQUAL(ret, 0.0, 0);
+    return 0;
+};
+
+/* 用例简要描述: log 接近 1 与次正规输入路径 */
+LITE_TEST_CASE(PosixMathFuncTestSuite, testMathLogEdge001, Function | MediumTest | Level1)
+{
+    double ret;
+
+    /* x==1 特判精确返回 0（log.c:59-62 近 1 路径入口） */
+    ret = log(1.0);
+    ICUNIT_ASSERT_EQUAL(ret, 0.0, 0);
+
+    /* 1 的下一个可表示数：log1p 式近 1 路径（log.c:63-76） */
+    ret = log(1.0 + DBL_EPSILON);
+    ICUNIT_ASSERT_EQUAL(ret > 0.0, 1, 0);
+    ICUNIT_ASSERT_EQUAL(ret < 1e-15, 1, 0);
+
+    /* 常规近 1 值 */
+    ret = log(1.5);
+    ICUNIT_ASSERT_EQUAL(ret > 0.40546, 1, 0);
+    ICUNIT_ASSERT_EQUAL(ret < 0.40547, 1, 0);
+
+    /* 次正规输入规格化（log.c:87-88）：log(2^-1074) = -1074*ln2 ≈ -744.44 */
+    ret = log(4.9406564584124654e-324);
+    ICUNIT_ASSERT_EQUAL(ret < -744.0, 1, 0);
+    ICUNIT_ASSERT_EQUAL(ret > -745.0, 1, 0);
+    return 0;
+};
+
+/* 用例简要描述: sqrt 次正规输入规格化与舍入 */
+LITE_TEST_CASE(PosixMathFuncTestSuite, testMathSqrtSubnormal001, Function | MediumTest | Level1)
+{
+    double ret;
+
+    /* 次正规输入规格化分支（sqrt.c:106-115）：sqrt(2^-1074)=2^-537 精确 */
+    ret = sqrt(4.9406564584124654e-324);
+    ICUNIT_ASSERT_EQUAL(ret, 0x1p-537, 0);
+
+    /* 一般次正规：sqrt(1e-310) ≈ 1e-155 */
+    ret = sqrt(1e-310);
+    ICUNIT_ASSERT_EQUAL(ret > 0.999e-155, 1, 0);
+    ICUNIT_ASSERT_EQUAL(ret < 1.001e-155, 1, 0);
+    return 0;
+};
+
+/* 用例简要描述: scalbn 指数搬运与 frexp 次正规分解 */
+LITE_TEST_CASE(PosixMathFuncTestSuite, testMathScalbnFrexp001, Function | MediumTest | Level1)
+{
+    double ret;
+    int exp = 0;
+
+    /* n>1023 多段放大（scalbn.c:10-16） */
+    ret = scalbn(1.0, 3000);
+    ICUNIT_ASSERT_EQUAL(ret, INFINITY, 0);
+
+    /* n<-1022 次正规段：2^-1074 恰为最小次正规（scalbn.c:24-25） */
+    ret = scalbn(1.0, -1074);
+    ICUNIT_ASSERT_EQUAL(ret, 4.9406564584124654e-324, 0);
+
+    /* 更深下溢经二次缩放舍入为 0 */
+    ret = scalbn(2.0, -1080);
+    ICUNIT_ASSERT_EQUAL(ret, 0.0, 0);
+
+    /* 次正规输入分解：frexp(2^-1074) == 0.5 * 2^-1073（frexp.c:11-12） */
+    ret = frexp(4.9406564584124654e-324, &exp);
+    ICUNIT_ASSERT_EQUAL(ret, 0.5, 0);
+    ICUNIT_ASSERT_EQUAL(exp, -1073, exp);
+
+    /* 常规值回归：frexp(8) == 0.5*2^4 */
+    ret = frexp(8.0, &exp);
+    ICUNIT_ASSERT_EQUAL(ret, 0.5, 0);
+    ICUNIT_ASSERT_EQUAL(exp, 4, exp);
+    return 0;
+};
+
+/* 用例简要描述: round 半值远离零方向舍入 */
+LITE_TEST_CASE(PosixMathFuncTestSuite, testMathRoundHalf001, Function | MediumTest | Level1)
+{
+    double ret;
+
+    /* 半值远离 0（round.c:27 负向半值分支） */
+    ret = round(-2.5);
+    ICUNIT_ASSERT_EQUAL(ret, -3.0, 0);
+
+    ret = round(2.5);
+    ICUNIT_ASSERT_EQUAL(ret, 3.0, 0);
+
+    ret = round(-0.5);
+    ICUNIT_ASSERT_EQUAL(ret, -1.0, 0);
+
+    ret = round(0.5);
+    ICUNIT_ASSERT_EQUAL(ret, 1.0, 0);
+    return 0;
+};
 #endif
 
 RUN_TEST_SUITE(PosixMathFuncTestSuite);
@@ -362,6 +566,13 @@ void PosixMathFuncTest()
     RUN_ONE_TESTCASE(testMathPow003);
     RUN_ONE_TESTCASE(testMathRound001);
     RUN_ONE_TESTCASE(testMathRound002);
+    RUN_ONE_TESTCASE(testMathPowExtreme001);
+    RUN_ONE_TESTCASE(testMathPowDomain001);
+    RUN_ONE_TESTCASE(testMathFmodEdge001);
+    RUN_ONE_TESTCASE(testMathLogEdge001);
+    RUN_ONE_TESTCASE(testMathSqrtSubnormal001);
+    RUN_ONE_TESTCASE(testMathScalbnFrexp001);
+    RUN_ONE_TESTCASE(testMathRoundHalf001);
 #endif
 
     return;

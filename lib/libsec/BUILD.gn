@@ -34,6 +34,12 @@ module_name = get_path_info(rebase_path("."), "name")
 kernel_module(module_name) {
   sources = libsec_sources
   configs += [ "$LITEOSTOPDIR:warn_config" ]
+  # 覆盖率统计开启时排除插桩: securec 非覆盖率关注点, gcov 计数器白白
+  # 占用 .bss (~30-40KB) 且 -O0+计数器序言拖慢 memcpy_s/memset_s 热路径;
+  # 仅在 LOSCFG_TEST_KERNEL_COVERAGE 开启时才排除, 发布构建零影响
+  if (defined(LOSCFG_TEST_KERNEL_COVERAGE)) {
+    configs += [ "//kernel/liteos_m/testsuites:no_test_coverage" ]
+  }
   if (defined(LOSCFG_KERNEL_LMS)) {
     if ("$ohos_build_compiler" == "gcc") {
       cflags_c = [ "-fsanitize=kernel-address" ]

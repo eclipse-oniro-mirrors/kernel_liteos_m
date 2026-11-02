@@ -36,7 +36,19 @@ extern "C" {
 
 /* TODO： 暂时将多个架构实现放这里，后续会按照架构依次重构到arch目录下 */
 
-#if defined(__thumb__) || (defined(__ARM_ARCH) && (__ARM_ARCH >= 7))
+#if defined(__aarch64__)
+/*
+ * AArch64: dsb/dmb REQUIRE a scope qualifier operand (bare forms are
+ * AArch32-only syntax).
+ */
+#define DSB()       __asm__ volatile("dsb sy" : : : "memory")
+#define DMB()       __asm__ volatile("dmb sy" : : : "memory")
+#define ISB()       __asm__ volatile("isb" : : : "memory")
+#define dsb DSB
+#define dmb DMB
+#define isb ISB
+
+#elif defined(__thumb__) || (defined(__ARM_ARCH) && (__ARM_ARCH >= 7))
 /*
  * Cortex-M (Thumb-2) or ARMv7+:
  *   dsb / dmb / isb are valid instructions, use inline asm.
@@ -64,18 +76,15 @@ extern VOID isb(VOID);
 #define ISB()       isb()
 
 #elif defined(__riscv)
-/*
- * RISC-V:
- *   dsb is provided as an extern C function in los_arch_context.h
- *   (fence based). Do NOT define the 'dsb' lowercase macro.
- *   dmb / isb lowercase aliases are safe (not declared by arch).
- */
-extern VOID dsb(VOID);
-#define DSB()       dsb()
-#define DMB()       dsb()
-#define ISB()       dsb()
+/* RISC-V: 'fence' is the unified barrier; 'fence.i' orders instruction fetch. */
+#define DSB()       __asm__ volatile("fence" : : : "memory")
+#define DMB()       __asm__ volatile("fence" : : : "memory")
+#define ISB()       __asm__ volatile("fence.i" : : : "memory")
+#define MB()        __asm__ volatile("fence" : : : "memory")
+#define dsb DSB
 #define dmb DMB
 #define isb ISB
+#define mb MB
 
 #else
 /*
@@ -93,6 +102,11 @@ extern VOID dsb(VOID);
 #define SEV()       __asm__ volatile("sev" : : : "memory")
 #define WFE()       __asm__ volatile("wfe" : : : "memory")
 #define WFI()       __asm__ volatile("wfi" : : : "memory")
+#elif defined(__riscv)
+#define SEV()
+#define WFE()
+#define WFI()       __asm__ volatile("wfi" : : : "memory")
+#define wfi WFI
 #else
 #define SEV()
 #define WFE()

@@ -49,6 +49,10 @@ extern "C" {
 extern VOID ItLosPm001(VOID);
 extern VOID ItLosPm002(VOID);
 extern VOID ItLosPm003(VOID);
+extern VOID ItLosPm004(VOID);
+extern VOID ItLosPm005(VOID);
+extern VOID ItLosPm006(VOID);
+extern VOID ItLosPm007(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

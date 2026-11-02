@@ -63,7 +63,7 @@ static UINT32 Testcase(VOID)
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    LOS_TaskDelay(1);
+    TEST_DELAY(g_testCount, 1, 100);
 
     ICUNIT_ASSERT_EQUAL(g_testCount, 1, g_testCount);
 
@@ -71,7 +71,7 @@ static UINT32 Testcase(VOID)
 
     ICUNIT_ASSERT_EQUAL(g_testCount, 1, g_testCount);
 
-    LOS_TaskDelay(1);
+    TEST_DELAY(g_testCount, 2, 100);
 
     ICUNIT_ASSERT_EQUAL(g_testCount, 2, g_testCount);
 EXIT:

@@ -40,8 +40,8 @@ static UINT32 TestCase(VOID)
 {
     LosTaskCB *tcb = NULL;
     for (UINT32 i = 0; i < g_taskMaxNum; i++) {
-        if (g_taskCBArray[i].taskStatus & OS_TASK_STATUS_UNUSED) {
-            tcb = &g_taskCBArray[i];
+        if (g_osTaskCBArray[i].taskStatus & OS_TASK_STATUS_UNUSED) {
+            tcb = &g_osTaskCBArray[i];
             break;
         }
     }
@@ -49,7 +49,7 @@ static UINT32 TestCase(VOID)
 
     UINT16 savedStatus = tcb->taskStatus;
     /* Tamper in a bit that is genuinely invalid: 0x0400 is not used by any
-     * liteos_new status (0x001..0x100) or flag (0x200/0x800/0x1000/0x2000/
+     * liteos_m status (0x001..0x100) or flag (0x200/0x800/0x1000/0x2000/
      * 0x4000/0x8000), so TCB_VERIFY_VALID_MASK never covers it. Do NOT use
      * 0x8000 here: that is OS_TASK_FLAG_JOINABLE (TASK_JOINABLE is default y),
      * which the fixed mask legitimately covers, so it would no longer be flagged. */

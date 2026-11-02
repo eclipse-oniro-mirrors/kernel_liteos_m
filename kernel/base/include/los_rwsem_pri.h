@@ -36,9 +36,7 @@
 #include "los_list.h"
 
 #ifdef __cplusplus
-#if __cplusplus
 extern "C" {
-#endif /* __cplusplus */
 #endif /* __cplusplus */
 
 #define RWSEM_COUNT_MAX     0xFFFF
@@ -46,20 +44,28 @@ extern "C" {
 #error "LOSCFG_BASE_IPC_RWSEM_LIMIT config error!"
 #endif
 
-#define OS_RWSEM_UNUSED     0
-#define OS_RWSEM_USED       1
-
 typedef struct {
-    UINT8 rwsemState;
-    INT16 rwsemCount;
-    UINT32 rwsemId;
-    LOS_DL_LIST waitList;
+    UINT8 rwsemState;       /* RW semaphore state */
+    INT16 rwsemCount;       /* Number of holders of RW semaphore */
+    UINT32 rwsemId;         /* RW semaphore control structure ID */
+    LOS_DL_LIST waitList;   /* List of tasks that are waiting on a RW semaphore */
 } OsRwsemCB;
 
+/* RW semaphore information control block */
 extern OsRwsemCB *g_osAllRwsem;
 
 #define GET_RWSEM_LIST(ptr)                     LOS_DL_LIST_ENTRY(ptr, OsRwsemCB, waitList)
+
+#ifdef LOSCFG_BASE_CORE_SYS_RES_CHECK
+/* COUNT | INDEX  split bit */
+#define RWSEM_SPLIT_BIT                         16
+#define SET_RWSEM_ID(count, rwsemId)            (((count) << RWSEM_SPLIT_BIT) | (rwsemId))
+#define GET_RWSEM_INDEX(rwsemId)                ((rwsemId) & ((1U << RWSEM_SPLIT_BIT) - 1))
+#define GET_RWSEM_COUNT(rwsemId)                ((rwsemId) >> RWSEM_SPLIT_BIT)
+#else
 #define GET_RWSEM_INDEX(rwsemId)                (rwsemId)
+#endif
+
 #define GET_RWSEM(rwsemId)                      (g_osAllRwsem + GET_RWSEM_INDEX(rwsemId))
 
 enum RwsemState {
@@ -75,11 +81,8 @@ enum RwsemWaitType {
 
 extern UINT32 OsRwsemInit(VOID);
 
-
 #ifdef __cplusplus
-#if __cplusplus
 }
-#endif /* __cplusplus */
 #endif /* __cplusplus */
 
 #endif /* _LOS_RWSEM_PRI_H */

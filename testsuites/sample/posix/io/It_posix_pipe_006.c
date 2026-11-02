@@ -77,18 +77,18 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, (ssize_t)PIPE006_BUF_LEN, ret, EXIT_CLOSE_ALL);
     ICUNIT_GOTO_EQUAL((UINT32)memcmp(rbuf, wbuf, PIPE006_BUF_LEN), 0, rbuf[0], EXIT_CLOSE_ALL);
 
-    /* 3. 关闭 a 读端: readerCnt 归零 → POST writeSem + POLLOUT(pipe.c:447-450);
-     *    关闭 a 写端: writerCnt 归零 → POST readSem + POLLIN(pipe.c:452-455);
-     *    两次 close 后 ref 归零 → PipeDevUnregister 释放设备号(pipe.c:299)并
-     *    PipeDevFdFree 释放 fd 位图(pipe.c:437) */
+    /* 3. 关闭 a 读端: readerCnt 归零 → POST writeSem + POLLOUT(pipe.c:445-448);
+     *    关闭 a 写端: writerCnt 归零 → POST readSem + POLLIN(pipe.c:450-453);
+     *    两次 close 后 ref 归零 → PipeDevUnregister 释放设备号(pipe.c:298)并
+     *    PipeDevFdFree 释放 fd 槽位(pipe.c:435) */
     ret32 = close(a[0]);
     ICUNIT_GOTO_EQUAL(ret32, 0, ret32, EXIT_CLOSE_ALL);
     ret32 = close(a[1]);
     ICUNIT_GOTO_EQUAL(ret32, 0, ret32, EXIT_CLOSE_ALL);
 
     /* 4. 设备号与 fd 复用: close a 释放最低设备号与最低两位 fd 后,
-     *    pipe(c) 的 PipeDevNumAlloc 走低位复用分支(pipe.c:122-130 空位扫描),
-     *    PipeDevFdAlloc 同样复用最低空闲 fd 槽位(pipe.c:310-328),
+     *    pipe(c) 的 PipeDevNumAlloc 走低位复用分支(pipe.c:123-127 空位扫描),
+     *    PipeDevFdAlloc 同样复用最低空闲 fd 槽位(pipe.c:312-322 单结构线性扫描),
      *    应用层可观察: c 的读写端 fd 与已关闭的 a 完全相同 */
     ret32 = pipe(c);
     ICUNIT_GOTO_EQUAL(ret32, 0, ret32, EXIT_CLOSE_ALL);
@@ -109,9 +109,9 @@ static UINT32 Testcase(VOID)
     ret32 = close(c[1]);
     ICUNIT_GOTO_EQUAL(ret32, 0, ret32, EXIT_CLOSE_ALL);
 
-    /* 6. EOF 语义: 关闭 b 写端后 writerCnt 归零 POST readSem(pipe.c:452-455),
-     *    读端再 read: 缓冲空 → 初始等待被 close 唤醒立即通过(pipe.c:515-525),
-     *    循环内读空且写者已全部退出 → 返回已读 0 字节(pipe.c:529-536),
+    /* 6. EOF 语义: 关闭 b 写端后 writerCnt 归零 POST readSem(pipe.c:450-453),
+     *    读端再 read: 缓冲空 → 初始等待被 close 唤醒立即通过(pipe.c:513-522),
+     *    循环内读空且写者已全部退出 → 返回已读 0 字节(pipe.c:526-533),
      *    即写端全关后 read 返回 0 的 EOF 语义 */
     ret32 = close(b[1]);
     ICUNIT_GOTO_EQUAL(ret32, 0, ret32, EXIT_CLOSE_ALL);
@@ -137,14 +137,14 @@ EXIT_CLOSE_ALL:
  * @tc.name: ItPosixPipe006
  * @tc.desc: pipe 多实例并存与设备号和 fd 复用(双 pipe 并存互不串扰, close 后重建复用, 写端关闭 EOF 语义)
  * @tc.type: FUNC
- * 覆盖目标: pipe.c:117-133（PipeDevNumAlloc 设备号分配与低位复用分支, gcov 第 3 轮）
- *   pipe.c:214-273（PipeDevRegister 第二实例注册路径）
- *   pipe.c:346-400（PipeOpen 第二实例两次打开, readerCnt/writerCnt 计数）
- *   pipe.c:422-468（PipeClose: 读端关闭 POST writeSem:447-450, 写端关闭 POST readSem:452-455, ref 归零 Unregister:457-462）
- *   pipe.c:299（PipeDevNumFree 设备号释放）
- *   pipe.c:310-328（PipeDevFdAlloc 最低空闲 fd 复用）
- *   pipe.c:529-536（PipeRead 读空且无写者 → 返回 0 的 EOF 分支）
- *   pipe.c:686-702（OsPipeInit 互斥锁初始化, pipe 首次调用前置路径）
+ * 覆盖目标: pipe.c:116-127（PipeDevNumAlloc 设备号分配与低位复用分支, gcov 第 3 轮）
+ *   pipe.c:213-272（PipeDevRegister 第二实例注册路径）
+ *   pipe.c:344-398（PipeOpen 第二实例两次打开, readerCnt/writerCnt 计数）
+ *   pipe.c:422-468（PipeClose: 读端关闭 POST writeSem:445-448, 写端关闭 POST readSem:450-453, ref 归零 Unregister:455-458）
+ *   pipe.c:298（PipeDevNumFree 设备号释放）
+ *   pipe.c:312-322（PipeDevFdAlloc 最低空闲 fd 复用, 单结构线性扫描）
+ *   pipe.c:526-533（PipeRead 读空且无写者 → 返回 0 的 EOF 分支）
+ *   pipe.c:684-700（OsPipeInit 互斥锁初始化, pipe 首次调用前置路径）
  */
 VOID ItPosixPipe006(VOID)
 {

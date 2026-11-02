@@ -30,6 +30,7 @@
  */
 
 #include "osTest.h"
+#include "los_sem_pri.h"
 
 #ifndef IT_LOS_SEM_H
 #define IT_LOS_SEM_H
@@ -85,6 +86,7 @@ VOID ItLosSem302(void);
 VOID ItLosSem303(void);
 VOID ItLosSem304(void);
 VOID ItLosSem305(void);
+VOID ItLosSem306(void);
 VOID ItLosSem041(void);
 VOID ItLosSem042(void);
 VOID ItLosSem043(void);

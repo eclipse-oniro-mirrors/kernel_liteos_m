@@ -7,6 +7,7 @@ config KERNEL_MEM_ALLOC
 if KERNEL_MEM_ALLOC
 choice
     prompt "Dynamic Memory Management Algorithm"
+    default KERNEL_MEM_BESTFIT_LITTLE if KERNEL_RAM_PRESET_TINY || KERNEL_RAM_PRESET_SMALL
     default KERNEL_MEM_TLSF
 
 config KERNEL_MEM_TLSF

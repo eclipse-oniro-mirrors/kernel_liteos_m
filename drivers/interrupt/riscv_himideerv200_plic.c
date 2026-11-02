@@ -23,10 +23,11 @@
  *                  used csrs — set-only, cannot lower priority — and
  *                  int_get_priority used a buggy 0x3 mask.)
  *                - HalIrqInit does not zero the library-internal
- *                  g_hwiForm[26..95]: the kernel owns g_hwiForm now
- *                  (arch HalHwiInit initializes it), and dispatch uses
- *                  g_hwiHandleForm. Keeping HalHwiDefaultHandler in
- *                  place unblocks LOS_HwiCreate for vectors 26..95.
+ *                  g_hwiForm[26..95]: the kernel no longer has a
+ *                  g_hwiForm at all — interrupt registration and
+ *                  dispatch go through the kernel's g_hwiHandleForm
+ *                  (initialized by the kernel core), so LOS_HwiCreate
+ *                  works for vectors 26..95 with nothing to zero.
  *
  *              Beyond the original: the driver statically initializes the
  *              kernel HwiControllerOps (arm_nvic.c pattern — g_hwiControllerOps

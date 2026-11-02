@@ -46,13 +46,13 @@ static VOID Func01(void)
 
         TestHwiDelete(HWI_NUM_TEST);
     } else if (g_testCount == 3) { // 3, Here, The current possible value of the variable.
-        ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_ERRNO_MUX_IN_INTERR, ret);
+        ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_ERRNO_MUX_PEND_INTERR, ret);
     }
 
     ret = LOS_MuxPost(g_mutexTest);
 
     if (g_testCount == 3) { // 3, Here, The current possible value of the variable.
-        ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_ERRNO_MUX_IN_INTERR, ret);
+        ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_ERRNO_MUX_PEND_INTERR, ret);
     } else if (g_testCount == 4) { // 4, Here, The current possible value of the variable.
         ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
     }

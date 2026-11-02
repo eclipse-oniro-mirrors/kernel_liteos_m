@@ -1,0 +1,62 @@
+# Copyright (c) 2024 HiSilicon (Shanghai) Technologies Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import("//kernel/liteos_m/liteos.gni")
+
+module_name = "bsp_config"
+kernel_module(module_name) {
+  asmflags = board_asmflags
+  sources = [
+    "board.c",
+    "main.c",
+    "pmp_init.c",
+    "reset_vector.S",
+    "riscv_hal.c",
+    "uart_porting.c",
+    "watchdog_porting.c",
+  ]
+
+  include_dirs = [
+    "include",
+    "include/asm",
+  ]
+
+  configs += [ "$LITEOSTOPDIR:warn_config" ]
+}
+
+config("public") {
+  include_dirs = [
+    ".",
+    "include",
+    "include/asm",
+    "//commonlibrary/utils_lite/include",
+    "//device/soc/hisilicon/ws63_m/sdk/open_source/libboundscheck/include",
+  ]
+
+  ldflags = [
+    "-Wl,-mcmodel=medany",
+    "-Wl,-melf32lriscv",
+    "-nostartfiles",
+    "-nostdlib",
+    "-Wl,-T" + rebase_path("board.ld"),
+    "-Wl,--whole-archive",
+    rebase_path("//device/soc/hisilicon/ws63_m/sdk/tools/bin/compiler/riscv/cc_riscv32_musl_100/cc_riscv32_musl_fp/lib/gcc/riscv32-linux-musl/7.3.0/libgcc.a"),
+    "-Wl,--no-whole-archive",
+  ]
+
+  # The ws63 RISC-V (LinxCore131) I/D-cache maintenance implementation now
+  # ships as open source in arch/risc-v/src/linx131/los_cache.c (gated by
+  # LOSCFG_ARCH_CACHE), so the closed prebuilt liblos_cache.a is no longer
+  # linked here. The ArchICache*/ArchDCache* symbols resolve directly from
+  # the arch module.
+}

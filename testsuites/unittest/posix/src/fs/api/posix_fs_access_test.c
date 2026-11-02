@@ -83,8 +83,83 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsAccessEINVAL, Function | MediumTest |
     return POSIX_FS_NO_ERROR;
 }
 
+/* *
+ * @tc.number   SUB_KERNEL_FS_ACCESS_MODEMATRIX
+ * @tc.name     access
+ * @tc.desc     [C- SOFTWARE -0200]
+ */
+LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsAccessModeMatrix, Function | MediumTest | Level1)
+{
+    int32_t ret;
+    struct stat buf = { 0 };
+    const char tmpFileName[TEST_BUF_SIZE] = { FILE1 };
+
+    (void)remove(tmpFileName);
+    int32_t fd = open(tmpFileName, O_CREAT | O_RDWR, TEST_MODE_HIGH);
+    ICUNIT_ASSERT_NOT_EQUAL(fd, POSIX_FS_IS_ERROR, fd);
+
+    ret = close(fd);
+    ICUNIT_GOTO_NOT_EQUAL(ret, POSIX_FS_IS_ERROR, ret, EXIT);
+
+    /* F_OK: 文件存在即返回 0 */
+    ret = access(tmpFileName, F_OK);
+    ICUNIT_GOTO_EQUAL(ret, POSIX_FS_NO_ERROR, ret, EXIT);
+
+    /* R_OK/W_OK/X_OK 按 vfs 实现校验真实行为: 与 stat 返回的权限位保持一致
+     * (littlefs 的 stat 不填充权限位, R/W/X 均应返回 EACCES) */
+    ret = stat(tmpFileName, &buf);
+    ICUNIT_GOTO_EQUAL(ret, POSIX_FS_NO_ERROR, ret, EXIT);
+
+    ret = access(tmpFileName, R_OK);
+    if (buf.st_mode & (S_IRUSR | S_IRGRP | S_IROTH)) {
+        ICUNIT_GOTO_EQUAL(ret, POSIX_FS_NO_ERROR, ret, EXIT);
+    } else {
+        ICUNIT_GOTO_EQUAL(errno, EACCES, POSIX_FS_IS_ERROR, EXIT);
+        ICUNIT_GOTO_EQUAL(ret, POSIX_FS_IS_ERROR, ret, EXIT);
+    }
+
+    ret = access(tmpFileName, W_OK);
+    if (buf.st_mode & (S_IWUSR | S_IWGRP | S_IWOTH)) {
+        ICUNIT_GOTO_EQUAL(ret, POSIX_FS_NO_ERROR, ret, EXIT);
+    } else {
+        ICUNIT_GOTO_EQUAL(errno, EACCES, POSIX_FS_IS_ERROR, EXIT);
+        ICUNIT_GOTO_EQUAL(ret, POSIX_FS_IS_ERROR, ret, EXIT);
+    }
+
+    ret = access(tmpFileName, X_OK);
+    if (buf.st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) {
+        ICUNIT_GOTO_EQUAL(ret, POSIX_FS_NO_ERROR, ret, EXIT);
+    } else {
+        ICUNIT_GOTO_EQUAL(errno, EACCES, POSIX_FS_IS_ERROR, EXIT);
+        ICUNIT_GOTO_EQUAL(ret, POSIX_FS_IS_ERROR, ret, EXIT);
+    }
+
+    /* 组合 mode: 请求位全部满足才返回 0 */
+    ret = access(tmpFileName, F_OK | R_OK | W_OK);
+    if ((buf.st_mode & (S_IRUSR | S_IRGRP | S_IROTH)) &&
+        (buf.st_mode & (S_IWUSR | S_IWGRP | S_IWOTH))) {
+        ICUNIT_GOTO_EQUAL(ret, POSIX_FS_NO_ERROR, ret, EXIT);
+    } else {
+        ICUNIT_GOTO_EQUAL(ret, POSIX_FS_IS_ERROR, ret, EXIT);
+    }
+
+    /* 不存在路径: stat 失败透传 ENOENT */
+    ret = access(TEST_ROOT"/no_such_access_file", F_OK);
+    ICUNIT_GOTO_EQUAL(errno, ENOENT, POSIX_FS_IS_ERROR, EXIT);
+    ICUNIT_GOTO_EQUAL(ret, POSIX_FS_IS_ERROR, ret, EXIT);
+
+    ret = unlink(tmpFileName);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, POSIX_FS_IS_ERROR, ret);
+
+    return POSIX_FS_NO_ERROR;
+EXIT:
+    (void)unlink(tmpFileName);
+    return POSIX_FS_NO_ERROR;
+}
+
 void PosixFsAccessTest(void)
 {
     RUN_ONE_TESTCASE(TestFsAccessOK);
     RUN_ONE_TESTCASE(TestFsAccessEINVAL);
+    RUN_ONE_TESTCASE(TestFsAccessModeMatrix);
 }

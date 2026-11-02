@@ -41,6 +41,7 @@
 #include "los_memory.h"
 #include "los_sched.h"
 #include "los_sched_pri.h"
+#include "los_mp_pri.h"
 #include "los_percpu_pri.h"
 #include <stdint.h>
 
@@ -432,7 +433,7 @@ UINT32 OsQueueOperate(UINT32 queueID, UINT32 operateType, VOID *bufferAddr, UINT
             goto QUEUE_END;
         }
 
-        if (OsPercpuGet()->taskLockCnt) {
+        if (!OsPreemptableInSched()) {
             ret = LOS_ERRNO_QUEUE_PEND_IN_LOCK;
             goto QUEUE_END;
         }
@@ -457,6 +458,7 @@ UINT32 OsQueueOperate(UINT32 queueID, UINT32 operateType, VOID *bufferAddr, UINT
         resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&queueCB->readWriteList[readWriteTmp]));
         OsSchedWake(resumedTask);
         SCHEDULER_UNLOCK(intSave);
+        LOS_MpSchedule(OS_MP_CPU_ALL);
         LOS_Schedule();
         return LOS_OK;
     } else {
@@ -684,6 +686,7 @@ LITE_OS_SEC_TEXT UINT32 OsQueueMailFree(UINT32 queueID, VOID *mailPool, VOID *ma
         resumedTask->msg = mailMem;
         OsSchedWake(resumedTask);
         SCHEDULER_UNLOCK(intSave);
+        LOS_MpSchedule(OS_MP_CPU_ALL);
         LOS_Schedule();
     } else {
         /* No task waiting for the mailMem, so free it. */

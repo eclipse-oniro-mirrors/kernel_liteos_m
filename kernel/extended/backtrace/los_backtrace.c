@@ -683,6 +683,95 @@ VOID LOS_RecordLR(UINTPTR *LR, UINT32 LRSize, UINT32 jumpCount, UINTPTR SP)
         LR[count] = 0;
     }
 }
+#elif (LOSCFG_BACKTRACE_TYPE == 7)
+/* AArch64 frame-pointer chain walk (x29): frame layout is
+ *   [x29 + 0] : caller's x29
+ *   [x29 + 8] : return address (LR)
+ * Requires -fno-omit-frame-pointer (default for liteos_m). */
+#define OS_BACKTRACE_START  1
+#define OS_FP_ALIGN(value) (((value) & ((UINTPTR)LOSCFG_STACK_POINT_ALIGN_SIZE - 1)) == 0)
+#define OS_RA_OFFSET       8
+
+STATIC INLINE UINTPTR OsFpGet(VOID)
+{
+    UINTPTR fp = 0;
+    __asm volatile("mov %0, x29" : "=r"(fp));
+    return fp;
+}
+
+WEAK BOOL IsValidFP(UINTPTR fp)
+{
+    LosTaskCB *taskCB = NULL;
+    UINTPTR stackTop, stackBottom;
+
+    if (!OS_FP_ALIGN(fp)) {
+        return FALSE;
+    }
+
+    if (LOS_TaskIsScheduled()) {
+        taskCB = g_backtraceTaskCB;
+        if (taskCB == NULL) {
+            taskCB = OS_TCB_FROM_TID(LOS_CurTaskIDGet());
+        }
+        stackTop = taskCB->topOfStack;
+        stackBottom = taskCB->topOfStack + taskCB->stackSize;
+    } else {
+        stackTop = CSTACK_START_ADDR;
+        stackBottom = CSTACK_END_ADDR;
+    }
+
+    if ((fp > stackTop) && (fp <= stackBottom)) {
+        return TRUE;
+    }
+    if ((fp > CSTACK_START_ADDR) && (fp <= CSTACK_END_ADDR)) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+VOID LOS_RecordLR(UINTPTR *LR, UINT32 LRSize, UINT32 jumpCount, UINTPTR SP)
+{
+    UINTPTR backFp;
+    UINTPTR tmpFp;
+    UINTPTR backRa;
+    UINT32 count = 0;
+    UINT32 index = 0;
+
+    if (LR == NULL) {
+        return;
+    }
+
+    if (SP != 0) {
+        backFp = SP;
+    } else {
+        backFp = OsFpGet();
+    }
+
+    if (!IsValidFP(backFp)) {
+        PRINT_ERR("BackTrace failed! Invalid fp 0x%llx\n", (UINT64)backFp);
+        return;
+    }
+
+    do {
+        tmpFp = backFp;
+        backRa = *((UINTPTR *)(tmpFp + OS_RA_OFFSET));
+        backFp = *((UINTPTR *)tmpFp);
+        if (index++ < jumpCount) {
+            continue;
+        }
+
+        LR[count] = backRa;
+        count++;
+        if ((count == LRSize) || (backFp == tmpFp) || (backFp == 0)) {
+            break;
+        }
+    } while (IsValidFP(backFp));
+
+    if (count < LRSize) {
+        LR[count] = 0;
+    }
+}
 #else
 #error Unknown backtrace type.
 #endif

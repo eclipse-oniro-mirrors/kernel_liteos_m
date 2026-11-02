@@ -43,5 +43,5 @@ static_library("net_test") {
     "$LITEOSTOPDIR/testsuites/unittest/xts",
     "$THIRDPARTY_MUSL_DIR/include/net",
   ]
-  configs += [ "//kernel/liteos_m/testsuites:no_test_coverage" ]
+  configs += [ "$LITEOSTOPDIR/testsuites:no_test_coverage" ]
 }

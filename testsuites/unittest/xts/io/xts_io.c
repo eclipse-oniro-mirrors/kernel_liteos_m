@@ -33,7 +33,9 @@
 void IoFuncTest(void)
 {
     XtsIoOtherTest();
+#if (LOSCFG_POSIX_FS_API == 1)
     XtsIoStdioFuncTest();
+#endif
     XtsIoStdlibFuncTest();
     XtsIoStringFuncTest();
     XtsIoStringsFuncTest();

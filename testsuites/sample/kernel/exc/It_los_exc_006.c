@@ -54,14 +54,23 @@ static VOID Exc006DumpHook(UINTPTR startAddr, UINT32 space, UINT32 rwFlag, CHAR 
            (UINT32)startAddr, space, rwFlag, (UINTPTR)buf);
 }
 
-static VOID Exc006ExcHook(UINT32 type, LosExcContext *context)
+static VOID Exc006ExcHook(UINT32 type, EXC_CONTEXT_TYPE *context)
 {
-    g_exc006RecType   = type;
+    g_exc006RecType = type;
+#ifndef __aarch64__
     g_exc006RecMcause = context->mcause;
     g_exc006RecMtval  = context->mtval;
     g_exc006RecMepc   = context->taskContext.mepc;
     PRINTF("[EXC-TEST006] exc hook: type=%u mcause=%u (expect 2 illegal instruction) mtval=0x%x mepc=0x%x\n",
            type, context->mcause, context->mtval, context->taskContext.mepc);
+#else
+    /* mcause/mtval/mepc are RISC-V CSRs; other arches have no equivalent. */
+    g_exc006RecMcause = 0;
+    g_exc006RecMtval  = 0;
+    g_exc006RecMepc   = 0;
+    PRINTF("[EXC-TEST006] exc hook: type=%u (mcause/mtval/mepc: RISC-V only)\n",
+           type);
+#endif
 }
 
 static UINT32 Testcase(VOID)

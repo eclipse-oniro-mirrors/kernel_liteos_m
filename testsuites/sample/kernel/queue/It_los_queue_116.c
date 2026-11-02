@@ -40,9 +40,9 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     UINT32 queueId;
     UINT32 msg = 0x1234;
-    UINT32 buf = 0;
+    UINTPTR buf = 0;
 
-    ret = LOS_QueueCreate("queue116", 1, &queueId, 0, sizeof(UINT32));
+    ret = LOS_QueueCreate("queue116", 1, &queueId, 0, sizeof(UINTPTR));
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     /* F-Inv: 读缓冲为 NULL → READ_PTR_NULL。 */

@@ -1,3 +1,4 @@
+#ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
  * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
@@ -32,6 +33,8 @@
 #include "osTest.h"
 #include "It_los_task.h"
 
+#ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
+
 
 /* user-provided static stack, 16-byte aligned per LOSCFG_STACK_POINT_ALIGN_SIZE */
 STATIC CHAR g_stack303[OS_TSK_TEST_STACK_SIZE] __attribute__((aligned(16)));
@@ -62,7 +65,6 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk303A";
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
-    task1.stackAddr = (UINTPTR)NULL; /* will be overwritten by CreateOnlyStatic */
 
     g_testCount = 0;
 
@@ -95,3 +97,5 @@ VOID ItLosTask303(VOID) // IT_Layer_ModuleORFeature_No
 {
     TEST_ADD_CASE("ItLosTask303", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL1, TEST_FUNCTION);
 }
+#endif
+#endif

@@ -29,66 +29,48 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "los_event.h"
 #include "los_event_pri.h"
-#include "los_hook.h"
 #include "los_interrupt.h"
 #include "los_task_pri.h"
-#include "los_sched.h"
 #include "los_sched_pri.h"
+#include "los_trace.h"
+#include "los_exc.h"
+#include "los_hook.h"
 
 #ifdef LOSCFG_BASE_IPC_EVENT
 
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_EventInit(PEVENT_CB_S eventCB)
 {
+    UINT32 intSave;
+
+    LOS_TRACE(EVENT_CREATE, (UINTPTR)eventCB);
+
     if (eventCB == NULL) {
         return LOS_ERRNO_EVENT_PTR_NULL;
     }
+
+    SCHEDULER_LOCK(intSave);
     eventCB->uwEventID = 0;
     LOS_ListInit(&eventCB->stEventList);
+    SCHEDULER_UNLOCK(intSave);
     OsHookCall(LOS_HOOK_TYPE_EVENT_INIT, eventCB);
     return LOS_OK;
 }
 
-LITE_OS_SEC_TEXT UINT32 LOS_EventPoll(UINT32 *eventID, UINT32 eventMask, UINT32 mode)
+LITE_OS_SEC_TEXT STATIC UINT32 OsEventParamCheck(const VOID *ptr, UINT32 eventMask, UINT32 mode)
 {
-    UINT32 ret = 0;
-    UINT32 intSave;
-
-    if (eventID == NULL) {
+    if (ptr == NULL) {
         return LOS_ERRNO_EVENT_PTR_NULL;
     }
-    SCHEDULER_LOCK(intSave);
-    if (mode & LOS_WAITMODE_OR) {
-        if ((*eventID & eventMask) != 0) {
-            ret = *eventID & eventMask;
-        }
-    } else {
-        if ((eventMask != 0) && (eventMask == (*eventID & eventMask))) {
-            ret = *eventID & eventMask;
-        }
-    }
-    if (ret && (mode & LOS_WAITMODE_CLR)) {
-        *eventID = *eventID & ~(ret);
-    }
-    SCHEDULER_UNLOCK(intSave);
-    return ret;
-}
 
-LITE_OS_SEC_TEXT STATIC_INLINE UINT32 OsEventReadParamCheck(PEVENT_CB_S eventCB, UINT32 eventMask, UINT32 mode)
-{
-    if (eventCB == NULL) {
-        return LOS_ERRNO_EVENT_PTR_NULL;
-    }
-    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
-        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
-    }
     if (eventMask == 0) {
         return LOS_ERRNO_EVENT_EVENTMASK_INVALID;
     }
+
     if (eventMask & LOS_ERRTYPE_ERROR) {
         return LOS_ERRNO_EVENT_SETBIT_INVALID;
     }
+
     if (((mode & LOS_WAITMODE_OR) && (mode & LOS_WAITMODE_AND)) ||
         (mode & ~(LOS_WAITMODE_OR | LOS_WAITMODE_AND | LOS_WAITMODE_CLR)) ||
         !(mode & (LOS_WAITMODE_OR | LOS_WAITMODE_AND))) {
@@ -97,156 +79,355 @@ LITE_OS_SEC_TEXT STATIC_INLINE UINT32 OsEventReadParamCheck(PEVENT_CB_S eventCB,
     return LOS_OK;
 }
 
-LITE_OS_SEC_TEXT UINT32 LOS_EventRead(PEVENT_CB_S eventCB, UINT32 eventMask, UINT32 mode, UINT32 timeOut)
+LITE_OS_SEC_TEXT STATIC UINT32 OsEventPoll(UINT32 *eventId, UINT32 eventMask, UINT32 mode)
+{
+    UINT32 ret = 0;
+
+    LOS_ASSERT(ArchIntLocked());
+    LOS_ASSERT(LOS_SpinHeld(&g_taskSpin));
+
+    if (mode & LOS_WAITMODE_OR) {
+        if ((*eventId & eventMask) != 0) {
+            ret = *eventId & eventMask;
+        }
+    } else {
+        if ((eventMask != 0) && (eventMask == (*eventId & eventMask))) {
+            ret = *eventId & eventMask;
+        }
+    }
+
+    if (ret && (mode & LOS_WAITMODE_CLR)) {
+        *eventId = *eventId & ~ret;
+    }
+
+    return ret;
+}
+
+LITE_OS_SEC_TEXT STATIC UINT32 OsEventReadCheck(const PEVENT_CB_S eventCB, UINT32 eventMask, UINT32 mode)
 {
     UINT32 ret;
-    UINT32 intSave;
-    LosTaskCB *runTsk = NULL;
+    LosTaskCB *runTask = NULL;
 
-    ret = OsEventReadParamCheck(eventCB, eventMask, mode);
+    ret = OsEventParamCheck(eventCB, eventMask, mode);
     if (ret != LOS_OK) {
         return ret;
+    }
+
+    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
+        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
     }
 
     if (OS_INT_ACTIVE) {
         return LOS_ERRNO_EVENT_READ_IN_INTERRUPT;
     }
-    if (OsCurrTaskGet()->taskFlags & OS_TASK_FLAG_SYSTEM) {
+
+    runTask = OsCurrTaskGet();
+    if (runTask->taskFlags & OS_TASK_FLAG_SYSTEM) {
+        PRINT_DEBUG("Warning: DO NOT recommend to use LOS_EventRead in system tasks.\n");
         return LOS_ERRNO_EVENT_READ_IN_SYSTEM_TASK;
     }
-    SCHEDULER_LOCK(intSave);
-    ret = LOS_EventPoll(&(eventCB->uwEventID), eventMask, mode);
-    OsHookCall(LOS_HOOK_TYPE_EVENT_READ, eventCB, eventMask, mode, timeOut);
+    return LOS_OK;
+}
+
+LITE_OS_SEC_TEXT STATIC UINT32 OsEventRead(PEVENT_CB_S eventCB, UINT32 eventMask, UINT32 mode, UINT32 timeout)
+{
+    UINT32 ret;
+    LosTaskCB *runTask = OsCurrTaskGet();
+
+    ret = OsEventPoll(&eventCB->uwEventID, eventMask, mode);
     if (ret == 0) {
-        if (timeOut == 0) {
-            SCHEDULER_UNLOCK(intSave);
+        if (timeout == 0) {
             return ret;
         }
 
-        if (OsPercpuGet()->taskLockCnt) {
-            SCHEDULER_UNLOCK(intSave);
+        if (!OsPreemptableInSched()) {
             return LOS_ERRNO_EVENT_READ_IN_LOCK;
         }
-        runTsk = OsCurrTaskGet();
-        runTsk->eventMask = eventMask;
-        runTsk->eventMode = mode;
-        OsSchedWait(OsCurrTaskGet(), &eventCB->stEventList, timeOut);
-        SCHEDULER_UNLOCK(intSave);
 
-        SCHEDULER_LOCK(intSave);
-        if (runTsk->taskStatus & OS_TASK_STATUS_TIMEOUT) {
-            runTsk->taskStatus &= ~OS_TASK_STATUS_TIMEOUT;
-            SCHEDULER_UNLOCK(intSave);
+        runTask->eventMask = eventMask;
+        runTask->eventMode = mode;
+
+        OsSchedWait(runTask, &eventCB->stEventList, timeout);
+
+        if (runTask->taskStatus & OS_TASK_STATUS_TIMEOUT) {
+            runTask->taskStatus &= ~OS_TASK_STATUS_TIMEOUT;
             return LOS_ERRNO_EVENT_READ_TIMEOUT;
         }
 
-        ret = LOS_EventPoll(&eventCB->uwEventID, eventMask, mode);
+        ret = OsEventPoll(&eventCB->uwEventID, eventMask, mode);
+    }
+    return ret;
+}
+
+LITE_OS_SEC_TEXT STATIC UINT32 OsEventWrite(PEVENT_CB_S eventCB, UINT32 events, BOOL once)
+{
+    LosTaskCB *resumedTask = NULL;
+    LosTaskCB *nextTask = NULL;
+    UINT32 intSave;
+    UINT8 exitFlag = 0;
+
+    if (eventCB == NULL) {
+        return LOS_ERRNO_EVENT_PTR_NULL;
     }
 
+    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
+        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
+    }
+
+    if (events & LOS_ERRTYPE_ERROR) {
+        return LOS_ERRNO_EVENT_SETBIT_INVALID;
+    }
+
+    LOS_TRACE(EVENT_WRITE, (UINTPTR)eventCB, eventCB->uwEventID, events);
+    OsHookCall(LOS_HOOK_TYPE_EVENT_WRITE, eventCB, events);
+
+    SCHEDULER_LOCK(intSave);
+
+    eventCB->uwEventID |= events;
+    if (!LOS_ListEmpty(&eventCB->stEventList)) {
+        for (resumedTask = LOS_DL_LIST_ENTRY((&eventCB->stEventList)->pstNext, LosTaskCB, pendList);
+             &resumedTask->pendList != &eventCB->stEventList;) {
+            nextTask = LOS_DL_LIST_ENTRY(resumedTask->pendList.pstNext, LosTaskCB, pendList);
+            if (((resumedTask->eventMode & LOS_WAITMODE_OR) && ((resumedTask->eventMask & events) != 0)) ||
+                ((resumedTask->eventMode & LOS_WAITMODE_AND) &&
+                 ((resumedTask->eventMask & eventCB->uwEventID) == resumedTask->eventMask))) {
+                exitFlag = 1;
+                OsSchedWake(resumedTask);
+            }
+            if (once == TRUE) {
+                break;
+            }
+            resumedTask = nextTask;
+        }
+    }
+
+    SCHEDULER_UNLOCK(intSave);
+
+    if (exitFlag == 1) {
+        LOS_Schedule();
+    }
+    return LOS_OK;
+}
+
+LITE_OS_SEC_TEXT UINT32 LOS_EventPoll(UINT32 *eventId, UINT32 eventMask, UINT32 mode)
+{
+    UINT32 ret;
+    UINT32 intSave;
+
+    ret = OsEventParamCheck((VOID *)eventId, eventMask, mode);
+    if (ret != LOS_OK) {
+        return ret;
+    }
+
+    SCHEDULER_LOCK(intSave);
+    ret = OsEventPoll(eventId, eventMask, mode);
+    SCHEDULER_UNLOCK(intSave);
+    return ret;
+}
+
+LITE_OS_SEC_TEXT UINT32 LOS_EventRead(PEVENT_CB_S eventCB, UINT32 eventMask, UINT32 mode, UINT32 timeout)
+{
+    UINT32 ret;
+    UINT32 intSave;
+
+    ret = OsEventReadCheck(eventCB, eventMask, mode);
+    if (ret != LOS_OK) {
+        return ret;
+    }
+
+    LOS_TRACE(EVENT_READ, (UINTPTR)eventCB, eventCB->uwEventID, eventMask, mode, timeout);
+    OsHookCall(LOS_HOOK_TYPE_EVENT_READ, eventCB, eventMask, mode, timeout);
+
+    SCHEDULER_LOCK(intSave);
+    ret = OsEventRead(eventCB, eventMask, mode, timeout);
     SCHEDULER_UNLOCK(intSave);
     return ret;
 }
 
 LITE_OS_SEC_TEXT UINT32 LOS_EventWrite(PEVENT_CB_S eventCB, UINT32 events)
 {
-    LosTaskCB *resumedTask = NULL;
-    LosTaskCB *nextTask = (LosTaskCB *)NULL;
-    UINT32 intSave;
-    UINT8 exitFlag = 0;
-    if (eventCB == NULL) {
-        return LOS_ERRNO_EVENT_PTR_NULL;
-    }
-    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
-        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
-    }
-    if (events & LOS_ERRTYPE_ERROR) {
-        return LOS_ERRNO_EVENT_SETBIT_INVALID;
-    }
-    SCHEDULER_LOCK(intSave);
-    OsHookCall(LOS_HOOK_TYPE_EVENT_WRITE, eventCB, events);
-    eventCB->uwEventID |= events;
-    if (!LOS_ListEmpty(&eventCB->stEventList)) {
-        for (resumedTask = LOS_DL_LIST_ENTRY((&eventCB->stEventList)->pstNext, LosTaskCB, pendList);
-             &resumedTask->pendList != (&eventCB->stEventList);) {
-            nextTask = LOS_DL_LIST_ENTRY(resumedTask->pendList.pstNext, LosTaskCB, pendList);
-
-            if (((resumedTask->eventMode & LOS_WAITMODE_OR) && (resumedTask->eventMask & events) != 0) ||
-                ((resumedTask->eventMode & LOS_WAITMODE_AND) &&
-                 ((resumedTask->eventMask & eventCB->uwEventID) == resumedTask->eventMask))) {
-                exitFlag = 1;
-
-                OsSchedWake(resumedTask);
-            }
-            resumedTask = nextTask;
-        }
-
-        if (exitFlag == 1) {
-            SCHEDULER_UNLOCK(intSave);
-            LOS_Schedule();
-            return LOS_OK;
-        }
-    }
-
-    SCHEDULER_UNLOCK(intSave);
-    return LOS_OK;
+    return OsEventWrite(eventCB, events, FALSE);
 }
 
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_EventDestroy(PEVENT_CB_S eventCB)
 {
     UINT32 intSave;
+    UINT32 ret = LOS_OK;
+
     if (eventCB == NULL) {
         return LOS_ERRNO_EVENT_PTR_NULL;
     }
-    SCHEDULER_LOCK(intSave);
 
-    if (!LOS_ListEmpty(&eventCB->stEventList)) {
-        SCHEDULER_UNLOCK(intSave);
-        return LOS_ERRNO_EVENT_SHOULD_NOT_DESTROYED;
+    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
+        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
     }
+
+    SCHEDULER_LOCK(intSave);
+    if (!LOS_ListEmpty(&eventCB->stEventList)) {
+        ret = LOS_ERRNO_EVENT_SHOULD_NOT_DESTROYED;
+        goto OUT;
+    }
+
+    eventCB->uwEventID = 0;
     eventCB->stEventList.pstNext = (LOS_DL_LIST *)NULL;
     eventCB->stEventList.pstPrev = (LOS_DL_LIST *)NULL;
+OUT:
     SCHEDULER_UNLOCK(intSave);
+
+    LOS_TRACE(EVENT_DELETE, (UINTPTR)eventCB, ret);
     OsHookCall(LOS_HOOK_TYPE_EVENT_DESTROY, eventCB);
+    return ret;
+}
+
+LITE_OS_SEC_TEXT_MINOR UINT32 LOS_EventClear(PEVENT_CB_S eventCB, UINT32 events)
+{
+    UINT32 intSave;
+
+    if (eventCB == NULL) {
+        return LOS_ERRNO_EVENT_PTR_NULL;
+    }
+
+    LOS_TRACE(EVENT_CLEAR, (UINTPTR)eventCB, eventCB->uwEventID, events);
+    OsHookCall(LOS_HOOK_TYPE_EVENT_CLEAR, eventCB, events);
+
+    SCHEDULER_LOCK(intSave);
+    eventCB->uwEventID &= events;
+    SCHEDULER_UNLOCK(intSave);
+
     return LOS_OK;
 }
 
-LITE_OS_SEC_TEXT_MINOR UINT32 LOS_EventClear(PEVENT_CB_S eventCB, UINT32 eventMask)
+LITE_OS_SEC_TEXT_MINOR UINT32 OsEventWriteOnce(PEVENT_CB_S eventCB, UINT32 events)
 {
+    return OsEventWrite(eventCB, events, TRUE);
+}
+
+#ifdef LOSCFG_COMPAT_POSIX
+LITE_OS_SEC_TEXT UINT32 OsEventReadWithCond(const EventCond *cond, PEVENT_CB_S eventCB,
+                                            UINT32 eventMask, UINT32 mode, UINT32 timeout)
+{
+    UINT32 ret;
     UINT32 intSave;
+
+    ret = OsEventReadCheck(eventCB, eventMask, mode);
+    if (ret != LOS_OK) {
+        return ret;
+    }
+
+    SCHEDULER_LOCK(intSave);
+
+    if (*cond->realValue != cond->value) {
+        eventCB->uwEventID &= cond->clearEvent;
+        goto OUT;
+    }
+
+    ret = OsEventRead(eventCB, eventMask, mode, timeout);
+OUT:
+    SCHEDULER_UNLOCK(intSave);
+    return ret;
+}
+#endif
+
+LITE_OS_SEC_TEXT UINT32 EventCondRead(PEVENT_CB_S eventCB, UINT32 *timeout)
+{
+    UINT64 ticksStart = LOS_TickCountGet();
+    UINT64 ticksCost;
+    LosTaskCB *runTask = OsCurrTaskGet();
+    UINT32 ret = LOS_OK;
+    UINT32 intSave;
+
     if (eventCB == NULL) {
         return LOS_ERRNO_EVENT_PTR_NULL;
     }
-    OsHookCall(LOS_HOOK_TYPE_EVENT_CLEAR, eventCB, eventMask);
+
+    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
+        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
+    }
+
+    if (OS_INT_ACTIVE) {
+        return LOS_ERRNO_EVENT_READ_IN_INTERRUPT;
+    }
+
+    if (runTask->taskFlags & OS_TASK_FLAG_SYSTEM) {
+        PRINT_DEBUG("Warning: DO NOT recommend to use LOS_EventCondRead in system tasks.\n");
+    }
+
+    if (*timeout == 0) {
+        return LOS_ERRNO_EVENT_READ_TIMEOUT;
+    }
+
+    LOS_TRACE(EVENT_COND_READ, (UINTPTR)eventCB, eventCB->uwEventID);
+
     SCHEDULER_LOCK(intSave);
-    eventCB->uwEventID &= eventMask;
+    if (!OsPreemptableInSched()) {
+        ret = LOS_ERRNO_EVENT_READ_IN_LOCK;
+        goto UNLOCK_RETURN;
+    }
+
+    OsSchedWait(runTask, &eventCB->stEventList, *timeout);
+
+    if (runTask->taskStatus & OS_TASK_STATUS_TIMEOUT) {
+        runTask->taskStatus &= ~OS_TASK_STATUS_TIMEOUT;
+        ret = LOS_ERRNO_EVENT_READ_TIMEOUT;
+        goto UNLOCK_RETURN;
+    }
+
     SCHEDULER_UNLOCK(intSave);
+
+    if (*timeout == LOS_WAIT_FOREVER) {
+        return ret;
+    }
+
+    ticksCost = LOS_TickCountGet() - ticksStart;
+    if (ticksCost >= *timeout) {
+        *timeout = 0;
+        return LOS_ERRNO_EVENT_READ_TIMEOUT;
+    }
+
+    *timeout = *timeout - (UINT32)ticksCost;
+    return ret;
+
+UNLOCK_RETURN:
+    SCHEDULER_UNLOCK(intSave);
+    return ret;
+}
+
+LITE_OS_SEC_TEXT UINT32 LOS_EventCondWrite(PEVENT_CB_S eventCB)
+{
+    LosTaskCB *resumedTask = NULL;
+    LosTaskCB *nextTask = NULL;
+    UINT32 intSave;
+    UINT8 exitFlag = 0;
+
+    if (eventCB == NULL) {
+        return LOS_ERRNO_EVENT_PTR_NULL;
+    }
+
+    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
+        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
+    }
+
+    LOS_TRACE(EVENT_COND_WRITE, (UINTPTR)eventCB, eventCB->uwEventID);
+
+    SCHEDULER_LOCK(intSave);
+
+    if (!LOS_ListEmpty(&eventCB->stEventList)) {
+        for (resumedTask = LOS_DL_LIST_ENTRY((&eventCB->stEventList)->pstNext, LosTaskCB, pendList);
+             &resumedTask->pendList != &eventCB->stEventList;) {
+            nextTask = LOS_DL_LIST_ENTRY(resumedTask->pendList.pstNext, LosTaskCB, pendList);
+
+            exitFlag = 1;
+            OsSchedWake(resumedTask);
+            resumedTask = nextTask;
+        }
+    }
+
+    SCHEDULER_UNLOCK(intSave);
+
+    if (exitFlag == 1) {
+        LOS_Schedule();
+    }
     return LOS_OK;
 }
 
 #endif /* LOSCFG_BASE_IPC_EVENT */
-
-#ifdef LOSCFG_COMPAT_POSIX
-LITE_OS_SEC_TEXT UINT32 LOS_EventCondWrite(PEVENT_CB_S eventCB)
-{
-    (VOID)eventCB;
-    return LOS_OK;
-}
-
-LITE_OS_SEC_TEXT UINT32 EventCondRead(PEVENT_CB_S eventCB, UINT32 *timeout)
-{
-    (VOID)eventCB;
-    (VOID)timeout;
-    return LOS_ERRNO_EVENT_READ_TIMEOUT;
-}
-
-LITE_OS_SEC_TEXT UINT32 OsEventReadWithCond(const EventCond *cond, PEVENT_CB_S eventCB,
-                                            UINT32 eventMask, UINT32 mode, UINT32 timeout)
-{
-    (VOID)cond;
-    (VOID)eventCB;
-    (VOID)eventMask;
-    (VOID)mode;
-    (VOID)timeout;
-    return LOS_ERRNO_EVENT_READ_TIMEOUT;
-}
-#endif

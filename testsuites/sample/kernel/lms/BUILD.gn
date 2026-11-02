@@ -63,6 +63,15 @@ static_library("test_lms") {
     "It_los_lms_029.c",
     "It_los_lms_030.c",
     "It_los_lms_031.c",
+    "It_los_lms_032.c",
+    "It_los_lms_033.c",
+    "It_los_lms_034.c",
+    "It_los_lms_035.c",
+    "It_los_lms_036.c",
+    "It_los_lms_037.c",
+    "It_los_lms_038.c",
+    "It_los_lms_039.c",
+    "It_los_lms_040.c",
   ]
 
   if ("$ohos_build_compiler_specified" == "gcc") {

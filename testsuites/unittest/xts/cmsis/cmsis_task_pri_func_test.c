@@ -50,11 +50,14 @@ static BOOL CmsisTaskPriFuncTestSuiteTearDown(void)
 static void WaitThreadExit(osThreadId_t id, UINT16 const *exitFlag)
 {
     osStatus_t status;
+    UINT32 budget = 300;
     (void)osThreadSetPriority(id, PRIORITY_COUNT_MIN_1);
-    while (*exitFlag != TESTCOUNT_NUM_1) {
+    while (*exitFlag != TESTCOUNT_NUM_1 && budget > 0) {
         status = osDelay(DELAY_TICKS_5);
         ICUNIT_ASSERT_EQUAL(status, osOK, status);
+        budget -= DELAY_TICKS_5;
     }
+    ICUNIT_ASSERT_EQUAL(*exitFlag, TESTCOUNT_NUM_1, *exitFlag);
 }
 static void CmsisThreadGetPriorityFunc001(void const *argument)
 {

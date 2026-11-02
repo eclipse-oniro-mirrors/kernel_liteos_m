@@ -225,7 +225,5 @@ void PosixFutexCondTest(void)
     RUN_ONE_TESTCASE(testPthreadCondInit);
     RUN_ONE_TESTCASE(testPthreadCondDestroy);
     RUN_ONE_TESTCASE(testPthreadCondattrInit);
-#if (LOS_FEATURE_ADAPTED == 1)
     RUN_ONE_TESTCASE(testPthreadCondBroadcast);
-#endif
 }

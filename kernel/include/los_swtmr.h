@@ -243,25 +243,31 @@ enum EnSwTmrType {
 };
 
 /**
-* @ingroup  los_swtmr
-* @brief Define the type of a callback function that handles software timer timeout.
-*
-* @par Description:
-* This API is used to define the type of a callback function that handles software timer timeout, so that it can be
-* called when software timer timeout.
-*
-* @attention
-* <ul>
-* <li>None.</li>
-* </ul>
-*
-* @param  para     [IN] the parameter of the callback function that handles software timer timeout.
-*
-* @retval None.
-* @par Dependency:
-* <ul><li>los_swtmr.h: the header file that contains the API declaration.</li></ul>
-* @see None.
-*/
+ * @ingroup los_swtmr
+ * Software timer align flag, this bit is used with enum EnSwTmrType
+ */
+#define LOS_SWTMR_ALIGN_FLAG  0x80
+
+/**
+ * @ingroup  los_swtmr
+ * @brief Define the type of a callback function that handles software timer timeout.
+ *
+ * @par Description:
+ * This API is used to define the type of a callback function that handles software timer timeout, so that it can be
+ * called when software timer timeout.
+ *
+ * @attention
+ * <ul>
+ * <li>None.</li>
+ * </ul>
+ *
+ * @param  para     [IN] the parameter of the callback function that handles software timer timeout.
+ *
+ * @retval None.
+ * @par Dependency:
+ * <ul><li>los_swtmr.h: the header file that contains the API declaration.</li></ul>
+ * @see None.
+ */
 typedef VOID (*SWTMR_PROC_FUNC)(UINTPTR arg);
 
 /**
@@ -353,7 +359,9 @@ extern UINT32 LOS_SwtmrTimeGet(UINT32 swtmrID, UINT32 *tick);
  * @param  interval     [IN] Timing duration of the software timer to be created (unit: tick).
  * @param  mode         [IN] Software timer mode. Pass in one of the modes specified by EnSwTmrType. There are three
  * types of modes, one-off, periodic, and continuously periodic after one-off, of which the third mode is not
- * supported temporarily.
+ * supported temporarily. Optionally OR'd with LOS_SWTMR_ALIGN_FLAG to request timer alignment; only effective
+ * for LOS_SWTMR_MODE_PERIOD, ignored for other modes. Requires LOSCFG_BASE_CORE_SWTMR_ALIGN to be enabled.
+ * When LOSCFG_BASE_CORE_SWTMR_ALIGN is disabled, the flag is silently ignored and no error is returned.
  * @param  handler      [IN] Callback function that handles software timer timeout.
  * @param  swtmrID      [OUT] Software timer ID created by LOS_SwtmrCreate.
  * @param  arg          [IN] Parameter passed in when the callback function that handles software timer timeout is
@@ -370,21 +378,11 @@ extern UINT32 LOS_SwtmrTimeGet(UINT32 swtmrID, UINT32 *tick);
  * <ul><li>los_swtmr.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_SwtmrDelete
  */
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-extern UINT32 LOS_SwtmrCreate(UINT32 interval,
-                              UINT8 mode,
-                              SWTMR_PROC_FUNC handler,
-                              UINT32 *swtmrID,
-                              UINTPTR arg,
-                              UINT8 rouses,
-                              UINT8 sensitive);
-#else
 extern UINT32 LOS_SwtmrCreate(UINT32 interval,
                               UINT8 mode,
                               SWTMR_PROC_FUNC handler,
                               UINT32 *swtmrID,
                               UINTPTR arg);
-#endif
 
 /**
  * @ingroup los_swtmr

@@ -36,7 +36,15 @@ static UINT32 Testcase(VOID)
 {
     UINT32 ret, i, j;
     UINT32 index;
-    UINT32 queueID[LOSCFG_BASE_IPC_QUEUE_LIMIT + 1];
+    /* +2: line 60 writes &queueID[LOSCFG_BASE_IPC_QUEUE_LIMIT + 1] when the
+     * "Q1" create unexpectedly succeeds (pool not full because QUEUE_EXISTED_NUM
+     * shrinks the loop limit on leaked-queue runs). With only +1 slots that
+     * 4-byte write lands past the array onto the stack canary — the return-time
+     * __stack_chk_fail writes NULL and the board hangs silently (60 s WDT,
+     * observed 9/13 reboot cycles in the 2026-09-24 board log of the source
+     * repo; fpu R5 board log: permanent silent hang after Pressure002, no
+     * WDT reset — app_task keeps feeding). */
+    UINT32 queueID[LOSCFG_BASE_IPC_QUEUE_LIMIT + 2];
     CHAR filebuf[260] = "abcdeabcde0123456789abcedfghij9876550210abcdeabcde0123456789abcedfghij9876550210abcdeabcde0123"
                         "456789abcedfghij9876550210abcdeabcde0123456789abcedfghij9876550210abcdeabcde0123456789abcedfgh"
                         "ij9876550210abcdeabcde0123456789abcedfghij9876550210lalalalalalalala";

@@ -33,7 +33,7 @@ static UINT32 Testcase(VOID)
     CHAR *buff2 = NULL;
     HwiIrqParam irqParam;
 
-    ret = LOS_QueueCreate("Q1", QUEUE_BASE_NUM, &g_testQueueID01, 0, 4);
+    ret = LOS_QueueCreate("Q1", QUEUE_BASE_NUM, &g_testQueueID01, 0, sizeof(UINTPTR)); /* POINT rw: node must hold a pointer */
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     
     (VOID)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));

@@ -41,6 +41,8 @@ VOID ItSuiteLosTrace(VOID)
     ItLosTrace005();
     ItLosTrace008();
     ItLosTrace009();
+    ItLosTrace010();
     ItLosTrace006();
     ItLosTrace007();
+    ItLosTrace011(); /* MEM 类事件掩码下重启 trace 触发内存信息事件 */
 }

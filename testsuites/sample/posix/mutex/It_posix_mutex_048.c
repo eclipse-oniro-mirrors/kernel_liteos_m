@@ -43,7 +43,7 @@ static VOID *TaskF01(void *arg)
     g_testCount++;
     ICUNIT_TRACK_EQUAL(g_testCount, 1, g_testCount);
 
-    TEST_DELAY(g_testCount, 2, TEST_WAIT_TIMEOUT);
+    TEST_DELAY(g_testCount, 4, TEST_WAIT_TIMEOUT);
 
     ret = sem_wait(&g_sem074);
     ICUNIT_TRACK_EQUAL(ret, 0, ret);

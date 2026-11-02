@@ -37,10 +37,29 @@ config TEST
     bool
     default n
 
+# Single choice: a build has EITHER the normal test suites OR the fuzz-only
+# image, never both (Kconfig enforces the mutual exclusion).  Optional so a
+# product may also select neither (no test code at all).
+choice
+    prompt "Test suite mode"
+    optional
+    default KERNEL_TEST
+
 config KERNEL_TEST
     bool "Enable Kernel Test"
-    default n
     select TEST
+
+config KERNEL_FUZZ
+    bool "Enable Kernel Fuzz Test (fuzz-only image)"
+    select TEST
+    help
+      Fuzz-only build: the normal test suites are NOT compiled and the
+      image boots straight into the API fuzz suite (auto-runs at boot,
+      see the fuzz-only branch in osTest.c TestTaskEntry).  The suite/case
+      call paths follow the same single-choice rule (LOSCFG_KERNEL_TEST
+      vs LOSCFG_KERNEL_FUZZ).
+
+endchoice
 
 config KERNEL_TEST_FULL
     bool "Full Kernel Test"
@@ -52,11 +71,44 @@ config KERNEL_TEST_MANUAL
     default n
     depends on KERNEL_TEST
 
+# Per-directory test selection: five knobs, one per testsuites source
+# directory. All default to y, so an untouched debug.config builds the
+# exact same binary as before this menu existed. Turning a knob off
+# removes the whole directory from the build; all five off yields an
+# empty suite (test framework only, zero cases).
+# Each directory owns its suite entry (ItSuitePosixSample /
+# ItSuitePosixUnittest), so the two posix directories are fully
+# independent: either one can be enabled alone.
+menu "Test directory selection"
+    depends on KERNEL_TEST
+
+config TEST_ICUNIT_KERNEL
+    bool "testsuites/sample/kernel"
+    default y
+
+config TEST_ICUNIT_CMSIS
+    bool "testsuites/sample/cmsis"
+    default y
+    depends on KAL_CMSIS
+
+config TEST_ICUNIT_POSIX
+    bool "testsuites/sample/posix"
+    default y
+
+config TEST_UNI_POSIX
+    bool "testsuites/unittest/posix"
+    default y
+
+config TEST_UNI_XTS
+    bool "testsuites/unittest/xts"
+    default y
+
+endmenu
+
 config TEST_KERNEL_COVERAGE
     bool "Enable code coverage instrumentation (gcov)"
     default n
-    depends on KERNEL_TEST
-    depends on COMPILER_GCC
+    depends on KERNEL_TEST || KERNEL_FUZZ
     help
       Requires KERNEL_TEST=y and a GCC toolchain. Answer Y to compile
       kernel sources with -fprofile-arcs -ftest-coverage. No libgcov is
@@ -66,5 +118,80 @@ config TEST_KERNEL_COVERAGE
       GCOV_BEGIN/GCOV_END frames for host-side .gcda reconstruction (no
       on-target filesystem needed). Intended for debug/test builds only:
       it enlarges code & BSS and adds runtime dump overhead.
+
+config TEST_CASE_TIME_STAT
+    bool "Enable icunit case execution time statistics"
+    default y
+    depends on KERNEL_TEST || KERNEL_FUZZ
+    help
+      Measure each test case's wall-clock execution time inside ICunitRunF.
+      Cases taking longer than 1s (ICUNIT_CASE_TIME_SLOW_US) print a
+      [SlowCase] line with name + cost in seconds right after they finish,
+      and the TOP 10 slowest cases (name + cost in seconds) are printed at
+      the end of the run, before the '--- Test End ---' marker. Answer N to
+      compile the statistics out entirely (zero overhead).
+
+config KERNEL_TEST_PRESSURE
+    bool "Enable full pressure test loops"
+    default n
+    depends on KERNEL_TEST || KERNEL_FUZZ
+    help
+      Pressure-scale test cases (FS pressure loops, lfs entry-scale test)
+      run their FULL original iteration counts. Answer N (default) to run
+      minimal loop counts that still cover the very same code paths, so
+      regression time on flash-backed boards stays short. With Y the
+      produced binary is byte-identical to a tree without this knob.
+
+config TEST_UART_DRV
+    bool "UART driver test suite"
+    default n
+    depends on KERNEL_TEST
+    help
+      Compile and register the UART driver ICUnit suite (ItLosUart001-005,
+      LEVEL0). The cases exercise the board UART driver API through the
+      MCR internal loopback, so they need no external wiring and never
+      touch the console port.
+
+config TEST_AMP_SLAVE
+    bool "Adapt test framework for an AMP slave core"
+    default n
+    depends on KERNEL_TEST
+    help
+      Adaptations for running the kernel tests on an AMP slave core that
+      shares the interrupt controller and the UART with a master OS:
+      claim the SPI ownership (GICD IGROUPR/IROUTER, edge trigger) when a
+      test HWI is created, force-clean the safe test SPI vectors between
+      cases, route SGI-based cases to SPIs, and skip cases whose output
+      would clobber the shared console (full task-table dump).
+
+config TEST_HWI_TRIG_ASYNC
+    bool "HWI software trigger is delivered asynchronously"
+    default n
+    depends on KERNEL_TEST
+    help
+      The interrupt controller forwards a software-pended interrupt with
+      a pipeline latency instead of delivering it before the trigger call
+      returns. TestHwiTrigger sleeps one tick so the ISR is served
+      deterministically, and trigger-dependent cases wait for the ISR to
+      actually run before continuing.
+
+config TEST_HWI_PRIO_FOLDED
+    bool "HWI priority values are folded to a coarser granularity"
+    default n
+    depends on KERNEL_TEST
+    help
+      Only the top priority bits are honored (e.g. a non-secure GICv3
+      view with DS=0 folds priorities onto a 16-step grid). HWI test
+      cases pick even, strictly ordered priority values so distinct
+      logical priorities stay distinct on the folded grid.
+
+config TEST_TICK_PHASE_LAG
+    bool "Skip cases sensitive to a tick-boundary phase lag"
+    default n
+    depends on KERNEL_TEST
+    help
+      Task wakeups and tick-count reads can differ by one tick when a
+      task blocks mid-period. Cases that assert exact tick boundaries
+      right after osDelay are skipped until the scheduling side is fixed.
 
 endmenu

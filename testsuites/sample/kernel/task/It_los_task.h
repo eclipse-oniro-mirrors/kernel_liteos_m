@@ -193,6 +193,8 @@ extern VOID ItLosTask305(VOID);
 extern VOID ItLosTask306(VOID);
 extern VOID ItLosTask307(VOID);
 extern VOID ItLosTask308(VOID);
+extern VOID ItLosTask309(VOID);
+extern VOID ItLosTask310(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

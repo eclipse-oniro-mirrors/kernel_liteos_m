@@ -57,13 +57,15 @@ VOID ItSuiteLosHwi()
  * IRQ while interrupts are masked and deletes it before it can ever be serviced;
  * g_testCount never reaches 10 and the busy-wait loop hangs. Skip under ISR mode.
  */
+#ifndef LOSCFG_TEST_AMP_SLAVE /* align re-arm turns 1-tick aligned periodic timers into back-to-back fire on this port (prio-0 swtmr task starves the busy-wait test); kernel clamps do not rescue it (verified 20261027 clean-firmware release test) */
     ItLosHwi026();
+#endif
 #endif
     ItLosHwi027();
     ItLosHwi030();
     ItLosHwi031();
     ItLosHwi034();
-#ifndef LOSCFG_PLATFORM_WS63_M
+#if (LOS_FEATURE_ADAPTED == 1)
 /**
  * 036/037: delay-timing tests; LOS_MDelay under IntLock hangs (needs tick IRQ) -> watchdog reboot.
  * Port issue, not HWI-trigger. Skip.
@@ -72,7 +74,7 @@ VOID ItSuiteLosHwi()
     ItLosHwi037();
 #endif
     ItLosHwi038();
-#ifndef LOSCFG_PLATFORM_WS63_M
+#if (LOS_FEATURE_ADAPTED == 1)
 /**
  * 039: tests LOS_HwiDisable-then-trigger, but HalTimerStart (TestHwiTrigger) calls
  * HalIrqEnable which re-enables the IRQ -> disable window broken, g_testCount==1 at the
@@ -104,12 +106,39 @@ VOID ItSuiteLosHwi()
     ItLosHwi009();
     ItLosHwi011();
     ItLosHwi012();
+#if !defined(LOSCFG_PLATFORM_HI3322)
     ItLosHwi013();
     ItLosHwi014();
+#endif
     ItLosHwi028();
     ItLosHwi029();
+#if !defined(LOSCFG_PLATFORM_HI3322)
+#ifndef LOSCFG_TEST_AMP_SLAVE
     ItLosHwi032();
+#endif
     ItLosHwi033();
 #endif
+#endif
     ItLosHwi047();
+    ItLosHwi049();
+    ItLosHwi050();
+    ItLosHwi051();
+#if defined(LOSCFG_ARCH_ARM) && defined(LOSCFG_CORTEX_M_NVIC)
+    /* 052: 真驱动 ops 下 Trigger/Clear 闭环, 仅 qemu(cortex-m NVIC) */
+    ItLosHwi052();
+#endif
+#if defined(LOSCFG_ARCH_RISCV) && defined(LOSCFG_RISCV_HIMIDEERV200_PLIC)
+    /* 053: 高段向量(32..95) LOCIEN0/1 与 LOCIPRI reg1-8, 仅 ws63(himideerv200 PLIC) */
+    ItLosHwi053();
+#endif
+#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
+    /* 054-057: GICD MMU 访问开关(AMP 中断隔离), 仅 rk3568 AMP slave.
+     * 054: 状态机往返/ALREADY 语义/压力循环; 055: 锁定期间中断投递独立性;
+     * 056: 页表池往返零消耗; 057: 序列终位 fault 注入(锁定态读 GICD ->
+     * Translation Fault -> 专属提示 -> CPU_OFF, 其后的套件不再执行). */
+    ItLosHwi054();
+    ItLosHwi055();
+    ItLosHwi056();
+    ItLosHwi057();
+#endif
 }

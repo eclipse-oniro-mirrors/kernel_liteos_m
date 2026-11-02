@@ -47,7 +47,7 @@ extern "C" {
  * Upper-layer business that wants to sanity-check the underlying LiteOS task
  * subsystem (TCB fields, stack magic word, SP ownership) is expected to carry
  * its OWN copy of this logic and read kernel memory directly through link-time
- * symbols (g_taskCBArray / g_taskMaxNum / LosTaskCB field offsets /
+ * symbols (g_osTaskCBArray / g_taskMaxNum / LosTaskCB field offsets /
  * OS_TASK_MAGIC_WORD), so that a kernel which has been patched or replaced
  * cannot simply stub one exported LOS_* symbol to hide the tampering. Shipping
  * this inside the kernel as a LOS_* API would re-introduce the very bypass

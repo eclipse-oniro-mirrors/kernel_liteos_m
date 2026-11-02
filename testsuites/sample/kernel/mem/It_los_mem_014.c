@@ -69,17 +69,25 @@ static UINT32 TestCase(VOID)
     ret = LOS_MemFree(g_memPool, p[2]); // 2, release the secend node.
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_MemFree(g_memPool, p[3]); // 3, release the third node.
-    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
+    /* How many 0x500 nodes the pool holds varies with allocator config and
+     * LMS shadow overhead (LMS_POOL_RESIZE, 1:16); run the p[3] reuse pattern
+     * only when the fill loop actually allocated a fourth node, otherwise
+     * p[3] stays NULL and LOS_MemFree would report LOS_NOK. */
+    if (i >= 4) {
+        ret = LOS_MemFree(g_memPool, p[3]); // 3, release the third node.
+        ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    p0 = LOS_MemAlloc(g_memPool, size);
-    ICUNIT_GOTO_EQUAL(p0, p[2], p0, EXIT); // 2, assert the adderess of new node is same as the released one.
+        p0 = LOS_MemAlloc(g_memPool, size);
+        ICUNIT_GOTO_EQUAL(p0, p[2], p0, EXIT); // assert the new node address matches the released one.
+    }
 
     ret = LOS_MemFree(g_memPool, p[0]);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_MemFree(g_memPool, p[2]); // 2, release the new node .
-    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
+    if (i >= 4) {
+        ret = LOS_MemFree(g_memPool, p[2]); // 2, release the new node .
+        ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
+    }
 
 EXIT:
     MemFree();

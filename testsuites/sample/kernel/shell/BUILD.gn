@@ -41,6 +41,18 @@ static_library("test_shell") {
     "It_los_shell_007.c",
     "It_los_shell_008.c",
     "It_los_shell_009.c",
+    "It_los_shell_010.c",
+    "It_los_shell_011.c",
+    "It_los_shell_012.c",
+    "It_los_shell_013.c",
+    "It_los_shell_014.c",
+    "It_los_shell_015.c",
+    "It_los_shell_016.c",
+    "It_los_shell_017.c",
+    "It_los_shell_018.c",
+    "It_los_shell_019.c",
+    "It_los_shell_020.c",
+    "It_los_shell_021.c",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

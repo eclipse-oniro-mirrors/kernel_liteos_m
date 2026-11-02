@@ -54,14 +54,23 @@ static VOID Exc005DumpHook(UINTPTR startAddr, UINT32 space, UINT32 rwFlag, CHAR 
            (UINT32)startAddr, space, rwFlag, (UINTPTR)buf);
 }
 
-static VOID Exc005ExcHook(UINT32 type, LosExcContext *context)
+static VOID Exc005ExcHook(UINT32 type, EXC_CONTEXT_TYPE *context)
 {
-    g_exc005RecType   = type;
+    g_exc005RecType = type;
+#ifndef __aarch64__
     g_exc005RecMcause = context->mcause;
     g_exc005RecMtval  = context->mtval;
     g_exc005RecMepc   = context->taskContext.mepc;
     PRINTF("[EXC-TEST005] exc hook: type=%u mcause=%u (expect 5 load access) mtval=0x%x mepc=0x%x\n",
            type, context->mcause, context->mtval, context->taskContext.mepc);
+#else
+    /* mcause/mtval/mepc are RISC-V CSRs; other arches have no equivalent. */
+    g_exc005RecMcause = 0;
+    g_exc005RecMtval  = 0;
+    g_exc005RecMepc   = 0;
+    PRINTF("[EXC-TEST005] exc hook: type=%u (mcause/mtval/mepc: RISC-V only)\n",
+           type);
+#endif
 }
 
 static UINT32 Testcase(VOID)

@@ -110,7 +110,7 @@ STATIC __iar_Rmtx IarMtxCreate(struct IarMutexInfo *mutexArray, UINT32 size)
     
     for (i = 0; i < size; i++) {
         if (mutexArray[i].usedFlag == FALSE) {
-            UINT32 ret = LOS_MuxCreate(&mutexArray[i].muxID);
+            UINT32 ret = LOS_MuxCreate(&mutexArray[i].muxId);
             if (ret == LOS_OK) {
                 mutexArray[i].usedFlag = TRUE;
                 return (__iar_Rmtx)&mutexArray[i];
@@ -139,7 +139,7 @@ void __iar_system_Mtxdst(__iar_Rmtx *m)
     }
     struct IarMutexInfo *muxInfo = (struct IarMutexInfo *)*m;
     
-    (void)LOS_MuxDelete(muxInfo->muxID);
+    (void)LOS_MuxDelete(muxInfo->muxId);
     muxInfo->usedFlag = FALSE;
     *m = (__iar_Rmtx)NULL;
 }
@@ -152,7 +152,7 @@ void __iar_system_Mtxlock(__iar_Rmtx *m)
     struct IarMutexInfo *muxInfo = (struct IarMutexInfo *)*m;
     
     if (LOS_TaskIsScheduled()) {
-        (void)LOS_MuxPend(muxInfo->muxID, LOS_WAIT_FOREVER);
+        (void)LOS_MuxPend(muxInfo->muxId, LOS_WAIT_FOREVER);
     }
 }
 
@@ -164,7 +164,7 @@ void __iar_system_Mtxunlock(__iar_Rmtx *m)
     struct IarMutexInfo *muxInfo = (struct IarMutexInfo *)*m;
     
     if (LOS_TaskIsScheduled()) {
-        (void)LOS_MuxPost(muxInfo->muxID);
+        (void)LOS_MuxPost(muxInfo->muxId);
     }
 }
 
@@ -184,7 +184,7 @@ void __iar_file_Mtxdst(__iar_Rmtx *m)
     }
     struct IarMutexInfo *muxInfo = (struct IarMutexInfo *)*m;
     
-    (void)LOS_MuxDelete(muxInfo->muxID);
+    (void)LOS_MuxDelete(muxInfo->muxId);
     muxInfo->usedFlag = FALSE;
     *m = (__iar_Rmtx)NULL;
 }
@@ -197,7 +197,7 @@ void __iar_file_Mtxlock(__iar_Rmtx *m)
     struct IarMutexInfo *muxInfo = (struct IarMutexInfo *)*m;
     
     if (LOS_TaskIsScheduled()) {
-        (void)LOS_MuxPend(muxInfo->muxID, LOS_WAIT_FOREVER);
+        (void)LOS_MuxPend(muxInfo->muxId, LOS_WAIT_FOREVER);
     }
 }
 
@@ -209,6 +209,6 @@ void __iar_file_Mtxunlock(__iar_Rmtx *m)
     struct IarMutexInfo *muxInfo = (struct IarMutexInfo *)*m;
     
     if (LOS_TaskIsScheduled()) {
-        (void)LOS_MuxPost(muxInfo->muxID);
+        (void)LOS_MuxPost(muxInfo->muxId);
     }
 }

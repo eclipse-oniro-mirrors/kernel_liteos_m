@@ -32,6 +32,7 @@
 #define IT_LOS_MUX_H
 
 #include "osTest.h"
+#include "los_mux_pri.h"
 
 #ifdef __cplusplus
 #if __cplusplus

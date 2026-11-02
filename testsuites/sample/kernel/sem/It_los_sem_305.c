@@ -32,16 +32,14 @@
 #include "osTest.h"
 #include "It_los_sem.h"
 
-/* 用例简要描述: 信号量 ABA 行为暴露:Delete 头插+Create 取链头 index 立即复用 */
+/* 用例简要描述: 信号量防 ABA 行为验证:Delete 尾插+Create 取链头 index 不复用 */
 static UINT32 Testcase(VOID)
 {
     UINT32 ret;
     UINT32 semId1;
     UINT32 semId2;
-    INT32 currVal = 0xFF; /* 255, init as invalid */
 
-    /* D3(ABA 暴露): 社区版 ID 为纯 index, Delete 头插 unused 链表(los_sem.c:189 LOS_ListAdd),
-       下一次 Create 取链表头(LOS_DL_LIST_FIRST) -> 立即复用同 index, 无 ID 分裂防 ABA 保护 */
+    /* Delete 尾插回收, Create 取链头, 不复用同 index */
     ret = LOS_SemCreate(1, &semId1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
@@ -51,27 +49,20 @@ static UINT32 Testcase(VOID)
     ret = LOS_SemCreate(1, &semId2);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    /* 复用断言: 新句柄 == 旧句柄 */
-    ICUNIT_GOTO_EQUAL(semId2, semId1, semId2, EXIT);
+    /* 防复用断言: 新句柄 != 旧句柄 */
+    ICUNIT_GOTO_NOT_EQUAL(semId2, semId1, semId2, EXIT);
 
-    /* 旧句柄(==新句柄) 操作完全有效 */
+    /* 旧句柄操作应失败(CB 已回收, stat=LOS_UNUSED) */
     ret = LOS_SemPend(semId1, LOS_WAIT_FOREVER);
-    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
+    ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_SEM_INVALID, ret, EXIT);
 
-    ret = LOS_SemGetValue(semId1, &currVal);
-    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-    ICUNIT_GOTO_EQUAL(currVal, 0, currVal, EXIT);
-
-    ret = LOS_SemPost(semId1);
-    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
-
-    ret = LOS_SemDelete(semId1);
+    ret = LOS_SemDelete(semId2);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     return LOS_OK;
 
 EXIT:
-    (VOID)LOS_SemDelete(semId2); /* semId1==semId2, 删一次 */
+    (VOID)LOS_SemDelete(semId2);
     return LOS_OK;
 }
 

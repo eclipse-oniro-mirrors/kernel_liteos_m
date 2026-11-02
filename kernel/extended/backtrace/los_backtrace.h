@@ -212,6 +212,17 @@ extern CHAR *CSTACK_SECTION_END;
 #define CSTACK_START_ADDR   ((UINTPTR)&CSTACK_SECTION_START)
 #define CSTACK_END_ADDR     ((UINTPTR)&CSTACK_SECTION_END)
 
+#elif (LOSCFG_BACKTRACE_TYPE == 7)
+extern CHAR *__text_start;
+extern CHAR *__text_end;
+extern CHAR *__el1_stack;
+extern CHAR *__irq_stack_top;
+/* AArch64 board stacks: EL1 (svc) stack followed by the IRQ stack
+ * (see board.ld .stack section). */
+#define CSTACK_START_ADDR   ((UINTPTR)&__el1_stack)
+#define CSTACK_END_ADDR     ((UINTPTR)&__irq_stack_top)
+#define CODE_START_ADDR     ((UINTPTR)&__text_start)
+#define CODE_END_ADDR       ((UINTPTR)&__text_end)
 #endif
 
 /* This function is currently used to register the memory leak check hook,

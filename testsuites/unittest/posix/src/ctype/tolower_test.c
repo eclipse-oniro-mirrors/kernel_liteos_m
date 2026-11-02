@@ -29,6 +29,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* tolower_l 等 locale 变体声明需要（ctype.h:40-62 段） */
+#define _POSIX_SOURCE
 #include <ctype.h>
 #include "ohos_types.h"
 #include "posix_test.h"
@@ -154,6 +156,23 @@ LITE_TEST_CASE(PosixCTypeTolowerTest, testCTypeTolower005, Function | MediumTest
     return 0;
 }
 
+/* 用例简要描述: tolower_l 大写转小写及非字母不变 */
+LITE_TEST_CASE(PosixCTypeTolowerTest, testCtypeTolowerL001, Function | MediumTest | Level1)
+{
+    int ret;
+
+    /* __tolower_l 忽略 locale 参数直接转发 tolower（tolower.c:9-11），NULL 安全 */
+    ret = tolower_l('A', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 'a', ret);
+
+    ret = tolower_l('a', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 'a', ret);
+
+    ret = tolower_l('3', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, '3', ret);
+    return 0;
+}
+
 void PosixTolowerFuncTest()
 {
     LOG("begin PosixTolowerFuncTest....");
@@ -162,6 +181,7 @@ void PosixTolowerFuncTest()
     RUN_ONE_TESTCASE(testCTypeTolower003);
     RUN_ONE_TESTCASE(testCTypeTolower004);
     RUN_ONE_TESTCASE(testCTypeTolower005);
+    RUN_ONE_TESTCASE(testCtypeTolowerL001);
 
     return;
 }

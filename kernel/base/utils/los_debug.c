@@ -33,6 +33,7 @@
 #include "stdarg.h"
 #include "los_interrupt.h"
 #include "los_task.h"
+#include "los_task_pri.h"
 
 #if (LOSCFG_KERNEL_PRINTF == 1) || (LOSCFG_KERNEL_PRINTF == 2)
 STATIC const CHAR *g_logString[] = {

@@ -30,9 +30,11 @@
  */
 
 #include "los_sched_pri.h"
+#include "los_mp_pri.h"
 #include "los_task_base.h"
 #include "los_priqueue_pri.h"
 #include "los_task_pri.h"
+#include "los_sched_debug_pri.h"
 #include "los_tick.h"
 #include "los_swtmr.h"
 #include "los_swtmr_pri.h"
@@ -53,8 +55,6 @@
 
 #define OS_TASK_BLOCKED_STATUS (OS_TASK_STATUS_PEND | OS_TASK_STATUS_SUSPEND | \
                                 OS_TASK_STATUS_ZOMBIE | OS_TASK_STATUS_UNUSED)
-
-LITE_OS_SEC_BSS STATIC LOS_DL_LIST g_taskSortlink[OS_TSK_SORTLINK_LEN];
 
 /* ===========================================================================
  * Shared Functions (no #ifdef on tick mode)
@@ -82,6 +82,7 @@ VOID OsSchedResched(VOID)
 
 #if defined(LOSCFG_SCHED_LATENCY) && (LOSCFG_KERNEL_SIGNAL == 1)
     if (OsSignalRestorePending()) {
+        OsSchedTaskDeQueue(runTask);
         ArchTaskSchedule(runTask, runTask);
         return;
     }
@@ -98,6 +99,10 @@ VOID OsSchedResched(VOID)
         runTask->taskStatus &= ~OS_TASK_STATUS_RUNNING;
         newTask->taskStatus |= OS_TASK_STATUS_RUNNING;
         newTask->startTime = runTask->startTime;
+#ifdef LOSCFG_KERNEL_SMP
+        runTask->lastCpu = runTask->currCpu;
+        newTask->currCpu = ArchCurrCpuid();
+#endif
 
 #if (LOSCFG_BASE_CORE_TSK_MONITOR == 1)
         OsTaskSwitchCheck(runTask, newTask);
@@ -108,6 +113,9 @@ VOID OsSchedResched(VOID)
         OsHookCall(LOS_HOOK_TYPE_TASK_SWITCHEDIN);
 #if (LOSCFG_DEBUG_TOOLS == 1)
         OsSchedTraceRecord(newTask, runTask);
+#endif
+#ifdef LOSCFG_DEBUG_SCHED_STATISTICS
+        OsSchedStat(runTask, newTask);
 #endif
         OsCurrTaskSet(newTask);
     }
@@ -146,15 +154,7 @@ VOID OsSchedPreempt(VOID)
      */
     OsTimeSliceUpdate(runTask, OsGetCurrSchedTimeCycle());
 
-    /*
-     * Skip enqueue if already READY: in latency mode, signal restore path
-     * in OsSchedResched returns before OsSchedTaskDeQueue, leaving the
-     * task with READY set. Without this check the next OsSchedTaskEnQueue
-     * would assert on the double-enqueue.
-     */
-    if (!(runTask->taskStatus & OS_TASK_STATUS_READY)) {
-        OsSchedTaskEnQueue(runTask);
-    }
+    OsSchedTaskEnQueue(runTask);
 
     /* reschedule to new thread */
     OsSchedResched();
@@ -166,20 +166,29 @@ VOID OsSchedPreempt(VOID)
 /*
  * Description : Process pending schedFlag tagged by others cores
  */
-VOID OsSchedProcSchedFlag(VOID)
+LITE_OS_SEC_TEXT_MINOR VOID OsSchedProcSchedFlag(VOID)
 {
-    Percpu *percpu = OsPercpuGet();
+    Percpu *percpu = NULL;
+
+    OsTaskProcSignal();
+
+    /* check if needs to schedule */
+    percpu = OsPercpuGet();
 
     if (OsPreemptable()) {
-        UINT32 flag = percpu->schedFlag;
-        if (flag == INT_PEND_RESCH) {
+        if (percpu->schedFlag == INT_PEND_RESCH) {
             OsSetSchedFlag(INT_NO_RESCH);
             OsSchedPreempt();
-        } else if (flag == INT_SUSPEND_DELETE_RESCH) {
+        }
+#ifndef LOSCFG_KERNEL_SMP
+        else if (percpu->schedFlag == INT_SUSPEND_DELETE_RESCH) {
             OsSetSchedFlag(INT_NO_RESCH);
             OsSchedResched();
         }
+#endif
     }
+
+    return;
 }
 #endif
 
@@ -197,8 +206,7 @@ VOID OsSchedWait(LosTaskCB *runTask, LOS_DL_LIST *list, UINT32 timeout)
     if (timeout != LOS_WAIT_FOREVER) {
         runTask->taskStatus |= OS_TASK_STATUS_PEND_TIME;
         runTask->waitTimes = timeout;
-        SortLinkAttribute *head = &OsPercpuGet()->taskSortLink;
-        OsSchedAddSortLink(head, &runTask->sortList, timeout);
+        OsTaskAdd2TimerList(runTask, timeout);
     }
 
     OsSchedResched();
@@ -214,9 +222,7 @@ VOID OsSchedWake(LosTaskCB *resumedTask)
 
     resumedTask->taskStatus &= ~OS_TASK_STATUS_PEND;
     if (resumedTask->taskStatus & OS_TASK_STATUS_PEND_TIME) {
-        SortLinkAttribute *head = &OsPercpuGet()->taskSortLink;
-        OsSchedDeleteSortLink(head, &resumedTask->sortList);
-        OsSchedResetSchedResponseTime(0);
+        OsTimerListDelete(resumedTask);
         resumedTask->taskStatus &= ~OS_TASK_STATUS_PEND_TIME;
     }
 
@@ -267,9 +273,10 @@ UINT32 OsSchedSuspend(LosTaskCB *taskCB)
         goto LOS_RETURN;
     }
 
-    if ((tempStatus & OS_TASK_STATUS_RUNNING) && (OsPercpuGet()->taskLockCnt != 0)) {
-        errRet = LOS_ERRNO_TSK_SUSPEND_LOCKED;
-        goto LOS_RETURN;
+    if (tempStatus & OS_TASK_STATUS_RUNNING) {
+        if (!OsTaskSuspendCheckOnRun(taskCB, &errRet)) {
+            goto LOS_RETURN;
+        }
     }
 
     if (taskCB->taskStatus & OS_TASK_STATUS_READY) {
@@ -307,6 +314,7 @@ VOID OsSchedDeleteSortLink(SortLinkAttribute *sortLinkHeader, SortLinkList *sort
 {
     OsSchedSortLinkAdvance(sortLinkHeader);
     OsDeleteSortLink(sortLinkHeader, sortList);
+    OsSchedResetSchedResponseTime(0);
 }
 
 VOID OsSchedTaskEnQueue(LosTaskCB *taskCB)
@@ -339,24 +347,6 @@ VOID OsSchedTaskDeQueue(LosTaskCB *taskCB)
     }
 }
 
-VOID OsSchedTaskExit(LosTaskCB *taskCB)
-{
-    if (taskCB->taskStatus & OS_TASK_STATUS_READY) {
-        OsSchedTaskDeQueue(taskCB);
-    } else if (taskCB->taskStatus & OS_TASK_STATUS_PEND) {
-        LOS_ListDelete(&taskCB->pendList);
-        taskCB->taskStatus &= ~OS_TASK_STATUS_PEND;
-    }
-
-    if (taskCB->taskStatus & (OS_TASK_STATUS_DELAY | OS_TASK_STATUS_PEND_TIME)) {
-        SortLinkAttribute *head = &OsPercpuGet()->taskSortLink;
-        OsSchedDeleteSortLink(head, &taskCB->sortList);
-        OsSchedResetSchedResponseTime(0);
-        taskCB->taskStatus &= ~(OS_TASK_STATUS_DELAY | OS_TASK_STATUS_PEND_TIME);
-    }
-    taskCB->taskStatus |= OS_TASK_STATUS_ZOMBIE;
-}
-
 UINT32 OsSchedYield(VOID)
 {
     LosTaskCB *runTask = OsCurrTaskGet();
@@ -370,28 +360,10 @@ UINT32 OsSchedYield(VOID)
     return LOS_OK;
 }
 
-VOID OsSchedDelay(LosTaskCB *runTask, UINT32 tick)
+VOID OsSchedResume(LosTaskCB *taskCB, UINT32 intSave)
 {
-    runTask->taskStatus |= OS_TASK_STATUS_DELAY;
-    runTask->waitTimes = tick;
-    SortLinkAttribute *head = &OsPercpuGet()->taskSortLink;
-    OsSchedAddSortLink(head, &runTask->sortList, tick);
-}
-
-BOOL OsSchedResume(LosTaskCB *taskCB)
-{
-#if (LOSCFG_KERNEL_PM == 1)
-    if (taskCB->taskStatus & OS_TASK_FLAG_FREEZE) {
-        OsSchedUnfreezeTask(taskCB);
-    }
-#endif
-    taskCB->taskStatus &= (~OS_TASK_STATUS_SUSPEND);
-    if (!(taskCB->taskStatus & (OS_TASK_STATUS_DELAY | OS_TASK_STATUS_PEND))) {
-        OsSchedTaskEnQueue(taskCB);
-        return TRUE;
-    }
-
-    return FALSE;
+    OsSchedTaskEnQueue(taskCB);
+    SCHEDULER_UNLOCK(intSave);
 }
 
 VOID OsSchedSetIdleTaskSchedParam(LosTaskCB *idleTask)
@@ -399,24 +371,17 @@ VOID OsSchedSetIdleTaskSchedParam(LosTaskCB *idleTask)
     OsSchedTaskEnQueue(idleTask);
 }
 
-UINT32 OsSchedInit(VOID)
-{
-    OsPriQueueInit();
-
-    OsSortLinkInit(&OsPercpuGet()->taskSortLink, g_taskSortlink);
-    SchedTimeBaseInit();
-
-    return LOS_OK;
-}
-
 LosTaskCB *OsSchedStart(VOID)
 {
-    PRINTK("Entering scheduler\n");
+    UINT32 intSave;
 
-    (VOID)LOS_IntLock();
+    LOS_SpinLockSave(&g_taskSpin, &intSave);
     LosTaskCB *newTask = OsGetTopTask();
 
     newTask->taskStatus |= OS_TASK_STATUS_RUNNING;
+#ifdef LOSCFG_KERNEL_SMP
+    newTask->currCpu = ArchCurrCpuid();
+#endif
     OsCurrTaskSet(newTask);
 
 #if (LOSCFG_BASE_CORE_CPUP == 1)
@@ -432,7 +397,8 @@ LosTaskCB *OsSchedStart(VOID)
     OsSwtmrResponseTimeReset();
 #endif
 
-    g_taskScheduled = TRUE;
+    PRINTK("cpu %u entering scheduler\n", ArchCurrCpuid());
+    OS_SCHEDULER_SET(ArchCurrCpuid());
 
     OsSchedExpireTimeUpdate(newTask, newTask);
 

@@ -35,9 +35,7 @@
 #include "los_event.h"
 
 #ifdef __cplusplus
-#if __cplusplus
 extern "C" {
-#endif /* __cplusplus */
 #endif /* __cplusplus */
 
 #ifdef LOSCFG_COMPAT_POSIX
@@ -49,12 +47,12 @@ typedef struct {
 
 extern UINT32 OsEventReadWithCond(const EventCond *cond, PEVENT_CB_S eventCB,
                                   UINT32 eventMask, UINT32 mode, UINT32 timeout);
+extern UINT32 OsEventReadOnce(PEVENT_CB_S eventCB, UINT32 eventMask, UINT32 mode, UINT32 timeout);
 #endif
+extern UINT32 OsEventWriteOnce(PEVENT_CB_S eventCB, UINT32 events);
 
 #ifdef __cplusplus
-#if __cplusplus
 }
-#endif /* __cplusplus */
 #endif /* __cplusplus */
 
 #endif /* _LOS_EVENT_PRI_H */

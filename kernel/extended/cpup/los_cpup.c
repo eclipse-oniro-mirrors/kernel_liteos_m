@@ -211,14 +211,8 @@ LITE_OS_SEC_TEXT_INIT VOID OsCpupGuard(VOID)
 
 LITE_OS_SEC_TEXT_INIT VOID OsCpupGuardCreator(VOID)
 {
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    (VOID)LOS_SwtmrCreate(LOSCFG_CPUP_SAMPLE_PERIOD, LOS_SWTMR_MODE_PERIOD,
-                          (SWTMR_PROC_FUNC)OsCpupGuard, &g_cpupSwtmrId, 0,
-                          OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE);
-#else
-    (VOID)LOS_SwtmrCreate(LOSCFG_CPUP_SAMPLE_PERIOD, LOS_SWTMR_MODE_PERIOD,
+    (VOID)LOS_SwtmrCreate(LOSCFG_CPUP_SAMPLE_PERIOD, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG,
                           (SWTMR_PROC_FUNC)OsCpupGuard, &g_cpupSwtmrId, 0);
-#endif
 
     (VOID)LOS_SwtmrStart(g_cpupSwtmrId);
 }

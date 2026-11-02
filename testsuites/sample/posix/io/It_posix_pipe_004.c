@@ -55,10 +55,10 @@ static VOID *Pipe004Writer(VOID *arg)
         LOS_TaskDelay(1);
     }
 
-    /* 再延时确保主任务已真正挂入 readSem 等待(pipe.c:519) */
+    /* 再延时确保主任务已真正挂入 readSem 等待(pipe.c:517) */
     LOS_TaskDelay(PIPE004_WRITER_DELAY);
 
-    /* 写入后 PipeWrite 末尾 PIPE_RW_POST(readSem)(pipe.c:594) 唤醒阻塞的读者 */
+    /* 写入后 PipeWrite 末尾 PIPE_RW_POST(readSem)(pipe.c:592) 唤醒阻塞的读者 */
     ret = write(g_pipe004Fds[1], g_pipe004Wbuf, PIPE004_BUF_LEN);
     ICUNIT_GOTO_EQUAL(ret, (ssize_t)PIPE004_BUF_LEN, ret, EXIT);
 
@@ -90,7 +90,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret32, 0, ret32, EXIT_CLOSE);
 
     /* 置位就绪标志后立即读空管: PipeRead 发现 readIndex==writeIndex 且未回绕,
-     * 释放设备锁并挂入 readSem 阻塞等待(pipe.c:515-523), 等待子任务写入唤醒 */
+     * 释放设备锁并挂入 readSem 阻塞等待(pipe.c:512-522), 等待子任务写入唤醒 */
     g_pipe004Ready = 1;
     tickStart = LOS_TickCountGet();
     ret = read(g_pipe004Fds[0], rbuf, PIPE004_BUF_LEN);
@@ -122,7 +122,7 @@ EXIT:
  * @tc.name: ItPosixPipe004
  * @tc.desc: pipe 读空阻塞唤醒(主任务读空管阻塞, 子任务延时写入唤醒)
  * @tc.type: FUNC
- * 覆盖目标: pipe.c:515-523（PipeRead 读空阻塞等待+唤醒分支, gcov 第 1 轮）
+ * 覆盖目标: pipe.c:512-522（PipeRead 读空阻塞等待+唤醒分支, gcov 第 1 轮）
  */
 VOID ItPosixPipe004(VOID)
 {

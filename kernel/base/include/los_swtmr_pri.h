@@ -53,10 +53,10 @@ extern "C" {
  * Software timer state
  */
 enum SwtmrState {
-    OS_SWTMR_STATUS_UNUSED,             /**< The software timer is not used. */
-    OS_SWTMR_STATUS_CREATED,            /**< The software timer is created. */
-    OS_SWTMR_STATUS_TICKING,            /**< The software timer is timing. */
-    OS_SWTMR_STATUS_DELETING            /**< The software timer is pending deletion (handler running). */
+    OS_SWTMR_STATUS_UNUSED,     /* The software timer is not used. */
+    OS_SWTMR_STATUS_DELETING,   /* The software timer is deleting. */
+    OS_SWTMR_STATUS_CREATED,    /* The software timer is created. */
+    OS_SWTMR_STATUS_TICKING     /* The software timer is timing. */
 };
 
 /**
@@ -72,8 +72,6 @@ typedef struct tagSwtmrCB {
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
     UINT8               alignEnable;    /* Whether the timer needs to be aligned                 */
     UINT8               isAligned;      /* Whether alignment has been performed                  */
-    UINT32              canMultiple : 1; /* Whether the timer can participate in integer multiple alignment */
-    UINT32              times       : 24; /* interval / LOS_COMMON_DIVISOR                        */
 #endif
     UINT32              timerId;        /* Software timer ID                                     */
     UINT32              interval;       /* Timeout interval of a periodic software timer         */
@@ -94,6 +92,14 @@ extern SPIN_LOCK_S g_swtmrSpin;
 #define SWTMR_UNLOCK(state)     LOS_SpinUnlockRestore(&g_swtmrSpin, (state))
 
 #define OS_SWT_FROM_SWTID(swtmrId) ((SWTMR_CTRL_S *)g_osSwtmrCBArray + ((swtmrId) % LOSCFG_BASE_CORE_SWTMR_LIMIT))
+
+#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
+typedef struct {
+    SWTMR_CTRL_S *swtmr;
+    UINT32        wakeTime;
+    UINT32        repeateFreq;
+} AlignRecordInfo;
+#endif
 
 #if defined(LOSCFG_TASK_STACK_STATIC_ALLOCATION) && !defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR)
 extern UINT8 *g_osSwtmrTaskStack[LOSCFG_KERNEL_CORE_NUM];

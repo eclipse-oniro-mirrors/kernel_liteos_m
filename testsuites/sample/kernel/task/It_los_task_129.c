@@ -1,3 +1,4 @@
+#ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
 /*
  * Copyright (c) 2021-2021 Huawei Device Co., Ltd. All rights reserved.
  *
@@ -52,10 +53,9 @@ static UINT32 TestCase(VOID)
 
     osTaskInitParam.uwStackSize = 0x1000;
     taskStack = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, osTaskInitParam.uwStackSize, 8);
-    osTaskInitParam.stackAddr = (UINTPTR)taskStack;
-    ICUNIT_ASSERT_NOT_EQUAL(osTaskInitParam.stackAddr, 0, osTaskInitParam.stackAddr);
+    ICUNIT_ASSERT_NOT_EQUAL((UINTPTR)taskStack, 0, (UINTPTR)taskStack);
 
-    ret = LOS_TaskCreate(&taskId, &osTaskInitParam);
+    ret = LOS_TaskCreateStatic(&taskId, &osTaskInitParam, taskStack);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ICUNIT_ASSERT_EQUAL(g_testCount, 1, g_testCount);
@@ -67,12 +67,11 @@ static UINT32 TestCase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_TSK_NOT_CREATED, ret);
 
     osTaskInitParam.uwStackSize = 0x1003; /* 0x1003: The size is not aligned */
-    ret = LOS_TaskCreate(&taskId, &osTaskInitParam);
+    ret = LOS_TaskCreateStatic(&taskId, &osTaskInitParam, taskStack);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_TSK_STKSZ_NOT_ALIGN, ret);
 
     osTaskInitParam.uwStackSize = 0x1000;
-    osTaskInitParam.stackAddr = (UINTPTR)taskStack + 4;
-    ret = LOS_TaskCreate(&taskId, &osTaskInitParam);
+    ret = LOS_TaskCreateStatic(&taskId, &osTaskInitParam, (VOID *)((UINTPTR)taskStack + 4));
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_TSK_STKSZ_NOT_ALIGN, ret);
 
     ret = LOS_MemFree(OS_TASK_STACK_ADDR, taskStack);
@@ -84,4 +83,4 @@ VOID ItLosTask129(VOID) // IT_Layer_ModuleORFeature_No
 {
     TEST_ADD_CASE("ItLosTask129", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL0, TEST_FUNCTION);
 }
-
+#endif

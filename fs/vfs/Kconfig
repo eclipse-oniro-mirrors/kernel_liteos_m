@@ -29,8 +29,8 @@
 
 config FS_VFS
     bool "Enable FS VFS"
-    default n if KERNEL_RAM_PRESET_TINY || KERNEL_RAM_PRESET_SMALL
-    default y
+    default y if KERNEL_RAM_PRESET_STANDARD
+    default n
     select POSIX_FS_API
 
     help

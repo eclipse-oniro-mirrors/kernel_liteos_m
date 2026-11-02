@@ -157,7 +157,7 @@ extern "C" {
 
 /**
  * @ingroup los_event
- * Event reading error code: The event is being read in a system-level task.
+ * Event reading error code: The event is being read in system-level task.
  * Value: 0x02001c09
  *
  * Solution: Read the event in a valid task.

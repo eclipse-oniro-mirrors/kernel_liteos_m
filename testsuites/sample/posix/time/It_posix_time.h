@@ -78,6 +78,14 @@ VOID ItPosixTime036(VOID);
 VOID ItPosixTime037(VOID);
 VOID ItPosixTime038(VOID);
 VOID ItPosixTime039(VOID);
+VOID ItPosixTime040(VOID);
+VOID ItPosixTime041(VOID);
+VOID ItPosixTime042(VOID);
+VOID ItPosixTime043(VOID);
+VOID ItPosixTime044(VOID);
+VOID ItPosixTime045(VOID);
+VOID ItPosixTime046(VOID);
+VOID ItPosixTime047(VOID);
 
 VOID ItSuitePosixTime(VOID);
 

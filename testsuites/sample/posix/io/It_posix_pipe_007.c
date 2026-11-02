@@ -57,26 +57,26 @@ static UINT32 Testcase(VOID)
 
     /* 步骤 1: 首写 600B — 初始 readIndex==writeIndex==0 且未回绕,
      * PipeRingbufferWrite 走 else 未回绕分支自尾部起取整段空间
-     * (pipe.c:196-199), 单次写完, 写指针 0→600 */
+     * (pipe.c:194-197), 单次写完, 写指针 0→600 */
     ret = write(fds[1], wstream, PIPE007_W1_LEN);
     ICUNIT_GOTO_EQUAL(ret, (ssize_t)PIPE007_W1_LEN, ret, EXIT_CLOSE);
 
     /* 步骤 2: 部分读 400B — readIndex(0)<writeIndex(600), 可读 600B 只取 400B
-     * (pipe.c:164-165), 读指针 0→400, 缓冲余 200B 未读 */
+     * (pipe.c:163-164), 读指针 0→400, 缓冲余 200B 未读 */
     ret = read(fds[0], rstream, PIPE007_R1_LEN);
     ICUNIT_GOTO_EQUAL(ret, (ssize_t)PIPE007_R1_LEN, ret, EXIT_CLOSE);
 
     /* 步骤 3: 再写 500B 触发写跨回绕 — readIndex(400)<writeIndex(600) 先填
-     * 尾部空间 424B(pipe.c:190-191)至 1024, 触发回绕 roll=TRUE 且写指针归 0
-     * (pipe.c:206-209); 一次写不完, PipeWrite 循环二次调 PipeRingbufferWrite,
-     * readIndex(400)>writeIndex(0) 填头部剩余 76B(pipe.c:192-193) */
+     * 尾部空间 424B(pipe.c:189-190)至 1024, 触发回绕 roll=TRUE 且写指针归 0
+     * (pipe.c:204-207); 一次写不完, PipeWrite 循环二次调 PipeRingbufferWrite,
+     * readIndex(400)>writeIndex(0) 填头部剩余 76B(pipe.c:191-192) */
     ret = write(fds[1], &wstream[PIPE007_W1_LEN], PIPE007_W2_LEN);
     ICUNIT_GOTO_EQUAL(ret, (ssize_t)PIPE007_W2_LEN, ret, EXIT_CLOSE);
 
     /* 步骤 4: 再读 700B 触发读跨回绕 — readIndex(400)>writeIndex(76) 先读
-     * 尾段 624B(pipe.c:166-167)至 1024, 触发读指针归 0 且 roll 复位 FALSE
-     * (pipe.c:178-181); PipeRead 循环二次调 PipeRingbufferRead,
-     * readIndex(0)<writeIndex(76) 读头段 76B(pipe.c:164-165) */
+     * 尾段 624B(pipe.c:165-166)至 1024, 触发读指针归 0 且 roll 复位 FALSE
+     * (pipe.c:177-180); PipeRead 循环二次调 PipeRingbufferRead,
+     * readIndex(0)<writeIndex(76) 读头段 76B(pipe.c:163-164) */
     ret = read(fds[0], &rstream[PIPE007_R1_LEN], PIPE007_R2_LEN);
     ICUNIT_GOTO_EQUAL(ret, (ssize_t)PIPE007_R2_LEN, ret, EXIT_CLOSE);
 
@@ -100,13 +100,13 @@ EXIT:
  * @tc.name: ItPosixPipe007
  * @tc.desc: pipe 环形缓冲跨回绕读写矩阵(写 600 部分读 400 再写 500 跨回绕再读 700, 流式一致性校验)
  * @tc.type: FUNC
- * 覆盖目标: pipe.c:190-191（PipeRingbufferWrite read<write 尾部空间分支, gcov 第 3 轮）
- *   pipe.c:192-193（PipeRingbufferWrite read>write 头部空间分支）
- *   pipe.c:206-209（写指针到尾回绕: roll=TRUE, writeIndex 归 0）
- *   pipe.c:166-167（PipeRingbufferRead read>write 尾段分支）
- *   pipe.c:178-181（读指针到尾回绕: readIndex 归 0, roll 复位 FALSE）
- *   pipe.c:527-548（PipeRead while 循环跨段多次读 + :549 PIPE_RW_POST）
- *   pipe.c:577-593（PipeWrite while 循环跨段多次写 + :594 PIPE_RW_POST）
+ * 覆盖目标: pipe.c:189-190（PipeRingbufferWrite read<write 尾部空间分支, gcov 第 3 轮）
+ *   pipe.c:191-192（PipeRingbufferWrite read>write 头部空间分支）
+ *   pipe.c:204-207（写指针到尾回绕: roll=TRUE, writeIndex 归 0）
+ *   pipe.c:165-166（PipeRingbufferRead read>write 尾段分支）
+ *   pipe.c:177-180（读指针到尾回绕: readIndex 归 0, roll 复位 FALSE）
+ *   pipe.c:525-546（PipeRead while 循环跨段多次读 + :547 PIPE_RW_POST）
+ *   pipe.c:575-591（PipeWrite while 循环跨段多次写 + :592 PIPE_RW_POST）
  */
 VOID ItPosixPipe007(VOID)
 {

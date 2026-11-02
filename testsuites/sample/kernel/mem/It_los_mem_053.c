@@ -35,7 +35,6 @@
 
 #ifdef LOSCFG_KERNEL_MEM_BESTFIT
 
-STATIC UINT8 g_memPool_TC53[TEST_POOL_SIZE];
 
 static UINT32 TestCase(VOID)
 {
@@ -45,7 +44,7 @@ static UINT32 TestCase(VOID)
     void *pool = NULL;
 
     /* Use a static array as the test pool (avoids nested-pool conflict under LMS) */
-    pool = g_memPool_TC53;
+    pool = g_memTcPoolA;
 
     /* Init pool with attr=0 (no slab) */
     ret = LOS_MemPoolInit(pool, TEST_POOL_SIZE, 0);

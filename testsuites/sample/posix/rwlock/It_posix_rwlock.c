@@ -49,9 +49,7 @@ VOID ItSuitePosixRwlock(void)
     ItPosixRwlock063();
     ItPosixRwlock064();
     ItPosixRwlock065();
-#if (LOS_FEATURE_ADAPTED == 1)
     ItPosixRwlock066();
-#endif
     ItPosixRwlock067();
     ItPosixRwlock068();
     ItPosixRwlock069();
@@ -65,4 +63,8 @@ VOID ItSuitePosixRwlock(void)
     ItPosixRwlock075();
     ItPosixRwlock076();
     ItPosixRwlock077();
+    ItPosixRwlock078();
+    ItPosixRwlock079();
+    ItPosixRwlock080();
+    ItPosixRwlock081();
 }

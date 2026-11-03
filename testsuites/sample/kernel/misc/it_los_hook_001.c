@@ -26,11 +26,9 @@ extern "C" {
  * 每个类型 RegHook/UnRegHook(los_hook.c 宏生成)的 5 条分支:
  *   Reg: NULL 拒绝(REG_INVALID) / 注册成功(OK) / 重复注册(POOL_IS_FULL)
  *   UnReg: 匹配反注册(OK) / NULL 或不匹配拒绝(UNREG_INVALID)
- * 槽位状态自适应: 内核启动时 trace 模块(OsTraceCnvInit)已注册 31 类 hook,
- * 仅 MEM_DEINIT/ISR_EXITTOSCHEDULER/MOVEDTASKTODELAYEDLIST 三类空闲。对占用类型:
- * Reg 返回 FULL(覆盖 FULL 分支), Reg(NULL)/UnReg(不匹配) 覆盖拒绝分支;
- * 对空闲类型: 走完整 注册→重复注册→反注册→再反注册 闭环(全分支)。
- * 注册期间的自定义 hook 仅计数, 无副作用; 空闲类型注册后全部反注册还原。 */
+ * 内核启动时无模块默认注册 hook, 所有类型初始空闲, 每类均走完整
+ * 注册→重复注册→反注册→再反注册 闭环(全分支)。
+ * 注册期间的自定义 hook 仅计数, 无副作用; 所有注册的 hook 均反注册还原。 */
 
 static UINT32 g_hookCnt = 0;
 
@@ -192,11 +190,11 @@ static UINT32 TestCase(VOID)
  * Function test
  * @brief Test interface LOS_HookReg/LOS_HookUnReg (all hook types)
  * @par TestCase_Pretreatment_Condition
- * LOSCFG_DEBUG_HOOK enabled; trace module occupies most hook slots at boot.
+ * LOSCFG_DEBUG_HOOK enabled; no module registers hooks at boot by default.
  * @par TestCase_Test_Steps
  * step1: for each hook type, try register an own dummy hook.
  * step2: if free, exercise reg-again/full/null/unreg/unreg-again loop.
- * step3: if occupied (expected for trace-registered types), verify FULL and rejection branches.
+ * step3: if occupied, verify FULL and rejection branches.
  * @par TestCase_Expected_Result
  * 1.All RegHook/UnRegHook branches covered per type; own hooks always unregistered.
  * @par TestCase_Level

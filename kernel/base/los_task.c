@@ -35,6 +35,7 @@
 #include "los_task_base.h"
 #include "securec.h"
 #include "los_config.h"
+#include "los_trace.h"
 #include "los_debug.h"
 #include "los_hook.h"
 #include "los_interrupt.h"
@@ -1401,6 +1402,7 @@ STATIC UINT32 OsTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID
 #endif
     *taskId = taskCB->taskId;
     OsHookCall(LOS_HOOK_TYPE_TASK_CREATE, taskCB);
+    LOS_TRACE(TASK_CREATE, taskCB->taskId, taskCB->taskStatus, taskCB->priority);
     return LOS_OK;
 
 LOS_ERREND_REWIND_TCB:
@@ -1511,6 +1513,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsTaskDelete(UINT32 taskId, UINTPTR retVal)
     }
 
     OsHookCall(LOS_HOOK_TYPE_TASK_DELETE, taskCB);
+    LOS_TRACE(TASK_DELETE, taskCB->taskId, taskCB->taskStatus, (UINTPTR)taskCB->stackPointer);
 
     if (tempStatus & OS_TASK_STATUS_READY) {
         (VOID)OsSchedReadyTaskRemove(taskCB);
@@ -1698,6 +1701,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_TaskDelay(UINT32 tick)
         return LOS_ERRNO_TSK_DELAY_IN_LOCK;
     }
     OsHookCall(LOS_HOOK_TYPE_TASK_DELAY, tick);
+    LOS_TRACE(TASK_DELAY, runTask->taskId, tick);
     if (tick == 0) {
         return LOS_TaskYield();
     } else {

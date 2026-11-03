@@ -54,8 +54,7 @@ kernel_module(module_name) {
   include_dirs = [
     "include",
     "../extended/backtrace",
-    "../extended/trace",
-    "../extended/trace/cnv" ]
+    "../extended/trace" ]
 
   if (defined(LOSCFG_BASE_IPC_EVENT)) {
     sources += [ "los_event.c" ]

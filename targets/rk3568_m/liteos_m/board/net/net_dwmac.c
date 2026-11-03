@@ -838,6 +838,9 @@ int NetSend(netDevice *dev, const uint8_t *frame, uint32_t len)
                                (len & TXD3_LEN_MASK);
     g_txState[g_txAlloc] = SLOT_PENDING;
 
+    /* Publish the normal-NC descriptor OWN before notifying the DMA. */
+    NetDsb();
+
     /* doorbell: the DMA fetches descriptors in [cursor, tail) - the slot
      * the tail points at is NOT fetched, so write the tail as the NEXT
      * free slot (pointing it at the armed one stalls the DMA, 2026-09-23). */
@@ -860,10 +863,13 @@ int NetRecv(netDevice *dev, uint8_t *frame, uint32_t capacity, uint32_t *len)
         return NET_EIO;
     }
 
-    /* POLL: recv() is the only reaper. HYBRID: the ISR reaps ahead of us;
-     * reaping here too is idempotent and backstops a dropped IRQ. */
+    /* POLL: recv() is the only reaper. HYBRID: the ISR may reap
+     * concurrently - lock out the IRQ so there is a single producer;
+     * the extra reap also backstops a dropped IRQ. */
     if (dev->mode != NET_MODE_IRQ) {
+        UINT32 intSave = LOS_IntLock();
         NetRxReap();
+        LOS_IntRestore(intSave);
     }
 
     while (g_rdyHead != g_rdyTail) {

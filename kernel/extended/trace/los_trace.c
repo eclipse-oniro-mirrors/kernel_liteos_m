@@ -34,7 +34,6 @@
 #include "los_memory.h"
 #include "los_config.h"
 #include "securec.h"
-#include "trace_cnv.h"
 #include "los_init.h"
 
 #if (LOSCFG_KERNEL_SMP == 1)
@@ -44,6 +43,7 @@
 #if (LOSCFG_SHELL == 1)
 #include "shcmd.h"
 #include "shell.h"
+#include "los_tables.h"
 #endif
 
 #if (LOSCFG_KERNEL_TRACE == 1)
@@ -233,10 +233,12 @@ VOID OsTraceHook(UINT32 eventType, UINTPTR identity, const UINTPTR *params, UINT
         } else if (TRACE_GET_MODE_FLAG(eventType) == TRACE_TASK_FLAG) {
             id = OsTraceGetMaskTid(identity);
         } else if (eventType == MEM_INFO_REQ) {
+#ifdef LOSCFG_KERNEL_MEM_ALLOC
             LOS_MEM_POOL_STATUS status;
             LOS_MemInfoGet((VOID *)identity, &status);
             UINTPTR mp[MEM_INFO_PARAM_COUNT] = { (UINTPTR)status.totalUsedSize, (UINTPTR)status.totalFreeSize };
             OsTraceEnqueue(MEM_INFO, identity, mp, MEM_INFO_PARAM_COUNT);
+#endif
             return;
         }
         OsTraceEnqueue(eventType, id, params, paramCount);
@@ -373,7 +375,6 @@ UINT32 LOS_TraceInit(VOID *buf, UINT32 size)
     }
 
     OsTraceHookInstall();
-    OsTraceCnvInit();
 
     g_traceEventCount = 0;
 
@@ -420,7 +421,9 @@ UINT32 LOS_TraceStart(VOID)
     g_traceState = TRACE_STARTED;
 
     TRACE_UNLOCK(intSave);
+#ifdef LOSCFG_KERNEL_MEM_ALLOC
     LOS_TRACE(MEM_INFO_REQ, m_aucSysMem0);
+#endif
     return ret;
 START_END:
     TRACE_UNLOCK(intSave);
@@ -491,6 +494,38 @@ VOID LOS_TraceHwiFilterHookReg(TRACE_HWI_FILTER_HOOK hook)
 }
 
 #if (LOSCFG_SHELL == 1)
+LITE_OS_SEC_TEXT_MINOR UINT32 OsShellCmdTraceStart(INT32 argc, const CHAR **argv)
+{
+    (VOID)argv;
+    if (argc >= 1) { /* 1:Just as number of parameters */
+        PRINTK("\nUsage: trace_start\n");
+        return OS_ERROR;
+    }
+    return LOS_TraceStart();
+}
+
+LITE_OS_SEC_TEXT_MINOR UINT32 OsShellCmdTraceStop(INT32 argc, const CHAR **argv)
+{
+    (VOID)argv;
+    if (argc >= 1) { /* 1:Just as number of parameters */
+        PRINTK("\nUsage: trace_stop\n");
+        return OS_ERROR;
+    }
+    LOS_TraceStop();
+    return LOS_OK;
+}
+
+LITE_OS_SEC_TEXT_MINOR UINT32 OsShellCmdTraceReset(INT32 argc, const CHAR **argv)
+{
+    (VOID)argv;
+    if (argc >= 1) { /* 1:Just as number of parameters */
+        PRINTK("\nUsage: trace_reset\n");
+        return OS_ERROR;
+    }
+    LOS_TraceReset();
+    return LOS_OK;
+}
+
 LITE_OS_SEC_TEXT_MINOR UINT32 OsShellCmdTraceSetMask(INT32 argc, const CHAR **argv)
 {
     size_t mask;
@@ -528,6 +563,12 @@ LITE_OS_SEC_TEXT_MINOR UINT32 OsShellCmdTraceDump(INT32 argc, const CHAR **argv)
     LOS_TraceRecordDump(toClient);
     return LOS_OK;
 }
+
+SHELLCMD_ENTRY(tracestart_shellcmd,   CMD_TYPE_EX, "trace_start", 0, (CmdCallBackFunc)OsShellCmdTraceStart);
+SHELLCMD_ENTRY(tracestop_shellcmd,    CMD_TYPE_EX, "trace_stop",  0, (CmdCallBackFunc)OsShellCmdTraceStop);
+SHELLCMD_ENTRY(tracesetmask_shellcmd, CMD_TYPE_EX, "trace_mask",  1, (CmdCallBackFunc)OsShellCmdTraceSetMask);
+SHELLCMD_ENTRY(tracereset_shellcmd,   CMD_TYPE_EX, "trace_reset", 0, (CmdCallBackFunc)OsShellCmdTraceReset);
+SHELLCMD_ENTRY(tracedump_shellcmd,    CMD_TYPE_EX, "trace_dump",  1, (CmdCallBackFunc)OsShellCmdTraceDump);
 #endif
 
 #endif /* LOSCFG_KERNEL_TRACE == 1 */

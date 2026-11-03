@@ -1,7 +1,6 @@
 config KERNEL_TRACE
     bool "Enable Trace Feature"
     default n
-    select DEBUG_HOOK
 
 config TRACE_MSG_EXTEND
     bool "Enable Record more extended content"

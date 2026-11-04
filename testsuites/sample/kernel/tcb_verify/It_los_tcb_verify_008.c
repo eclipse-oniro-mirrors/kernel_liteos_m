@@ -32,7 +32,7 @@
 /* ItLosTcbVerify008 - P0-1: legitimate bits in taskStatus must NOT be
  * reported as ERR_STATUS on a clean system.
  *
- * Background: in liteos_new the LosTaskCB taskStatus field stores the runtime
+ * Background: in liteos_m the LosTaskCB taskStatus field stores the runtime
  * status bits (OS_TASK_STATUS_*, 0x0001..0x0100) plus the SIGNAL/FREEZE
  * attribute bits (0x2000/0x4000). Attribute flags DETACHED/SYSTEM/JOINABLE
  * live in the separate taskFlags bitfield and are not checked here.

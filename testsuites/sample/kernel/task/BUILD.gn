@@ -168,6 +168,8 @@ static_library("test_task") {
     "It_los_task_306.c",
     "It_los_task_307.c",
     "It_los_task_308.c",
+    "It_los_task_309.c",
+    "It_los_task_310.c",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

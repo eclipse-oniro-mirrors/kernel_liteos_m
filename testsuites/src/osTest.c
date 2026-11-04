@@ -43,6 +43,9 @@
 #if (LOS_POSIX_TEST == 1)
 #include "posix_test.h"
 #endif
+#if (LOS_POSIX_TEST == 1) && defined(LOSCFG_TEST_ICUNIT_POSIX)
+extern void ItSuitePosixSample(void);
+#endif
 #if (LOS_XTS_TEST == 1)
 #include "xts_test.h"
 #endif
@@ -143,7 +146,7 @@ UINT32 QueueUsedCountGet(VOID)
     return count;
 }
 
-extern LosTaskCB *g_taskCBArray;
+extern LosTaskCB *g_osTaskCBArray;
 UINT32 TaskUsedCountGet(VOID)
 {
     UINT32 intSave;
@@ -151,7 +154,7 @@ UINT32 TaskUsedCountGet(VOID)
 
     intSave = LOS_IntLock();
     for (UINT32 index = 0; index < LOSCFG_BASE_CORE_TSK_LIMIT; index++) {
-        LosTaskCB *taskCB = ((LosTaskCB *)g_taskCBArray) + index;
+        LosTaskCB *taskCB = ((LosTaskCB *)g_osTaskCBArray) + index;
         if (taskCB->taskStatus & OS_TASK_STATUS_UNUSED) {
             count++;
         }
@@ -161,10 +164,19 @@ UINT32 TaskUsedCountGet(VOID)
     return (LOSCFG_BASE_CORE_TSK_LIMIT - count);
 }
 
+#ifdef LOSCFG_TEST_UART_DRV
+extern VOID ItSuiteLosUart(VOID);
+#endif
+
+#ifdef LOSCFG_TEST_ICUNIT_KERNEL
 void TestKernel(void)
 {
 #if (LOS_KERNEL_ATOMIC_TEST == 1)
     ItSuiteLosAtomic();
+#if defined(LOSCFG_TEST_UART_DRV)
+    ItSuiteLosUart();
+#endif
+
 #endif
 #if (LOS_KERNEL_CORE_TASK_TEST == 1)
     ItSuiteLosTask();
@@ -181,7 +193,7 @@ void TestKernel(void)
 #if (LOS_KERNEL_IPC_SEM_TEST == 1)
     ItSuiteLosSem();
 #endif
-#if (LOSCFG_BASE_IPC_RWSEM == 1)
+#if (LOS_KERNEL_IPC_RWSEM_TEST == 1)
     ItSuiteLosRwsem();
 #endif
 #if (LOS_KERNEL_CORE_SWTMR_TEST == 1)
@@ -198,6 +210,12 @@ void TestKernel(void)
 #endif
 #if (LOS_KERNEL_DYNLINK_TEST == 1)
     ItSuiteLosDynlink();
+#endif
+#if (LOS_KERNEL_DYNLOAD_TEST == 1)
+    ItSuiteLosDynload();
+#endif
+#if (LOS_KERNEL_HPL_TEST == 1)
+    ItSuiteLosHpl();
 #endif
 
 #if (LOS_KERNEL_LMS_TEST == 1)
@@ -219,6 +237,10 @@ void TestKernel(void)
     ItSuiteLosMisc();
 #endif
 
+#if (LOS_KERNEL_CACHE_TEST == 1)
+    ItSuiteLosCache();
+#endif
+
 #if (LOS_KERNEL_TRACE_TEST == 1)
     ItSuiteLosTrace();
 #endif
@@ -235,6 +257,7 @@ void TestKernel(void)
     ItSuiteLosTcbVerify();
 #endif
 }
+#endif /* LOSCFG_TEST_ICUNIT_KERNEL */
 
 #if (CMSIS_OS_VER == 2)
 void TestCmsis2(void)
@@ -281,27 +304,69 @@ VOID TestTaskEntry(VOID)
 
     OsTestCalibrateBusyDelay();
 
-    TestKernel();
+    /* Let the idle task finish reclaiming boot-time deferred resources
+     * (task stacks etc.) so the first case's ResLeak baseline is stable:
+     * without this the reclamation lands inside the first case and shows
+     * up as a bogus before/after memUsed delta. */
+    LOS_TaskDelay(5);
 
-#if (LOS_POSIX_TEST == 1)
-    ItSuitePosix();
+    /* Test suites: the Kconfig choice compiles EITHER the fuzz-only suites
+     * (each case is a TEST_ADD_CASE'd function that mutates params via
+     * DT_SetGet* and calls the target API directly, see sample/fuzz/) OR
+     * the normal test suites, never both. */
+#ifdef LOSCFG_KERNEL_FUZZ
+    ItSuiteFuzzAll();
+#endif
+#ifdef LOSCFG_KERNEL_TEST
+#ifdef LOSCFG_TEST_ICUNIT_KERNEL
+    TestKernel();
 #endif
 
-#if (LOS_CMSIS_TEST == 1)
+#if (LOS_POSIX_TEST == 1) && defined(LOSCFG_TEST_ICUNIT_POSIX)
+    ItSuitePosixSample();
+#endif
+#if (LOS_POSIX_TEST == 1) && defined(LOSCFG_TEST_UNI_POSIX)
+    ItSuitePosixUnittest();
+#endif
+
+#if (LOS_CMSIS_TEST == 1) && defined(LOSCFG_TEST_ICUNIT_CMSIS)
     CmsisFuncTestSuite();
 #endif
 
-#if(LOS_XTS_TEST == 1)
+#if(LOS_XTS_TEST == 1) && defined(LOSCFG_TEST_UNI_XTS)
     XtsTestSuite();
+#endif
+
+#if defined(LOSCFG_MCS)
+    /* MCS AMP interface suites (testsuites/sample/mcs): board drivers
+     * (can/net) + mica rpc/tty/umt services + np_* socket proxy. Runs
+     * after the standard suites; see It_mcs.c for the ready-wait. */
+    extern VOID ItSuiteMcs(VOID);
+    ItSuiteMcs();
+#endif
+
+#if (LOSCFG_FS_YAFFS == 1) && (LOS_POSIX_TEST == 1) && defined(LOSCFG_TEST_UNI_POSIX)
+    /* yaffs 套件放最后：其专用池（124KB，TestYaffsVolumeEnsure 时 malloc）
+     * 自 Ensure 起常驻到复位（卷保持挂载），若在 ItSuitePosix 内执行会饿死
+     * 其后的 CMSIS/XTS 线程栈分配（实测 pthread/CMSIS 大面积 ENOMEM）。
+     * 放在全部堆敏感套件之后，池常驻不影响任何用例。 */
+    extern VOID PosixFsYaffsTest(VOID);
+    PosixFsYaffsTest();
+#endif
 #endif
 
     /* The log is used for testing entrance guard, please do not make any changes. */
     dprintf("\nfailed count:%d, success count:%d\n", g_failResult, g_passResult);
     dprintf("[Crash-Skip] count:%d\n", g_crashResult);
     dprintf("[ResLeak] total resource leak count: %u\n", OsResLeakGetTotalLeakCnt());
+#ifdef LOSCFG_KERNEL_FUZZ
+    extern UINT32 FuzzGuardRedirectCount(void);   /* fuzz_common.c */
+    dprintf("[FuzzGuard] redirected %u mutations away from live resources\n", FuzzGuardRedirectCount());
+#endif
     IcFilterReportNotFound();
     IcResumeReport();
     ICunitPrintFailLogs();
+    ICunitPrintTimeStats();
 #ifdef LOSCFG_TEST_KERNEL_COVERAGE
     /* Dump coverage BEFORE the '--- Test End ---' capture-stop marker so the
      * serial capture (which stops at Test End) records the gcov stream. */
@@ -473,9 +538,7 @@ VOID TestHwiClear(UINT32 hwiNum)
 VOID TestHwiTrigger(UINT32 hwiNum)
 {
     (VOID)hwiNum;
-#if (LOS_FEATURE_ADAPTED == 1)
     HalIrqEnable(hwiNum);
-#endif
 }
 
 UINT32 TestHwiDelete(UINT32 hwiNum)
@@ -507,23 +570,84 @@ UINT64 LosCpuCycleGet(VOID)
 #define OS_HWI_TRIG_SPIN 10000
 #endif
 
+#ifdef __aarch64__
+/* aarch64 GIC: software-pend is also delivered asynchronously -
+ * spin so the handler finishes before the assert. */
+#define OS_HWI_TRIG_SPIN 10000
+#endif
+
 #define OS_NVIC_SETPEND 0xE000E200
 #define OS_NVIC_CLRPEND 0xE000E280
 #define HWI_SHIFT_NUM 5
 #define HWI_BIT 2
 
+#ifdef LOSCFG_TEST_AMP_SLAVE
+/* AMP slave: kernel-level LOS_HwiCreate only fills the dispatch table;
+ * the GICD ownership claim (IGROUPR Group-1 NS + IROUTER to this core)
+ * lives in the driver's createIrq op, not reached here - do it manually
+ * or the pended SPI fires on the master core. Idempotent. */
+#define RK3568_GICD_BASE       0xFD400000UL
+#define RK3568_GICD_IGROUPR(n) (RK3568_GICD_BASE + 0x80UL + 4UL * ((n) / 32))
+#define RK3568_GICD_IROUTER(n) (RK3568_GICD_BASE + 0x6000UL + 8UL * (n))
+#define RK3568_GICD_ICFGR(n)   (RK3568_GICD_BASE + 0xC00UL + 4UL * ((n) / 16))
+static VOID TestHwiClaimSpi(UINT32 hwiNum)
+{
+    UINT32 bit = 1U << (hwiNum % 32);
+    volatile UINT32 *grp = (volatile UINT32 *)RK3568_GICD_IGROUPR(hwiNum);
+    volatile UINT64 *router = (volatile UINT64 *)RK3568_GICD_IROUTER(hwiNum);
+    UINT64 mpidr;
+    UINT32 val = *grp;
+
+    if ((val & bit) == 0) {
+        *grp = val | bit;
+        __asm__ volatile ("dsb sy" ::: "memory");
+    }
+    __asm__ volatile ("mrs %0, mpidr_el1" : "=r" (mpidr));
+    /* Aff3..Aff0 already sit at the IROUTER bit positions; mask MT (bit 24). */
+    *router = mpidr & 0xFF00FFFFFFULL;
+
+    /* Force EDGE trigger: a GICD_ISPENDR write on a level-sensitive,
+     * deasserted line is transient and can drop the software pend. */
+    {
+        volatile UINT32 *icfgr = (volatile UINT32 *)RK3568_GICD_ICFGR(hwiNum);
+        UINT32 edgeBit = 1U << ((hwiNum % 16) * 2 + 1);
+        UINT32 v = *icfgr;
+        if ((v & edgeBit) == 0) {
+            *icfgr = v | edgeBit;
+        }
+    }
+}
+#endif
+
 VOID TestHwiTrigger(UINT32 hwiNum)
 {
+#ifdef LOSCFG_TEST_HWI_TRIG_ASYNC
+    /* GIC software-pend is asynchronous (distributor pipeline, ~us scale),
+     * so spin-waiting is timing-dependent.  LOS_TaskDelay(1) gives the ISR
+     * a full tick to run deterministically; a lost interrupt still returns
+     * after 1ms, so the test fails cleanly instead of hanging. */
+    TestHwiClaimSpi(hwiNum); /* AMP: complete the GICD ownership claim first */
     LOS_HwiEnable(hwiNum);
     LOS_HwiTrigger(hwiNum);
-#ifdef __ARM_ARCH_7A__
-    /* GIC software-pend is asynchronous: the ISPENDR write completes before
-     * the distributor forwards the IRQ, so the handler runs only after this
-     * function returns. Test cases assert on g_testCount immediately after
-     * trigger, assuming the NVIC synchronous semantics. Spin to let the IRQ
-     * preempt us and the handler finish (same approach as the ws63 timer1
-     * busy-wait above). If the task is suspended by the handler (hwi_019),
-     * we simply resume and finish the loop later — harmless. */
+    /* ensure the ISPENDR write reaches the distributor before settling
+     * (write-buffer propagation can reorder pends) */
+    __asm__ volatile ("dsb sy" ::: "memory");
+    /* ~1ms busy-wait: works both under LOS_IntLock (pend stays pending)
+     * and unlocked (ISR runs and increments the counter). */
+    for (volatile UINT32 i = 0; i < 300000; i++) {}
+#else
+    LOS_HwiEnable(hwiNum);
+    LOS_HwiTrigger(hwiNum);
+#endif
+#if defined(__ARM_ARCH_7A__) && !defined(LOSCFG_TEST_HWI_TRIG_ASYNC)
+    /* Cortex-A7 GIC: still spin (no TaskDelay infrastructure) */
+    for (volatile UINT32 i = 0; i < OS_HWI_TRIG_SPIN; i++) {}
+#endif
+}
+
+VOID TestHwiSync(VOID)
+{
+#if defined(__ARM_ARCH_7A__) || defined(__aarch64__)
     for (volatile UINT32 i = 0; i < OS_HWI_TRIG_SPIN; i++) {}
 #endif
 }
@@ -540,13 +664,28 @@ VOID TestHwiUnTrigger(UINT32 hwiNum)
 
 UINT32 TestHwiDelete(UINT32 hwiNum)
 {
+#ifdef LOSCFG_TEST_AMP_SLAVE
+    /* a previously failed test may have left the HWI created - disable,
+     * clear and delete are all idempotent, call them unconditionally. */
+    (VOID)LOS_HwiDisable(hwiNum);
+    (VOID)LOS_HwiClear(hwiNum);
+    (VOID)LOS_HwiDelete(hwiNum, NULL);
+    return LOS_OK;
+#else
     UINT32 ret = LOS_HwiDelete(hwiNum, NULL);
     if (ret != LOS_OK) {
         return LOS_NOK;
     }
     return LOS_OK;
+#endif
 }
-VOID TestHwiClear(UINT32 hwiNum) {}
+VOID TestHwiClear(UINT32 hwiNum)
+{
+#ifdef LOSCFG_TEST_AMP_SLAVE
+    (VOID)LOS_HwiClear(hwiNum);
+#endif
+}
+
 #endif
 
 #if (LOSCFG_BASE_IPC_SEM == 1)

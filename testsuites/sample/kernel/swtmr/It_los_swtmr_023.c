@@ -33,7 +33,13 @@
 #include "It_los_swtmr.h"
 
 
-#if defined(__RISC_V__) || defined(__XTENSA_LX6__) || defined(__CSKY_V2__)
+#if defined(LOSCFG_TEST_AMP_SLAVE)
+#undef HWI_NUM_INT31
+#undef HWI_NUM_INT14
+#endif
+
+#if defined(__RISC_V__) || defined(__XTENSA_LX6__) || defined(__CSKY_V2__) || \
+    defined(LOSCFG_TEST_AMP_SLAVE)
 #define HWI_NUM_INT31 HWI_NUM_TEST
 #define HWI_NUM_INT14 HWI_NUM_TEST
 #endif
@@ -53,11 +59,7 @@ static VOID Case2(VOID)
     g_testCount++;
 
     // 2, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_PERIOD, Case1, &g_swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &g_swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
     do {

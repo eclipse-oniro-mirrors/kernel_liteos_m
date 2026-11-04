@@ -50,6 +50,17 @@ exec_script("//build/lite/run_shell_cmd.py",
 
 import("$root_out_dir/config.gni")
 
+if (defined(board_toolchain_path) &&
+    board_toolchain_path == rebase_path("$root_out_dir/hpl/toolchain")) {
+  exec_script("//kernel/liteos_m/build/scripts/hpl/log_hpl_preprocessor.py",
+              [
+                "--gen-toolchain",
+                rebase_path(root_out_dir),
+              ],
+              "",
+              [])
+}
+
 LITEOSTOPDIR = "//kernel/liteos_m"
 HDFTOPDIR = "//drivers/hdf_core/adapter/khdf/liteos"
 THIRDPARTY_BOUNDS_CHECKING_FUNCTION_DIR =

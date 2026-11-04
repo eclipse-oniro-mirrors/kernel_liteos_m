@@ -60,6 +60,15 @@ extern "C" {
 #define LOS_ExcRegHook ArchSetExcHook
 #endif
 
+/**
+ * @ingroup los_hwi
+ * It is used to check whether there are active exception or not.
+ *
+ * @see OS_INT_INACTIVE
+ */
+extern BOOL ArchExcActive(VOID);
+#define OS_EXC_ACTIVE ArchExcActive()
+
 #ifdef LOSCFG_SHELL_EXCINFO_DUMP
 /**
  * @ingroup los_exc

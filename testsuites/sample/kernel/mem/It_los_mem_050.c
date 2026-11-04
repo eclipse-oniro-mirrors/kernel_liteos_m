@@ -35,7 +35,6 @@
 
 #if (LOSCFG_MEM_MUL_POOL == 1)
 
-STATIC UINT8 g_memPool_TC50[TEST_POOL_SIZE];
 
 static UINT32 TestCase(VOID)
 {
@@ -53,7 +52,7 @@ static UINT32 TestCase(VOID)
     ICUNIT_GOTO_NOT_EQUAL(poolCountBefore, 0, poolCountBefore, EXIT);
 
     /* Use a static array as the new pool (avoids nested-pool conflict under LMS) */
-    p = g_memPool_TC50;
+    p = g_memTcPoolA;
 
 #ifdef LOSCFG_KERNEL_MEM_SLAB_EXTENTION
     /* Use LOS_MemPoolInit(attr=0) so slab is NOT enabled on the test pool. */

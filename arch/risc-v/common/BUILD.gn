@@ -31,6 +31,10 @@ import("//kernel/liteos_m/liteos.gni")
 module_name = "common"
 kernel_module(module_name) {
   sources = [ "los_common_interrupt.c" ]
+  if (defined(LOSCFG_KERNEL_DYNLOAD)) {
+    sources += [ "dynload.c" ]
+    include_dirs = [ "$LITEOSTOPDIR/kernel/extended/dynload/include" ]
+  }
   configs += [ "$LITEOSTOPDIR:warn_config" ]
 }
 

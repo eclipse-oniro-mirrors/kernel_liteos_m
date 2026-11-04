@@ -115,6 +115,16 @@ extern LmsHook* g_lms;
 typedef VOID (*OsLmsErrorHookFn)(UINTPTR p, UINT32 size, UINT32 errMod);
 VOID OsLmsErrorHookSet(OsLmsErrorHookFn hook);
 
+/*
+ * Keepalive hook for boards whose watchdog is fed from task context: the
+ * error report prints the whole shadow dump inside LMS_LOCK (interrupts
+ * locked on UP), so a long report can outlive the WDT window. Weak default
+ * is a no-op; a board with a task-fed watchdog overrides it with a strong
+ * definition (e.g. hi3322 watchdog_porting.c feeds the hardware WDT while
+ * printing). Invoked once when the report starts and once per dumped row.
+ */
+VOID OsLmsKeepaliveHook(VOID);
+
 UINT32 OsLmsInit(VOID);
 VOID OsLmsCheckValid(UINTPTR checkAddr, BOOL isFreeCheck);
 VOID OsLmsLosMallocMark(const VOID *curNodeStart, const VOID *nextNodeStart, UINT32 nodeHeadSize);

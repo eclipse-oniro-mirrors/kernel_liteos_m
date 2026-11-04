@@ -190,6 +190,18 @@ VOID LOS_Printf(LogModuleType type, INT32 level, const CHAR *fmt, ...)
 }
 #endif
 
+#ifdef LOSCFG_LIB_LIBC
+#if !defined(LOSCFG_LIBC_NEWLIB)
+__attribute__((noinline)) VOID dprintf(const CHAR *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    OsVprintf(fmt, ap, CONSOLE_OUTPUT);
+    va_end(ap);
+}
+#endif /* !LOSCFG_LIBC_NEWLIB */
+#endif /* LOSCFG_LIB_LIBC */
+
 VOID LkDprintf(const CHAR *fmt, va_list ap)
 {
     OsVprintf(fmt, ap, CONSOLE_OUTPUT);

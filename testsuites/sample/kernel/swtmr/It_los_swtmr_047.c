@@ -42,15 +42,11 @@ static VOID Case1(UINTPTR arg)
 static UINT32 Testcase(VOID)
 {
     UINT32 ret;
-    UINT32 swtmrId1;
+    UINT32 swtmrId1 = LOSCFG_BASE_CORE_SWTMR_LIMIT;
     g_testCount = 0;
 
     // 1, Timeout interval of a periodic software timer. 10, mode of swtmr.
-    ret = LOS_SwtmrCreate(1, 10, Case1, &swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(1, 10, Case1, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_NOT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_SwtmrDelete(swtmrId1);

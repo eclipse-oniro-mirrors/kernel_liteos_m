@@ -119,6 +119,8 @@ EXIT:
     ret = unlink(tmpFileName);
     ICUNIT_ASSERT_NOT_EQUAL(ret, POSIX_FS_IS_ERROR, ret);
 
+    free(writeBuf);
+    free(readBuf);
     return POSIX_FS_NO_ERROR;
 }
 
@@ -303,6 +305,7 @@ EXIT:
     ret = unlink(tmpFileName);
     ICUNIT_ASSERT_NOT_EQUAL(ret, POSIX_FS_IS_ERROR, ret);
 
+    free(writeBuf);
     return POSIX_FS_NO_ERROR;
 }
 

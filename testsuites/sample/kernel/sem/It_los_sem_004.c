@@ -33,7 +33,6 @@
 #include "It_los_sem.h"
 
 
-#define GET_SEM(semid) (((LosSemCB *)g_allSem) + (semid))
 
 static UINT32 Testcase(VOID)
 {
@@ -47,7 +46,7 @@ static UINT32 Testcase(VOID)
     while (1) {
         semPended = GET_SEM(semID);
 
-        if (OS_SEM_UNUSED == (semPended->semStat)) {
+        if ((semPended->semStat) == LOS_UNUSED) {
             ret = LOS_SemPend(semID, 0);
             ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_SEM_INVALID, ret, EXIT);
             break;

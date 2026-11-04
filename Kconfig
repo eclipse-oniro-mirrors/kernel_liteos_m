@@ -121,7 +121,7 @@ config PLATFORM_QEMU_ARM_VIRT_CM55
 
 config PLATFORM_QEMU_RISCV32_VIRT
     bool "qemu_riscv32_virt"
-    select ARCH_RISCV32
+    select ARCH_QEMU_RISCV32_VIRT
     help
         QEMU RISCV Virtual Platform using riscv32 CPU.
 
@@ -139,7 +139,7 @@ config PLATFORM_QEMU_XTENSA_ESP32
 
 config PLATFORM_WS63_M
     bool "ws63_m"
-    select ARCH_RISCV32
+    select ARCH_LINXCORE_131
     help
         HiSilicon WS63 NearLink DK 3863 board (RISC-V LinxCore131).
 
@@ -151,9 +151,30 @@ config PLATFORM_NRF52832
 
 config PLATFORM_HI3322
     bool "hi3322"
-    select ARCH_RISCV32
+    select ARCH_LINXCORE_170
     help
-        HiSilicon HI3322 wearable SoC (RISC-V LinxCore).
+        HiSilicon HI3322 wearable SoC (RISC-V LinxCore170).
+
+config PLATFORM_RK3568_M
+    bool "rk3568_m"
+    select ARCH_CORTEX_A55
+    help
+        Rockchip RK3568 (4x Cortex-A55, AArch64, GICv3) in AMP mode:
+        CPU0-2 run Linux (MICA), CPU3 runs liteos_m at EL1.
+
+config PLATFORM_RK3588_M
+    bool "rk3588_m"
+    select ARCH_CORTEX_A76
+    help
+        Rockchip RK3588 (4x Cortex-A55 + 4x Cortex-A76, AArch64, GICv3)
+        in AMP mode: CPU0-6 run Linux (MCS), CPU7 (A76) runs liteos_m
+        at EL1.
+
+config PLATFORM_HI3516DV300
+    bool "hi3516dv300"
+    select ARCH_CORTEX_A7
+    help
+        HiSilicon Hi3516DV300 (HiSpark Taurus) dev board (ARM Cortex-A7, GICv2).
 
 endchoice
 
@@ -186,7 +207,7 @@ orsource "../../device/board/*/Kconfig.liteos_m.shields"
 orsource "../../device/board/$(BOARD_COMPANY)/Kconfig.liteos_m.defconfig.boards"
 
 choice
-    prompt "Board Selection"
+    bool "Board Selection"
 
 orsource "../../device/board/$(BOARD_COMPANY)/Kconfig.liteos_m.boards"
 
@@ -194,12 +215,7 @@ endchoice
 
 orsource "../../device/soc/*/Kconfig.liteos_m.defconfig"
 
-choice
-    prompt "SoC Series Selection"
-
 orsource "../../device/soc/*/Kconfig.liteos_m.series"
-
-endchoice
 
 orsource "../../device/soc/*/Kconfig.liteos_m.soc"
 
@@ -236,6 +252,20 @@ config NET_LWIP
 config NET_LWIP_SACK
     bool
     default n
+
+endmenu
+
+######################## config options of openamp #########################
+menu "OpenAMP"
+
+config COMPONENT_OPENAMP
+    bool "Enable OpenAMP/rpmsg (open-amp + libmetal + mica)"
+    default n
+    help
+      Build open-amp v1.3.1 (third_party/open-amp) + libmetal v1.3.0
+      (third_party/libmetal) + the MICA slave library libmica
+      (kernel/liteos_m/compat/mcs) into the kernel for remoteproc/rpmsg
+      communication with Linux (MICA).
 
 endmenu
 
@@ -406,14 +436,13 @@ config MPU_ENABLE
     default n
 endmenu
 
-######################## config options for testsuites #####################
-rsource "testsuites/Kconfig"
+orsource "testsuites/Kconfig"
 
 menu "Stack Smashing Protector (SSP) Compiler Feature"
 
 choice
     prompt "Enable stack buffer overflow detection"
-    default  CC_STACKPROTECTOR_STRONG
+    default CC_STACKPROTECTOR_STRONG
     ---help---
     This option turns on the -fstack-protector GCC feature. This
     feature puts, at the beginning of functions, a canary value on

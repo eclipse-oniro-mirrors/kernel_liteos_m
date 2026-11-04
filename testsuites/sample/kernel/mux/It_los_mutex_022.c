@@ -41,8 +41,8 @@ static UINT32 Testcase(VOID)
     UINT32 osMuxUsedcnt = 0;
 
     for (index = 0; index < LOSCFG_BASE_IPC_MUX_LIMIT; index++) {
-        muxNode = g_allMux + index;
-        if (muxNode->muxStat == OS_MUX_USED)
+        muxNode = g_osAllMux + index;
+        if (muxNode->muxStat == LOS_USED)
             osMuxUsedcnt++;
     }
 

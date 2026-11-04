@@ -69,6 +69,9 @@ static UINT32 TestCase(VOID)
     osTaskInitParam.uwStackSize = OS_TSK_TEST_STACK_SIZE;
     osTaskInitParam.pcName = "deatch";
     osTaskInitParam.usTaskPrio = TASK_PRIO_TEST - 1;
+    /* 清掉复用参数残留的 JOINABLE 属性：否则 "deatch" 任务退出后变为无人 join 的
+     * 僵尸任务，TCB 永久占用，ResLeak 误报 task leak（本用例只 join "Join" 任务） */
+    osTaskInitParam.uwResved = 0;
 
     ret = LOS_TaskCreate(&taskId, &osTaskInitParam);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_JOIN);

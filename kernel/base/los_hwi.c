@@ -39,6 +39,8 @@
 #include "los_cpup_pri.h"
 #endif
 #include "los_init.h"
+
+#include "los_sched_debug_pri.h"
 #if (LOSCFG_HWI_BOTTOM_HALF == 1)
 #include "los_task.h"
 #include "los_event.h"
@@ -57,12 +59,12 @@ UINT32 g_intCount[LOSCFG_KERNEL_CORE_NUM] = {0};
 
 LITE_OS_SEC_BSS SPIN_LOCK_INIT(g_hwiSpin);
 
-UINT32 IntActive(VOID)
+size_t IntActive(VOID)
 {
     UINT32 intSave = LOS_IntLock();
     UINT32 intCount = OS_INT_COUNT();
     LOS_IntRestore(intSave);
-    return intCount;
+    return (size_t)intCount;
 }
 
 /* ===========================================================================
@@ -86,17 +88,17 @@ STATIC UINT32 OsHwiCreate(HwiHandleInfo *hwiForm, HWI_MODE_T hwiMode, HWI_PROC_F
     UINT32 intSave;
 
     (VOID)hwiMode;
-    intSave = LOS_IntLock();
+    LOS_SpinLockSave(&g_hwiSpin, &intSave);
     if (hwiForm->hook == NULL) {
         hwiForm->hook = hwiHandler;
         hwiForm->registerInfo = (irqParam != NULL) ? (HWI_ARG_T)(UINTPTR)irqParam->pDevId : 0;
         hwiForm->respCount = 0;
         hwiForm->next = NULL;
     } else {
-        LOS_IntRestore(intSave);
+        LOS_SpinUnlockRestore(&g_hwiSpin, intSave);
         return OS_ERRNO_HWI_ALREADY_CREATED;
     }
-    LOS_IntRestore(intSave);
+    LOS_SpinUnlockRestore(&g_hwiSpin, intSave);
     return LOS_OK;
 }
 
@@ -104,16 +106,14 @@ STATIC UINT32 OsHwiDel(HwiHandleInfo *hwiForm, HWI_HANDLE_T hwiNum)
 {
     UINT32 intSave;
 
-    intSave = LOS_IntLock();
-    /* Disable IRQ first — prevents a racing interrupt from dispatching
-     * via a NULL hook after the fields below are cleared. */
     (VOID)LOS_HwiDisable(hwiNum);
+    LOS_SpinLockSave(&g_hwiSpin, &intSave);
     hwiForm->hook = NULL;
     hwiForm->registerInfo = 0;
     hwiForm->respCount = 0;
     hwiForm->shareMode = 0;
     hwiForm->next = NULL;
-    LOS_IntRestore(intSave);
+    LOS_SpinUnlockRestore(&g_hwiSpin, intSave);
     return LOS_OK;
 }
 
@@ -283,6 +283,8 @@ STATIC INLINE VOID OsIntPost(HWI_HANDLE_T hwiNum)
  */
 VOID OsIntHandle(HWI_HANDLE_T hwiNum, HwiHandleInfo *handleForm)
 {
+    (void)hwiNum;
+
     UINT32 intSave;
     if (handleForm == NULL) {
         return;
@@ -291,6 +293,11 @@ VOID OsIntHandle(HWI_HANDLE_T hwiNum, HwiHandleInfo *handleForm)
     intSave = LOS_IntLock();
     OS_INT_COUNT()++;
     LOS_IntRestore(intSave);
+
+#ifdef LOSCFG_DEBUG_SCHED_STATISTICS
+    OsSchedStatPause();
+    OsSchedStatHwi(hwiNum);
+#endif
 
     OsHookCall(LOS_HOOK_TYPE_ISR_ENTER, hwiNum);
     LOS_TRACE(HWI_RESPONSE_IN, hwiNum);
@@ -315,6 +322,10 @@ VOID OsIntHandle(HWI_HANDLE_T hwiNum, HwiHandleInfo *handleForm)
 
     LOS_TRACE(HWI_RESPONSE_OUT, hwiNum);
     OsHookCall(LOS_HOOK_TYPE_ISR_EXIT, hwiNum);
+
+#ifdef LOSCFG_DEBUG_SCHED_STATISTICS
+    OsSchedStatResume();
+#endif
 
     intSave = LOS_IntLock();
     OS_INT_COUNT()--;

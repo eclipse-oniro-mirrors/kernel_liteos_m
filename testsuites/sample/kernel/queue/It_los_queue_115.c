@@ -55,7 +55,7 @@ static VOID WriterTask115(VOID)
 
 static VOID ReaderTask115(VOID)
 {
-    UINT32 buf = 0;
+    UINTPTR buf = 0;
     UINT32 size = sizeof(UINT32);
     (VOID)LOS_SemPend(g_gateR, LOS_WAIT_FOREVER);
     (VOID)LOS_QueueRead(g_qEmptyId, &buf, size, LOS_WAIT_FOREVER);
@@ -66,7 +66,7 @@ static UINT32 Testcase(VOID)
 {
     UINT32 ret;
     UINT32 msg = 0x5678;
-    UINT32 buf = 0;
+    UINTPTR buf = 0;
     UINT32 size = sizeof(UINT32);
     UINT32 loop;
     QUEUE_INFO_S queueInfo = {0};
@@ -75,9 +75,9 @@ static UINT32 Testcase(VOID)
     g_wDone = 0;
     g_rDone = 0;
 
-    ret = LOS_QueueCreate("q115full", 1, &g_qFullId, 0, sizeof(UINT32));
+    ret = LOS_QueueCreate("q115full", 1, &g_qFullId, 0, sizeof(UINTPTR));
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
-    ret = LOS_QueueCreate("q115empty", 1, &g_qEmptyId, 0, sizeof(UINT32));
+    ret = LOS_QueueCreate("q115empty", 1, &g_qEmptyId, 0, sizeof(UINTPTR));
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SemCreate(0, &g_gateW);
@@ -136,8 +136,21 @@ static UINT32 Testcase(VOID)
     }
     ICUNIT_GOTO_EQUAL(g_rDone, 1, g_rDone, EXIT);
     ICUNIT_GOTO_EQUAL(g_wDone, 1, g_wDone, EXIT);
-
 EXIT:
+    /* 断言失败路径上两个 DETACHED 任务可能仍阻塞在 SemPend/QueueRead，
+     * 直接删资源会泄漏 TCB 并连锁拖垮后续用例。改为无条件"放行门闸 →
+     * 腾挪队列唤醒阻塞者 → 有界等待任务自行返回"，全部回收后再删
+     * 信号量与队列；各步幂等，正常路径重复执行无副作用。 */
+    (VOID)LOS_SemPost(g_gateW);
+    (VOID)LOS_SemPost(g_gateR);
+    (VOID)LOS_QueueRead(g_qFullId, &buf, size, LOS_NO_WAIT);
+    (VOID)LOS_QueueWrite(g_qEmptyId, &msg, sizeof(UINT32), LOS_NO_WAIT);
+    for (loop = 0; loop < 200; loop++) { // 200, bounded poll ticks.
+        if ((g_wDone == 1) && (g_rDone == 1)) {
+            break;
+        }
+        (VOID)LOS_TaskDelay(1);
+    }
     (VOID)LOS_SemDelete(g_gateW);
     (VOID)LOS_SemDelete(g_gateR);
     (VOID)LOS_QueueDelete(g_qFullId);

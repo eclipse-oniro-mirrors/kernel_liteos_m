@@ -51,6 +51,8 @@ VOID ItLosTrace006(VOID);
 VOID ItLosTrace007(VOID);
 VOID ItLosTrace008(VOID);
 VOID ItLosTrace009(VOID);
+VOID ItLosTrace010(VOID);
+VOID ItLosTrace011(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

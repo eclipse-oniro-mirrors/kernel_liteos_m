@@ -63,6 +63,13 @@ STATIC INLINE UINTPTR ArchMspGet(VOID)
     return msp;
 }
 
+STATIC INLINE UINT32 ArchGetIpsr(VOID)
+{
+    UINT32 ipsr;
+    __asm("mrs %0, ipsr" : "=r" (ipsr));
+    return ipsr;
+}
+
 #define ArchGetLr()                           \
 ({                                              \
     UINTPTR lr;                                 \
@@ -90,6 +97,19 @@ STATIC INLINE UINTPTR ArchMspGet(VOID)
     __asm volatile("mrs %0, msp" : "=r" (msp));
     return msp;
 }
+
+#ifndef __aarch64__
+/* IPSR exists only on 32-bit ARM M-profile; AArch64 has no such system
+ * register, so the helper is simply not provided there. This also keeps
+ * the raw 32-bit MRS out of AArch64 translation units, where it would
+ * trip -Werror,-Wasm-operand-widths at include time. */
+STATIC INLINE UINT32 ArchGetIpsr(VOID)
+{
+    UINT32 ipsr;
+    __asm volatile("mrs %0, ipsr" : "=r" (ipsr));
+    return ipsr;
+}
+#endif
 
 #define ArchGetLr()                           \
 ({                                              \

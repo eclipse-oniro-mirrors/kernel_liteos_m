@@ -205,6 +205,7 @@ extern VOID LlTLosQueue001(VOID);
 extern VOID LltLosQueue003(VOID);
 VOID ItLosQueue115(VOID);
 VOID ItLosQueue116(VOID);
+VOID ItLosQueue117(VOID);
 extern VOID ItLosQueueHead301(VOID);
 extern VOID ItLosQueueHead302(VOID);
 extern VOID ItLosQueueIsr301(VOID);

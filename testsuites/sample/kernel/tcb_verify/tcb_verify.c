@@ -35,7 +35,7 @@
  * why the judge must be kept out of the very image it verifies.
  *
  * It reads the kernel's task array directly through link-time symbols
- * (g_taskCBArray / g_taskMaxNum, extern'd by los_task_pri.h) and uses the same
+ * (g_osTaskCBArray / g_taskMaxNum, extern'd by los_task_pri.h) and uses the same
  * kernel internals (SCHEDULER_LOCK, OsCurrTaskGet, OS_TASK_*, OS_TASK_MAGIC_WORD,
  * LOSCFG_STACK_POINT_ALIGN_SIZE) that the kernel test suite already relies on.
  */
@@ -44,7 +44,7 @@
 #include "los_task_pri.h"
 
 /*
- * Valid bits in LosTaskCB::taskStatus. In liteos_new this single UINT16 field
+ * Valid bits in LosTaskCB::taskStatus. In liteos_m this single UINT16 field
  * stores BOTH the runtime status (OS_TASK_STATUS_*, 0x0001..0x0100) AND the
  * attribute flags (OS_TASK_FLAG_*): STACK_FREE is set on every LOS_TaskCreate(),
  * SYSTEM_TASK on idle/swtmr, SIGNAL/FREEZE/JOINABLE/USER_TASK as applicable.
@@ -52,7 +52,7 @@
  * every normally created task would be falsely flagged with ERR_STATUS.
  *
  * Bit 0x0400 is intentionally NOT covered: no status/flag uses it in
- * liteos_new, so a set 0x0400 bit is genuinely invalid.
+ * liteos_m, so a set 0x0400 bit is genuinely invalid.
  *
  * Two reserved/optional feature switches compose on top of the base mask:
  *   - LOSCFG_SECURE       : adds OS_TASK_FLAG_USER_TASK (only #defined when
@@ -65,7 +65,7 @@
  *                           the guard below ensures they are, so P0-1 does not
  *                           silently regress for MQ tasks when the feature is
  *                           enabled. The branch is a no-op today (macros are
- *                           not yet present in liteos_new headers).
+ *                           not yet present in liteos_m headers).
  */
 #define TCB_VERIFY_VALID_MASK_BASE  \
     (OS_TASK_STATUS_UNUSED   | OS_TASK_STATUS_SUSPEND   | \
@@ -117,12 +117,12 @@ UINT32 TcbVerifyBasic(VOID)
 {
     UINT32 err = TCB_VERIFY_OK;
 
-    if (g_taskCBArray == NULL) {
+    if (g_osTaskCBArray == NULL) {
         return TCB_VERIFY_ERR_ARRAY_NULL;
     }
 
     for (UINT32 i = 0; i < g_taskMaxNum; i++) {
-        LosTaskCB *tcb = &g_taskCBArray[i];
+        LosTaskCB *tcb = &g_osTaskCBArray[i];
         UINT16 status = tcb->taskStatus;
 
         /* Check all slots including UNUSED. */
@@ -155,12 +155,12 @@ UINT32 TcbVerifyStack(VOID)
 {
     UINT32 err = TCB_VERIFY_OK;
 
-    if (g_taskCBArray == NULL) {
+    if (g_osTaskCBArray == NULL) {
         return TCB_VERIFY_ERR_ARRAY_NULL;
     }
 
     for (UINT32 i = 0; i < g_taskMaxNum; i++) {
-        LosTaskCB *tcb = &g_taskCBArray[i];
+        LosTaskCB *tcb = &g_osTaskCBArray[i];
 
         if (tcb->taskStatus & OS_TASK_STATUS_UNUSED) {
             continue;
@@ -199,10 +199,10 @@ UINT32 TcbVerifyCurSp(VOID)
     }
 
     /* SP must belong to exactly one task's stack. Skipped in interrupt context. */
-    if (!OS_INT_ACTIVE && (g_taskCBArray != NULL)) {
+    if (!OS_INT_ACTIVE && (g_osTaskCBArray != NULL)) {
         UINT32 count = 0;
         for (UINT32 i = 0; i < g_taskMaxNum; i++) {
-            LosTaskCB *tcb = &g_taskCBArray[i];
+            LosTaskCB *tcb = &g_osTaskCBArray[i];
             if (tcb->taskStatus & OS_TASK_STATUS_UNUSED) {
                 continue;
             }

@@ -41,7 +41,9 @@ static VOID HwiF01(VOID)
 static UINT32 Testcase(VOID)
 {
     UINT32 ret;
-    HWI_HANDLE_T hwiNum = 241;
+    /* 241 is a VALID SPI on rk3568 (LOSCFG_PLATFORM_HWI_LIMIT 288):
+     * use the platform boundary so this stays the negative case. */
+    HWI_HANDLE_T hwiNum = OS_HWI_MAX_NUM + 1;
     HWI_PRIOR_T hwiPrio = 3;
     HWI_MODE_T mode = 0;
     HwiIrqParam irqParam;

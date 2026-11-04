@@ -59,6 +59,15 @@ extern "C" {
 
 #define TEST_POOL_SIZE (1 * 8 * 1024)
 
+/* 共享测试池: 单/双池内存类用例(TC050/053/057/312/316/317/325~329)的池缓冲复用,
+ * 替代各用例私有静态池(原合计~68KB .bss)。用例串行执行且各自 MemPoolInit/MemDeInit,
+ * 无跨用例池状态依赖; 静态数组置于 LMS 监管堆之外(维持"nested-pool 冲突规避"约束)。
+ * 多区域邻接布局类用例(TC46/47)与 membox 微池(TC310/311)不适用本复用。
+ * A 池按最严约束定义(aligned(64): TC325~329 的 AllocAlign 契约; 8KB: 最大用例尺寸),
+ * 各用例仍以自己的 SIZE(≤8KB) Init, 断言语义不变; B 池专供双池用例(TC316)。 */
+extern UINT8 g_memTcPoolA[TEST_POOL_SIZE];
+extern UINT8 g_memTcPoolB[TEST_POOL_SIZE];
+
 #define RANDOM(x) (rand() % (x))
 
 #define LOS_INIT_MEM LOS_MemInit
@@ -136,6 +145,81 @@ struct TestMemPoolHead {
 #define LOS_MEM_NODE_HEAD_SIZE sizeof(struct TestMemUsedNodeHead)
 #define MIN_MEM_POOL_SIZE (LOS_MEM_NODE_HEAD_SIZE + sizeof(struct TestMemPoolHead))
 #define LOS_MEM_POOL_SIZE sizeof(struct TestMemPoolHead)
+
+/*
+ * bestfit (ws63) white-box offset copies, for fuzz cases ItLosMem328/329/330/331.
+ * Layout mirrors kernel sources exactly (do not drift):
+ *   - LosMemPoolInfo  : kernel/base/include/los_memory_pri.h:47-64 (bestfit branch)
+ *   - LosMemCtlNode/LosMemDynNode : kernel/base/mem/bestfit/los_memory_internal.h:44-80
+ * Memstat / LosSlabControlHeader / LosMultipleDlinkHead come from the real
+ * private headers (kernel/base/include is on the test include path, precedent
+ * It_los_mem_301.c includes los_slab_pri.h); only the bestfit-directory
+ * structures need copies because mem/bestfit is not on the include path.
+ * Guarded by LOSCFG_KERNEL_MEM_BESTFIT to avoid clashing with the TLSF copies
+ * above on qemu builds.
+ */
+#ifdef LOSCFG_KERNEL_MEM_BESTFIT
+#include "los_memstat_pri.h"
+#include "los_slab_pri.h"
+#include "los_multipledlinkhead_pri.h"
+
+/* copy of bestfit LosMemPoolInfo (los_memory_pri.h:49-64) */
+typedef struct {
+    VOID *pool;
+    UINT32 poolSize;
+#ifdef LOSCFG_MEM_TASK_STAT
+    Memstat stat;
+#endif
+#if (LOSCFG_MEM_MUL_POOL == 1)
+    VOID *nextPool;
+#endif
+#ifdef LOSCFG_KERNEL_MEM_SLAB_EXTENTION
+    struct LosSlabControlHeader slabCtrlHdr;
+#endif
+} TestMemPoolInfoBF;
+
+/* copy of bestfit LosMemCtlNode (bestfit/los_memory_internal.h:44-72) */
+typedef struct {
+    union {
+        LOS_DL_LIST freeNodeInfo;         /* free memory node */
+        struct {
+            UINTPTR magic;
+            UINTPTR taskId : 16;
+#ifdef LOSCFG_MEM_MUL_MODULE
+            UINTPTR moduleId : 16;
+#endif
+        };
+    };
+    struct TestMemDynNodeBF *preNode; /* pointer to the previous memory node */
+#ifdef LOSCFG_MEM_HEAD_BACKUP
+    UINT32 gapSize;
+    UINTPTR checksum; /* magic = xor checksum */
+#endif
+#ifdef LOSCFG_MEM_LEAKCHECK
+    UINTPTR linkReg[LOSCFG_MEM_RECORD_LR_CNT];
+#endif
+#ifdef LOSCFG_AARCH64
+    UINT32 reserve2; /* 64-bit alignment */
+#endif
+    /* size and flag of the current node (high two bits are flags) */
+    UINT32 sizeAndFlag;
+} TestMemCtlNodeBF;
+
+/* copy of bestfit LosMemDynNode (bestfit/los_memory_internal.h:75-80) */
+typedef struct TestMemDynNodeBFTag {
+#ifdef LOSCFG_MEM_HEAD_BACKUP
+    TestMemCtlNodeBF backupNode;
+#endif
+    TestMemCtlNodeBF selfNode;
+} TestMemDynNodeBF;
+
+/* bestfit node flag bits (bestfit/los_memory_internal.h:91-93) */
+#define TEST_BF_NODE_HEAD_SIZE           sizeof(TestMemDynNodeBF)
+#define TEST_BF_NODE_USED_FLAG           0x80000000U
+#define TEST_BF_NODE_ALIGNED_FLAG        0x40000000U
+#define TEST_BF_NODE_ALIGNED_AND_USED_FLAG (TEST_BF_NODE_USED_FLAG | TEST_BF_NODE_ALIGNED_FLAG)
+/* OS_DLNK_HEAD_SIZE / LosMultipleDlinkHead come from los_multipledlinkhead_pri.h */
+#endif /* LOSCFG_KERNEL_MEM_BESTFIT */
 
 extern void *g_memPool;
 extern void *g_testPool;
@@ -220,23 +304,50 @@ VOID ItLosTick010(void);
 VOID ItLosTick011(void);
 VOID ItLosTick012(void);
 VOID ItLosTick013(void);
+VOID ItLosTick014(void);
+VOID ItLosTick015(void);
+VOID ItLosTick016(void);
+VOID ItLosTick017(void);
 VOID ItLosMem301(void);
 VOID ItLosMem310(void);
 VOID ItLosMem311(void);
 VOID ItLosMem312(void);
 VOID ItLosMem313(void);
 VOID ItLosMem314(void);
+VOID ItLosMem315(void);
+VOID ItLosMem316(void);
+VOID ItLosMem317(void);
+VOID ItLosMem318(void);
+VOID ItLosMem319(void);
+VOID ItLosMem320(void);
+VOID ItLosMem321(void);
+VOID ItLosMem322(void);
+VOID ItLosMem323(void);
+VOID ItLosMem324(void);
+VOID ItLosMem325(void);
+VOID ItLosMem326(void);
+VOID ItLosMem327(void);
+VOID ItLosMem328(void);
+VOID ItLosMem329(void);
+VOID ItLosMem330(void);
+VOID ItLosMem331(void);
+VOID ItLosMem332(void);
 #ifdef LOSCFG_MEM_MUL_POOL_ALLOC
 #define TEST_POOL_MAX_NUM       4
 #define TEST_EACH_POOL_SIZE     0x2000
-extern UINT8 g_poolMem[TEST_POOL_MAX_NUM][TEST_EACH_POOL_SIZE];
+extern VOID *g_poolMem[TEST_POOL_MAX_NUM];
 extern UINT32 g_poolNum;
 VOID TestGetAddrSize(UINTPTR *poolAddr, UINT32 *poolSize);
 VOID TestReleaseAddrSize(VOID *pool);
 VOID TEST_MulPoolUnRegister(VOID);
 VOID ItLosMulPool001(void);
 VOID ItLosMulPool002(void);
+VOID ItLosMulPool003(void);
+VOID ItLosMulPool004(void);
+VOID ItLosMulPool005(void);
 #endif
+
+VOID ItLosMem333(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

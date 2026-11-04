@@ -297,6 +297,8 @@ extern "C" {
  * Define a usable task priority.Lowest task priority.
  */
 #ifndef LOS_TASK_PRIORITY_LOWEST
+#define LOSCFG_KERNEL_LOWPOWER
+
 #define LOS_TASK_PRIORITY_LOWEST                            31
 #endif
 
@@ -304,6 +306,17 @@ extern "C" {
  * @ingroup los_config
  * Configuration item for task stack independent
  */
+/**
+ * @ingroup los_config
+ * Derived task module constants (kernel_lite naming).
+ * KERNEL_TSK_LIMIT reserves one extra slot for the IDLE task,
+ * same accounting as g_taskMaxNum = LOSCFG_BASE_CORE_TSK_LIMIT + 1.
+ */
+#define KERNEL_TSK_LIMIT                  (LOSCFG_BASE_CORE_TSK_LIMIT + 1)
+#define KERNEL_TSK_MIN_STACK_SIZE         LOSCFG_BASE_CORE_TSK_MIN_STACK_SIZE
+#define KERNEL_TSK_DEFAULT_STACK_SIZE     LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE
+#define KERNEL_TSK_IDLE_STACK_SIZE        LOSCFG_BASE_CORE_TSK_IDLE_STACK_SIZE
+
 #ifndef LOSCFG_BASE_CORE_TASKSTACK_INDEPENDENT
 #define LOSCFG_BASE_CORE_TASKSTACK_INDEPENDENT              0
 #endif
@@ -340,7 +353,7 @@ extern "C" {
  * Maximum number of semaphores.
  */
 #ifndef OS_SEM_COUNTING_MAX_COUNT
-#define OS_SEM_COUNTING_MAX_COUNT                           0xFFFF
+#define OS_SEM_COUNTING_MAX_COUNT                           0xFFFE
 #endif
 
 /* =============================================================================
@@ -447,15 +460,16 @@ extern "C" {
 #define LOS_COMMON_DIVISOR                                  10
 #endif
 
-#if (LOSCFG_BASE_CORE_SWTMR == 1)
-    #if (LOSCFG_BASE_IPC_QUEUE == 0)
-        #error "if LOSCFG_BASE_CORE_SWTMR is set to 1, then LOSCFG_BASE_IPC_QUEUE must also be set to 1"
-    #endif
-#endif
 /* =============================================================================
                                        Memory module configuration ---- to be refactored
 ============================================================================= */
 extern UINT8 *m_aucSysMem0;
+
+/**
+ * @ingroup los_config
+ * The end address of system memory.
+ */
+extern UINTPTR g_sys_mem_addr_end;
 
 /**
  * @ingroup los_config

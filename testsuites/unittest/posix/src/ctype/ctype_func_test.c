@@ -34,6 +34,8 @@
 #include "posix_test.h"
 #include "kernel_test.h"
 #include "log.h"
+/* isalnum_l/isxdigit_l 等 locale 变体声明需要（ctype.h:40-62 段） */
+#define _POSIX_SOURCE
 #include <ctype.h>
 
 #define RET_TRUE 1
@@ -448,6 +450,65 @@ LITE_TEST_CASE(PosixCtypeFuncTestSuite, testCtypeIsspaceCount001, Function | Med
     return 0;
 }
 
+/* 用例简要描述: isalnum_l 对字母数字与符号的分类判定 */
+LITE_TEST_CASE(PosixCtypeFuncTestSuite, testCtypeIsalnumL001, Function | MediumTest | Level1)
+{
+    int ret;
+
+    /* __isalnum_l 忽略 locale 参数直接转发 isalnum（isalnum.c:8-10），
+     * locale_t 传 NULL 安全（函数不解引用），非 0 即真 */
+    ret = isalnum_l('A', NULL);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+
+    ret = isalnum_l('1', NULL);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+
+    ret = isalnum_l('+', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    return 0;
+}
+
+/* 用例简要描述: isxdigit_l 对十六进制字符的分类判定 */
+LITE_TEST_CASE(PosixCtypeFuncTestSuite, testCtypeIsxdigitL001, Function | MediumTest | Level1)
+{
+    int ret;
+
+    /* __isxdigit_l 同样忽略 locale 参数（isxdigit.c:8-10），locale_t 传 NULL 安全 */
+    ret = isxdigit_l('5', NULL);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+
+    ret = isxdigit_l('a', NULL);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+
+    ret = isxdigit_l('F', NULL);
+    ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+
+    ret = isxdigit_l('g', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+
+    ret = isxdigit_l('z', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    return 0;
+}
+
+/* 用例简要描述: isspace 六类空白字符完整判定 */
+LITE_TEST_CASE(PosixCtypeFuncTestSuite, testCtypeIsspaceAll001, Function | MediumTest | Level1)
+{
+    /* C locale 六类空白：' ' '\t' '\n' '\v' '\f' '\r'（include/ctype.h:26 __isspace） */
+    static const int spaceChars[] = {' ', '\t', '\n', '\v', '\f', '\r'};
+    size_t i;
+    int ret;
+
+    for (i = 0; i < sizeof(spaceChars) / sizeof(spaceChars[0]); i++) {
+        ret = isspace(spaceChars[i]);
+        ICUNIT_ASSERT_NOT_EQUAL(ret, 0, ret);
+    }
+
+    ret = isspace('a');
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+    return 0;
+}
+
 void PosixCtypeFuncTest()
 {
     LOG("begin PosixCtypeFuncTest....");
@@ -478,6 +539,9 @@ void PosixCtypeFuncTest()
     RUN_ONE_TESTCASE(testCtypeIsupper003);
     RUN_ONE_TESTCASE(testCtypeIsupper004);
     RUN_ONE_TESTCASE(testCtypeIsupper005);
+    RUN_ONE_TESTCASE(testCtypeIsalnumL001);
+    RUN_ONE_TESTCASE(testCtypeIsxdigitL001);
+    RUN_ONE_TESTCASE(testCtypeIsspaceAll001);
 
     return;
 }

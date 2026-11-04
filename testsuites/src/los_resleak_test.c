@@ -32,15 +32,28 @@
 #include "osTest.h"
 #include "los_resleak_test.h"
 #include "los_mux.h"
+#include "los_mux_pri.h"
 #include "los_sem.h"
+#include "los_sem_pri.h"
 #include "los_queue.h"
 #include "los_swtmr.h"
 #include "los_task_pri.h"
+#include "los_task.h"
 #include "los_memory.h"
 #include "los_config.h"
+#if (LOSCFG_KERNEL_SIGNAL == 1)
+#include "los_signal.h"
+#include <signal.h>
+#endif
+#include <time.h>
+#include <stdio.h>
 #if (LOSCFG_POSIX_MQUEUE_API == 1)
 #include <mqueue.h>
 #include <fcntl.h>
+#endif
+
+#if (LOSCFG_SHELL == 1)
+extern UINT32 OsShellInit(VOID);
 #endif
 
 extern UINT32 QueueUsedCountGet(VOID);
@@ -52,12 +65,97 @@ STATIC volatile UINT32 g_resLeakTotalCnt = 0;
 
 STATIC UINT32 OsResLeakMemUsedGet(VOID)
 {
-#if (LOSCFG_MEM_WATERLINE == 1)
+    /* 注意: info.curUsedSize 是 TLSF/bestfit_little 的 OsMemPoolInfo 布局; bestfit 的
+     * LosMemPoolInfo 无此字段, 同偏移落在 stat.taskMemstats 指针上(读出指针值当用量,
+     * 令泄漏检测恒假)。bestfit 一律走公共 API 实时走池统计。 */
+#if defined(LOSCFG_KERNEL_MEM_TLSF) && (LOSCFG_MEM_WATERLINE == 1)
     return ((struct OsMemPoolHead *)m_aucSysMem0)->info.curUsedSize;
 #else
     return LOS_MemTotalUsedGet(m_aucSysMem0);
 #endif
 }
+
+/* ---- 瞬时峰值探针 ----
+ * ResLeak 的 before/after 只能识别"用例结束仍未归还"的泄漏, 识别不出"用例内申请
+ * 大块、结束前又释放"的瞬态峰值。两种探针按分配器适配:
+ *   TLSF(qemu): 内核每笔分配 waterLine = MAX(waterLine, used), 借用例边界重置
+ *               waterLine 即得本用例独立峰值(次高用例也全量可见, 非单调阶梯)。
+ *   bestfit(ws63/hi3322): stat.memTotalPeak 仅在池初始化时写一次, 分配路径不更新,
+ *               水位重置法失效 -> 改用公共导出的 g_MALLOC_HOOK: 每笔分配入口触发
+ *               钩子走池快照 used 记录 max(armed 门控, 仅用例窗口内工作)。
+ * 探针与 [ResLeak] 泄漏计数互不影响。 */
+#if defined(LOSCFG_KERNEL_MEM_TLSF) && (LOSCFG_MEM_WATERLINE == 1)
+#define RESLEAK_PEAK_PROBE 1
+#elif defined(LOSCFG_KERNEL_MEM_BESTFIT) || defined(LOSCFG_KERNEL_MEM_BESTFIT_LITTLE)
+#define RESLEAK_PEAK_PROBE 2
+#endif
+
+#if RESLEAK_PEAK_PROBE == 1
+STATIC UINT32 g_resLeakPeakSaved;
+
+STATIC UINT32 OsMemPeakRead(VOID)
+{
+    struct OsMemPoolHead *pool = (struct OsMemPoolHead *)m_aucSysMem0;
+    return pool->info.waterLine;
+}
+
+STATIC VOID OsMemPeakWrite(UINT32 size)
+{
+    struct OsMemPoolHead *pool = (struct OsMemPoolHead *)m_aucSysMem0;
+    pool->info.waterLine = size;
+}
+
+STATIC UINT32 OsMemUsedSizeRead(VOID)
+{
+    struct OsMemPoolHead *pool = (struct OsMemPoolHead *)m_aucSysMem0;
+    return pool->info.curUsedSize;
+}
+
+STATIC VOID OsMemPeakProbeBegin(VOID)
+{
+    g_resLeakPeakSaved = OsMemPeakRead();
+    OsMemPeakWrite(OsMemUsedSizeRead());
+}
+
+STATIC UINT32 OsMemPeakProbeEnd(VOID)
+{
+    UINT32 casePeak = OsMemPeakRead();
+    OsMemPeakWrite((casePeak > g_resLeakPeakSaved) ? casePeak : g_resLeakPeakSaved);
+    return casePeak;
+}
+#endif
+
+#if RESLEAK_PEAK_PROBE == 2
+STATIC volatile UINT32 g_resLeakPeakArmed = 0;
+STATIC UINT32 g_resLeakCasePeak = 0;
+
+STATIC VOID OsResLeakAllocHook(VOID)
+{
+    UINT32 used;
+    if (g_resLeakPeakArmed == 0) {
+        return;
+    }
+    used = LOS_MemTotalUsedGet(m_aucSysMem0);
+    if (used > g_resLeakCasePeak) {
+        g_resLeakCasePeak = used;
+    }
+}
+
+STATIC VOID OsMemPeakProbeBegin(VOID)
+{
+    g_resLeakCasePeak = LOS_MemTotalUsedGet(m_aucSysMem0);
+    g_resLeakPeakArmed = 1;
+    g_MALLOC_HOOK = OsResLeakAllocHook;
+}
+
+STATIC UINT32 OsMemPeakProbeEnd(VOID)
+{
+    UINT32 used;
+    g_resLeakPeakArmed = 0;
+    used = LOS_MemTotalUsedGet(m_aucSysMem0);
+    return (used > g_resLeakCasePeak) ? used : g_resLeakCasePeak;
+}
+#endif
 
 STATIC VOID OsResLeakForceReclaim(VOID)
 {
@@ -88,12 +186,53 @@ STATIC VOID OsResLeakMqueuePreInit(VOID)
 }
 #endif
 
+/* 预热 libc/shell 的"首次使用才创建"的单例锁（内核 mux），避免首次使用恰好落在
+ * 某条用例的 ResLeak 检查窗口内而被误报为 mux/memory 泄漏：
+ *  - localtime()/tzset() : lib/posix tzdst.c 的 g_tzdstLock 与 musl porting
+ *                          __tz.c 的 locallock（strftime %Z/localtime 首用触发）
+ *  - fflush(NULL)        : stdout/stderr 的 FILE 锁 + musl 打开文件链表锁(ofl)
+ *                          （perror 首用 stderr、fopen 首用 ofl 时触发）
+ *  - OsShellInit()       : shell 命令表锁 cmdInfo.muxLock + 内置命令注册
+ * 这些对象是系统生命周期单例，按设计不释放，不是真实泄漏。 */
+STATIC VOID OsResLeakLazyLockPreInit(VOID)
+{
+    time_t now = 0;
+
+#ifndef __aarch64__
+    /* aarch64: localtime/tzset trigger the LibcLock lazy-init path
+     * (first LOS_MuxCreate + Pend on this core) and corrupt the caller
+     * stack canary. Root cause pending; the posix time suite is not
+     * enabled on aarch64 anyway, so skip this prewarm there. */
+    (VOID)localtime(&now);
+    tzset();
+#endif
+    (VOID)now;
+#if (LOSCFG_POSIX_FS_API == 1)
+    (VOID)fflush(NULL);
+#endif
+
+#if (LOSCFG_KERNEL_SIGNAL == 1)
+    /* 触发当前任务(测试主任务) OsSigCB 的懒分配(los_signal.c SignalCBInit),
+     * 避免首个信号用例(如 ItLosSignal001)被误报 +304B 内存泄漏。
+     * SIGHUP 无用例使用,设为 SIG_DFL 不改变任何用例可见行为 */
+    (VOID)LOS_SignalSet(SIGHUP, SIG_DFL);
+#endif
+
+#if (LOSCFG_SHELL == 1)
+    (VOID)OsShellInit();
+#endif
+}
+
 VOID OsResLeakInit(VOID)
 {
 #if (LOSCFG_POSIX_MQUEUE_API == 1)
     OsResLeakMqueuePreInit();
 #endif
+    OsResLeakLazyLockPreInit();
     OsResLeakForceReclaim();
+#if RESLEAK_PEAK_PROBE == 2
+    g_MALLOC_HOOK = OsResLeakAllocHook;
+#endif
 }
 
 UINT32 OsResLeakMuxCountGet(VOID)
@@ -104,8 +243,8 @@ UINT32 OsResLeakMuxCountGet(VOID)
 
     intSave = LOS_IntLock();
     for (index = 0; index < LOSCFG_BASE_IPC_MUX_LIMIT; index++) {
-        LosMuxCB *muxNode = ((LosMuxCB *)g_allMux) + index;
-        if (muxNode->muxStat == OS_MUX_USED) {
+        LosMuxCB *muxNode = ((LosMuxCB *)g_osAllMux) + index;
+        if (muxNode->muxStat == LOS_USED) {
             count++;
         }
     }
@@ -121,8 +260,8 @@ UINT32 OsResLeakSemCountGet(VOID)
 
     intSave = LOS_IntLock();
     for (index = 0; index < LOSCFG_BASE_IPC_SEM_LIMIT; index++) {
-        LosSemCB *semNode = ((LosSemCB *)g_allSem) + index;
-        if (semNode->semStat == OS_SEM_USED) {
+        LosSemCB *semNode = ((LosSemCB *)g_osAllSem) + index;
+        if (semNode->semStat == LOS_USED) {
             count++;
         }
     }
@@ -130,8 +269,23 @@ UINT32 OsResLeakSemCountGet(VOID)
     return count;
 }
 
+/* 任务退出后其 TCB/栈由 idle 任务异步回收（g_taskRecycleList），检查点若紧跟
+ * 用例内任务退出执行，会看到"栈未释放"的瞬时假阳性（内存 ±栈大小振荡、task 计数
+ * 抖动）。检查窗口前先让出 1 个 tick，给 idle 任务机会完成回收，消除该竞态。
+ * 仅在回收列表非空时才让出，避免对无关用例引入额外调度时机。 */
+STATIC VOID OsResLeakDrainPendingRecycle(VOID)
+{
+    extern LOS_DL_LIST g_taskRecycleList;
+
+    if (LOS_ListEmpty(&g_taskRecycleList)) {
+        return;
+    }
+    (VOID)LOS_TaskDelay(1);
+}
+
 VOID OsResLeakCheckBegin(VOID)
 {
+    OsResLeakDrainPendingRecycle();
     OsResLeakForceReclaim();
     g_resLeakBeforeStat.muxCnt = OsResLeakMuxCountGet();
     g_resLeakBeforeStat.queueCnt = QueueUsedCountGet();
@@ -139,6 +293,9 @@ VOID OsResLeakCheckBegin(VOID)
     g_resLeakBeforeStat.swtmrCnt = SwtmrCountGetTest();
     g_resLeakBeforeStat.taskCnt = TaskUsedCountGet();
     g_resLeakBeforeStat.memUsed = OsResLeakMemUsedGet();
+#ifdef RESLEAK_PEAK_PROBE
+    OsMemPeakProbeBegin();
+#endif
 }
 
 VOID OsResLeakCheckEnd(const CHAR *caseName)
@@ -146,13 +303,33 @@ VOID OsResLeakCheckEnd(const CHAR *caseName)
     ResLeakStat after;
     UINT32 leakCnt = 0;
 
+    OsResLeakDrainPendingRecycle();
     OsResLeakForceReclaim();
+    after.taskCnt = TaskUsedCountGet();
+    after.memUsed = OsResLeakMemUsedGet();
+    /* 条件化兜底: 自删任务的回收节点可能在上行 drain 的空表检查之后才入链,
+     * 表现为 End 快照仍有内存/任务数增量。仅此时才让出一拍复查重采样(在退出
+     * 路上的栈会被回收, 消除误记为泄漏); 干净用例零让拍——全量省 ~18s, 且不给
+     * tickless 板引入逐用例相位扰动(ItLosTick015 的 SleepTicksGet 采样对此敏感)。 */
+    if ((after.memUsed != g_resLeakBeforeStat.memUsed) ||
+        (after.taskCnt != g_resLeakBeforeStat.taskCnt)) {
+        (VOID)LOS_TaskDelay(1);
+        OsResLeakDrainPendingRecycle();
+        after.taskCnt = TaskUsedCountGet();
+        after.memUsed = OsResLeakMemUsedGet();
+    }
     after.muxCnt = OsResLeakMuxCountGet();
     after.queueCnt = QueueUsedCountGet();
     after.semCnt = OsResLeakSemCountGet();
     after.swtmrCnt = SwtmrCountGetTest();
-    after.taskCnt = TaskUsedCountGet();
-    after.memUsed = OsResLeakMemUsedGet();
+
+#ifdef RESLEAK_PEAK_PROBE
+    UINT32 casePeak = OsMemPeakProbeEnd();
+    if (casePeak > g_resLeakBeforeStat.memUsed) {
+        dprintf("[MemPeak] %s: peak %u, entry %u, transient +%u\n", caseName,
+            casePeak, g_resLeakBeforeStat.memUsed, casePeak - g_resLeakBeforeStat.memUsed);
+    }
+#endif
 
     if (after.muxCnt != g_resLeakBeforeStat.muxCnt) {
         dprintf("[ResLeak] %s: mux leak! before=%u after=%u\n",

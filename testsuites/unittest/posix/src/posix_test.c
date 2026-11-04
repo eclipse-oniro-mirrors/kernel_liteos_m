@@ -29,32 +29,28 @@
  */
 
 #include "posix_test.h"
-extern VOID ItSuitePosixRwlock(VOID);
-extern VOID ItSuitePosixTime(VOID);
-extern VOID ItSuitePosixIo(VOID);
-#if defined(LOSCFG_ARCH_ARM) && defined(LOSCFG_POSIX_SIGNAL_API)
-extern VOID ItSuitePosixSignal(VOID);
-#endif
-
-void ItSuitePosix(void)
-{
-    PthreadFuncTestSuite();
-    ItSuitePosixPthread();
-    ItSuitePosixMutex();
-    ItSuitePosixRwlock();
-    ItSuitePosixMqueue();
-    ItSuitePosixTime();
+extern void PosixPthreadRwlockTrySharedFuncTest(void);
 #ifdef LOSCFG_POSIX_PIPE_API
-    ItSuitePosixIo();
+extern void PosixIoPollFuncTest(void);
 #endif
-#if defined(LOSCFG_ARCH_ARM) && defined(LOSCFG_POSIX_SIGNAL_API)
-    ItSuitePosixSignal();
+#if (LOSCFG_FS_YAFFS == 1)
+extern VOID PosixFsYaffsTest(VOID);
+#endif
+extern void PosixStdlibStrtodFuncTest(void);
+extern void PosixLocaleFuncTest(void);
+void ItSuitePosixUnittest(void)
+{
+    PosixPthreadRwlockTrySharedFuncTest();
+#ifdef LOSCFG_POSIX_PIPE_API
+    PosixIoPollFuncTest();
 #endif
     PosixCtypeFuncTest();
     PosixIsdigitFuncTest();
     PosixIslowerFuncTest();
     PosixIsxdigitFuncTest();
     PosixTolowerFuncTest();
+    PosixStdlibStrtodFuncTest();
+    PosixLocaleFuncTest();
     PosixToupperFuncTest();
     PosixStrerrorTest();
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
@@ -68,6 +64,11 @@ void ItSuitePosix(void)
     PosixStdlibStrtolFuncTest();
     PosixStdlibStrtoulFuncTest();
     PosixStdlibStrtoullFuncTest();
+    PosixStdlibMultibyteFuncTest();
+    PosixStdlibRandomStateFuncTest();
+#if (LOSCFG_POSIX_FS_API == 1)
+    PosixStdioFuncTest();
+#endif
     PosixStringMemTest03();
     PosixStringStrchrTest();
     PosixStringFuncTest02();
@@ -81,4 +82,7 @@ void ItSuitePosix(void)
 #if (LOSCFG_SUPPORT_LITTLEFS == 1 || LOSCFG_SUPPORT_FATFS == 1)
     PosixFsFuncTest();
 #endif
+    /* PosixFsYaffsTest 已移至 osTest.c 全套件末尾执行：其专用池自 Ensure 起
+     * 常驻到复位，放在 ItSuitePosixUnittest 内会饿死其后 CMSIS/XTS 的线程栈分配。 */
 }
+

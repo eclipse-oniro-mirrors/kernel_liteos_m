@@ -119,6 +119,7 @@ config("los_config") {
 
     #":warn_config",
     ":misc_config",
+
     "//kernel/liteos_m/testsuites:kernel_test_coverage",
   ]
 }
@@ -166,8 +167,11 @@ group("modules") {
     "kernel",
     "fs",
     "shell",
-    "testsuites",
   ]
+
+  if (defined(LOSCFG_TEST)) {
+    deps += [ "testsuites" ]
+  }
 
   if (BOARD_SOC_FEATURE) {
     deps += [ "$DEVICE_BOARD_DIR/$device_company" ]

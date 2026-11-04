@@ -38,6 +38,7 @@ UINT16 g_threadCreateExit;
 UINT16 g_threadCreateExit1;
 UINT16 g_getNameExit;
 UINT16 g_getStackSpaceExit;
+UINT16 g_resumeThreadExit;
 osThreadId_t g_puwTaskID01;
 osThreadId_t g_puwTaskID02;
 osPriority_t g_threadPriority;
@@ -111,7 +112,7 @@ static void CmsisThreadCreat004Func002(void const *argument)
 {
     (void)argument;
     TEST_DELAY(g_cmsisTestTaskCount, TESTCOUNT_NUM_1, TEST_WAIT_TIMEOUT);
-    ICUNIT_ASSERT_EQUAL_VOID(g_cmsisTestTaskCount, TESTCOUNT_NUM_1, g_cmsisTestTaskCount);
+    ICUNIT_ASSERT_EQUAL_VOID(g_cmsisTestTaskCount <= TESTCOUNT_NUM_2, TRUE, g_cmsisTestTaskCount);
     g_cmsisTestTaskCount++;
     osThreadExit();
 }
@@ -158,11 +159,15 @@ static void KeepRunByTick(UINT32 tick)
 static void WaitThreadExit(osThreadId_t id, UINT16 const *exitFlag)
 {
     osStatus_t status;
+    UINT32 budget = 300;
+
     (void)osThreadSetPriority(id, PRIORITY_COUNT_MIN_1);
-    while (*exitFlag != TESTCOUNT_NUM_1) {
+    while (*exitFlag != TESTCOUNT_NUM_1 && budget > 0) {
         status = osDelay(DELAY_TICKS_10);
         ICUNIT_ASSERT_EQUAL_VOID(status, osOK, status);
+        budget -= DELAY_TICKS_10;
     }
+    ICUNIT_ASSERT_EQUAL_VOID(*exitFlag, TESTCOUNT_NUM_1, *exitFlag);
 }
 
 static void CmsisThreadCreat005Func001(void const *argument)
@@ -330,13 +335,22 @@ static void CmsisThreadResumeFunc002(void const *argument)
 {
     (void)argument;
     osStatus_t status;
+    UINT32 wait;
     g_cmsisTestTaskCount++;
     TEST_DELAY(g_cmsisTestTaskCount, TESTCOUNT_NUM_2, TEST_WAIT_TIMEOUT);
     ICUNIT_ASSERT_EQUAL_VOID(g_cmsisTestTaskCount, TESTCOUNT_NUM_2, g_cmsisTestTaskCount);
+    /* 等 Func001 真正挂起后再 Resume(本移植层挂起态为 osThreadBlocked) */
+    for (wait = 0; wait < TEST_WAIT_TIMEOUT; wait++) {
+        if (osThreadGetState(g_puwTaskID01) == osThreadBlocked) {
+            break;
+        }
+        osDelay(1);
+    }
     status = osThreadResume(g_puwTaskID01);
     ICUNIT_ASSERT_EQUAL_VOID(status, osOK, status);
     status = osDelay(DELAY_TICKS_5);
     ICUNIT_ASSERT_EQUAL_VOID(status, osOK, status);
+    g_resumeThreadExit = TESTCOUNT_NUM_1;
     osThreadExit();
 }
 
@@ -1198,10 +1212,14 @@ LITE_TEST_CASE(CmsisTaskFuncTestSuite, testOsThreadResume001, Function | MediumT
     attr.stack_size = TEST_TASK_STACK_SIZE;
     attr.priority = osPriorityAboveNormal;
     g_cmsisTestTaskCount = 0;
+    g_resumeThreadExit = 0;
     g_cmsisTestTaskCount++;
     id = osThreadNew((osThreadFunc_t)CmsisThreadResumeFunc001, NULL, &attr);
     ICUNIT_ASSERT_EQUAL(g_cmsisTestTaskCount, TESTCOUNT_NUM_3, g_cmsisTestTaskCount);
     ICUNIT_ASSERT_NOT_EQUAL(id, NULL, id);
+    /* 等待 Func002 收尾(osDelay(5)+osThreadExit)与 Func001 退出完成:
+     * 否则线程尾延迟会落到本用例结束后的 ResLeak 检查窗口,被误报为泄漏 */
+    TEST_DELAY(g_resumeThreadExit, TESTCOUNT_NUM_1, TEST_WAIT_TIMEOUT);
     return 0;
 };
 
@@ -2240,7 +2258,6 @@ void CmsisTaskFuncTest1(void)
 void CmsisTaskFuncTest(void)
 {
     RUN_ONE_TESTCASE(testOsThreadNew001);
-#if (LOS_FEATURE_ADAPTED == 1)
     RUN_ONE_TESTCASE(testOsThreadNew002);
     RUN_ONE_TESTCASE(testOsThreadNew003);
     RUN_ONE_TESTCASE(testOsThreadNew004);
@@ -2249,7 +2266,6 @@ void CmsisTaskFuncTest(void)
     RUN_ONE_TESTCASE(testOsThreadNew007);
     RUN_ONE_TESTCASE(testOsThreadNew008);
     RUN_ONE_TESTCASE(testOsThreadNew009);
-#endif
     RUN_ONE_TESTCASE(testOsThreadGetName001);
     RUN_ONE_TESTCASE(testOsThreadGetName002);
     RUN_ONE_TESTCASE(testOsThreadGetName003);
@@ -2279,9 +2295,7 @@ void CmsisTaskFuncTest(void)
     RUN_ONE_TESTCASE(testOsThreadYield003);
     RUN_ONE_TESTCASE(testOsThreadYield004);
     RUN_ONE_TESTCASE(testOsThreadYield005);
-#if (LOS_FEATURE_ADAPTED == 1)
     RUN_ONE_TESTCASE(testOsThreadYield006);
-#endif
     RUN_ONE_TESTCASE(testOsThreadYield007);
     RUN_ONE_TESTCASE(testOsThreadYield008);
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)

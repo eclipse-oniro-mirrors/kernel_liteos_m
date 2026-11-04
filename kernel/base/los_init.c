@@ -35,8 +35,10 @@
 #include "los_debug.h"
 #include "los_memory_pri.h"
 #include "los_mux.h"
+#include "los_mux_pri.h"
 #include "los_queue.h"
 #include "los_sem.h"
+#include "los_sem_pri.h"
 #include "los_rwsem_pri.h"
 #include "los_init.h"
 #include "los_printf_pri.h"
@@ -54,7 +56,7 @@
 #if (LOSCFG_BASE_CORE_CPUP == 1)
 #include "los_cpup_pri.h"
 #endif
-#include "los_sched_pri.h"   /* LOS_Start 无条件调 OsSchedStart;上游只在 CPUP 开时引,A7 CPUP 关则未声明 */
+#include "los_sched_pri.h"
 
 #ifdef LOSCFG_MEM_TASK_STAT
 #include "los_memstat_pri.h"
@@ -74,6 +76,10 @@
 
 #if (LOSCFG_DYNLINK == 1)
 #include "los_dynlink.h"
+#endif
+
+#if (LOSCFG_KERNEL_DYNLOAD == 1)
+extern UINT32 OsDynloadInit(VOID);
 #endif
 
 #ifdef LOSCFG_KERNEL_LMS
@@ -107,6 +113,29 @@
 
 #if (LOSCFG_BASE_CORE_SWTMR == 1) && !defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR)
 LITE_OS_SEC_BSS STATIC UINTPTR g_swtmrExpiryBuf[LOSCFG_KERNEL_CORE_NUM][LOSCFG_BASE_CORE_SWTMR_LIMIT];
+#endif
+
+__attribute__((section(".data.init"))) UINTPTR g_sys_mem_addr_end;
+#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
+/* temp task blocks for booting procedure */
+LITE_OS_SEC_BSS LosTaskCB                g_mainTask[LOSCFG_KERNEL_CORE_NUM];
+
+VOID *OsGetMainTask(VOID)
+{
+    return (g_mainTask + ArchCurrCpuid());
+}
+
+LITE_OS_SEC_TEXT_INIT_LEVEL_ONE VOID OsSetMainTask(VOID)
+{
+    UINT32 i;
+    for (i = 0; i < LOSCFG_KERNEL_CORE_NUM; i++) {
+        g_mainTask[i].taskStatus = OS_TASK_STATUS_UNUSED;
+        g_mainTask[i].taskId = LOSCFG_BASE_CORE_TSK_LIMIT;
+        g_mainTask[i].priority = LOS_TASK_PRIORITY_LOWEST + 1;
+        g_mainTask[i].taskName = "osMain";
+        g_mainTask[i].hpl = NULL;
+    }
+}
 #endif
 
 /*****************************************************************************
@@ -176,7 +205,7 @@ LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsRegister(VOID)
 /* OsIpcInit: consolidate sem/mux/queue/rwsem init into one initcall */
 LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsIpcInit(VOID)
 {
-    UINT32 ret;
+    UINT32 ret = LOS_OK;
 
 #if (LOSCFG_BASE_IPC_SEM == 1)
     ret = OsSemInit();
@@ -208,7 +237,7 @@ LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsIpcInit(VOID)
     }
 #endif
 
-    return LOS_OK;
+    return ret;
 }
 LOS_SYS_INIT(OsIpcInit, SYS_INIT_LEVEL_KERNEL, SYS_INIT_SYNC_2);
 
@@ -380,6 +409,14 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_KernelInit(VOID)
 #if (LOSCFG_DYNLINK == 1)
     ret = LOS_DynlinkInit();
     if (ret != LOS_OK) {
+        return ret;
+    }
+#endif
+
+#if (LOSCFG_KERNEL_DYNLOAD == 1)
+    ret = OsDynloadInit();
+    if (ret != LOS_OK) {
+        PRINT_ERR("Dynload init failed!\n");
         return ret;
     }
 #endif

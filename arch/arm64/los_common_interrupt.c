@@ -1,0 +1,354 @@
+/*
+ * Copyright (c) 2023-2023 Huawei Device Co., Ltd. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this list of
+ *    conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+ *    conditions and the following disclaimer in the documentation and/or other materials
+ *    provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
+ *    to endorse or promote products derived from this software without specific prior written
+ *    permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/* AArch64-owned copy of the interrupt dispatch layer, split from
+ * arch/arm/common/los_common_interrupt.c so that arm64 shares no source
+ * with the 32-bit ARM world (mirrors the csky / risc-v / xtensa per-arch
+ * common layers). Local delta vs the 32-bit file: ArchHwiCreate applies
+ * hwiMode through the optional HwiControllerOps.setIrqMode op (implemented
+ * by the gic-v3 port, which programs GICD_ICFGR for SPIs); createIrq keeps
+ * the 2-arg signature shared with the 32-bit arches. */
+
+#include "los_arch_interrupt.h"
+#include "los_debug.h"
+#include "los_hwi_pri.h"
+#include "los_exc.h"
+#include "los_interrupt.h"
+
+EXC_PROC_FUNC g_excRegHook = NULL;
+
+UINT32 ArchSetExcHook(EXC_PROC_FUNC excHook)
+{
+    UINT32 intSave;
+
+    intSave = LOS_IntLock();
+    g_excRegHook = excHook;
+    LOS_IntRestore(intSave);
+    return LOS_OK;
+}
+
+HwiHandleInfo g_hwiHandleForm[OS_VECTOR_CNT] = {0};
+
+#ifdef __ICCARM__
+#pragma location = ".data.vector"
+#pragma data_alignment = LOSCFG_ARCH_HWI_VECTOR_ALIGN
+/* *
+ * @ingroup los_hwi
+ * Hardware interrupt form mapping handling function array.
+ */
+HWI_PROC_FUNC g_hwiForm[OS_VECTOR_CNT] = {0};
+#elif defined(__CC_ARM) || defined(__GNUC__)
+LITE_OS_SEC_VEC
+/* *
+ * @ingroup los_hwi
+ * Hardware interrupt form mapping handling function array.
+ */
+HWI_PROC_FUNC __attribute__((aligned(LOSCFG_ARCH_HWI_VECTOR_ALIGN))) g_hwiForm[OS_VECTOR_CNT] = {0};
+#endif
+
+VOID *ArchGetHwiFrom(VOID)
+{
+    return g_hwiForm;
+}
+
+/* ****************************************************************************
+ Function    : HalHwiDefaultHandler
+ Description : default handler of the hardware interrupt
+ Input       : None
+ Output      : None
+ Return      : None
+ **************************************************************************** */
+LITE_OS_SEC_TEXT_MINOR VOID HalHwiDefaultHandler(VOID)
+{
+    PRINT_ERR("%s irqnum:%u\n", __FUNCTION__, LOS_HwiCurIrqNum());
+    while (1) {}
+}
+
+#if (LOSCFG_DEBUG_TOOLS == 1)
+STATIC UINT32 g_hwiFormCnt[OS_HWI_MAX_NUM] = {0};
+STATIC CHAR *g_hwiFormName[OS_HWI_MAX_NUM] = {0};
+
+UINT32 OsGetHwiFormCnt(UINT32 index)
+{
+    return g_hwiFormCnt[index];
+}
+
+CHAR *OsGetHwiFormName(UINT32 index)
+{
+    return g_hwiFormName[index];
+}
+
+BOOL OsHwiIsCreated(UINT32 index)
+{
+    if (g_hwiForm[index] != (HWI_PROC_FUNC)HalHwiDefaultHandler) {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+#endif
+
+#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+
+/* *
+ * @ingroup los_hwi
+ * Set interrupt vector table.
+ */
+VOID OsSetVector(UINT32 num, HWI_PROC_FUNC vector, VOID *arg)
+{
+    if ((num + OS_SYS_VECTOR_CNT) < OS_VECTOR_CNT) {
+        g_hwiForm[num + OS_SYS_VECTOR_CNT] = (HWI_PROC_FUNC)HalInterrupt;
+        g_hwiHandleForm[num + OS_SYS_VECTOR_CNT].hook = vector;
+        g_hwiHandleForm[num + OS_SYS_VECTOR_CNT].registerInfo = (HWI_ARG_T)(UINTPTR)arg;
+    }
+}
+#else
+/* *
+ * @ingroup los_hwi
+ * Set interrupt vector table.
+ */
+VOID OsSetVector(UINT32 num, HWI_PROC_FUNC vector)
+{
+    if ((num + OS_SYS_VECTOR_CNT) < OS_VECTOR_CNT) {
+        g_hwiForm[num + OS_SYS_VECTOR_CNT] = HalInterrupt;
+        g_hwiHandleForm[num + OS_SYS_VECTOR_CNT].hook = vector;
+    }
+}
+#endif
+
+UINT32 ArchIntTrigger(HWI_HANDLE_T hwiNum)
+{
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return OS_ERRNO_HWI_NUM_INVALID;
+    }
+
+    HwiControllerOps *hwiOps = ArchIntOpsGet();
+    if (hwiOps->triggerIrq == NULL) {
+        return OS_ERRNO_HWI_OPS_FUNC_NULL;
+    }
+
+    return hwiOps->triggerIrq(hwiNum);
+}
+
+UINT32 ArchIntEnable(HWI_HANDLE_T hwiNum)
+{
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return OS_ERRNO_HWI_NUM_INVALID;
+    }
+
+    HwiControllerOps *hwiOps = ArchIntOpsGet();
+    if (hwiOps->enableIrq == NULL) {
+        return OS_ERRNO_HWI_OPS_FUNC_NULL;
+    }
+
+    return hwiOps->enableIrq(hwiNum);
+}
+
+UINT32 ArchIntDisable(HWI_HANDLE_T hwiNum)
+{
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return OS_ERRNO_HWI_NUM_INVALID;
+    }
+
+    HwiControllerOps *hwiOps = ArchIntOpsGet();
+    if (hwiOps->disableIrq == NULL) {
+        return OS_ERRNO_HWI_OPS_FUNC_NULL;
+    }
+
+    return hwiOps->disableIrq(hwiNum);
+}
+
+UINT32 ArchIntClear(HWI_HANDLE_T hwiNum)
+{
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return OS_ERRNO_HWI_NUM_INVALID;
+    }
+
+    HwiControllerOps *hwiOps = ArchIntOpsGet();
+    if (hwiOps->clearIrq == NULL) {
+        return OS_ERRNO_HWI_OPS_FUNC_NULL;
+    }
+
+    return hwiOps->clearIrq(hwiNum);
+}
+
+UINT32 ArchIntSetPriority(HWI_HANDLE_T hwiNum, HWI_PRIOR_T priority)
+{
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return OS_ERRNO_HWI_NUM_INVALID;
+    }
+
+    if (priority > OS_HWI_PRIO_LOWEST) {
+        return OS_ERRNO_HWI_PRIO_INVALID;
+    }
+
+    HwiControllerOps *hwiOps = ArchIntOpsGet();
+    if (hwiOps->setIrqPriority == NULL) {
+        return OS_ERRNO_HWI_OPS_FUNC_NULL;
+    }
+
+    return hwiOps->setIrqPriority(hwiNum, priority);
+}
+
+UINT32 ArchIntCurIrqNum(VOID)
+{
+    HwiControllerOps *hwiOps = ArchIntOpsGet();
+    return hwiOps->getCurIrqNum();
+}
+
+/* ****************************************************************************
+ Function    : ArchHwiCreate
+ Description : create hardware interrupt
+ Input       : hwiNum   --- hwi num to create
+               hwiPrio  --- priority of the hwi
+               hwiMode  --- trigger mode (HWI_MODE_TRIGGER_EDGE/_LEVEL);
+                            applied via the optional setIrqMode op, which
+                            programs ICFGR for SPIs (no effect for SGI/PPI)
+               hwiHandler --- hwi handler
+               irqParam --- param of the hwi handler
+ Output      : None
+ Return      : LOS_OK on success or error code on failure
+ **************************************************************************** */
+LITE_OS_SEC_TEXT_INIT UINT32 ArchHwiCreate(HWI_HANDLE_T hwiNum, HWI_PRIOR_T hwiPrio,
+                                           HWI_MODE_T hwiMode, HWI_PROC_FUNC hwiHandler,
+                                           HwiIrqParam *irqParam)
+{
+    UINT32 intSave;
+    UINT32 ret;
+
+    if (hwiHandler == NULL) {
+        return OS_ERRNO_HWI_PROC_FUNC_NULL;
+    }
+
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return OS_ERRNO_HWI_NUM_INVALID;
+    }
+
+    if (g_hwiForm[hwiNum + OS_SYS_VECTOR_CNT] != (HWI_PROC_FUNC)HalHwiDefaultHandler) {
+        return OS_ERRNO_HWI_ALREADY_CREATED;
+    }
+
+    if (hwiPrio > OS_HWI_PRIO_LOWEST) {
+        return OS_ERRNO_HWI_PRIO_INVALID;
+    }
+
+    HWI_LOCK(intSave);
+
+#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+    if (irqParam != NULL) {
+        OsSetVector(hwiNum, hwiHandler, irqParam->pDevId);
+    } else {
+        OsSetVector(hwiNum, hwiHandler, NULL);
+    }
+#else
+    (VOID)irqParam;
+    OsSetVector(hwiNum, hwiHandler);
+#endif
+
+    /* Dual-write g_hwiHandleForm (approach B transition: parallel to the
+     * per-IRQ HwiHandleInfo table, now the sole dispatch table).
+     */
+    g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].hook = hwiHandler;
+#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+    g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].registerInfo = (irqParam != NULL) ? (HWI_ARG_T)(UINTPTR)irqParam->pDevId : 0;
+#else
+    g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].registerInfo = 0;
+#endif
+    g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].respCount = 0;
+    g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].next = NULL;
+
+#if (LOSCFG_DEBUG_TOOLS == 1)
+    if ((irqParam != NULL) && (irqParam->pName != NULL)) {
+        g_hwiFormName[hwiNum + OS_SYS_VECTOR_CNT] = (CHAR *)irqParam->pName;
+    }
+    g_hwiFormCnt[hwiNum + OS_SYS_VECTOR_CNT] = 0;
+#endif
+
+    HwiControllerOps *hwiOps = ArchIntOpsGet();
+    if (hwiOps->createIrq == NULL) {
+        HWI_UNLOCK(intSave);
+        return OS_ERRNO_HWI_OPS_FUNC_NULL;
+    }
+    ret = hwiOps->createIrq(hwiNum, hwiPrio);
+    if (ret == LOS_OK && hwiOps->setIrqMode != NULL) {
+        ret = hwiOps->setIrqMode(hwiNum, hwiMode);
+    }
+    if (ret != LOS_OK) {
+        /* Roll back the dispatch table on createIrq/setIrqMode failure. */
+        g_hwiForm[hwiNum + OS_SYS_VECTOR_CNT] = (HWI_PROC_FUNC)HalHwiDefaultHandler;
+        g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].hook = NULL;
+        HWI_UNLOCK(intSave);
+        return ret;
+    }
+
+    HWI_UNLOCK(intSave);
+
+    return LOS_OK;
+}
+
+/* ****************************************************************************
+ Function    : ArchHwiDelete
+ Description : Delete hardware interrupt
+ Input       : hwiNum   --- hwi num to delete
+               irqParam --- param of the hwi handler
+ Output      : None
+ Return      : LOS_OK on success or error code on failure
+ **************************************************************************** */
+LITE_OS_SEC_TEXT_INIT UINT32 ArchHwiDelete(HWI_HANDLE_T hwiNum, HwiIrqParam *irqParam)
+{
+    (VOID)irqParam;
+    UINT32 intSave;
+
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return OS_ERRNO_HWI_NUM_INVALID;
+    }
+
+    ArchIntDisable((IRQn_Type)hwiNum);
+
+    HWI_LOCK(intSave);
+
+    g_hwiForm[hwiNum + OS_SYS_VECTOR_CNT] = (HWI_PROC_FUNC)HalHwiDefaultHandler;
+    g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].hook = NULL;
+    g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].respCount = 0;
+    g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].shareMode = 0;
+    g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].next = NULL;
+
+    HWI_UNLOCK(intSave);
+
+    return LOS_OK;
+}
+
+VOID *HalGetHandleForm(HWI_HANDLE_T hwiNum)
+{
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return NULL;
+    }
+    return &g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT];
+}

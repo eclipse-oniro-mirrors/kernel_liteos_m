@@ -40,6 +40,7 @@ static_library("test_cpup") {
     "It_los_cpup_007.c",
     "It_los_cpup_008.c",
     "It_los_cpup_009.c",
+    "It_los_cpup_010.c",
     "it_los_cpup.c",
   ]
 

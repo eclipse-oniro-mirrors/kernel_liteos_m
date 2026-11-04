@@ -448,6 +448,139 @@ LITE_TEST_CASE(PosixStdlibStrtolTest, testStdlibStrtolWs001, Function | MediumTe
     return 0;
 }
 
+/* *
+ * @tc.number    : TEST_STDLIB_STRTOLL_001
+ * @tc.name      : convert string to long long with exact endptr positioning
+ * @tc.desc      : [C- SOFTWARE -0200]
+ * strtoll 经 porting stdlib/strtol.c:26-29 的 strtox(..., LLONG_MIN) 走
+ * __intscan（internal/intscan.c）：前导空白与符号处理（:36-40）、数字
+ * 串结束后 endptr 精确停在首个非数字字符（shcnt 计数）；无转换发生时
+ * （空串/仅符号）返回 0 且 endptr 不动。
+ */
+LITE_TEST_CASE(PosixStdlibStrtolTest, testStdlibStrtoll001, Function | MediumTest | Level1)
+{
+    char nPtr[] = "  -675x";
+    char *endPtr = NULL;
+    long long ret;
+
+    ret = strtoll(nPtr, &endPtr, 10);
+    ICUNIT_ASSERT_EQUAL(ret, -675LL, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)(endPtr - nPtr), 6, (int)(endPtr - nPtr));
+
+    char nPtrPlus[] = "+123";
+    ret = strtoll(nPtrPlus, &endPtr, 10);
+    ICUNIT_ASSERT_EQUAL(ret, 123LL, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)(endPtr - nPtrPlus), 4, (int)(endPtr - nPtrPlus));
+
+    /* 空串：无转换发生，返回 0 且 endptr 不动 */
+    char nPtrEmpty[] = "";
+    ret = strtoll(nPtrEmpty, &endPtr, 10);
+    ICUNIT_ASSERT_EQUAL(ret, 0LL, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)(endPtr - nPtrEmpty), 0, (int)(endPtr - nPtrEmpty));
+
+    /* 仅符号：无转换发生，返回 0 且 endptr 不动 */
+    char nPtrMinus[] = "-";
+    ret = strtoll(nPtrMinus, &endPtr, 10);
+    ICUNIT_ASSERT_EQUAL(ret, 0LL, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)(endPtr - nPtrMinus), 0, (int)(endPtr - nPtrMinus));
+    return 0;
+}
+
+/* *
+ * @tc.number    : TEST_STDLIB_STRTOLL_002
+ * @tc.name      : strtoll with various bases (36/0/16) and invalid base rejection
+ * @tc.desc      : [C- SOFTWARE -0200]
+ * 覆盖 __intscan 的 base 处理矩阵：base36 单字符 'z'==35；base0 的 0x/0
+ * 前缀识别（:41-54，分别按 16/8 进制求值）；base16 下 "0xz" 中 'x' 后无
+ * 有效十六进制数字时 pok 双 shunget 回退（:46-48），只消费 "0"，
+ * endptr 偏移 1；base 非法（37 与 1）走 :32-35 的 EINVAL 分支，返回 0
+ * 且 endptr 不动。
+ */
+LITE_TEST_CASE(PosixStdlibStrtolTest, testStdlibStrtollBase001, Function | MediumTest | Level1)
+{
+    char nPtr[] = "0xz";
+    char *endPtr = NULL;
+    long long ret;
+
+    ret = strtoll("z", NULL, 36);
+    ICUNIT_ASSERT_EQUAL(ret, 35LL, (int)ret);
+
+    ret = strtoll("0x10", NULL, 0);
+    ICUNIT_ASSERT_EQUAL(ret, 16LL, (int)ret);
+
+    ret = strtoll("010", NULL, 0);
+    ICUNIT_ASSERT_EQUAL(ret, 8LL, (int)ret);
+
+    ret = strtoll(nPtr, &endPtr, 16);
+    ICUNIT_ASSERT_EQUAL(ret, 0LL, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)(endPtr - nPtr), 1, (int)(endPtr - nPtr));
+
+    char nPtr37[] = "123";
+    errno = 0;
+    ret = strtoll(nPtr37, &endPtr, 37);
+    ICUNIT_ASSERT_EQUAL(ret, 0LL, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)(endPtr - nPtr37), 0, (int)(endPtr - nPtr37));
+    ICUNIT_ASSERT_EQUAL(errno, EINVAL, errno);
+
+    errno = 0;
+    ret = strtoll(nPtr37, &endPtr, 1);
+    ICUNIT_ASSERT_EQUAL(ret, 0LL, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)(endPtr - nPtr37), 0, (int)(endPtr - nPtr37));
+    ICUNIT_ASSERT_EQUAL(errno, EINVAL, errno);
+    return 0;
+}
+
+/* *
+ * @tc.number    : TEST_STDLIB_STRTOLL_003
+ * @tc.name      : strtoll overflow clamps to LLONG_MAX/LLONG_MIN with ERANGE
+ * @tc.desc      : [C- SOFTWARE -0200]
+ * 覆盖 __intscan 的 64 位溢出分支（lim=LLONG_MIN 为偶数极限）：LLONG_MAX+1
+ * 走 done 后 y>=lim 的 :91-93 正向 clamp 返回 lim-1=LLONG_MAX 并置 ERANGE；
+ * -(LLONG_MIN-1) 走 :94-96 负向 clamp 返回 lim=LLONG_MIN 并置 ERANGE；
+ * 精确边界值 LLONG_MAX 与 LLONG_MIN（y==lim 且 neg，:94 条件不满足）不置
+ * ERANGE；超长全数字串走 :82-86 先消费剩余数字再 clamp 的路径。
+ * long long 恒为 64 位，无需按 sizeof(long) 分支（区别于 strtol 用例）。
+ */
+LITE_TEST_CASE(PosixStdlibStrtolTest, testStdlibStrtollOverflow001, Function | MediumTest | Level1)
+{
+    char *endPtr = NULL;
+    long long ret;
+
+    char nPtrPos[] = "9223372036854775808";
+    errno = 0;
+    ret = strtoll(nPtrPos, &endPtr, 10);
+    ICUNIT_ASSERT_EQUAL(ret, LLONG_MAX, (int)ret);
+    ICUNIT_ASSERT_EQUAL(errno, ERANGE, errno);
+    ICUNIT_ASSERT_EQUAL((int)(endPtr - nPtrPos), 19, (int)(endPtr - nPtrPos));
+
+    char nPtrNeg[] = "-9223372036854775809";
+    errno = 0;
+    ret = strtoll(nPtrNeg, &endPtr, 10);
+    ICUNIT_ASSERT_EQUAL(ret, LLONG_MIN, (int)ret);
+    ICUNIT_ASSERT_EQUAL(errno, ERANGE, errno);
+    ICUNIT_ASSERT_EQUAL((int)(endPtr - nPtrNeg), 20, (int)(endPtr - nPtrNeg));
+
+    /* 精确边界：不发生 ERANGE */
+    errno = 0;
+    ret = strtoll("9223372036854775807", &endPtr, 10);
+    ICUNIT_ASSERT_EQUAL(ret, LLONG_MAX, (int)ret);
+    ICUNIT_ASSERT_EQUAL(errno, 0, errno);
+
+    errno = 0;
+    ret = strtoll("-9223372036854775808", &endPtr, 10);
+    ICUNIT_ASSERT_EQUAL(ret, LLONG_MIN, (int)ret);
+    ICUNIT_ASSERT_EQUAL(errno, 0, errno);
+
+    /* 超长全数字串：消费全部数字后 clamp 到 LLONG_MAX 并置 ERANGE */
+    char nPtrLong[] = "99999999999999999999999999";
+    errno = 0;
+    ret = strtoll(nPtrLong, &endPtr, 10);
+    ICUNIT_ASSERT_EQUAL(ret, LLONG_MAX, (int)ret);
+    ICUNIT_ASSERT_EQUAL(errno, ERANGE, errno);
+    ICUNIT_ASSERT_EQUAL((int)(endPtr - nPtrLong), 26, (int)(endPtr - nPtrLong));
+    return 0;
+}
+
 RUN_TEST_SUITE(PosixStdlibStrtolTest);
 
 void PosixStdlibStrtolFuncTest()
@@ -471,6 +604,9 @@ void PosixStdlibStrtolFuncTest()
     RUN_ONE_TESTCASE(testStdlibStrtolOverflow001);
     RUN_ONE_TESTCASE(testStdlibStrtolBase001);
     RUN_ONE_TESTCASE(testStdlibStrtolWs001);
+    RUN_ONE_TESTCASE(testStdlibStrtoll001);
+    RUN_ONE_TESTCASE(testStdlibStrtollBase001);
+    RUN_ONE_TESTCASE(testStdlibStrtollOverflow001);
 
     return;
 }

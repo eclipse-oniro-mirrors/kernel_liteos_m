@@ -148,8 +148,47 @@ static int LittlefsErrno(int result)
     return (result < 0) ? -result : result;
 }
 
+/*
+ * liteos_m's VfsMpFind passes the FULL path (pathInMp = path) to the FS
+ * while littlefs expects a volume-relative name — without stripping,
+ * open("/nboot/x") makes littlefs look for a "/nboot" directory inside the
+ * volume (LFS_ERR_NOENT). Needed even in the single-device scenario because
+ * the volumes are mounted at sub-paths (/nboot /nsystem /nuser).
+ */
+static const char *LfsStripMpPath(struct MountPoint *mp, const char *path)
+{
+    const char *mpPath = mp->mPath;
+    const char *rel = path;
+
+    if ((mpPath == NULL) || (rel == NULL)) {
+        return path;
+    }
+    while ((*mpPath != '\0') && (*rel != '\0')) {
+        if (*mpPath != *rel) {
+            return path; /* prefix mismatch: keep full path */
+        }
+        ++mpPath;
+        ++rel;
+    }
+    while (*rel == '/') {
+        ++rel;
+    }
+    /*
+     * littlefs root is "/" — an empty remainder (the mount point itself,
+     * e.g. opendir("/user")) must map to "/" not ""
+     */
+    return (*rel == '\0') ? "/" : rel;
+}
+
 void LfsConfigAdapter(struct PartitionCfg *pCfg, struct lfs_config *lfsCfg)
 {
+    /*
+     * 每次挂载/格式化重置设备缓存: 设备表为头插(最新优先), 原实现把首次解析
+     * 永久冻结在开机设备上(qemu flash0 的起始地址是 8MB malloc 基址), 后注册
+     * 的 addr=0 设备(如测试用例的 flash9/ram0)永远选不中, 块回调收到越界
+     * 偏移导致 mount 全量失败。单设备平台重解析结果不变。
+     */
+    g_lfsDevice = NULL;
     lfsCfg->context = (void *)pCfg->partNo;
 
     lfsCfg->read_size = pCfg->readSize;
@@ -256,6 +295,7 @@ int LfsUnlink(struct MountPoint *mp, const char *fileName)
         return (int)LOS_NOK;
     }
 
+    fileName = LfsStripMpPath(mp, fileName);
     ret = lfs_remove((lfs_t *)mp->mData, fileName);
     if (ret != 0) {
         errno = LittlefsErrno(ret);
@@ -281,6 +321,7 @@ int LfsMkdir(struct MountPoint *mp, const char *dirName)
 
     lfs_t *lfs = (lfs_t *)mp->mData;
 
+    dirName = LfsStripMpPath(mp, dirName);
     ret = lfs_mkdir(lfs, dirName);
     if (ret != 0) {
         errno = LittlefsErrno(ret);
@@ -312,6 +353,7 @@ int LfsRmdir(struct MountPoint *mp, const char *dirName)
         return (int)LOS_NOK;
     }
 
+    dirName = LfsStripMpPath(mp, dirName);
     ret = lfs_remove(lfs, dirName);
     if (ret != 0) {
         errno = LittlefsErrno(ret);
@@ -338,6 +380,7 @@ int LfsOpendir(struct Dir *dir, const char *dirName)
     }
 
     (void)memset_s(dirInfo, sizeof(lfs_dir_t), 0, sizeof(lfs_dir_t));
+    dirName = LfsStripMpPath(dir->dMp, dirName);
     ret = lfs_dir_open(lfs, dirInfo, dirName);
     if (ret != 0) {
         LOSCFG_FS_FREE_HOOK(dirInfo);
@@ -441,6 +484,7 @@ int LfsOpen(struct File *file, const char *pathName, int openFlag)
     }
 
     int lfsOpenFlag = ConvertFlagToLfsOpenFlag(openFlag);
+    pathName = LfsStripMpPath(file->fMp, pathName);
     ret = lfs_file_open((lfs_t *)file->fMp->mData, lfsHandle, pathName, lfsOpenFlag);
     if (ret != 0) {
         LOSCFG_FS_FREE_HOOK(lfsHandle);
@@ -587,7 +631,8 @@ int LfsRename(struct MountPoint *mp, const char *oldName, const char *newName)
         return (int)LOS_NOK;
     }
 
-    ret = lfs_rename((lfs_t *)mp->mData, oldName, newName);
+    ret = lfs_rename((lfs_t *)mp->mData, LfsStripMpPath(mp, oldName),
+                     LfsStripMpPath(mp, newName));
     if (ret != 0) {
         errno = LittlefsErrno(ret);
         ret = (int)LOS_NOK;
@@ -611,7 +656,7 @@ int LfsStat(struct MountPoint *mp, const char *path, struct stat *buf)
         return (int)LOS_NOK;
     }
 
-    ret = lfs_stat((lfs_t *)mp->mData, path, &info);
+    ret = lfs_stat((lfs_t *)mp->mData, LfsStripMpPath(mp, path), &info);
     if (ret == 0) {
         buf->st_size = info.size;
         if (info.type == LFS_TYPE_REG) {

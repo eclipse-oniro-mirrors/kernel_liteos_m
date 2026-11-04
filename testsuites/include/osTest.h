@@ -38,6 +38,7 @@
 #include <stdint.h>
 
 #include "iCunit.h"
+#include "bug_isolate.h" /* BUG 隔离宏顶层统一引入: 全部测试翻译单元可见, 勿在各文件散落引用 */
 
 #include "los_debug.h"
 #include "los_config.h"
@@ -88,11 +89,7 @@ extern "C" {
 #define LOS_KERNEL_IPC_QUEUE_TEST 1
 #define LOS_KERNEL_CORE_SWTMR_TEST 1
 #ifndef LOS_KERNEL_HWI_TEST
-#if defined(LOSCFG_PLATFORM_HI3322)
-#define LOS_KERNEL_HWI_TEST 0
-#else
 #define LOS_KERNEL_HWI_TEST 1
-#endif
 #endif
 #define LOS_KERNEL_FS_TEST 0
 #define LOS_KERNEL_MEM_TEST 1
@@ -102,11 +99,22 @@ extern "C" {
 #define LOS_KERNEL_CORE_CPUP_TEST 0
 #endif
 #define LOS_KERNEL_DYNLINK_TEST 0
+/* DSO test images are generated at build time; suite runs on AARCH32/RISC-V only. */
+#if (LOSCFG_KERNEL_DYNLOAD == 1) && (defined(LOSCFG_ARCH_ARM_AARCH32) || defined(LOSCFG_ARCH_RISCV))
+#define LOS_KERNEL_DYNLOAD_TEST 1
+#else
+#define LOS_KERNEL_DYNLOAD_TEST 0
+#endif
 #define LOS_KERNEL_TICKLESS_TEST 0
 #if (LOSCFG_KERNEL_PM == 1)
 #define LOS_KERNEL_PM_TEST 1
 #else
 #define LOS_KERNEL_PM_TEST 0
+#endif
+#ifdef LOSCFG_KERNEL_HPL
+#define LOS_KERNEL_HPL_TEST 1
+#else
+#define LOS_KERNEL_HPL_TEST 0
 #endif
 #ifdef LOSCFG_KERNEL_LMS
 #define LOS_KERNEL_LMS_TEST 1
@@ -115,10 +123,25 @@ extern "C" {
 #endif
 #define LOS_KERNEL_LMK_TEST 0
 #ifndef LOS_KERNEL_SIGNAL_TEST
+/* ArchSignalContextInit 仅 ARM 架构实现（cortex-m 各变体 + cortex_a_r/context.c）；
+ * riscv/csky/xtensa 无实现，kernel signal 组件在这些架构上链接即断（此前靠
+ * --gc-sections 裁剪掩盖），故 signal 测试套件默认仅 ARM 板注册执行；
+ * 且内核 signal 组件关闭（LOSCFG_KERNEL_SIGNAL=n）时测试库不参与链接，注册必须同步关闭；
+ * 板级可预定义 LOS_KERNEL_SIGNAL_TEST 覆盖默认值 */
+#if defined(LOSCFG_ARCH_ARM) && (LOSCFG_KERNEL_SIGNAL == 1)
 #define LOS_KERNEL_SIGNAL_TEST 1
+#else
+#define LOS_KERNEL_SIGNAL_TEST 0
+#endif
 #endif
 #define LOS_KERNEL_MISC_TEST 1
 #define LOS_KERNEL_TCB_VERIFY_TEST 1
+
+#if defined(LOSCFG_ARCH_CACHE)
+#define LOS_KERNEL_CACHE_TEST 1
+#else
+#define LOS_KERNEL_CACHE_TEST 0
+#endif
 
 #if (LOSCFG_KERNEL_TRACE == 1)
 #define LOS_KERNEL_TRACE_TEST 1
@@ -127,6 +150,9 @@ extern "C" {
 #endif
 
 #if (defined(LOSCFG_SHELL_EXCINFO_DUMP) || (LOSCFG_BACKTRACE_TYPE != 0))
+/* AArch64 exclusion lifted: the destructive fault-injection cases are
+ * now gated by LOS_KERNEL_TEST_MANUAL; what remains (backtrace walks,
+ * exc-hook registration/query) is non-destructive. */
 #define LOS_KERNEL_EXC_TEST 1
 #else
 #define LOS_KERNEL_EXC_TEST 0
@@ -138,8 +164,18 @@ extern "C" {
 #define LOS_KERNEL_SHELL_TEST 0
 #endif
 
+#if (LOSCFG_BASE_IPC_RWSEM == 1)
+#define LOS_KERNEL_IPC_RWSEM_TEST 1
+#else
+#define LOS_KERNEL_IPC_RWSEM_TEST 0
+#endif
+
 #ifndef LOS_FEATURE_ADAPTED
-#if defined(LOSCFG_PLATFORM_WS63_M) || defined(LOSCFG_PLATFORM_HI3322)
+/* rk3568_m joins the ADAPTED=0 list: LOS_MDelay under IntLock hangs the
+ * same way as on ws63 (master-kicked tick), and the trigger-shim
+ * re-enable breaks the disable-window/ops error-code expectations. */
+#if defined(LOSCFG_PLATFORM_WS63_M) || defined(LOSCFG_PLATFORM_HI3322) || \
+    defined(LOSCFG_PLATFORM_RK3568_M)
 #define LOS_FEATURE_ADAPTED 0
 #else
 #define LOS_FEATURE_ADAPTED 1
@@ -155,16 +191,20 @@ extern "C" {
 #else
 #define LOS_CMSIS_TEST 0
 #endif
-#ifdef LOSCFG_POSIX_API
+#if defined(LOSCFG_POSIX_API) && !defined(__aarch64__)
 #define LOS_POSIX_TEST 1
 #else
+/* AArch64: pthread_t/mqd_t are pointer types (64-bit); the POSIX test
+ * sources have int<->pointer casts that trip -Werror. Excluded until
+ * they are ported - see testsuites/BUILD.gn (no posix/xts deps). */
 #define LOS_POSIX_TEST 0
 #endif
-#ifdef LOSCFG_POSIX_API
+#if defined(LOSCFG_POSIX_API) && !defined(__aarch64__)
 #define LOS_XTS_TEST 1
 #else
 #define LOS_XTS_TEST 0
 #endif
+
 #define LOS_CMSIS2_CORE_TASK_TEST 0
 #define LOS_CMSIS2_IPC_MUX_TEST 0
 #define LOS_CMSIS2_IPC_SEM_TEST 0
@@ -306,6 +346,11 @@ extern EVENT_CB_S g_exampleEvent;
 #define OS_TSK_TEST_STACK_SIZE 0x2000
 #elif  __XTENSA_LX6__
 #define OS_TSK_TEST_STACK_SIZE 0x800
+#elif defined(__aarch64__)
+/* AArch64 test task: 64-bit frames are deeper and the MCS suite
+ * (CAN/NET/RPC/NP/Svc) call chain overflows 0x1000. Use the same
+ * 0x5000 headroom as the coverage build. */
+#define OS_TSK_TEST_STACK_SIZE 0x5000
 #else
 #ifdef LOSCFG_TEST_KERNEL_COVERAGE
 /* ARM (-O0 instrumented) test task: measured waterline exceeds 0x1000
@@ -386,6 +431,18 @@ extern UINT32 TaskUsedCountGet(VOID);
 #elif __XTENSA_LX6__
 #define HWI_NUM_TEST 7 // xtensa_lx6 only support one software interrupt number
 #define LOS_KERNEL_MULTI_HWI_TEST 0 // xtensa_lx6 not support multiple hwi number test case
+#elif defined(LOSCFG_PLATFORM_RK3568_M)
+/* AMP slave (GICv3): test SPIs must be unclaimed by the master (DT-disabled
+ * serial nodes) and not collide with the slave's own handover - the safe
+ * INTIDs are non-contiguous by construction, excluding the full-band sweep
+ * cases (it_los_hwi_032/033, see It_los_hwi.c). */
+#define HWI_NUM_TEST  153 /* GIC SPI 121 (uart5) */
+#define HWI_NUM_TEST0 155 /* GIC SPI 123 (uart7); aliased with TEST1 -
+                             * the two are never used in one case together */
+#define HWI_NUM_TEST1 155 /* GIC SPI 123 (uart7) */
+#define HWI_NUM_TEST2 157 /* GIC SPI 125 (uart9) */
+#define HWI_NUM_TEST3 149 /* GIC SPI 117 (uart1) */
+#define LOS_KERNEL_MULTI_HWI_TEST 1
 #elif defined(__ARM_ARCH_7A__)
 /* Cortex-A(GICv2):SGI(0-15)的 enable 位屏蔽、软触发 pending 清除语义在规范中
  * 是 implementation defined,很多 GICv2 实现对 SGI 不可靠(mask 拦不住 pending、
@@ -414,7 +471,7 @@ extern UINT32 TaskUsedCountGet(VOID);
 #ifndef dprintf
 #define dprintf PRINTK
 #endif
-#define IT_SEM_COUNT_MAX OS_SEM_COUNTING_MAX_COUNT
+#define IT_SEM_COUNT_MAX LOS_SEM_COUNT_MAX
 
 extern EVENT_CB_S g_pstEventCb01;
 extern EVENT_CB_S g_pstEventCb02;
@@ -426,6 +483,7 @@ extern UINT32 TestSemDelete(UINT32 semHandle);
 extern UINT32 TestHwiDelete(UINT32 hwiNum);
 extern VOID TEST_HwiDeleteAll(VOID);
 extern VOID TestHwiTrigger(UINT32 hwiNum);
+extern VOID TestHwiSync(VOID);
 extern VOID TestHwiClear(UINT32 hwiNum);
 #ifdef __RISC_V__
 extern UINT64 LosCpuCycleGet(VOID);
@@ -451,12 +509,17 @@ extern VOID ItSuiteLosMem(void);
 extern VOID ItSuiteLosTrace(void);
 extern VOID ItSuiteLosCpup(void);
 extern VOID ItSuiteLosDynlink(void);
+extern VOID ItSuiteLosHpl(void);
+#if (LOSCFG_KERNEL_DYNLOAD == 1)
+extern VOID ItSuiteLosDynload(void);
+#endif
 extern VOID ItSuite_Los_FatFs(void);
 extern VOID ItSuiteLosLms(void);
 extern VOID ItSuiteLosPm(void);
 extern VOID ItSuiteLosLmk(void);
 extern VOID ItSuiteLosSignal(void);
 extern VOID ItSuiteLosMisc(void);
+extern VOID ItSuiteLosCache(void);
 extern VOID ItSuiteLosExc(void);
 extern VOID ItSuiteLosShell(void);
 extern VOID ItSuiteLosTcbVerify(void);
@@ -498,7 +561,7 @@ extern UINT32 g_taskMaxNum;
 extern LITE_OS_SEC_BSS_INIT LOS_DL_LIST g_stUnusedSemList;
 
 extern VOID LOS_Schedule(VOID);
-extern LosTaskCB *g_taskCBArray;
+extern LosTaskCB *g_osTaskCBArray;
 
 extern VOID OsCpupStart(VOID);
 extern VOID OsCpupStop(VOID);
@@ -508,5 +571,11 @@ extern VOID OsCpupStop(VOID);
 }
 #endif /* __cplusplus */
 #endif /* __cplusplus */
+
+/* fuzz suite (KERNEL_FUZZ build): single entry aggregating every module
+ * suite -- see sample/fuzz/it_fuzz.c */
+#ifdef LOSCFG_KERNEL_FUZZ
+extern VOID ItSuiteFuzzAll(VOID);
+#endif
 
 #endif /* _OSTEST_H */

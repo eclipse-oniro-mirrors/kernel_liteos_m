@@ -6,15 +6,15 @@
  * are permitted provided that the following conditions are met:
  *
  * 1. Redistributions of source code must retain the above copyright notice, this list of
- * conditions and the following disclaimer.
+ *    conditions and the following disclaimer.
  *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this list
- * of conditions and the following disclaimer in the documentation and/or other materials
- * provided with the distribution.
+ *    of the conditions and the following disclaimer in the documentation and/or other materials
+ *    provided with the distribution.
  *
  * 3. Neither the name of the copyright holder nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific prior written
- * permission.
+ *    to endorse or promote products derived from this software without specific prior written
+ *    permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
@@ -33,7 +33,6 @@
 #include "It_los_swtmr.h"
 
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-
 static VOID SwtmrApi004Func(UINTPTR arg)
 {
     g_testCount++;
@@ -46,31 +45,33 @@ static UINT32 Testcase(VOID)
 
     g_testCount = 0;
 
-    /* invalid rouses: value 2 is neither IGNORE(0) nor ALLOW(1) */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff,
-        2, OS_SWTMR_ALIGN_INSENSITIVE);
-    ICUNIT_ASSERT_EQUAL(ret, OS_ERRNO_SWTMR_ROUSES_INVALID, ret);
-
-    /* invalid rouses: value 255 */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff,
-        0xFF, OS_SWTMR_ALIGN_INSENSITIVE);
-    ICUNIT_ASSERT_EQUAL(ret, OS_ERRNO_SWTMR_ROUSES_INVALID, ret);
-
-    /* invalid sensitive: value 2 is neither SENSITIVE(0) nor INSENSITIVE(1) */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff,
-        OS_SWTMR_ROUSES_ALLOW, 2);
-    ICUNIT_ASSERT_EQUAL(ret, OS_ERRNO_SWTMR_ALIGN_INVALID, ret);
-
-    /* invalid sensitive: value 255 */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff,
-        OS_SWTMR_ROUSES_ALLOW, 0xFF);
-    ICUNIT_ASSERT_EQUAL(ret, OS_ERRNO_SWTMR_ALIGN_INVALID, ret);
-
-    /* valid creation after errors */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff,
-        OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE);
+    /* create with ALIGN_FLAG, ONCE mode (align ignored for non-PERIOD) */
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi004Func, &swTmrID, 0xffff);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+    ret = LOS_SwtmrDelete(swTmrID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
+    /* create with ALIGN_FLAG, ONCE mode */
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi004Func, &swTmrID, 0xffff);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+    ret = LOS_SwtmrDelete(swTmrID);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+
+    /* create without ALIGN_FLAG, ONCE mode */
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+    ret = LOS_SwtmrDelete(swTmrID);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+
+    /* create without ALIGN_FLAG, ONCE mode */
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+    ret = LOS_SwtmrDelete(swTmrID);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+
+    /* valid creation with ALIGN_FLAG */
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi004Func, &swTmrID, 0xffff);
+    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_SwtmrDelete(swTmrID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
@@ -81,5 +82,4 @@ VOID ItLosSwtmrApi004(VOID)
 {
     TEST_ADD_CASE("ItLosSwtmrApi004", Testcase, TEST_LOS, TEST_SWTMR, TEST_LEVEL1, TEST_FUNCTION);
 }
-
 #endif

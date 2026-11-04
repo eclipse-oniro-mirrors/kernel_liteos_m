@@ -44,8 +44,8 @@ static UINT32 TestCase(VOID)
     SCHEDULER_LOCK(intSave);
 
     for (UINT32 i = 0; i < g_taskMaxNum; i++) {
-        if (g_taskCBArray[i].taskStatus & OS_TASK_STATUS_UNUSED) {
-            tcb = &g_taskCBArray[i];
+        if (g_osTaskCBArray[i].taskStatus & OS_TASK_STATUS_UNUSED) {
+            tcb = &g_osTaskCBArray[i];
             break;
         }
     }

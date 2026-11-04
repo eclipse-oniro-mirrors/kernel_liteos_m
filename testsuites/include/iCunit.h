@@ -54,6 +54,7 @@ typedef signed short iINT16;
 typedef signed long iINT32;
 typedef char iCHAR;
 typedef void iVOID;
+typedef unsigned long long iUINT64;
 
 typedef unsigned long iiUINT32;
 
@@ -147,6 +148,12 @@ typedef struct {
     iUINT32 passCount;
 } ICUNIT_MODULE_STAT_S;
 
+/* 用例耗时统计（ICUNIT_CASE_TIME_STAT=0 时仅记录/打印为空，头文件不做条件裁剪，规避包含顺序问题） */
+typedef struct {
+    iCHAR *pcCaseID;
+    iUINT64 costUs;
+} ICUNIT_TIME_STAT_S;
+
 
 extern iUINT16 iCunit_errLineNo;
 extern iiUINT32 iCunit_errCode;
@@ -158,6 +165,8 @@ extern ICUNIT_MODULE_STAT_S g_moduleStat[];
 extern void ICunitRecordFailLog(iCHAR *caseID, iUINT16 layer, iUINT16 module, iUINT16 level, iUINT16 type,
     iUINT16 errLine, iiUINT32 retCode);
 extern void ICunitPrintFailLogs(void);
+extern void ICunitTimeStatRecord(iCHAR *caseID, iUINT64 costUs);
+extern void ICunitPrintTimeStats(void);
 extern const char *ICunitLayerToStr(iUINT16 layer);
 extern const char *ICunitModuleToStr(iUINT16 module);
 extern const char *ICunitLevelToStr(iUINT16 level);

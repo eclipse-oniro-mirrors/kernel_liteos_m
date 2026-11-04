@@ -57,6 +57,23 @@ UINT8 g_excMsgArray[MAX_EXC_MEM_SIZE];
 STATIC ExcInfoArray g_excArray[OS_EXC_TYPE_MAX];
 
 #ifndef LOSCFG_ARCH_RISCV
+#if !defined(OS_NVIC_SETENA_BASE) /* GIC (cortex-a) has no NVIC status block */
+#define EXC_NO_NVIC_DUMP 1
+#endif
+#endif
+
+#ifdef EXC_NO_NVIC_DUMP
+/* keep the same registration shape, no int-status content (GIC) */
+STATIC UINT32 OsExcSaveIntStatus(UINT32 type, VOID *arg)
+{
+    (VOID)arg;
+    *((UINT32 *)g_excContent) = type;
+    g_excContent = (UINT8 *)g_excContent + sizeof(UINT32);
+    *((UINT32 *)g_excContent) = 0;
+    g_excContent = (UINT8 *)g_excContent + sizeof(UINT32);
+    return LOS_OK;
+}
+#elif !defined(LOSCFG_ARCH_RISCV)
 STATIC UINT32 OsExcSaveIntStatus(UINT32 type, VOID *arg)
 {
     errno_t ret;
@@ -127,7 +144,7 @@ STATIC UINT32 OsExcSaveIntStatus(UINT32 type, VOID *arg)
 
     return LOS_OK;
 }
-#endif
+#endif /* !LOSCFG_ARCH_RISCV && !EXC_NO_NVIC_DUMP */
 
 STATIC UINT32 OsExcMemMsgGet(UINT32 type, VOID *arg)
 {
@@ -266,6 +283,9 @@ STATIC VOID OsExcMsgDump(VOID)
 
     /* Ignore the return code when matching CSEC rule 6.6(4). */
     (VOID)memset_s(g_excMsgArray, g_excArraySize, EXC_MSG_ARRAY_INIT_VALUE, g_excArraySize);
+
+    /* Reset the dump cursor to the array base on every entry. */
+    g_excContent = (VOID *)g_excMsgArray;
 
     *((UINT32 *)g_excContent) = MAX_EXC_MEM_SIZE;  /* The total length of exception information. */
     g_excContent = (UINT8 *)g_excContent + sizeof(UINT32);

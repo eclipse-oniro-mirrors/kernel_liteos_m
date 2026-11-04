@@ -76,34 +76,33 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     UINT32 swtmrId1;
     UINT32 swtmrId2;
+    UINT32 waitLoop;
 
     g_testCount = 0;
 
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)Case3, &swtmrId1, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case3, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
-    // 2, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)Case2, &swtmrId2, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    // 4, Timeout interval of a periodic software timer.
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case2, &swtmrId2, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_HwiCreate(HWI_NUM_INT11, 1, 0, (HWI_PROC_FUNC)Case1, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
+    /* 同步 tick 起点后启动, 保证定时间隔为整拍: 中断当拍完成, 2 拍余量足够 */
+    LOS_TaskDelay(1);
     LOS_SwtmrStart(swtmrId1);
     LOS_SwtmrStart(swtmrId2);
 
     TestHwiTrigger(HWI_NUM_INT11);
 
     // 21, Here, check that g_testCount is equal to this .
-    while (g_testCount != 21) {
+    /* Bounded wait: a broken HWI/swtmr ordering on a port must surface as a
+     * [Failed] line, not as an endless spin that stalls the whole suite. */
+    for (waitLoop = 0; (g_testCount != 21) && (waitLoop < TEST_WAIT_TIMEOUT); waitLoop++) {
+        LOS_TaskDelay(1);
     }
+    ICUNIT_GOTO_EQUAL(g_testCount, 21, g_testCount, EXIT);
 
     TestHwiDelete(HWI_NUM_INT11);
 

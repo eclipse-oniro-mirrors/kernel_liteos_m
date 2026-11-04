@@ -62,6 +62,15 @@ static UINT32 Testcase(VOID)
 {
     UINT32 ret;
     HWI_PRIOR_T hwiPrio = 1;
+#ifdef LOSCFG_TEST_HWI_PRIO_FOLDED
+    /* even levels: distinct on the DS=0 NS 4-bit priority grid */
+    hwiPrio = 2; /* HWI_NUM_TEST (153, HwiF01) - first (0x10) */
+    /* GICv3 delivers same-priority pendings lowest-INTID-first; the case
+     * asserts the count sequence 153 -> 155 -> 149, so pin the delivery
+     * order with distinct priorities instead. */
+    HWI_PRIOR_T hwiPrio3 = 6; /* HWI_NUM_TEST3 (149, HwiF02) - last (0x30) */
+    HWI_PRIOR_T hwiPrio1 = 4; /* HWI_NUM_TEST1 (155, HwiF03) - second (0x20) */
+#endif
     HWI_MODE_T mode = 0;
     HwiIrqParam irqParam;
     (void)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
@@ -73,10 +82,18 @@ static UINT32 Testcase(VOID)
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
+#ifdef LOSCFG_TEST_HWI_PRIO_FOLDED
+    ret = LOS_HwiCreate(HWI_NUM_TEST3, hwiPrio3, mode, (HWI_PROC_FUNC)HwiF02, &irqParam);
+#else
     ret = LOS_HwiCreate(HWI_NUM_TEST3, hwiPrio, mode, (HWI_PROC_FUNC)HwiF02, &irqParam);
+#endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
+#ifdef LOSCFG_TEST_HWI_PRIO_FOLDED
+    ret = LOS_HwiCreate(HWI_NUM_TEST1, hwiPrio1, mode, (HWI_PROC_FUNC)HwiF03, &irqParam);
+#else
     ret = LOS_HwiCreate(HWI_NUM_TEST1, hwiPrio, mode, (HWI_PROC_FUNC)HwiF03, &irqParam);
+#endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT2);
 
     intSave = LOS_IntLock();

@@ -39,7 +39,7 @@ static UINT32 g_testMux035;
 static UINT32 g_swtmrPendRet;
 static volatile UINT32 g_swtmrRan;
 
-static VOID SwtmrFunc035(UINT32 arg)
+static VOID SwtmrFunc035(UINTPTR arg)
 {
     (VOID)arg;
     g_swtmrPendRet = LOS_MuxPend(g_testMux035, 10); // 10, timeout ticks; rejected before pend.
@@ -58,11 +58,7 @@ static UINT32 Testcase(VOID)
     ret = LOS_MuxCreate(&g_testMux035);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrFunc035, &swtmrId, 0xffff
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-        , OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE
-#endif
-    );
+    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrFunc035, &swtmrId, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(swtmrId);
@@ -77,8 +73,9 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(g_swtmrRan, 1, g_swtmrRan, EXIT);
 #if defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR) && (LOSCFG_BASE_CORE_SWTMR_IN_ISR == 1)
     /* 板级 target_config.h 定义 SWTMR_IN_ISR（如 qemu mps2-an386）：swtmr 回调
-     * 直接运行于 tick 中断上下文 → 命中 OsMuxValidCheck 的中断检查。 */
-    ICUNIT_GOTO_EQUAL(g_swtmrPendRet, LOS_ERRNO_MUX_IN_INTERR, g_swtmrPendRet, EXIT);
+     * 直接运行于 tick 中断上下文 → 命中 OsMuxParaCheck 的中断检查。
+     * 注: liteos_m 的错误码为 MUX_PEND_INTERR（liteos_m 称 MUX_IN_INTERR）。 */
+    ICUNIT_GOTO_EQUAL(g_swtmrPendRet, LOS_ERRNO_MUX_PEND_INTERR, g_swtmrPendRet, EXIT);
 #else
     /* 默认派发模式：swtmr 回调运行于系统级定时器任务（OS_TASK_FLAG_SYSTEM）
      * → 命中系统任务检查（los_mux.c L191-192）。 */

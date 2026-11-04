@@ -29,9 +29,9 @@
 #ifndef _HW_TIME64_H_
 #define _HW_TIME64_H_
 
-#if defined(__LP64__)
-#error Your time_t is already 64-bit.
-#else
+/* On LP64 targets time_t is already 64-bit; the explicit 64-bit variants
+ * below stay valid (time64_t == int64_t), only the timeval64/timespec64
+ * shims and the *timeofday64 wrappers are 32-bit-only. */
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
@@ -84,5 +84,4 @@ int setlocalseconds(int seconds);
 }
 #endif /* __cplusplus */
 
-#endif /* __LP64__ */
 #endif /* _HW_TIME64_H_ */

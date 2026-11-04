@@ -75,7 +75,7 @@ VOID OsMpCollectTasks(VOID)
 
     /* recursive checking all the available task */
     for (; taskId < g_taskMaxNum; taskId++) {
-        taskCB = &g_taskCBArray[taskId];
+        taskCB = &g_osTaskCBArray[taskId];
 
         if ((taskCB->taskStatus & OS_TASK_STATUS_ZOMBIE) ||
             (taskCB->taskStatus & OS_TASK_STATUS_RUNNING)) {
@@ -101,14 +101,8 @@ LITE_OS_SEC_TEXT_INIT_LEVEL_ONE UINT32 OsMpInit(VOID)
     UINT32 swtmrId;
     UINT32 ret;
 
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
-    ret = LOS_SwtmrCreate(OS_MP_GC_PERIOD, LOS_SWTMR_MODE_PERIOD,
-                          (SWTMR_PROC_FUNC)OsMpCollectTasks, &swtmrId, 0,
-                          OS_SWTMR_ROUSES_ALLOW, OS_SWTMR_ALIGN_INSENSITIVE);
-#else
-    ret = LOS_SwtmrCreate(OS_MP_GC_PERIOD, LOS_SWTMR_MODE_PERIOD,
+    ret = LOS_SwtmrCreate(OS_MP_GC_PERIOD, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG,
                           (SWTMR_PROC_FUNC)OsMpCollectTasks, &swtmrId, 0);
-#endif
     if (ret != LOS_OK) {
         PRINT_ERR("Swtmr Create failed err:0x%x\n", ret);
         return ret;

@@ -81,6 +81,7 @@ static_library("test_sem") {
     "It_los_sem_303.c",
     "It_los_sem_304.c",
     "It_los_sem_305.c",
+    "It_los_sem_306.c",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

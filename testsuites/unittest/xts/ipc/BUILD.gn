@@ -55,5 +55,5 @@ static_library("ipc_test") {
   if (ohos_build_compiler == "clang") {
     cflags = [ "-Wno-int-conversion" ]
   }
-  configs += [ "//kernel/liteos_m/testsuites:no_test_coverage" ]
+  configs += [ "$LITEOSTOPDIR/testsuites:no_test_coverage" ]
 }

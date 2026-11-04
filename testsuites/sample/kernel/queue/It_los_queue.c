@@ -118,6 +118,7 @@ VOID ItSuiteLosQueue(VOID)
     ItLosQueue114();
     ItLosQueue115();
     ItLosQueue116();
+    ItLosQueue117(); /* OsQueueMailAlloc/OsQueueMailFree 邮件内存机制 */
     ItLosQueueHead001();
     ItLosQueueHead002();
     ItLosQueueHead003();
@@ -187,10 +188,8 @@ VOID ItSuiteLosQueue(VOID)
 #endif
     ItLosQueue073();
     ItLosQueue109();
-#if (LOS_FEATURE_ADAPTED == 1)
     LlTLosQueue001();
     LltLosQueue003();
-#endif
     ItLosQueue091();
     ItLosQueue092();
     ItLosQueue093();

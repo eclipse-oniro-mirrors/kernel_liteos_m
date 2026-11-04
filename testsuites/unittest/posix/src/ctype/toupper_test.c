@@ -29,6 +29,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* toupper_l 等 locale 变体声明需要（ctype.h:40-62 段） */
+#define _POSIX_SOURCE
 #include <ctype.h>
 #include "ohos_types.h"
 #include "posix_test.h"
@@ -154,6 +156,23 @@ LITE_TEST_CASE(PosixCTypeToupperTest, testCTypeToupper005, Function | MediumTest
     return 0;
 }
 
+/* 用例简要描述: toupper_l 小写转大写及非字母不变 */
+LITE_TEST_CASE(PosixCTypeToupperTest, testCtypeToupperL001, Function | MediumTest | Level1)
+{
+    int ret;
+
+    /* __toupper_l 忽略 locale 参数直接转发 toupper（toupper.c:9-11），NULL 安全 */
+    ret = toupper_l('a', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 'A', ret);
+
+    ret = toupper_l('A', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 'A', ret);
+
+    ret = toupper_l('!', NULL);
+    ICUNIT_ASSERT_EQUAL(ret, '!', ret);
+    return 0;
+}
+
 void PosixToupperFuncTest()
 {
     LOG("begin PosixToupperFuncTest....");
@@ -162,6 +181,7 @@ void PosixToupperFuncTest()
     RUN_ONE_TESTCASE(testCTypeToupper003);
     RUN_ONE_TESTCASE(testCTypeToupper004);
     RUN_ONE_TESTCASE(testCTypeToupper005);
+    RUN_ONE_TESTCASE(testCtypeToupperL001);
 
     return;
 }

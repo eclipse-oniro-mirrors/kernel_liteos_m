@@ -35,6 +35,7 @@
 #include "osTest.h"
 #include "los_exc.h"
 #include "los_arch_interrupt.h"
+#include "los_exc_info.h"
 #include "los_sem.h"
 #include "los_task.h"
 
@@ -55,6 +56,10 @@ extern VOID ItLosExc008(VOID);
 extern VOID ItLosExc009(VOID);
 VOID ItLosExc010(VOID);
 VOID ItLosExc011(VOID);
+VOID ItLosExc012(VOID);
+VOID ItLosExc013(VOID);
+VOID ItLosExc014(VOID);
+VOID ItLosExc015(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

@@ -1,0 +1,47 @@
+# yaffs2 OH-VFS adapter + libc symbol floor for the CLOSED prebuilt
+# libyaffs2.a (YAFFS2_BINARY_LIB_PORTING_PLAN.md P2/P3).
+#
+# The yaffs2 core itself is the fbb prebuilt archive
+# (third_party/yaffs2/prebuilt/libyaffs2.orig.a, linked pristine under the
+# D-route ilp32d hard-float ABI) at final image link via board BUILD.gn
+# ldflags; this module compiles only the OH-VFS adapter and the link-time
+# symbol shims the archive needs (printf/dprintf/qsort/malloc/free/
+# ArchExcActive — the musl kernel porting compiles none of those files).
+# Registration is performed by the soc bridge (fmc/yaffs/nand_yaffs_bridge.c
+# calls YaffsVfsRegister()) after OsVfsInit, so vfs_init.c stays untouched.
+#
+# Gated by LOSCFG_FS_YAFFS (fs/yaffs2/Kconfig), same pattern as the
+# littlefs module. The shim's printf/dprintf definitions collide at link
+# time with board-provided libc shims (qemu arm_mps2_an386 dprintf.c), so
+# the module must stay off on boards that do not link the closed archive.
+#
+# NOTE: yaffs_libc_shim.c must NOT be force-included with the fmc
+# compat_fix.h (its #define dprintf would rename the shim definition), hence
+# this kernel module placement rather than the fmc static library.
+import("//kernel/liteos_m/liteos.gni")
+
+module_switch = defined(LOSCFG_FS_YAFFS)
+module_name = get_path_info(rebase_path("."), "name")
+kernel_module(module_name) {
+  sources = [
+    "vfs_yaffs2.c",
+    "yaffs_libc_shim.c",
+  ]
+
+  include_dirs = [
+    # yaffs2 authoritative fbb header set
+    "//device/soc/hisilicon/hi3322/yaffs2/include/yaffs2",
+    "//device/soc/hisilicon/hi3322/yaffs2/include/yaffs2/direct",
+    # yaffs_nandcfg.h (yaffs_start/yaffs_end contract)
+    "//device/soc/hisilicon/hi3322/yaffs2/include/yaffs2/os_adapt/adapt_liteos",
+    # mtd_partition.h / linux/mtd/mtd.h (fbb contract headers)
+    "//device/soc/hisilicon/hi3322/yaffs2/include",
+  ]
+
+  defines = [
+    "_GNU_SOURCE",
+    "__LITEOS__",
+  ]
+
+  cflags = [ "-Wno-error" ]
+}

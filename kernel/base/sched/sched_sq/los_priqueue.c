@@ -94,6 +94,24 @@ BOOL OsPriQueueIsEmpty(UINT32 priority)
 
 LosTaskCB *OsGetTopTask(VOID)
 {
+#ifdef LOSCFG_KERNEL_SMP
+    UINT32 priority;
+    UINT32 bitmap;
+    UINT32 cpuid = ArchCurrCpuid();
+    LosTaskCB *newTask = NULL;
+
+    bitmap = g_priQueueBitmap;
+    while (bitmap) {
+        priority = CLZ(bitmap);
+        LOS_DL_LIST_FOR_EACH_ENTRY(newTask, &g_priQueueList[priority], LosTaskCB, pendList) {
+            if (newTask->cpuAffiMask & (1U << cpuid)) {
+                return newTask;
+            }
+        }
+        bitmap &= ~(1U << (OS_PRIORITY_QUEUE_NUM - priority - 1));
+    }
+    return OS_TCB_FROM_TID(OsPercpuGet()->idleTaskId);
+#else
     UINT32 priority;
     UINT32 bitmap;
     LosTaskCB *newTask = NULL;
@@ -107,4 +125,5 @@ LosTaskCB *OsGetTopTask(VOID)
     }
 
     return newTask;
+#endif
 }

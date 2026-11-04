@@ -354,6 +354,7 @@ LITE_TEST_CASE(PosixMemFuncTestSuite, testOsMemRealloc003, Function | MediumTest
 
     retValue = (char *)realloc(retValue, 20);
     ICUNIT_ASSERT_NOT_EQUAL(retValue, NULL, 0);
+    free(retValue);
     return 0;
 };
 

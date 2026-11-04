@@ -102,7 +102,7 @@ STATIC INLINE UINT32 GetMqueueCBByID(UINT32 queueID, LosQueueCB **queueCB)
         return LOS_ERRNO_QUEUE_READ_PTR_NULL;
     }
     tmpQueueCB = GET_QUEUE_HANDLE(queueID);
-    if ((GET_QUEUE_INDEX(queueID) >= LOSCFG_BASE_IPC_QUEUE_LIMIT) || (tmpQueueCB->queueID != queueID)) {
+    if ((GET_QUEUE_INDEX(queueID) >= LOSCFG_BASE_IPC_QUEUE_LIMIT) || (tmpQueueCB->queueId != queueID)) {
         return LOS_ERRNO_QUEUE_INVALID;
     }
     *queueCB = tmpQueueCB;
@@ -211,7 +211,7 @@ STATIC struct mqpersonal *DoMqueueCreate(const struct mq_attr *attr, const CHAR 
     mqueueCB->mq_personal = (struct mqpersonal *)LOS_MemAlloc(OS_SYS_MEM_ADDR, sizeof(struct mqpersonal));
     if (mqueueCB->mq_personal == NULL) {
         (VOID)LOS_QueueDelete(mqueueCB->mq_id);
-        mqueueCB->mqcb->queue = NULL;
+        mqueueCB->mqcb->queueHandle = NULL;
         mqueueCB->mqcb = NULL;
         errno = ENOSPC;
         goto ERROUT;
@@ -392,7 +392,7 @@ int OsMqGetAttr(mqd_t personal, struct mq_attr *mqAttr)
 
     mqueueCB = privateMqPersonal->mq_posixdes;
     mqAttr->mq_maxmsg = mqueueCB->mqcb->queueLen;
-    mqAttr->mq_msgsize = mqueueCB->mqcb->queueSize - sizeof(UINT32);
+    mqAttr->mq_msgsize = mqueueCB->mqcb->queueSize;
     mqAttr->mq_curmsgs = mqueueCB->mqcb->readWriteableCnt[OS_QUEUE_READ];
     mqAttr->mq_flags = privateMqPersonal->mq_flags;
     (VOID)pthread_mutex_unlock(&g_mqueueMutex);
@@ -551,7 +551,7 @@ int mq_timedsend(mqd_t personal, const char *msg, size_t msgLen, unsigned int ms
     OS_MQ_GOTO_ERROUT_UNLOCK_IF(privateMqPersonal->mq_status != MQ_USE_MAGIC, EBADF);
 
     mqueueCB = privateMqPersonal->mq_posixdes;
-    OS_MQ_GOTO_ERROUT_UNLOCK_IF(msgLen > (size_t)(mqueueCB->mqcb->queueSize - sizeof(UINT32)), EMSGSIZE);
+    OS_MQ_GOTO_ERROUT_UNLOCK_IF(msgLen > (size_t)(mqueueCB->mqcb->queueSize), EMSGSIZE);
 
     OS_MQ_GOTO_ERROUT_UNLOCK_IF((((UINT32)privateMqPersonal->mq_flags & (UINT32)O_WRONLY) != (UINT32)O_WRONLY) &&
                                 (((UINT32)privateMqPersonal->mq_flags & (UINT32)O_RDWR) != (UINT32)O_RDWR),
@@ -597,7 +597,7 @@ ssize_t mq_timedreceive(mqd_t personal, char *msg, size_t msgLen, unsigned int *
     }
 
     mqueueCB = privateMqPersonal->mq_posixdes;
-    if (msgLen < (size_t)(mqueueCB->mqcb->queueSize - sizeof(UINT32))) {
+    if (msgLen < (size_t)(mqueueCB->mqcb->queueSize)) {
         errno = EMSGSIZE;
         goto ERROUT_UNLOCK;
     }

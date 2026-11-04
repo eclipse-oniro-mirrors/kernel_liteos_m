@@ -31,7 +31,7 @@
 
 #include "It_los_queue.h"
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
 static UINT32 Testcase(VOID)
 {
     UINT32 ret;
@@ -50,7 +50,7 @@ static UINT32 Testcase(VOID)
     ret = LOS_QueueReadCopy(g_testQueueID01, &buff2, &msgSize, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = strcmp((CHAR *)buff2, (CHAR *)buff3);
+    ret = strcmp((CHAR *)buff2, (CHAR *)buff3 + (QUEUE_BASE_NUM * sizeof(UINT32)));
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
     ret = LOS_QueueDelete(g_testQueueID01);

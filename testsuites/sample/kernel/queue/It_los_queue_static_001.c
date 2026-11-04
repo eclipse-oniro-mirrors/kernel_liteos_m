@@ -31,7 +31,7 @@
 
 #include "It_los_queue.h"
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
 static UINT32 Testcase(VOID)
 {
     UINT32 ret;

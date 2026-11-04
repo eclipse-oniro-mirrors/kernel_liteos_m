@@ -47,7 +47,11 @@ static UINT32 Testcase(VOID)
     TestHwiTrigger(HWI_NUM_TEST);
 
     ret = LOS_QueueRead(g_testQueueID01, &buff2, 1, 0);
+#ifdef LOSCFG_QUEUE_READ_PARTIAL
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
+#else
+    ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_QUEUE_READ_SIZE_TOO_SMALL, ret, EXIT);
+#endif
 
 EXIT:
     TestHwiDelete(HWI_NUM_TEST);

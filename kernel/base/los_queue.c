@@ -29,89 +29,64 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "los_queue.h"
+#include "los_queue_pri.h"
 #include "los_queue_debug_pri.h"
 #include "los_task_pri.h"
 #include "securec.h"
-#include "los_config.h"
-#include "los_trace.h"
-#include "los_debug.h"
-#include "los_hook.h"
 #include "los_interrupt.h"
 #include "los_membox.h"
 #include "los_memory.h"
-#include "los_sched.h"
 #include "los_sched_pri.h"
 #include "los_mp_pri.h"
 #include "los_percpu_pri.h"
+#include "los_trace.h"
+#include "los_exc.h"
+#include "los_hook.h"
 #include <stdint.h>
 
+#ifdef LOSCFG_BASE_IPC_QUEUE
 
-#if (LOSCFG_BASE_IPC_QUEUE == 1)
-
-#if !defined(LOSCFG_QUEUE_DYNAMIC_ALLOCATION) && (LOSCFG_QUEUE_STATIC_ALLOCATION != 1)
+#if !defined(LOSCFG_QUEUE_DYNAMIC_ALLOCATION) && !defined(LOSCFG_QUEUE_STATIC_ALLOCATION)
 #error "MUST choose one mode for creating a queue!"
 #endif
 
-LITE_OS_SEC_BSS LosQueueCB *g_allQueue = NULL ;
-LITE_OS_SEC_BSS LOS_DL_LIST g_freeQueueList;
+LITE_OS_SEC_BSS LosQueueCB *g_osAllQueue = NULL;
+LITE_OS_SEC_BSS STATIC LOS_DL_LIST g_freeQueueList;
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
-LITE_OS_SEC_BSS LosQueueCB *g_staticQueue = NULL ;
-LITE_OS_SEC_BSS LOS_DL_LIST g_freeStaticQueueList;
-#endif
+/* Error number for OsQueueBufferOperate */
+#define OS_QUEUE_OPERATE_ERROR_INVALID_TYPE       1
+#define OS_QUEUE_OPERATE_ERROR_MEMCPYS_MSG2BUF    2
+#define OS_QUEUE_OPERATE_ERROR_MEMCPYS_STRMSG     3
 
-/**************************************************************************
- Function    : OsQueueInit
- Description : queue initial
- Input       : None
- Output      : None
- Return      : LOS_OK on success or error code on failure
-**************************************************************************/
+STATIC INLINE VOID OsQueueNodeRecycle(LosQueueCB *queueNode)
+{
+    queueNode->queueState = LOS_UNUSED;
+    LOS_ListTailInsert(&g_freeQueueList, &queueNode->readWriteList[OS_QUEUE_WRITE]);
+}
+
 LITE_OS_SEC_TEXT_INIT UINT32 OsQueueInit(VOID)
 {
     LosQueueCB *queueNode = NULL;
-    UINT16 index;
+    UINT32 index;
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
-    LosQueueCB *queueNodeStatic = NULL;
-#endif
-
-    if (OS_ALL_IPC_QUEUE_LIMIT == 0) {
+    if (LOSCFG_BASE_IPC_QUEUE_LIMIT == 0) {
         return LOS_ERRNO_QUEUE_MAXNUM_ZERO;
     }
 
-    g_allQueue = (LosQueueCB *)LOS_MemAlloc(m_aucSysMem0, LOSCFG_BASE_IPC_QUEUE_LIMIT * sizeof(LosQueueCB));
-    if (g_allQueue == NULL) {
+    g_osAllQueue = (LosQueueCB *)LOS_MemAlloc(m_aucSysMem0, LOSCFG_BASE_IPC_QUEUE_LIMIT * sizeof(LosQueueCB));
+    if (g_osAllQueue == NULL) {
         return LOS_ERRNO_QUEUE_NO_MEMORY;
     }
 
-    (VOID)memset_s(g_allQueue, LOSCFG_BASE_IPC_QUEUE_LIMIT * sizeof(LosQueueCB),
+    (VOID)memset_s(g_osAllQueue, LOSCFG_BASE_IPC_QUEUE_LIMIT * sizeof(LosQueueCB),
                    0, LOSCFG_BASE_IPC_QUEUE_LIMIT * sizeof(LosQueueCB));
 
     LOS_ListInit(&g_freeQueueList);
     for (index = 0; index < LOSCFG_BASE_IPC_QUEUE_LIMIT; index++) {
-        queueNode = ((LosQueueCB *)g_allQueue) + index;
-        queueNode->queueID = index;
-        LOS_ListTailInsert(&g_freeQueueList, &queueNode->readWriteList[OS_QUEUE_WRITE]);
+        queueNode = g_osAllQueue + index;
+        queueNode->queueId = index;
+        OsQueueNodeRecycle(queueNode);
     }
-
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
-    g_staticQueue = (LosQueueCB *)LOS_MemAlloc(m_aucSysMem0, LOSCFG_BASE_IPC_STATIC_QUEUE_LIMIT * sizeof(LosQueueCB));
-    if (g_staticQueue == NULL) {
-        return LOS_ERRNO_QUEUE_NO_MEMORY;
-    }
-
-    (VOID)memset_s(g_staticQueue, LOSCFG_BASE_IPC_STATIC_QUEUE_LIMIT * sizeof(LosQueueCB),
-                   0, LOSCFG_BASE_IPC_STATIC_QUEUE_LIMIT * sizeof(LosQueueCB));
-
-    LOS_ListInit(&g_freeStaticQueueList);
-    for (index = 0; index < LOSCFG_BASE_IPC_STATIC_QUEUE_LIMIT; index++) {
-        queueNodeStatic = ((LosQueueCB *)g_staticQueue) + index;
-        queueNodeStatic->queueID = index + LOSCFG_BASE_IPC_QUEUE_LIMIT;
-        LOS_ListTailInsert(&g_freeStaticQueueList, &queueNodeStatic->readWriteList[OS_QUEUE_WRITE]);
-    }
-#endif
 
     if (OsQueueDbgInitHook() != LOS_OK) {
         return LOS_ERRNO_QUEUE_NO_MEMORY;
@@ -119,124 +94,71 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsQueueInit(VOID)
     return LOS_OK;
 }
 
-
-static UINT32 OsQueueCreate(const CHAR *queueName,
-                            UINT16 len,
-                            UINT32 *queueID,
-                            UINT8 *staticMem,
-                            UINT32 flags,
-                            UINT16 maxMsgSize)
+STATIC INLINE UINT32 OsQueueCreateParameterCheck(UINT16 len, const UINT32 *queueId, UINT16 maxMsgSize)
 {
-    LosQueueCB *queueCB = NULL;
-    UINT32 intSave;
-    LOS_DL_LIST *unusedQueue = NULL;
-    UINT8 *queue = NULL;
-    UINT16 msgSize;
-
-    (VOID)flags;
-
-    if (queueID == NULL) {
+    if (queueId == NULL) {
         return LOS_ERRNO_QUEUE_CREAT_PTR_NULL;
-    }
-
-    if (maxMsgSize > (OS_NULL_SHORT - sizeof(UINT32))) {
-        return LOS_ERRNO_QUEUE_SIZE_TOO_BIG;
     }
 
     if ((len == 0) || (maxMsgSize == 0)) {
         return LOS_ERRNO_QUEUE_PARA_ISZERO;
     }
-    msgSize = maxMsgSize + sizeof(UINT32);
 
-    /* Memory allocation is time-consuming, to shorten the time of disable interrupt,
-       move the memory allocation to here. */
-    if ((UINT32_MAX / msgSize) < len) {
+    if (maxMsgSize > (OS_NULL_SHORT - sizeof(UINT32))) {
         return LOS_ERRNO_QUEUE_SIZE_TOO_BIG;
     }
+    return LOS_OK;
+}
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
-    if (staticMem != NULL) {
-        queue = staticMem;
-        SCHEDULER_LOCK(intSave);
-
-        if (LOS_ListEmpty(&g_freeStaticQueueList)) {
-            SCHEDULER_UNLOCK(intSave);
-            return LOS_ERRNO_QUEUE_CB_UNAVAILABLE;
-        }
-        unusedQueue = LOS_DL_LIST_FIRST(&(g_freeStaticQueueList));
-    } else {
-        queue = (UINT8 *)LOS_MemAlloc(m_aucSysMem0, (UINT32)len * msgSize);
-        if (queue == NULL) {
-            return LOS_ERRNO_QUEUE_CREATE_NO_MEMORY;
-        }
-
-        SCHEDULER_LOCK(intSave);
-        if (LOS_ListEmpty(&g_freeQueueList)) {
-            SCHEDULER_UNLOCK(intSave);
-            (VOID)LOS_MemFree(m_aucSysMem0, queue);
-            OsQueueCheckHook();
-            return LOS_ERRNO_QUEUE_CB_UNAVAILABLE;
-        }
-        unusedQueue = LOS_DL_LIST_FIRST(&(g_freeQueueList));
-    }
-#else
-    (void)staticMem;
-
-    queue = (UINT8 *)LOS_MemAlloc(m_aucSysMem0, (UINT32)len * msgSize);
-    if (queue == NULL) {
-        return LOS_ERRNO_QUEUE_CREATE_NO_MEMORY;
-    }
+LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsQueueCreateInternal(UINT16 len, UINT32 *queueId, UINT16 msgSize,
+                                                          UINT8 *queue, UINT8 queueMemType,
+                                                          const CHAR *queueName)
+{
+    LosQueueCB *queueCB = NULL;
+    LOS_DL_LIST *unusedQueue = NULL;
+    UINT32 intSave;
 
     SCHEDULER_LOCK(intSave);
     if (LOS_ListEmpty(&g_freeQueueList)) {
         SCHEDULER_UNLOCK(intSave);
-        (VOID)LOS_MemFree(m_aucSysMem0, queue);
+        OsQueueCheckHook();
         return LOS_ERRNO_QUEUE_CB_UNAVAILABLE;
     }
-    unusedQueue = LOS_DL_LIST_FIRST(&(g_freeQueueList));
-#endif
 
+    unusedQueue = LOS_DL_LIST_FIRST(&g_freeQueueList);
     LOS_ListDelete(unusedQueue);
-    queueCB = (GET_QUEUE_LIST(unusedQueue));
-    queueCB->queueName = (UINT8 *)queueName; // The name can be null
+    queueCB = GET_QUEUE_LIST(unusedQueue);
     queueCB->queueLen = len;
     queueCB->queueSize = msgSize;
-    queueCB->queue = queue;
-    queueCB->queueState = OS_QUEUE_INUSED;
+    queueCB->queueHandle = queue;
+    queueCB->queueState = LOS_USED;
+    queueCB->queueMemType = queueMemType;
+    queueCB->queueName = (UINT8 *)queueName;
     queueCB->readWriteableCnt[OS_QUEUE_READ] = 0;
     queueCB->readWriteableCnt[OS_QUEUE_WRITE] = len;
     queueCB->queueHead = 0;
     queueCB->queueTail = 0;
+#ifdef LOSCFG_QUEUE_PEAK_STAT
+    queueCB->peakUsed = 0;
+#endif
     LOS_ListInit(&queueCB->readWriteList[OS_QUEUE_READ]);
     LOS_ListInit(&queueCB->readWriteList[OS_QUEUE_WRITE]);
     LOS_ListInit(&queueCB->memList);
-    OsQueueDbgUpdateHook(queueCB->queueID, OsCurrTaskGet()->taskEntry);
+
+    OsQueueDbgUpdateHook(queueCB->queueId, OsCurrTaskGet()->taskEntry);
     SCHEDULER_UNLOCK(intSave);
 
-    *queueID = queueCB->queueID;
+    *queueId = queueCB->queueId;
 
+    LOS_TRACE(QUEUE_CREATE, *queueId, len, msgSize, (UINTPTR)queue, queueMemType);
     OsHookCall(LOS_HOOK_TYPE_QUEUE_CREATE, queueCB);
-    LOS_TRACE(QUEUE_CREATE, queueCB->queueID, queueCB->queueLen, queueCB->queueSize - sizeof(UINT32),
-        (UINTPTR)queueCB->queue, 0);
-
     return LOS_OK;
 }
 
-/*****************************************************************************
- Function    : LOS_QueueCreateStatic
- Description : Create a queue use static menory
- Input       : queueName  --- Queue name, less than 4 characters
-             : len        --- Queue length
-             : queueMem   --- Queue static memory for data storage
-             : flags      --- Queue type, FIFO or PRIO
-             : maxMsgSize --- Maximum message size in byte
- Output      : queueID    --- Queue ID
- Return      : LOS_OK on success or error code on failure
- *****************************************************************************/
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueCreateStatic(const CHAR *queueName,
                                                    UINT16 len,
-                                                   UINT32 *queueID,
+                                                   UINT32 *queueId,
                                                    UINT32 flags,
                                                    UINT16 maxMsgSize,
                                                    VOID *queueMem,
@@ -244,66 +166,83 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueCreateStatic(const CHAR *queueName,
 {
     UINT32 ret;
     UINT32 msgSize;
-
+    (VOID)queueName;
     (VOID)flags;
+
+    ret = OsQueueCreateParameterCheck(len, queueId, maxMsgSize);
+    if (ret != LOS_OK) {
+        return ret;
+    }
 
     if (queueMem == NULL) {
         return LOS_ERRNO_QUEUE_CREAT_PTR_NULL;
     }
 
-    msgSize = (UINT32)maxMsgSize + (UINT32)sizeof(UINT32);
+    msgSize = (UINT32)maxMsgSize + (UINT32)sizeof(QueueMsgHead);
     if ((memSize / msgSize) < len) {
         return LOS_ERRNO_QUEUE_CREATE_NO_MEMORY;
     }
 
-    ret = OsQueueCreate(queueName, len, queueID, (UINT8 *)queueMem, 0, maxMsgSize);
-    return ret;
+    return OsQueueCreateInternal(len, queueId, maxMsgSize, queueMem, OS_QUEUE_ALLOC_STATIC, queueName);
 }
 #endif
 
-/*****************************************************************************
- Function    : LOS_QueueCreate
- Description : Create a queue
- Input       : queueName  --- Queue name, less than 4 characters
-             : len        --- Queue length
-             : flags      --- Queue type, FIFO or PRIO
-             : maxMsgSize --- Maximum message size in byte
- Output      : queueID    --- Queue ID
- Return      : LOS_OK on success or error code on failure
-  *****************************************************************************/
 #ifdef LOSCFG_QUEUE_DYNAMIC_ALLOCATION
-LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueCreate(const CHAR *queueName,
-                                             UINT16 len,
-                                             UINT32 *queueID,
-                                             UINT32 flags,
-                                             UINT16 maxMsgSize)
+LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueCreate(const CHAR *queueName, UINT16 len, UINT32 *queueId,
+                                             UINT32 flags, UINT16 maxMsgSize)
 {
     UINT32 ret;
-
+    UINT8 *queueMem = NULL;
+    UINT32 msgSize;
+    (VOID)queueName;
     (VOID)flags;
 
-    ret = OsQueueCreate(queueName, len, queueID, NULL, 0, maxMsgSize);
-    return ret;
+    ret = OsQueueCreateParameterCheck(len, queueId, maxMsgSize);
+    if (ret != LOS_OK) {
+        return ret;
+    }
+
+    msgSize = (UINT32)maxMsgSize + (UINT32)sizeof(QueueMsgHead);
+    if ((UINT32_MAX / msgSize) < len) {
+        return LOS_ERRNO_QUEUE_SIZE_TOO_BIG;
+    }
+    /*
+     * Memory allocation is time-consuming, to shorten the time of disable interrupt,
+     * move the memory allocation to here.
+     */
+    queueMem = (UINT8 *)LOS_MemAlloc(m_aucSysMem0, (UINT32)len * msgSize);
+    if (queueMem == NULL) {
+        return LOS_ERRNO_QUEUE_CREATE_NO_MEMORY;
+    }
+
+    ret = OsQueueCreateInternal(len, queueId, maxMsgSize, queueMem, OS_QUEUE_ALLOC_DYNAMIC, queueName);
+    if (ret != LOS_OK) {
+        (VOID)LOS_MemFree(m_aucSysMem0, queueMem);
+        return ret;
+    }
+
+    return LOS_OK;
 }
 #endif
 
-static INLINE LITE_OS_SEC_TEXT UINT32 OsQueueReadParameterCheck(UINT32 queueID, VOID *bufferAddr,
-                                                                UINT32 *bufferSize, UINT32 timeOut)
+LITE_OS_SEC_TEXT STATIC UINT32 OsQueueReadParameterCheck(UINT32 queueId, const VOID *bufferAddr,
+                                                         const UINT32 *bufferSize, UINT32 timeout)
 {
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
+    if (GET_QUEUE_INDEX(queueId) >= LOSCFG_BASE_IPC_QUEUE_LIMIT) {
         return LOS_ERRNO_QUEUE_INVALID;
     }
+
     if ((bufferAddr == NULL) || (bufferSize == NULL)) {
         return LOS_ERRNO_QUEUE_READ_PTR_NULL;
     }
 
-    OsQueueDbgTimeUpdateHook(queueID);
+    OsQueueDbgTimeUpdateHook(queueId);
 
     if (*bufferSize == 0) {
         return LOS_ERRNO_QUEUE_READSIZE_ISZERO;
     }
 
-    if (timeOut != LOS_NO_WAIT) {
+    if (timeout != LOS_NO_WAIT) {
         if (OS_INT_ACTIVE) {
             return LOS_ERRNO_QUEUE_READ_IN_INTERRUPT;
         }
@@ -311,10 +250,10 @@ static INLINE LITE_OS_SEC_TEXT UINT32 OsQueueReadParameterCheck(UINT32 queueID, 
     return LOS_OK;
 }
 
-static INLINE LITE_OS_SEC_TEXT UINT32 OsQueueWriteParameterCheck(UINT32 queueID, VOID *bufferAddr,
-                                                                 UINT32 *bufferSize, UINT32 timeOut)
+LITE_OS_SEC_TEXT STATIC UINT32 OsQueueWriteParameterCheck(UINT32 queueId, const VOID *bufferAddr,
+                                                          const UINT32 *bufferSize, UINT32 timeout)
 {
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
+    if (GET_QUEUE_INDEX(queueId) >= LOSCFG_BASE_IPC_QUEUE_LIMIT) {
         return LOS_ERRNO_QUEUE_INVALID;
     }
 
@@ -322,13 +261,13 @@ static INLINE LITE_OS_SEC_TEXT UINT32 OsQueueWriteParameterCheck(UINT32 queueID,
         return LOS_ERRNO_QUEUE_WRITE_PTR_NULL;
     }
 
-    OsQueueDbgTimeUpdateHook(queueID);
-
     if (*bufferSize == 0) {
         return LOS_ERRNO_QUEUE_WRITESIZE_ISZERO;
     }
 
-    if (timeOut != LOS_NO_WAIT) {
+    OsQueueDbgTimeUpdateHook(queueId);
+
+    if (timeout != LOS_NO_WAIT) {
         if (OS_INT_ACTIVE) {
             return LOS_ERRNO_QUEUE_WRITE_IN_INTERRUPT;
         }
@@ -336,451 +275,357 @@ static INLINE LITE_OS_SEC_TEXT UINT32 OsQueueWriteParameterCheck(UINT32 queueID,
     return LOS_OK;
 }
 
-static INLINE VOID OsQueueBufferOperate(LosQueueCB *queueCB, UINT32 operateType,
-                                                                VOID *bufferAddr, UINT32 *bufferSize)
+#ifdef LOSCFG_QUEUE_READ_PARTIAL
+STATIC INLINE UINT32 OsQueueReadCheckLen(const LosQueueCB *queueCB, UINT32 operateType, const UINT32 *bufferSize)
 {
+    (VOID)queueCB;
+    (VOID)operateType;
+    (VOID)bufferSize;
+    return LOS_OK;
+}
+
+STATIC INLINE VOID OsQueueReadUpdateLen(QueueMsgHead *msgDataSize, const UINT32 *bufferSize)
+{
+    *msgDataSize = (*bufferSize < *msgDataSize) ? *bufferSize : *msgDataSize;
+}
+#else
+STATIC INLINE UINT32 OsQueueReadCheckLen(const LosQueueCB *queueCB, UINT32 operateType, const UINT32 *bufferSize)
+{
+    if (OS_QUEUE_IS_READ(operateType) && (*bufferSize < (queueCB->queueSize))) {
+        return LOS_ERRNO_QUEUE_READ_SIZE_TOO_SMALL;
+    }
+    return LOS_OK;
+}
+
+STATIC INLINE VOID OsQueueReadUpdateLen(QueueMsgHead *msgDataSize, const UINT32 *bufferSize)
+{
+    (VOID)msgDataSize;
+    (VOID)bufferSize;
+}
+#endif
+
+STATIC UINT32 OsQueueBufferOperate(LosQueueCB *queueCB, UINT32 operateType, VOID *bufferAddr, UINT32 *bufferSize)
+{
+    UINT8 *queueMsgHeadNode = NULL;
     UINT8 *queueNode = NULL;
-    UINT32 msgDataSize;
-    UINT16 queuePosition;
-    errno_t rc;
+    QueueMsgHead msgDataSize;
+    UINT16 queuePos;
 
     /* get the queue position */
     switch (OS_QUEUE_OPERATE_GET(operateType)) {
         case OS_QUEUE_READ_HEAD:
-            queuePosition = queueCB->queueHead;
-            ((queueCB->queueHead + 1) == queueCB->queueLen) ? (queueCB->queueHead = 0) : (queueCB->queueHead++);
+            queuePos = queueCB->queueHead;
+            queueCB->queueHead = (UINT16)(((queueCB->queueHead + 1) == queueCB->queueLen) ?
+                                          0 : (queueCB->queueHead + 1));
             break;
-
         case OS_QUEUE_WRITE_HEAD:
-            (queueCB->queueHead == 0) ? (queueCB->queueHead = (queueCB->queueLen - 1)) : (--queueCB->queueHead);
-            queuePosition = queueCB->queueHead;
+            queueCB->queueHead = (UINT16)((queueCB->queueHead == 0) ?
+                                          (queueCB->queueLen - 1) : (queueCB->queueHead - 1));
+            queuePos = queueCB->queueHead;
             break;
-
         case OS_QUEUE_WRITE_TAIL:
-            queuePosition = queueCB->queueTail;
-            ((queueCB->queueTail + 1) == queueCB->queueLen) ? (queueCB->queueTail = 0) : (queueCB->queueTail++);
+            queuePos = queueCB->queueTail;
+            queueCB->queueTail = (UINT16)(((queueCB->queueTail + 1) == queueCB->queueLen) ?
+                                          0 : (queueCB->queueTail + 1));
             break;
-
-        default:
-            PRINT_ERR("invalid queue operate type!\n");
-            return;
+        default:  /* read tail, reserved. */
+            return OS_QUEUE_OPERATE_ERROR_INVALID_TYPE;
     }
 
-    queueNode = &(queueCB->queue[(queuePosition * (queueCB->queueSize))]);
+    queueMsgHeadNode = &(queueCB->queueHandle[queuePos * sizeof(QueueMsgHead)]);
+    queueNode = &(queueCB->queueHandle[(queueCB->queueLen) * sizeof(QueueMsgHead) + queuePos * (queueCB->queueSize)]);
 
-    if (OS_QUEUE_IS_POINT(operateType)) {
-        if (OS_QUEUE_IS_READ(operateType)) {
-            *(UINTPTR *)bufferAddr = *(UINTPTR *)(VOID *)queueNode;
-        } else {
-            *(UINTPTR *)(VOID *)queueNode = *(UINTPTR *)bufferAddr;
+    if (OS_QUEUE_IS_READ(operateType)) {
+        msgDataSize = *((QueueMsgHead *)(UINTPTR)(queueMsgHeadNode));
+
+        OsQueueReadUpdateLen(&msgDataSize, bufferSize);
+
+        if (memcpy_s(bufferAddr, *bufferSize, queueNode, msgDataSize) != EOK) {
+            return OS_QUEUE_OPERATE_ERROR_MEMCPYS_MSG2BUF;
         }
+        *bufferSize = msgDataSize;
     } else {
-        if (OS_QUEUE_IS_READ(operateType)) {
-            msgDataSize = *((UINT32 *)(UINTPTR)((queueNode + queueCB->queueSize) - sizeof(UINT32)));
-            msgDataSize = (*bufferSize < msgDataSize) ? *bufferSize : msgDataSize;
-            rc = memcpy_s((VOID *)bufferAddr, *bufferSize, (VOID *)queueNode, msgDataSize);
-            if (rc != EOK) {
-                PRINT_ERR("%s[%d] memcpy failed, error type = %u\n", __FUNCTION__, __LINE__, rc);
-                return;
-            }
-
-            *bufferSize = msgDataSize;
-        } else {
-            *((UINT32 *)(UINTPTR)((queueNode + queueCB->queueSize) - sizeof(UINT32))) = *bufferSize;
-            rc = memcpy_s((VOID *)queueNode, queueCB->queueSize, (VOID *)bufferAddr, *bufferSize);
-            if (rc != EOK) {
-                PRINT_ERR("%s[%d] memcpy failed, error type = %u\n", __FUNCTION__, __LINE__, rc);
-                return;
-            }
+        *((QueueMsgHead *)(UINTPTR)(queueMsgHeadNode)) = *bufferSize;
+        if (memcpy_s(queueNode, queueCB->queueSize, bufferAddr, *bufferSize) != EOK) {
+            return OS_QUEUE_OPERATE_ERROR_MEMCPYS_STRMSG;
         }
+    }
+    return LOS_OK;
+}
+
+STATIC VOID OsQueueBufferOperateErrProcess(UINT32 errorCode)
+{
+    if (errorCode != LOS_OK) {
+        PRINT_DEBUG("msg opt fail %u\n", errorCode);
     }
 }
 
-static INLINE UINT32 OsQueueOperateParamCheck(const LosQueueCB *queueCB, UINT32 operateType, const UINT32 *bufferSize)
+#ifdef LOSCFG_BASE_CORE_SYS_RES_CHECK
+STATIC INLINE UINT32 OsQueueStateVerify(const LosQueueCB *queueCB, UINT32 queueId)
 {
-    if (queueCB->queueState == OS_QUEUE_UNUSED) {
-        return LOS_ERRNO_QUEUE_NOT_CREATE;
+    if ((queueCB->queueId != queueId) || (queueCB->queueState == LOS_UNUSED)) {
+        return LOS_NOK;
     }
+    return LOS_OK;
+}
 
-    if (OS_QUEUE_IS_WRITE(operateType) && (*bufferSize > (queueCB->queueSize - sizeof(UINT32)))) {
-        return LOS_ERRNO_QUEUE_WRITE_SIZE_TOO_BIG;
+STATIC INLINE VOID OsQueueIdUpdate(LosQueueCB *queueCB)
+{
+    queueCB->queueId = SET_QUEUE_ID(GET_QUEUE_COUNT(queueCB->queueId) + 1, GET_QUEUE_INDEX(queueCB->queueId));
+}
+#else
+STATIC INLINE UINT32 OsQueueStateVerify(const LosQueueCB *queueCB, UINT32 queueId)
+{
+    (VOID)queueId;
+
+    if (queueCB->queueState == LOS_UNUSED) {
+        return LOS_NOK;
+    }
+    return LOS_OK;
+}
+
+STATIC INLINE VOID OsQueueIdUpdate(LosQueueCB *queueCB)
+{
+    (VOID)queueCB;
+}
+#endif
+
+STATIC UINT32 OsQueueOperateParamCheck(const LosQueueCB *queueCB, UINT32 queueId,
+                                       UINT32 operateType, const UINT32 *bufferSize)
+{
+    UINT32 ret = OsQueueStateVerify(queueCB, queueId);
+    if (ret != LOS_OK) {
+        return LOS_ERRNO_QUEUE_NOT_CREATE;
     }
 
     if (*bufferSize >= SECUREC_MEM_MAX_LEN) {
         return LOS_ERRNO_QUEUE_BUFFER_SIZE_TOO_BIG;
     }
 
+    ret = OsQueueReadCheckLen(queueCB, operateType, bufferSize);
+    if (ret != LOS_OK) {
+        return ret;
+    }
+
+    if (OS_QUEUE_IS_WRITE(operateType) && (*bufferSize > (queueCB->queueSize))) {
+        return LOS_ERRNO_QUEUE_WRITE_SIZE_TOO_BIG;
+    }
     return LOS_OK;
 }
 
-UINT32 OsQueueOperate(UINT32 queueID, UINT32 operateType, VOID *bufferAddr, UINT32 *bufferSize, UINT32 timeOut)
+STATIC UINT32 OsQueueOperate(UINT32 queueId, UINT32 operateType, VOID *bufferAddr, UINT32 *bufferSize, UINT32 timeout)
 {
-    LosQueueCB *queueCB = NULL;
-    LosTaskCB *resumedTask = NULL;
-    UINT32 ret;
-    UINT32 readWrite = OS_QUEUE_READ_WRITE_GET(operateType);
-    UINT32 readWriteTmp = !readWrite;
+    LosQueueCB *queueCB = (LosQueueCB *)GET_QUEUE_HANDLE(queueId);
+    UINT32 currReadWrite = OS_QUEUE_READ_WRITE_GET(operateType);
+    UINT32 otherReadWrite = (currReadWrite == OS_QUEUE_READ) ? OS_QUEUE_WRITE : OS_QUEUE_READ;
+    UINT32 errorCode = LOS_OK;
+    UINT32 intSave, ret;
+    LosTaskCB *runTask = NULL;
 
-    UINT32 intSave;
+    LOS_TRACE(QUEUE_RW, queueId, queueCB->queueSize, *bufferSize, operateType,
+        queueCB->readWriteableCnt[OS_QUEUE_READ], queueCB->readWriteableCnt[OS_QUEUE_WRITE], timeout);
+
     SCHEDULER_LOCK(intSave);
-
-    queueCB = (LosQueueCB *)GET_QUEUE_HANDLE(queueID);
-    ret = OsQueueOperateParamCheck(queueCB, operateType, bufferSize);
+    ret = OsQueueOperateParamCheck(queueCB, queueId, operateType, bufferSize);
     if (ret != LOS_OK) {
-        goto QUEUE_END;
+        goto OUT_UNLOCK;
     }
 
-    LOS_TRACE(QUEUE_RW, queueCB->queueID, queueCB->queueSize, *bufferSize, operateType,
-        queueCB->readWriteableCnt[OS_QUEUE_READ], queueCB->readWriteableCnt[OS_QUEUE_WRITE], timeOut);
-
-    if (queueCB->readWriteableCnt[readWrite] == 0) {
-        if (timeOut == LOS_NO_WAIT) {
+    if (queueCB->readWriteableCnt[currReadWrite] == 0) {
+        if (timeout == LOS_NO_WAIT) {
             ret = OS_QUEUE_IS_READ(operateType) ? LOS_ERRNO_QUEUE_ISEMPTY : LOS_ERRNO_QUEUE_ISFULL;
-            goto QUEUE_END;
+            goto OUT_UNLOCK;
         }
 
         if (!OsPreemptableInSched()) {
             ret = LOS_ERRNO_QUEUE_PEND_IN_LOCK;
-            goto QUEUE_END;
+            goto OUT_UNLOCK;
         }
 
-        LosTaskCB *runTsk = OsCurrTaskGet();
-        OsSchedWait(OsCurrTaskGet(), &queueCB->readWriteList[readWrite], timeOut);
-        SCHEDULER_UNLOCK(intSave);
+        runTask = OsCurrTaskGet();
+        OsSchedWait(runTask, &queueCB->readWriteList[currReadWrite], timeout);
 
-        SCHEDULER_LOCK(intSave);
-        if (runTsk->taskStatus & OS_TASK_STATUS_TIMEOUT) {
-            runTsk->taskStatus &= ~OS_TASK_STATUS_TIMEOUT;
+        if (runTask->taskStatus & OS_TASK_STATUS_TIMEOUT) {
+            runTask->taskStatus &= ~OS_TASK_STATUS_TIMEOUT;
             ret = LOS_ERRNO_QUEUE_TIMEOUT;
-            goto QUEUE_END;
+            goto OUT_UNLOCK;
         }
     } else {
-        queueCB->readWriteableCnt[readWrite]--;
+        queueCB->readWriteableCnt[currReadWrite]--;
     }
 
-    OsQueueBufferOperate(queueCB, operateType, bufferAddr, bufferSize);
+    /* 
+     * It will cause double lock issue that print after SCHEDULER_LOCK,
+     * so handle the return value errorCode after SCHEDULER_UNLOCK 
+     */
+    errorCode = OsQueueBufferOperate(queueCB, operateType, bufferAddr, bufferSize);
 
-    if (!LOS_ListEmpty(&queueCB->readWriteList[readWriteTmp])) {
-        resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&queueCB->readWriteList[readWriteTmp]));
+    if (!LOS_ListEmpty(&queueCB->readWriteList[otherReadWrite])) {
+        LosTaskCB *resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&queueCB->readWriteList[otherReadWrite]));
         OsSchedWake(resumedTask);
         SCHEDULER_UNLOCK(intSave);
+        OsQueueBufferOperateErrProcess(errorCode);
         LOS_MpSchedule(OS_MP_CPU_ALL);
         LOS_Schedule();
         return LOS_OK;
     } else {
-        queueCB->readWriteableCnt[readWriteTmp]++;
+        queueCB->readWriteableCnt[otherReadWrite]++;
+#ifdef LOSCFG_QUEUE_PEAK_STAT
+        if ((currReadWrite == OS_QUEUE_WRITE) && \
+            (queueCB->peakUsed < queueCB->readWriteableCnt[OS_QUEUE_READ])) {
+            queueCB->peakUsed = queueCB->readWriteableCnt[OS_QUEUE_READ];
+        }
+#endif
     }
 
-QUEUE_END:
+OUT_UNLOCK:
     SCHEDULER_UNLOCK(intSave);
+    OsQueueBufferOperateErrProcess(errorCode);
     return ret;
 }
 
-LITE_OS_SEC_TEXT UINT32 LOS_QueueReadCopy(UINT32 queueID,
+LITE_OS_SEC_TEXT UINT32 LOS_QueueReadCopy(UINT32 queueId,
                                           VOID *bufferAddr,
                                           UINT32 *bufferSize,
-                                          UINT32 timeOut)
+                                          UINT32 timeout)
 {
     UINT32 ret;
     UINT32 operateType;
 
-    ret = OsQueueReadParameterCheck(queueID, bufferAddr, bufferSize, timeOut);
+    ret = OsQueueReadParameterCheck(queueId, bufferAddr, bufferSize, timeout);
     if (ret != LOS_OK) {
         return ret;
     }
 
-    operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_READ, OS_QUEUE_HEAD, OS_QUEUE_NOT_POINT);
-
-    OsHookCall(LOS_HOOK_TYPE_QUEUE_READ_COPY, (LosQueueCB *)GET_QUEUE_HANDLE(queueID),
-               operateType, *bufferSize, timeOut);
-
-    return OsQueueOperate(queueID, operateType, bufferAddr, bufferSize, timeOut);
+    operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_READ, OS_QUEUE_HEAD);
+    OsHookCall(LOS_HOOK_TYPE_QUEUE_READ_COPY, (LosQueueCB *)GET_QUEUE_HANDLE(queueId),
+               operateType, *bufferSize, timeout);
+    return OsQueueOperate(queueId, operateType, bufferAddr, bufferSize, timeout);
 }
 
-LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteHeadCopy(UINT32 queueID,
+LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteHeadCopy(UINT32 queueId,
                                                VOID *bufferAddr,
                                                UINT32 bufferSize,
-                                               UINT32 timeOut)
+                                               UINT32 timeout)
 {
     UINT32 ret;
     UINT32 operateType;
 
-    ret = OsQueueWriteParameterCheck(queueID, bufferAddr, &bufferSize, timeOut);
+    ret = OsQueueWriteParameterCheck(queueId, bufferAddr, &bufferSize, timeout);
     if (ret != LOS_OK) {
         return ret;
     }
 
-    operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_WRITE, OS_QUEUE_HEAD, OS_QUEUE_NOT_POINT);
-    return OsQueueOperate(queueID, operateType, bufferAddr, &bufferSize, timeOut);
+    operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_WRITE, OS_QUEUE_HEAD);
+    OsHookCall(LOS_HOOK_TYPE_QUEUE_WRITE_COPY, (LosQueueCB *)GET_QUEUE_HANDLE(queueId),
+               operateType, bufferSize, timeout);
+    return OsQueueOperate(queueId, operateType, bufferAddr, &bufferSize, timeout);
 }
 
-LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteCopy(UINT32 queueID,
+LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteCopy(UINT32 queueId,
                                            VOID *bufferAddr,
                                            UINT32 bufferSize,
-                                           UINT32 timeOut)
+                                           UINT32 timeout)
 {
     UINT32 ret;
     UINT32 operateType;
 
-    ret = OsQueueWriteParameterCheck(queueID, bufferAddr, &bufferSize, timeOut);
+    ret = OsQueueWriteParameterCheck(queueId, bufferAddr, &bufferSize, timeout);
     if (ret != LOS_OK) {
         return ret;
     }
 
-    operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_WRITE, OS_QUEUE_TAIL, OS_QUEUE_NOT_POINT);
-
-    OsHookCall(LOS_HOOK_TYPE_QUEUE_WRITE_COPY, (LosQueueCB *)GET_QUEUE_HANDLE(queueID),
-               operateType, bufferSize, timeOut);
-
-    return OsQueueOperate(queueID, operateType, bufferAddr, &bufferSize, timeOut);
+    operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_WRITE, OS_QUEUE_TAIL);
+    OsHookCall(LOS_HOOK_TYPE_QUEUE_WRITE_COPY, (LosQueueCB *)GET_QUEUE_HANDLE(queueId),
+               operateType, bufferSize, timeout);
+    return OsQueueOperate(queueId, operateType, bufferAddr, &bufferSize, timeout);
 }
 
-LITE_OS_SEC_TEXT UINT32 LOS_QueueRead(UINT32 queueID, VOID *bufferAddr, UINT32 bufferSize, UINT32 timeOut)
+LITE_OS_SEC_TEXT UINT32 LOS_QueueRead(UINT32 queueId, VOID *bufferAddr, UINT32 bufferSize, UINT32 timeout)
 {
-    UINT32 ret;
-    UINT32 operateType;
-
-    ret = OsQueueReadParameterCheck(queueID, bufferAddr, &bufferSize, timeOut);
-    if (ret != LOS_OK) {
-        return ret;
-    }
-
-    operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_READ, OS_QUEUE_HEAD, OS_QUEUE_POINT);
-
-    OsHookCall(LOS_HOOK_TYPE_QUEUE_READ, (LosQueueCB *)GET_QUEUE_HANDLE(queueID), operateType, bufferSize, timeOut);
-
-    return OsQueueOperate(queueID, operateType, bufferAddr, &bufferSize, timeOut);
+    OsHookCall(LOS_HOOK_TYPE_QUEUE_READ, (LosQueueCB *)GET_QUEUE_HANDLE(queueId),
+               OS_QUEUE_OPERATE_TYPE(OS_QUEUE_READ, OS_QUEUE_HEAD), bufferSize, timeout);
+    return LOS_QueueReadCopy(queueId, bufferAddr, &bufferSize, timeout);
 }
 
-LITE_OS_SEC_TEXT UINT32 LOS_QueueWrite(UINT32 queueID, VOID *bufferAddr, UINT32 bufferSize, UINT32 timeOut)
+LITE_OS_SEC_TEXT UINT32 LOS_QueueWrite(UINT32 queueId, VOID *bufferAddr, UINT32 bufferSize, UINT32 timeout)
 {
-    UINT32 ret;
-    UINT32 operateType;
-    UINT32 size = sizeof(UINT32 *);
     (VOID)bufferSize;
-
-    ret = OsQueueWriteParameterCheck(queueID, bufferAddr, &size, timeOut);
-    if (ret != LOS_OK) {
-        return ret;
-    }
-
-    operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_WRITE, OS_QUEUE_TAIL, OS_QUEUE_POINT);
-
-    OsHookCall(LOS_HOOK_TYPE_QUEUE_WRITE, (LosQueueCB *)GET_QUEUE_HANDLE(queueID), operateType, size, timeOut);
-
-    return OsQueueOperate(queueID, operateType, &bufferAddr, &size, timeOut);
-}
-
-LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteHead(UINT32 queueID,
-                                           VOID *bufferAddr,
-                                           UINT32 bufferSize,
-                                           UINT32 timeOut)
-{
-    UINT32 size = sizeof(UINT32 *);
-    (VOID)bufferSize;
-
     if (bufferAddr == NULL) {
         return LOS_ERRNO_QUEUE_WRITE_PTR_NULL;
     }
-
-    return LOS_QueueWriteHeadCopy(queueID, &bufferAddr, size, timeOut);
+    OsHookCall(LOS_HOOK_TYPE_QUEUE_WRITE, (LosQueueCB *)GET_QUEUE_HANDLE(queueId),
+               OS_QUEUE_OPERATE_TYPE(OS_QUEUE_WRITE, OS_QUEUE_TAIL), sizeof(CHAR *), timeout);
+    return LOS_QueueWriteCopy(queueId, &bufferAddr, sizeof(CHAR *), timeout);
 }
 
-/*****************************************************************************
- Function    : OsQueueMailAlloc
- Description : Mail allocate memory
- Input       : queueID   --- QueueID
-             : mailPool  --- MailPool
-             : timeOut   --- TimeOut
- Output      : None
- Return      : mem:pointer if success otherwise NULL
- *****************************************************************************/
-LITE_OS_SEC_TEXT VOID *OsQueueMailAlloc(UINT32 queueID, VOID *mailPool, UINT32 timeOut)
+LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteHead(UINT32 queueId,
+                                           VOID *bufferAddr,
+                                           UINT32 bufferSize,
+                                           UINT32 timeout)
 {
-    VOID *mem = (VOID *)NULL;
-    UINT32 intSave;
-    LosQueueCB *queueCB = (LosQueueCB *)NULL;
-    LosTaskCB *runTsk = (LosTaskCB *)NULL;
-
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
-        return NULL;
+    (VOID)bufferSize;
+    if (bufferAddr == NULL) {
+        return LOS_ERRNO_QUEUE_WRITE_PTR_NULL;
     }
-
-    if (mailPool == NULL) {
-        return NULL;
-    }
-
-    if (timeOut != LOS_NO_WAIT) {
-        if (OS_INT_ACTIVE) {
-            return NULL;
-        }
-    }
-
-    SCHEDULER_LOCK(intSave);
-    queueCB = GET_QUEUE_HANDLE(queueID);
-    OsQueueDbgTimeUpdateHook(queueID);
-    if (queueCB->queueState == OS_QUEUE_UNUSED) {
-        goto END;
-    }
-
-    mem = LOS_MemboxAlloc(mailPool);
-    if (mem == NULL) {
-        if (timeOut == LOS_NO_WAIT) {
-            goto END;
-        }
-
-        runTsk = OsCurrTaskGet();
-        OsSchedWait(OsCurrTaskGet(), &queueCB->memList, timeOut);
-        SCHEDULER_UNLOCK(intSave);
-
-        SCHEDULER_LOCK(intSave);
-        if (runTsk->taskStatus & OS_TASK_STATUS_TIMEOUT) {
-            runTsk->taskStatus &= (~OS_TASK_STATUS_TIMEOUT);
-            goto END;
-        } else {
-            /* When enters the current branch, means the current task already got an available membox,
-             * so the runTsk->msg can not be NULL.
-             */
-            mem = runTsk->msg;
-            runTsk->msg = NULL;
-        }
-    }
-
-END:
-    SCHEDULER_UNLOCK(intSave);
-    return mem;
+    return LOS_QueueWriteHeadCopy(queueId, &bufferAddr, (UINT32)sizeof(CHAR *), timeout);
 }
 
-/*****************************************************************************
- Function    : OsQueueMailFree
- Description : Mail free memory
- Input       : queueID   --- QueueID
-             : mailPool  --- MailPool
-             : mailMem   --- MailMem
- Output      : None
- Return      : LOS_OK on success or error code on failure
- *****************************************************************************/
-LITE_OS_SEC_TEXT UINT32 OsQueueMailFree(UINT32 queueID, VOID *mailPool, VOID *mailMem)
-{
-    UINT32 intSave;
-    LosQueueCB *queueCB = (LosQueueCB *)NULL;
-    LosTaskCB *resumedTask = (LosTaskCB *)NULL;
-
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
-        return LOS_ERRNO_QUEUE_MAIL_HANDLE_INVALID;
-    }
-
-    if (mailPool == NULL) {
-        return LOS_ERRNO_QUEUE_MAIL_PTR_INVALID;
-    }
-
-    SCHEDULER_LOCK(intSave);
-    queueCB = GET_QUEUE_HANDLE(queueID);
-    OsQueueDbgTimeUpdateHook(queueID);
-    if (queueCB->queueState == OS_QUEUE_UNUSED) {
-        SCHEDULER_UNLOCK(intSave);
-        return LOS_ERRNO_QUEUE_NOT_CREATE;
-    }
-
-    OsQueueDbgTimeUpdateHook(queueID);
-
-    if (!LOS_ListEmpty(&queueCB->memList)) {
-        resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&queueCB->memList));
-        /* When enter this branch, it means the resumed task can
-         * get an available mailMem.
-         */
-        resumedTask->msg = mailMem;
-        OsSchedWake(resumedTask);
-        SCHEDULER_UNLOCK(intSave);
-        LOS_MpSchedule(OS_MP_CPU_ALL);
-        LOS_Schedule();
-    } else {
-        /* No task waiting for the mailMem, so free it. */
-        if (LOS_MemboxFree(mailPool, mailMem)) {
-            SCHEDULER_UNLOCK(intSave);
-            return LOS_ERRNO_QUEUE_MAIL_FREE_ERROR;
-        }
-        SCHEDULER_UNLOCK(intSave);
-    }
-
-    return LOS_OK;
-}
-
-/*****************************************************************************
- Function    : LOS_QueueDelete
- Description : Delete a queue
- Input       : queueID   --- QueueID
- Output      : None
- Return      : LOS_OK on success or error code on failure
- *****************************************************************************/
-LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueDelete(UINT32 queueID)
+LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueDelete(UINT32 queueId)
 {
     LosQueueCB *queueCB = NULL;
-    UINT8 *queue = NULL;
     UINT32 intSave;
     UINT32 ret;
 
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
+    if (GET_QUEUE_INDEX(queueId) >= LOSCFG_BASE_IPC_QUEUE_LIMIT) {
         return LOS_ERRNO_QUEUE_NOT_FOUND;
     }
 
+    queueCB = (LosQueueCB *)GET_QUEUE_HANDLE(queueId);
+
+    LOS_TRACE(QUEUE_DELETE, queueId, queueCB->queueState, queueCB->readWriteableCnt[OS_QUEUE_READ]);
+
     SCHEDULER_LOCK(intSave);
-    queueCB = (LosQueueCB *)GET_QUEUE_HANDLE(queueID);
-    if (queueCB->queueState == OS_QUEUE_UNUSED) {
+
+    ret = OsQueueStateVerify(queueCB, queueId);
+    if (ret != LOS_OK) {
         ret = LOS_ERRNO_QUEUE_NOT_CREATE;
-        goto QUEUE_END;
+        goto OUT_UNLOCK;
     }
 
-    if (!LOS_ListEmpty(&queueCB->readWriteList[OS_QUEUE_READ])) {
+    if ((!LOS_ListEmpty(&queueCB->readWriteList[OS_QUEUE_READ])) ||
+        (!LOS_ListEmpty(&queueCB->readWriteList[OS_QUEUE_WRITE])) ||
+        (!LOS_ListEmpty(&queueCB->memList))) {
         ret = LOS_ERRNO_QUEUE_IN_TSKUSE;
-        goto QUEUE_END;
-    }
-
-    if (!LOS_ListEmpty(&queueCB->readWriteList[OS_QUEUE_WRITE])) {
-        ret = LOS_ERRNO_QUEUE_IN_TSKUSE;
-        goto QUEUE_END;
-    }
-
-    if (!LOS_ListEmpty(&queueCB->memList)) {
-        ret = LOS_ERRNO_QUEUE_IN_TSKUSE;
-        goto QUEUE_END;
+        goto OUT_UNLOCK;
     }
 
     if ((queueCB->readWriteableCnt[OS_QUEUE_WRITE] + queueCB->readWriteableCnt[OS_QUEUE_READ]) !=
         queueCB->queueLen) {
         ret = LOS_ERRNO_QUEUE_IN_TSKWRITE;
-        goto QUEUE_END;
+        goto OUT_UNLOCK;
     }
 
-    queue = queueCB->queue;
-    queueCB->queue = (UINT8 *)NULL;
-    queueCB->queueName = (UINT8 *)NULL;
-    queueCB->queueState = OS_QUEUE_UNUSED;
-
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
-    if (queueID >= LOSCFG_BASE_IPC_QUEUE_LIMIT && queueID < OS_ALL_IPC_QUEUE_LIMIT) {
-        LOS_ListAdd(&g_freeStaticQueueList, &queueCB->readWriteList[OS_QUEUE_WRITE]);
-        SCHEDULER_UNLOCK(intSave);
-        OsQueueDbgUpdateHook(queueCB->queueID, NULL);
-        return LOS_OK;
+#ifdef LOSCFG_QUEUE_DYNAMIC_ALLOCATION
+    if (queueCB->queueMemType == OS_QUEUE_ALLOC_DYNAMIC) {
+        ret = LOS_MemFree(m_aucSysMem0, (VOID *)queueCB->queueHandle);
     }
 #endif
-    LOS_ListAdd(&g_freeQueueList, &queueCB->readWriteList[OS_QUEUE_WRITE]);
-    SCHEDULER_UNLOCK(intSave);
+    queueCB->queueHandle = NULL;
+    queueCB->queueName = NULL;
 
-    OsQueueDbgUpdateHook(queueCB->queueID, NULL);
+    OsQueueIdUpdate(queueCB);
+    OsQueueNodeRecycle(queueCB);
+
+    OsQueueDbgUpdateHook(queueCB->queueId, NULL);
+
+OUT_UNLOCK:
+    SCHEDULER_UNLOCK(intSave);
     OsHookCall(LOS_HOOK_TYPE_QUEUE_DELETE, queueCB);
-    LOS_TRACE(QUEUE_DELETE, queueCB->queueID, queueCB->queueState, queueCB->readWriteableCnt[OS_QUEUE_READ]);
-
-    ret = LOS_MemFree(m_aucSysMem0, (VOID *)queue);
-    return ret;
-
-QUEUE_END:
-    SCHEDULER_UNLOCK(intSave);
     return ret;
 }
 
-LITE_OS_SEC_TEXT_MINOR UINT32 LOS_QueueInfoGet(UINT32 queueID, QUEUE_INFO_S *queueInfo)
+LITE_OS_SEC_TEXT_MINOR UINT32 LOS_QueueInfoGet(UINT32 queueId, QUEUE_INFO_S *queueInfo)
 {
     UINT32 intSave;
     UINT32 ret = LOS_OK;
@@ -791,20 +636,21 @@ LITE_OS_SEC_TEXT_MINOR UINT32 LOS_QueueInfoGet(UINT32 queueID, QUEUE_INFO_S *que
         return LOS_ERRNO_QUEUE_PTR_NULL;
     }
 
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
+    if (GET_QUEUE_INDEX(queueId) >= LOSCFG_BASE_IPC_QUEUE_LIMIT) {
         return LOS_ERRNO_QUEUE_INVALID;
     }
 
     (VOID)memset_s((VOID *)queueInfo, sizeof(QUEUE_INFO_S), 0, sizeof(QUEUE_INFO_S));
     SCHEDULER_LOCK(intSave);
 
-    queueCB = (LosQueueCB *)GET_QUEUE_HANDLE(queueID);
-    if (queueCB->queueState == OS_QUEUE_UNUSED) {
+    queueCB = (LosQueueCB *)GET_QUEUE_HANDLE(queueId);
+    ret = OsQueueStateVerify(queueCB, queueId);
+    if (ret != LOS_OK) {
         ret = LOS_ERRNO_QUEUE_NOT_CREATE;
         goto QUEUE_END;
     }
 
-    queueInfo->queueID = queueID;
+    queueInfo->queueID = queueId;
     queueInfo->queueLen = queueCB->queueLen;
     queueInfo->queueSize = queueCB->queueSize;
     queueInfo->queueHead = queueCB->queueHead;
@@ -832,16 +678,130 @@ QUEUE_END:
     return ret;
 }
 
-LosQueueCB *OsGetQueueHandle(UINT32 queueID)
-{
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
-    if (queueID >= LOSCFG_BASE_IPC_QUEUE_LIMIT && queueID < OS_ALL_IPC_QUEUE_LIMIT) {
-        return (((LosQueueCB *)g_staticQueue) + (queueID - LOSCFG_BASE_IPC_QUEUE_LIMIT));
-    }
-#endif
 
-    return (((LosQueueCB *)g_allQueue) + (queueID));
+/*
+ * Description : Mail allocate memory
+ * Input       : queueId  --- QueueID
+ *             : mailPool --- The memory poll that stores the mail
+ *             : timeout  --- Expiry time. The value range is [0,LOS_WAIT_FOREVER]
+ * Return      : pointer if success otherwise NULL
+ */
+LITE_OS_SEC_TEXT VOID *OsQueueMailAlloc(UINT32 queueId, VOID *mailPool, UINT32 timeout)
+{
+    VOID *mem = NULL;
+    LosQueueCB *queueCB = NULL;
+    LosTaskCB *runTask = NULL;
+    UINT32 intSave;
+    UINT32 ret;
+
+    if (GET_QUEUE_INDEX(queueId) >= LOSCFG_BASE_IPC_QUEUE_LIMIT) {
+        return NULL;
+    }
+
+    if (mailPool == NULL) {
+        return NULL;
+    }
+
+    queueCB = GET_QUEUE_HANDLE(queueId);
+
+    OsQueueDbgTimeUpdateHook(queueId);
+
+    if (timeout != LOS_NO_WAIT) {
+        if (OS_INT_ACTIVE) {
+            return NULL;
+        }
+    }
+
+    SCHEDULER_LOCK(intSave);
+    ret = OsQueueStateVerify(queueCB, queueId);
+    if (ret != LOS_OK) {
+        goto OUT_UNLOCK;
+    }
+
+    mem = LOS_MemboxAlloc(mailPool);
+    if (mem == NULL) {
+        if (timeout == LOS_NO_WAIT) {
+            goto OUT_UNLOCK;
+        }
+
+        runTask = OsCurrTaskGet();
+        OsSchedWait(runTask, &queueCB->memList, timeout);
+
+        if (runTask->taskStatus & OS_TASK_STATUS_TIMEOUT) {
+            runTask->taskStatus &= ~OS_TASK_STATUS_TIMEOUT;
+            goto OUT_UNLOCK;
+        } else {
+            /*
+             * When enters the current branch, means the current task already got an available membox,
+             * so the runTsk->msg can not be NULL.
+             */
+            mem = runTask->msg;
+            runTask->msg = NULL;
+        }
+    }
+
+OUT_UNLOCK:
+    SCHEDULER_UNLOCK(intSave);
+    return mem;
 }
 
-#endif /* (LOSCFG_BASE_IPC_QUEUE == 1) */
+/*
+ * Description : Mail free memory
+ * Input       : queueId  --- QueueID
+ *             : mailPool --- The mail memory poll address
+ *             : mailMem  --- The mail memory block address
+ * Return      : LOS_OK on success or error code on failure
+ */
+LITE_OS_SEC_TEXT UINT32 OsQueueMailFree(UINT32 queueId, VOID *mailPool, VOID *mailMem)
+{
+    VOID *mem = NULL;
+    LosQueueCB *queueCB = NULL;
+    LosTaskCB *resumedTask = NULL;
+    UINT32 intSave;
+    UINT32 ret = LOS_OK;
 
+    if (GET_QUEUE_INDEX(queueId) >= LOSCFG_BASE_IPC_QUEUE_LIMIT) {
+        return LOS_ERRNO_QUEUE_MAIL_HANDLE_INVALID;
+    }
+
+    if (mailPool == NULL) {
+        return LOS_ERRNO_QUEUE_MAIL_PTR_INVALID;
+    }
+
+    queueCB = GET_QUEUE_HANDLE(queueId);
+
+    OsQueueDbgTimeUpdateHook(queueId);
+
+    SCHEDULER_LOCK(intSave);
+
+    ret = OsQueueStateVerify(queueCB, queueId);
+    if (ret != LOS_OK) {
+        ret = LOS_ERRNO_QUEUE_NOT_CREATE;
+        goto OUT_UNLOCK;
+    }
+
+    if (LOS_MemboxFree(mailPool, mailMem)) {
+        ret = LOS_ERRNO_QUEUE_MAIL_FREE_ERROR;
+        goto OUT_UNLOCK;
+    }
+
+    OsQueueDbgTimeUpdateHook(queueId);
+
+    if (!LOS_ListEmpty(&queueCB->memList)) {
+        resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&queueCB->memList));
+        OsSchedWake(resumedTask);
+        mem = LOS_MemboxAlloc(mailPool);
+        /* At the state of LOS_IntLock, the allocation can not be failed after releasing successfully. */
+        resumedTask->msg = mem;
+        SCHEDULER_UNLOCK(intSave);
+        LOS_MpSchedule(OS_MP_CPU_ALL);
+        LOS_Schedule();
+        return LOS_OK;
+    }
+
+OUT_UNLOCK:
+    SCHEDULER_UNLOCK(intSave);
+    return ret;
+}
+
+#endif /* LOSCFG_BASE_IPC_QUEUE */

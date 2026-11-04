@@ -45,7 +45,11 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_QueueRead(g_testQueueID01, &buff2, 6, 0); // 6 < QUEUE_BASE_MSGSIZE for erro code LOS_ERRNO_QUEUE_READ_SIZE_TOO_SMALL
+#ifdef LOSCFG_QUEUE_READ_PARTIAL
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
+#else
+    ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_QUEUE_READ_SIZE_TOO_SMALL, ret, EXIT);
+#endif
 
 EXIT:
     ret = LOS_QueueDelete(g_testQueueID01);

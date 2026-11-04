@@ -50,6 +50,7 @@
 #include "los_event.h"
 #include "los_memory.h"
 #include "los_queue.h"
+#include "los_queue_pri.h"
 #if (LOSCFG_BASE_CORE_CPUP == 1)
 #include "los_cpup.h"
 #endif
@@ -653,7 +654,7 @@ extern VOID ItSuite_CMSIS_Wait_add(VOID);
 extern UINT32 g_usSemID;
 extern UINT32 g_auwTestTaskID[LOSCFG_BASE_CORE_TSK_LIMIT];
 
-extern LosQueueCB *g_pstAllQueue;
+extern LosQueueCB *g_osAllQueue;
 extern UINT32 g_taskMaxNum;
 
 extern LITE_OS_SEC_BSS_INIT LOS_DL_LIST g_stUnusedSemList;

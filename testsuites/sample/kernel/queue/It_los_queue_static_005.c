@@ -31,7 +31,7 @@
 
 #include "It_los_queue.h"
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
 #define QUEUE_OVERSIZE_NUM 30
 
 static UINT32 Testcase(VOID)
@@ -43,7 +43,12 @@ static UINT32 Testcase(VOID)
 
     g_testQueueID01 = LOSCFG_BASE_IPC_QUEUE_LIMIT - 1;
 
+    /* F-Inv: maxMsgSize 超上限 → SIZE_TOO_BIG（参数检查先于静态内存容量检查） */
     ret = LOS_QueueCreateStatic("Q1", QUEUE_OVERSIZE_NUM, &g_testQueueID01, 0, 0xFFFF, (VOID *)buff3, QUEUE_SHORT_STATIC_BUFFER_LENGTH);
+    ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_QUEUE_SIZE_TOO_BIG, ret, EXIT);
+
+    /* F-Inv: 静态内存装不下 len 个节点 → CREATE_NO_MEMORY */
+    ret = LOS_QueueCreateStatic("Q1", QUEUE_OVERSIZE_NUM, &g_testQueueID01, 0, QUEUE_BASE_MSGSIZE, (VOID *)buff3, QUEUE_SHORT_STATIC_BUFFER_LENGTH);
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_QUEUE_CREATE_NO_MEMORY, ret, EXIT);
 
     ret = LOS_QueueWrite(g_testQueueID01, &buff1, QUEUE_BASE_MSGSIZE, 0);

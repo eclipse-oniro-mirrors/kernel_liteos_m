@@ -64,7 +64,7 @@ static UINT32 TestCase(VOID)
         }
     }
     /* directed: static-allocation queue create/write/read/delete */
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
     {
         static CHAR qmem[256];
         UINT32 q3 = 0;

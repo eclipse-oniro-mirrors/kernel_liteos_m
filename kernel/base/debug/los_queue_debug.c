@@ -26,6 +26,7 @@
  * --------------------------------------------------------------------------- */
 
 #include "los_queue_debug_pri.h"
+#include "los_queue_pri.h"
 #include "los_typedef.h"
 #include "los_task_pri.h"
 #include "securec.h"
@@ -52,10 +53,10 @@ STATIC BOOL QueueCompareValue(const SortParam *sortParam, UINT32 left, UINT32 ri
 
 UINT32 OsQueueDbgInit(VOID)
 {
-    UINT32 size = OS_ALL_IPC_QUEUE_LIMIT * sizeof(QueueDebugCB);
+    UINT32 size = LOSCFG_BASE_IPC_QUEUE_LIMIT * sizeof(QueueDebugCB);
 
     /* system resident memory, don't free */
-    g_queueDebugArray = (QueueDebugCB *)LOS_MemAllocAlign((VOID *)OS_SYS_MEM_ADDR, size, sizeof(UINT64));
+    g_queueDebugArray = (QueueDebugCB *)LOS_MemAllocAlign((VOID *)m_aucSysMem0, size, sizeof(UINT64));
     if (g_queueDebugArray == NULL) {
         PRINT_ERR("%s: malloc failed!\n", __FUNCTION__);
         return LOS_NOK;
@@ -66,13 +67,13 @@ UINT32 OsQueueDbgInit(VOID)
 
 VOID OsQueueDbgTimeUpdate(UINT32 queueId)
 {
-    QueueDebugCB *queueDebug = &g_queueDebugArray[queueId];
+    QueueDebugCB *queueDebug = &g_queueDebugArray[GET_QUEUE_INDEX(queueId)];
     queueDebug->lastAccessTime = LOS_TickCountGet();
 }
 
 VOID OsQueueDbgUpdate(UINT32 queueId, TSK_ENTRY_FUNC entry)
 {
-    QueueDebugCB *queueDebug = &g_queueDebugArray[queueId];
+    QueueDebugCB *queueDebug = &g_queueDebugArray[GET_QUEUE_INDEX(queueId)];
     queueDebug->creator = entry;
     queueDebug->lastAccessTime = LOS_TickCountGet();
 }
@@ -81,7 +82,7 @@ STATIC INLINE VOID OsQueueInfoOutPut(const LosQueueCB *node)
 {
     PRINTK("Queue ID <0x%x> may leak, queue len is 0x%x, "
            "readable cnt:0x%x, writable cnt:0x%x, ",
-           node->queueID,
+           node->queueId,
            node->queueLen,
            node->readWriteableCnt[OS_QUEUE_READ],
            node->readWriteableCnt[OS_QUEUE_WRITE]);
@@ -101,7 +102,7 @@ STATIC VOID SortQueueIndexArray(UINT32 *indexArray, UINT32 count)
     SortParam queueSortParam;
     queueSortParam.buf = (CHAR *)g_queueDebugArray;
     queueSortParam.ctrlBlockSize = sizeof(QueueDebugCB);
-    queueSortParam.ctrlBlockCnt = OS_ALL_IPC_QUEUE_LIMIT;
+    queueSortParam.ctrlBlockCnt = LOSCFG_BASE_IPC_QUEUE_LIMIT;
     queueSortParam.sortElemOff = LOS_OFF_SET_OF(QueueDebugCB, lastAccessTime);
 
     if (count > 0) {
@@ -113,14 +114,14 @@ STATIC VOID SortQueueIndexArray(UINT32 *indexArray, UINT32 count)
             (VOID)memcpy(&queueNode, GET_QUEUE_HANDLE(indexArray[index]), sizeof(LosQueueCB));
             (VOID)memcpy(&queueDebugNode, &g_queueDebugArray[indexArray[index]], sizeof(QueueDebugCB));
             SCHEDULER_UNLOCK(intSave);
-            if (queueNode.queueState == OS_QUEUE_UNUSED) {
+            if (queueNode.queueState == LOS_UNUSED) {
                 continue;
             }
             OsQueueInfoOutPut(&queueNode);
             OsQueueOpsOutput(&queueDebugNode);
         }
     }
-    (VOID)LOS_MemFree((VOID *)OS_SYS_MEM_ADDR, indexArray);
+    (VOID)LOS_MemFree((VOID *)m_aucSysMem0, indexArray);
 }
 
 VOID OsQueueCheck(VOID)
@@ -131,10 +132,14 @@ VOID OsQueueCheck(VOID)
     QueueDebugCB queueDebugNode = {0};
     UINT32 index, intSave;
     UINT32 count = 0;
+    /*
+     * This return value does not need to be judged immediately,
+     * and the following code logic has already distinguished the return value from null and non-empty,
+     * and there is no case of accessing the null pointer.
+     */
+    UINT32 *indexArray = (UINT32 *)LOS_MemAlloc((VOID *)m_aucSysMem0, LOSCFG_BASE_IPC_QUEUE_LIMIT * sizeof(UINT32));
 
-    UINT32 *indexArray = (UINT32 *)LOS_MemAlloc((VOID *)OS_SYS_MEM_ADDR, OS_ALL_IPC_QUEUE_LIMIT * sizeof(UINT32));
-
-    for (index = 0; index < OS_ALL_IPC_QUEUE_LIMIT; index++) {
+    for (index = 0; index < LOSCFG_BASE_IPC_QUEUE_LIMIT; index++) {
         queueCB = GET_QUEUE_HANDLE(index);
         SCHEDULER_LOCK(intSave);
         (VOID)memcpy(&queueNode, queueCB, sizeof(LosQueueCB));
@@ -148,16 +153,16 @@ VOID OsQueueCheck(VOID)
             isPending = TRUE;
         }
         SCHEDULER_UNLOCK(intSave);
-        if ((queueNode.queueState == OS_QUEUE_UNUSED) ||
-            ((queueNode.queueState == OS_QUEUE_INUSED) && (queueDebugNode.creator == NULL))) {
+        if ((queueNode.queueState == LOS_UNUSED) ||
+            ((queueNode.queueState == LOS_USED) && (queueDebugNode.creator == NULL))) {
             continue;
         }
-        if ((queueNode.queueState == OS_QUEUE_INUSED) &&
+        if ((queueNode.queueState == LOS_USED) &&
             (queueNode.queueLen == queueNode.readWriteableCnt[OS_QUEUE_WRITE]) &&
             (isPending == FALSE)) {
             PRINTK("Queue ID <0x%x> may leak, No task uses it, "
                    "QueueLen is 0x%x, ",
-                   queueNode.queueID,
+                   queueNode.queueId,
                    queueNode.queueLen);
             OsQueueOpsOutput(&queueDebugNode);
         } else {

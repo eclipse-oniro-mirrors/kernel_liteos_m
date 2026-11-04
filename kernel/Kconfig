@@ -798,11 +798,17 @@ config BASE_IPC_QUEUE_LIMIT
     help
       This represents the maximum number of queues.
 
-config BASE_IPC_STATIC_QUEUE_LIMIT
-    int "Max Static Queue Number"
-    default 3
+config QUEUE_PEAK_STAT
+    bool "Enable Queue Peak Statistics"
+    default n
     help
-      This represents the maximum number of static queues.
+      This option will support queue peak statistics.
+
+config QUEUE_READ_PARTIAL
+    bool "Enable queue partial read"
+    default y
+    help
+      This option supports users reading partial data when the read buffer is insufficient.
 
 config QUEUE_DYNAMIC_ALLOCATION
     bool "Enable Queue Dynamic Allocation"

@@ -51,7 +51,7 @@ static UINT32 Testcase(VOID)
     ret = LOS_QueueWriteHeadCopy(queueID, buff, QUEUE_BASE_MSGSIZE, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_QUEUE_ISFULL, ret, EXIT);
 
-    /* F-Inv: 越界 ID -> INVALID(OsQueueWriteParameterCheck: queueID >= OS_ALL_IPC_QUEUE_LIMIT) */
+    /* F-Inv: 越界 ID -> INVALID(OsQueueWriteParameterCheck: GET_QUEUE_INDEX(queueId) >= LOSCFG_BASE_IPC_QUEUE_LIMIT) */
     ret = LOS_QueueWriteHeadCopy(0xFFFF, buff, QUEUE_BASE_MSGSIZE, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_QUEUE_INVALID, ret, EXIT);
 

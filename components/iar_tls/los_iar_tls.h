@@ -44,7 +44,7 @@
         __iar_dlib_perthread_deallocate(taskCB->iarTlsArea); \
         taskCB->iarTlsArea = NULL;                           \
     }                                                        \
-} while (0);
+} while (0)
 #else
 #include <Dlib_threads.h>
 
@@ -58,7 +58,7 @@ void IarPerThreadTlsAreaDeallocate(void *tlsArea);
         IarPerThreadTlsAreaDeallocate(taskCB->iarTlsArea); \
         taskCB->iarTlsArea = NULL;                         \
     }                                                      \
-} while (0);
+} while (0)
 #endif
 
 /* In the main initialization phase, the macro should be called. */

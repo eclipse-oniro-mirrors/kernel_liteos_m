@@ -499,7 +499,7 @@ extern UINT32 LOS_QueueReadCopy(UINT32 queueID,
  *
  * @par Description:
  * This API is used to read data in a specified queue, and store the obtained data to the address specified
- * by bufferAddr. The address and the size of the data to be read are defined by users. 
+ * by bufferAddr. The address and the size of the data to be read are defined by users.
  * It is safe to use this API from within an interrupt service routine.
  * @attention
  * <ul>
@@ -867,7 +867,8 @@ extern UINT32 LOS_QueueWriteHead(UINT32 queueID,
  * <li>This API write data into a queue header in unblocking modes.</li>
  * <li>The address of the data of the size specified by bufferSize and stored at the address specified by
  * BufferAddr is to be written.</li>
- * <li>LOS_QueueRead and LOS_QueueWriteHeadIsr are a set of interfaces, and the two groups of interfaces need to be used.
+ * <li>LOS_QueueRead and LOS_QueueWriteHeadIsr are a set of interfaces, and the two groups of interfaces need to
+ * be used.
  * <li>
  * </ul>
  *
@@ -956,8 +957,8 @@ extern UINT32 LOS_QueueWriteHeadCopy(UINT32 queueID,
  * <li>This API write data into a queue header in unblocking modes.</li>
  * <li>The address of the data of the size specified by bufferSize and stored at the address specified by
  * BufferAddr is to be written.</li>
- * <li>LOS_QueueReadCopy and LOS_QueueWriteHeadCopyIsr are a set of interfaces, and the two groups of interfaces need to be
- * used.<li>
+ * <li>LOS_QueueReadCopy and LOS_QueueWriteHeadCopyIsr are a set of interfaces, and the two groups of interfaces
+ * need to be used.<li>
  * </ul>
  *
  * @param queueID        [IN]        Queue ID created by LOS_QueueCreate. The value range is

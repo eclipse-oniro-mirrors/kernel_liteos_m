@@ -97,10 +97,13 @@ static inline LosTaskCB *kv_task_table(void)
 /* SP minimum alignment: at least pointer-size. */
 #define KV_SP_ALIGN          sizeof(void *)
 
-/* Offsets of the first three TCB fields, identical across liteos versions. */
+/*
+ * Offsets of the first three TCB fields: taskStatus and priority sit right after the stackPointer,
+ * so they follow the pointer width (32-bit: 4/6, 64-bit: 8/10).
+ */
 #define KV_CONTRACT_SP_OFF       0
-#define KV_CONTRACT_STATUS_OFF   4
-#define KV_CONTRACT_PRIO_OFF     6
+#define KV_CONTRACT_STATUS_OFF   (sizeof(void *))
+#define KV_CONTRACT_PRIO_OFF     (sizeof(void *) + 2)
 
 /* Field read macros. */
 #define KV_RD16(tcb, off)   (*(volatile uint16_t *)((char *)(tcb) + (off)))

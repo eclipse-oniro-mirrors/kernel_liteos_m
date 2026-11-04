@@ -166,58 +166,58 @@ extern "C" {
 #endif
 
 typedef struct LosTaskCB {
-    VOID                        *stackPointer;            /**< Task stack pointer */
+    VOID                        *stackPointer;            /* Task stack pointer */
     UINT16                      taskStatus;
     UINT16                      priority;
-    UINT32                      taskFlags : 31;          /**< Task attribute flags */
-    UINT32                      usrStack : 1;            /**< Usr Stack uses the last bit */
-    UINT32                      priBitMap;               /**< BitMap for priority inheritance */
+    UINT32                      taskFlags : 31;           /* Task attribute flags */
+    UINT32                      usrStack : 1;             /* Usr Stack uses the last bit */
+    UINT32                      priBitMap;                /* BitMap for priority inheritance */
     INT32                       timeSlice;
     UINT32                      waitTimes;
     SortLinkList                sortList;
     UINT64                      startTime;
-    UINT32                      stackSize;                /**< Task stack size */
-    UINTPTR                     topOfStack;               /**< Task stack top */
-    UINT32                      taskId;                   /**< Task ID */
-    TSK_ENTRY_FUNC              taskEntry;                /**< Task entrance function */
-    VOID                        *taskSem;                 /**< Task-held semaphore */
-    VOID                        *taskMux;                 /**< Task-held mutex */
+    UINT32                      stackSize;                /* Task stack size */
+    UINTPTR                     topOfStack;               /* Task stack top */
+    UINT32                      taskId;                   /* Task ID */
+    TSK_ENTRY_FUNC              taskEntry;                /* Task entrance function */
+    VOID                        *taskSem;                 /* Task-held semaphore */
+    VOID                        *taskMux;                 /* Task-held mutex */
 #ifdef LOSCFG_KERNEL_TASK_ENTRY_VOID_PTR
-    VOID                       *args;                     /**< Parameter (VOID*) */
+    VOID                       *args;                     /* Parameter (VOID*) */
 #else
-    UINT32                      arg;                      /**< Parameter */
+    UINT32                      arg;                      /* Parameter */
 #endif
-    CHAR                        *taskName;                /**< Task name */
+    CHAR                        *taskName;                /* Task name */
     LOS_DL_LIST                 pendList;
     LOS_DL_LIST                 timerList;
 #ifdef LOSCFG_TASK_JOINABLE
-    struct LosTaskCB    *joinner;           /* Pointer to the task that
-                                             * invokes LOS_TaskJoin func to wait for cur task */
-    struct LosTaskCB    *joined;            /* Point to the task waiting
-                                             * By the cur task invoking LOS_TaskJoin func */
-    VOID                        *taskRetval;               /**< Return value of the end of the task, If the task does not exit by itself, the ID of the task that killed the task is recorded. */
+    struct LosTaskCB            *joinner;                 /* Pointer to the task that
+                                                           * invokes LOS_TaskJoin func to wait for cur task */
+    struct LosTaskCB            *joined;                  /* Point to the task waiting
+                                                           * By the cur task invoking LOS_TaskJoin func */
+    VOID                        *taskRetval;              /* Task join exit status */
 #endif
 #ifdef LOSCFG_BASE_IPC_EVENT
     EVENT_CB_S                  event;
-    UINT32                      eventMask;                /**< Event mask */
-    UINT32                      eventMode;                /**< Event mode */
+    UINT32                      eventMask;                /* Event mask */
+    UINT32                      eventMode;                /* Event mode */
 #endif
 #ifdef LOSCFG_BASE_IPC_RWSEM
-    UINT16                      waitType;                 /**< The type of the rwsem that the task waits for */
+    UINT16                      waitType;                 /* The type of the rwsem that the task waits for */
 #endif
-    VOID                        *msg;                     /**< Memory allocated to queues */
+    VOID                        *msg;                     /* Memory allocated to queues */
     INT32                       errorNo;
 #if (LOSCFG_KERNEL_SIGNAL == 1)
-    VOID                        *sig;                     /**< Task signal */
+    VOID                        *sig;                     /* Task signal */
 #endif
 #ifdef LOSCFG_KERNEL_SMP
-    UINT32                      mpSignal;                 /**< Mp Task signal */
-    volatile UINT16             currCpu;                  /**< CPU core number this task is running on */
-    volatile UINT16             lastCpu;                  /**< CPU core number this task last ran on */
-    UINT32                      timerCpu;                 /**< CPU core number where this task is delayed or pended */
-    UINT16                      cpuAffiMask;              /**< CPU affinity mask, support up to 16 cores */
+    UINT32                      mpSignal;                 /* Mp Task signal */
+    volatile UINT16             currCpu;                  /* CPU core number this task is running on */
+    volatile UINT16             lastCpu;                  /* CPU core number this task last ran on */
+    UINT32                      timerCpu;                 /* CPU core number where this task is delayed or pended */
+    UINT16                      cpuAffiMask;              /* CPU affinity mask, support up to 16 cores */
 #ifdef LOSCFG_KERNEL_SMP_TASK_SYNC
-    UINT32                      syncSignal;               /**< Synchronization for signal handling */
+    UINT32                      syncSignal;               /* Synchronization for signal handling */
 #endif
 #endif
 #ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
@@ -225,7 +225,7 @@ typedef struct LosTaskCB {
 #endif
 
 #ifdef LOSCFG_TASK_STRUCT_EXTENSION
-    LOSCFG_TASK_STRUCT_EXTENSION;                         /**< Task extension field */
+    LOSCFG_TASK_STRUCT_EXTENSION;                         /* Task extension field */
 #endif
 } LosTaskCB;
 

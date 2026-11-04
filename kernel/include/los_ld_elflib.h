@@ -143,7 +143,6 @@ typedef struct LdMemCfg {
  * @par Dependency:
  * <ul><li>los_ld_elflib.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_FindSymByName | LOS_LdDestroy
- * @since Huawei LiteOS V100R001C00
  */
 extern VOID LOS_DynParamReg(const DYNLOAD_PARAM_S *dynloadParam);
 
@@ -165,7 +164,6 @@ extern VOID LOS_DynParamReg(const DYNLOAD_PARAM_S *dynloadParam);
  * @par Dependency:
  * <ul><li>los_ld_elflib.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_ModuleUnload
- * @since Huawei LiteOS V100R001C00
  */
 extern VOID *LOS_SoLoad(const CHAR *elfFileName);
 
@@ -190,7 +188,6 @@ extern VOID *LOS_SoLoad(const CHAR *elfFileName);
  * @par Dependency:
  * <ul><li>los_ld_elflib.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_ModuleUnload
- * @since Huawei LiteOS V200R003C00
  */
 extern VOID *LOS_MemLoad(const CHAR *elfFileName, UINT32 fileNameLen,
                          const CHAR *elfFileBuf, UINT32 bufLen);
@@ -268,7 +265,6 @@ extern UINT32 LOS_ModuleSizeGet(const VOID *elfFileBuf, UINT32 bufLen, LD_MEM_CF
  * @par Dependency:
  * <ul><li>los_ld_elflib.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_ModuleUnload
- * @since Huawei LiteOS V100R001C00
  */
 extern VOID *LOS_ObjLoad(const CHAR *elfFileName);
 
@@ -290,7 +286,6 @@ extern VOID *LOS_ObjLoad(const CHAR *elfFileName);
  * @par Dependency:
  * <ul><li>los_ld_elflib.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_ObjLoad
- * @since Huawei LiteOS V100R001C00
  */
 extern INT32 LOS_ModuleUnload(VOID *handle);
 
@@ -311,7 +306,6 @@ extern INT32 LOS_ModuleUnload(VOID *handle);
  * @par Dependency:
  * <ul><li>los_ld_elflib.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_FindSymByName
- * @since Huawei LiteOS V100R001C00
  */
 extern VOID LOS_LdDestroy(VOID);
 
@@ -323,8 +317,8 @@ extern VOID LOS_LdDestroy(VOID);
  * This API is used to search for the address of a symbol according to a particular module handle and symbol name.
  * @attention
  * <ul>
- * <li>If the value of handle is NULL, Huawei LiteOS searches for symbols (including system symbols) in the global
- * symbol table. If handle is set to a valid module handle, Huawei LiteOS searches for symbols in the module that
+ * <li>If the value of handle is NULL, LiteOS searches for symbols (including system symbols) in the global
+ * symbol table. If handle is set to a valid module handle, LiteOS searches for symbols in the module that
  * comes with the module handle.</li>
  * </ul>
  *
@@ -336,7 +330,6 @@ extern VOID LOS_LdDestroy(VOID);
  * @par Dependency:
  * <ul><li>los_ld_elflib.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_LdDestroy
- * @since Huawei LiteOS V100R001C00
  */
 extern VOID *LOS_FindSymByName(VOID *handle, CHAR *name);
 
@@ -358,7 +351,6 @@ extern VOID *LOS_FindSymByName(VOID *handle, CHAR *name);
  * @par Dependency:
  * <ul><li>los_ld_elflib.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_FindSymByName | LOS_LdDestroy
- * @since Huawei LiteOS V100R001C00
  */
 extern INT32 LOS_PathAdd(CHAR *path);
 
@@ -381,7 +373,6 @@ extern INT32 LOS_PathAdd(CHAR *path);
  * @par Dependency:
  * <ul><li>los_ld_elflib.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_ModuleUnload
- * @since Huawei LiteOS V200R002C00
  */
 extern BOOL LOS_DynMemPoolSet(VOID *memPool);
 

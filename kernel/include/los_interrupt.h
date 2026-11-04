@@ -494,10 +494,10 @@ extern BOOL OsHwiIsCreated(UINT32 index);
  * @see LOS_HwiDelete
  */
 extern UINT32 LOS_HwiCreate(HWI_HANDLE_T hwiNum,
-					        HWI_PRIOR_T hwiPrio,
-					        HWI_MODE_T hwiMode,
-					        HWI_PROC_FUNC handler,
-					        HWI_IRQ_PARAM_S *irqParam);
+                            HWI_PRIOR_T hwiPrio,
+                            HWI_MODE_T hwiMode,
+                            HWI_PROC_FUNC handler,
+                            HWI_IRQ_PARAM_S *irqParam);
 /**
  * @ingroup  los_interrupt
  * @brief delete a hardware interrupt.

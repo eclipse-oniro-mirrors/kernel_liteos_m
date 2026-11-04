@@ -124,7 +124,6 @@ extern "C" {
  * @par Dependency:
  * <ul><li>los_shell.h: the header file that contains the API declaration.</li></ul>
  * @see shell
- * @since Huawei LiteOS SIL Certified 207.1.0
  */
 extern UINT32 LOS_ShellCreate(VOID);
 
@@ -152,7 +151,6 @@ extern UINT32 LOS_ShellCreate(VOID);
  * @par Dependency:
  * <ul><li>los_shell.h: the header file that contains the API declaration.</li></ul>
  * @see shell
- * @since Huawei LiteOS SIL Certified 207.1.0
  */
 extern UINT32 LOS_ShellCmdReg(CmdType cmdType, CHAR *cmdKey, UINT32 paraNum, CmdCallBackFunc cmdProc);
 

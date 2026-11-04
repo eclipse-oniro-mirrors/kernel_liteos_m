@@ -31,11 +31,11 @@
 #ifndef _ADAPT_SYS_PRCTL_H
 #define _ADAPT_SYS_PRCTL_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stdint.h>
 
 struct prctl_mm_map {
     uint64_t start_code;

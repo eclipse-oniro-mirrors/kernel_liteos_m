@@ -1,7 +1,6 @@
 /* ----------------------------------------------------------------------------
- * Copyright (c) Huawei Technologies Co., Ltd. 2019-2020. All rights reserved.
+ * Copyright (c) 2019-2020 Huawei Technologies Co., Ltd. All rights reserved.
  * Description: LiteOS Time Zone Implementation
- * Author: Huawei LiteOS Team
  * Create: 2019-11-01
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:

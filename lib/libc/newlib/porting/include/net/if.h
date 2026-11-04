@@ -32,6 +32,9 @@
 #define _ADAPT_IF_H
 
 #include <sys/features.h>
+#if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
+#include <sys/socket.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,8 +43,6 @@ extern "C" {
 #define IF_NAMESIZE 16
 
 #if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
-
-#include <sys/socket.h>
 
 #define IFF_UP          0x1
 #define IFF_BROADCAST   0x2

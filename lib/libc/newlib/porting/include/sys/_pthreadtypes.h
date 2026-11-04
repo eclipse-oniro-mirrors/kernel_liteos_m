@@ -94,11 +94,11 @@ typedef struct { unsigned int magic; unsigned int handle; pthread_mutexattr_t st
 #include "los_event.h"
 
 typedef struct pthread_cond {
-  volatile int count;      /**< The number of tasks blocked by condition */
-  EVENT_CB_S event;        /**< Event object*/
-  pthread_mutex_t* mutex;  /**< Mutex locker for condition variable protection */
-  volatile int value;      /**< Condition variable state value*/
-  int clock;
+    volatile int count;      /**< The number of tasks blocked by condition */
+    EVENT_CB_S event;        /**< Event object*/
+    pthread_mutex_t* mutex;  /**< Mutex locker for condition variable protection */
+    volatile int value;      /**< Condition variable state value*/
+    int clock;
 } pthread_cond_t;
 
 #define _PTHREAD_COND_INITIALIZER   { 0 }

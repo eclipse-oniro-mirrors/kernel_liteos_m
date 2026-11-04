@@ -1,6 +1,30 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 # Copyright (c) 2026-2026 Huawei Device Co., Ltd. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of
+#    conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list
+#    of conditions and the following disclaimer in the documentation and/or other materials
+#    provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its contributors may be used
+#    to endorse or promote products derived from this software without specific prior written
+#    permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS
+# OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+# AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+# OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 '''
 Description: Parse high performance log to calculate the arguments number and type
 
@@ -36,7 +60,7 @@ import stat
 import fcntl
 import subprocess
 import hashlib
-sys.path.append(sys.path[0]+"/../")
+sys.path.append(sys.path[0] + "/../")
 from util.utils import Utils
 
 LOG_FORMAT = '[%(funcName)s:%(lineno)d, %(levelname)s]: %(message)s'
@@ -291,14 +315,14 @@ def extract_format_string(fmt_info):
     qeuotation_cnt = 0
     out_fmt = ''
     origin_fmt = ''
-    for i in range(0, len(fmt_info)):
-        if fmt_info[i] == '"' and fmt_info[i - 1] != '\\':
+    for i, ch in enumerate(fmt_info):
+        if ch == '"' and fmt_info[i - 1] != '\\':
             qeuotation_cnt += 1
-            origin_fmt += fmt_info[i]
+            origin_fmt += ch
             continue
 
         if qeuotation_cnt == 0:
-            origin_fmt += fmt_info[i]
+            origin_fmt += ch
             continue
 
         if qeuotation_cnt % 2 == 0:
@@ -433,6 +457,43 @@ def get_atomic_fmt_id(atomic_fd, cnt):
     return atomic_cnt
 
 
+def inject_log_code(lines, metadata_fd, atomic_fd, emulation_flag, preprocess_file):
+    '''
+    Inject modified code for all high performance log interface.
+    '''
+    # extrace "OsHplLoggerHook" line number in .i preprocessor file
+    spilt_lines = lines.split('\n')
+    log_matches_line = []
+    for line_num, line in enumerate(spilt_lines, 1):
+        count = line.count("OsHplLoggerHook")
+        log_matches_line.extend([line_num] * count)
+
+    # Search source file path and high performance log code.
+    search = re.search(FILE_PATH, lines)
+    if search:
+        source_path = search.group(1)
+        source_path = os.path.basename(source_path)
+        source_path = '"' + source_path + '"'
+    else:
+        Utils.err_exit("not find file name in preprocess file: {0}".format(preprocess_file))
+
+    # Search all high performance log interface.
+    matches = re.findall(LOGGER_START, lines, re.M)
+
+    fmt_id = get_atomic_fmt_id(atomic_fd, len(matches))
+    # Analysis all log code and inject modified code.
+    i = 1 # The 0 index of log_matches_line is declaration of OsHplLoggerHook, jump over it!
+    for match in matches:
+        if fmt_id == 0:
+            write_metadata_header(metadata_fd, emulation_flag)
+        modify = modify_format_string(match, metadata_fd, fmt_id, source_path, \
+                                      get_log_function_name(log_matches_line[i]), emulation_flag)
+        fmt_id += 1
+        i += 1
+        lines = lines.replace(match, modify)
+    return lines
+
+
 def prase_file(preprocess_file, metadata_fd, emulation_flag, atomic_fd):
     '''
     Prase compiler preprocess file.
@@ -447,38 +508,8 @@ def prase_file(preprocess_file, metadata_fd, emulation_flag, atomic_fd):
     with os.fdopen(os.open(preprocess_file, file_flags, file_modes), 'w') as modify_handle:
         with os.fdopen(os.open(ori_file, os.O_RDONLY), 'r') as ori_handle:
             lines = ori_handle.read()
-
-            # extrace "OsHplLoggerHook" line number in .i preprocessor file
-            spilt_lines = lines.split('\n')
-            log_matches_line = []
-            for line_num, line in enumerate(spilt_lines, 1):
-                count = line.count("OsHplLoggerHook")
-                log_matches_line.extend([line_num] * count)
-
-            # Search source file path and high performance log code.
-            search = re.search(FILE_PATH, lines)
-            if search:
-                source_path = search.group(1)
-                source_path = os.path.basename(source_path)
-                source_path = '"' + source_path + '"'
-            else:
-                Utils.err_exit("not find file name in preprocess file: {0}".format(preprocess_file))
-
-            # Search all high performance log interface.
-            matches = re.findall(LOGGER_START, lines, re.M)
-
-            fmt_id = get_atomic_fmt_id(atomic_fd, len(matches))
-            # Analysis all log code and inject modified code.
-            i = 1 # The 0 index of log_matches_line is declaration of OsHplLoggerHook, jump over it!
-            for match in matches:
-                if fmt_id == 0:
-                    write_metadata_header(metadata_fd, emulation_flag)
-                modify = modify_format_string(match, metadata_fd, fmt_id, source_path, \
-                                              get_log_function_name(log_matches_line[i]), emulation_flag)
-                fmt_id += 1
-                i += 1
-                lines = lines.replace(match, modify)
-            modify_handle.writelines(lines)
+            modify_handle.writelines(
+                inject_log_code(lines, metadata_fd, atomic_fd, emulation_flag, preprocess_file))
 
 
 def extrace_function_line_info(src_file):

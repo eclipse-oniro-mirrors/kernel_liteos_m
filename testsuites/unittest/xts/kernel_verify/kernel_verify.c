@@ -36,10 +36,14 @@
 
 #include "kernel_verify.h"
 
-/* Disable interrupts; caller must pass the returned state to KV_INT_RESTORE. */
-static inline uint32_t KV_INT_DISABLE(void)
+/*
+ * Disable interrupts and return the previous interrupt state. uintptr_t so
+ * 64-bit CSRs (mstatus/daif) survive the save/restore round trip untruncated;
+ * the caller must pass the state to KV_INT_RESTORE.
+ */
+static inline uintptr_t KV_INT_DISABLE(void)
 {
-    uint32_t state;
+    uintptr_t state;
 #if defined(__riscv)
     __asm__ volatile(
         "csrr %0, mstatus\n\t"
@@ -50,11 +54,16 @@ static inline uint32_t KV_INT_DISABLE(void)
         "mrs %0, daif\n\t"
         "msr daifset, 2"
         : "=r"(state) :: "memory");
-#elif defined(__arm__) || defined(__thumb__)
+#elif defined(__ARM_ARCH_PROFILE) && (__ARM_ARCH_PROFILE == 'A' || __ARM_ARCH_PROFILE == 'R')
+    __asm__ volatile(
+        "mrs %0, cpsr\n\t"
+        "cpsid if"
+        : "=r"(state) : : "memory");
+#elif defined(__ARM_ARCH_PROFILE) && (__ARM_ARCH_PROFILE == 'M')
     __asm__ volatile(
         "mrs %0, primask\n\t"
         "cpsid i"
-        : "=r"(state) :: "memory");
+        : "=r"(state) : : "memory");
 #else
 #error "Unsupported architecture: kernel_verify probe requires __riscv, __arm__/__thumb__, or __aarch64__"
 #endif
@@ -62,13 +71,15 @@ static inline uint32_t KV_INT_DISABLE(void)
 }
 
 /* Restore interrupt state saved by KV_INT_DISABLE (re-enables if previously enabled). */
-static inline void KV_INT_RESTORE(uint32_t state)
+static inline void KV_INT_RESTORE(uintptr_t state)
 {
 #if defined(__riscv)
     __asm__ volatile("csrw mstatus, %0" :: "r"(state) : "memory");
 #elif defined(__aarch64__)
     __asm__ volatile("msr daif, %0" :: "r"(state) : "memory");
-#elif defined(__arm__) || defined(__thumb__)
+#elif defined(__ARM_ARCH_PROFILE) && (__ARM_ARCH_PROFILE == 'A' || __ARM_ARCH_PROFILE == 'R')
+    __asm__ volatile("msr cpsr_c, %0" :: "r"(state) : "memory");
+#elif defined(__ARM_ARCH_PROFILE) && (__ARM_ARCH_PROFILE == 'M')
     __asm__ volatile("msr primask, %0" :: "r"(state) : "memory");
 #else
 #error "Unsupported architecture"
@@ -244,7 +255,7 @@ uint32_t KernelVerifyCurSp(void)
 uint32_t KernelVerifyAll(void)
 {
     uint32_t err = KERNEL_VERIFY_OK;
-    uint32_t state;
+    uintptr_t state;
 
     if (kv_task_table() == NULL) {
         return KERNEL_VERIFY_ERR_ARRAY_NULL;

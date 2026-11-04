@@ -34,7 +34,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-/* TODO： 暂时将多个架构实现放这里，后续会按照架构依次重构到arch目录下 */
+/* 说明：多个架构实现暂时置于本文件，后续会按照架构依次重构到arch目录下 */
 
 #if defined(__aarch64__)
 /*

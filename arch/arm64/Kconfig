@@ -1,6 +1,5 @@
 #
-# AArch64 (ARMv8-A, 64-bit) architecture support, ported from
-# hs-fbb arch_lite/arm64 (same-origin kernel_lite base).
+# AArch64 (ARMv8-A, 64-bit) architecture support.
 #
 # 64-bit ARM architecture implementations. AArch64 was introduced in
 # ARMv8-A and is included in subsequent versions of ARMv8-A.

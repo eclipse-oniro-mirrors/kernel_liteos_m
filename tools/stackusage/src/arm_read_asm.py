@@ -136,6 +136,40 @@ def _vfp_bytes(reg_str):
     return total
 
 
+def _alloc_delta(mfull):
+    """分配方向的正增量;未匹配返回 None(条件形式也保守计入)。"""
+    m = match_first(mfull, (PUSH_RE, STMDB_RE))
+    if m:
+        return _count_regs(m.group(1)) * 4
+    m = STR_PRE_RE.match(mfull)
+    if m:
+        return int(m.group(1))
+    m = VPUSH_RE.match(mfull)
+    if m:
+        return _vfp_bytes(m.group(1))
+    m = SUB_SP_RE.match(mfull)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+_UNMATCHED = object()
+
+
+def _restore_delta(mfull, was_cond):
+    """恢复方向的负增量;条件执行时保守返回 None;未匹配返回 _UNMATCHED。"""
+    m = match_first(mfull, (POP_RE, LDMIA_RE))
+    if m:
+        return None if was_cond else -_count_regs(m.group(1)) * 4
+    m = VPOP_RE.match(mfull)
+    if m:
+        return None if was_cond else -_vfp_bytes(m.group(1))
+    m = match_first(mfull, (ADD_SP_RE, LDR_POST_RE))
+    if m:
+        return None if was_cond else -int(m.group(1))
+    return _UNMATCHED
+
+
 def _sp_delta(mnemonic, operands):
     """单条指令对 sp 净增量:正=分配 / 负=恢复 / 0=不动 / None=未知。
 
@@ -151,36 +185,12 @@ def _sp_delta(mnemonic, operands):
     ops = toks[1] if len(toks) > 1 else ''
     mfull = bare + (' ' + ops if ops else '')
 
-    # 分配方向(条件形式也保守计入)
-    m = match_first(mfull, (PUSH_RE, STMDB_RE))
-    if m:
-        return _count_regs(m.group(1)) * 4
-    m = STR_PRE_RE.match(mfull)
-    if m:
-        return int(m.group(1))
-    m = VPUSH_RE.match(mfull)
-    if m:
-        return _vfp_bytes(m.group(1))
-    m = SUB_SP_RE.match(mfull)
-    if m:
-        return int(m.group(1))
-
-    # 恢复方向(条件执行时保守返回 None)
-    m = match_first(mfull, (POP_RE, LDMIA_RE))
-    if m:
-        if was_cond:
-            return None
-        return -_count_regs(m.group(1)) * 4
-    m = VPOP_RE.match(mfull)
-    if m:
-        if was_cond:
-            return None
-        return -_vfp_bytes(m.group(1))
-    m = match_first(mfull, (ADD_SP_RE, LDR_POST_RE))
-    if m:
-        if was_cond:
-            return None
-        return -int(m.group(1))
+    delta = _alloc_delta(mfull)
+    if delta is not None:
+        return delta
+    delta = _restore_delta(mfull, was_cond)
+    if delta is not _UNMATCHED:
+        return delta
 
     if MOV_SP_RE.match(mfull) or SUB_SP_ANY_RE.match(mfull) \
             or ADD_SP_ANY_RE.match(mfull):

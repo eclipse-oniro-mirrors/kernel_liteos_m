@@ -15,6 +15,7 @@
 #include "los_debug.h"
 #include "los_interrupt.h"
 #include "los_arch_interrupt.h"
+#include "los_hwi_pri.h"
 #include "soc.h"
 #include "uart.h"
 #include "securec.h"
@@ -85,28 +86,99 @@ STATIC UINT32 CreateAppTask(VOID)
 
 #define PSCI_FN_CPU_OFF 0x84000002UL
 
-/* Shared with the exception path (arch/arm64/los_fault.c): after the
- * exception dump the slave powers itself off so the master can restart it
- * (a half-dead slave would stay "ON" and block the next mica_start). */
+/* GICD_ICACTIVER: active-latch bank, same layout as GICD_ICPENDR but at
+ * 0x380. Not yet defined in los_arch_interrupt.h - local definition. */
+#ifndef GICD_ICACTIVER
+#define GICD_ICACTIVER(n) (0x0380 + (n) * 4)
+#endif
+
+/* Slave poweroff, directly in the IPI handler (registered as
+ * sys_ops.system_poweroff). The kernel dispatch table g_hwiHandleForm[]
+ * is the registry of the interrupts this slave created: every driver on
+ * this core (the mica IPI 7, the tick PPI, uart/can/net/timer SPIs)
+ * registers through ArchHwiCreate/LOS_HwiCreate, which fills the per-IRQ
+ * hook. Walk the table and, for every registered INTID, mask the line and
+ * clear both the Pending and the Active latches:
+ *  - SGI/PPI (< 32): our own redistributor (slot = MPIDR Aff1 - the same
+ *    formula the gic-v3 driver uses for g_gicrSlot).
+ *  - SPI (>= 32): the shared GICD bank. ICENABLER/ICPENDR/ICACTIVER are
+ *    write-1-to-clear registers that only affect the written INTID, so the
+ *    master's SPIs stay untouched (never single-bit-write IGROUPR - a
+ *    plain RW register, that freezes the Linux master; see uart.c).
+ * The running IPI (INTID 7, also registered) is handled first with a
+ * bare-INTID EOI, which drops its Active state (board-proven); the
+ * running priority stays elevated, but this hook never returns, so the
+ * dispatcher's own EOI never runs and nothing below reads ICC_IAR1. A
+ * latched 1-N SGI pending instance cannot be cleared by ICPENDR on this
+ * GIC (board-proven) - the residue stays disabled and harmless: PSCI
+ * CPU_OFF does not depend on the redistributor quiesce (board-proven),
+ * and the master sends nothing after the CPU_OFF notify, so the parked
+ * core is not resurrected. */
 VOID SlavePoweroff(VOID)
 {
-    /* No PRINTK here on purpose: this runs in the IPI interrupt context and
-     * the shared UART is owned by the master console; a log write can wedge
-     * (or stall on TX FIFO contention with the master's console traffic),
-     * the SMC below never executes, the IPI stays masked, and the master's
-     * wait_cpu_off times out leaving the core on - which then gets its image
-     * overwritten by the next load. Power-off must be print-free. */
+    UINT64 mpidr;
+    UINT32 slot;
+    UINT32 hwiNum;
+
+    /* No PRINTK here on purpose: the shared UART is owned by the master
+     * console; a log write can wedge (or stall on TX FIFO contention with
+     * the master's console traffic), the SMC below never executes, and the
+     * master's wait_cpu_off times out leaving the core on - which then gets
+     * its image overwritten by the next load. Power-off must be print-free. */
+    /* EOI our own running IPI with the bare INTID: enough to drop its
+     * Active state before the table walk re-clears the latch. */
+    __asm__ volatile("msr " ICC_EOIR1_EL1 ", %0" :: "r"((UINT64)7) : "memory");
+    __asm__ volatile("isb" ::: "memory");
+    /* Stop the slave tick timer before the walk: while the periodic timer
+     * PPI keeps firing, every pending latch the walk clears below would
+     * just re-latch. RK3568 uses the EL1 PHYSICAL timer (PPI 30) and its
+     * access gate (CNTHCTL_EL2.EL1PCEN) is the only one the boot chain
+     * opens - do NOT touch cntv_ctl_el0 here, that would trap. */
+    __asm__ volatile("msr cntp_ctl_el0, %0" :: "r"((UINT64)0) : "memory");
+    __asm__ volatile("isb" ::: "memory");
+    /* Table walk: hook != NULL <=> this slave created the IRQ. */
+    __asm__ volatile("mrs %0, mpidr_el1" : "=r"(mpidr));
+    slot = (UINT32)((mpidr >> 8) & 0xFFU);
+    for (hwiNum = 0; hwiNum < OS_HWI_MAX_NUM; hwiNum++) {
+        UINT32 bit = 1U << (hwiNum % 32U);
+
+        if (g_hwiHandleForm[hwiNum].hook == NULL) {
+            continue; /* not created by this slave - not ours to touch */
+        }
+        if (hwiNum < 32U) {
+            GICR_REG32(GICR_ICENABLER0(slot)) = bit;
+            GICR_REG32(GICR_ICPENDR0(slot)) = bit;
+            GICR_REG32(GICR_ICACTIVER0(slot)) = bit;
+        } else {
+            GICD_REG32(GICD_ICENABLER(hwiNum / 32U)) = bit;
+            GICD_REG32(GICD_ICPENDR(hwiNum / 32U)) = bit;
+            GICD_REG32(GICD_ICACTIVER(hwiNum / 32U)) = bit;
+        }
+    }
+    __asm__ volatile("dsb sy" ::: "memory");
     /* Quiesce our redistributor (slot = MPIDR Aff1): ProcessorSleep=1
      * drops the wake line so a stray IPI cannot resurrect the core out
      * of PSCI CPU_OFF (observed: the parked core woke up, AFFINITY_INFO
      * went back to ON and the next mica_start failed with "not in the
      * OFF state"). */
-    UINT64 mpidrPwr;
-    UINT32 slotPwr;
-    __asm__ volatile("mrs %0, mpidr_el1" : "=r"(mpidrPwr));
-    slotPwr = (UINT32)((mpidrPwr >> 8) & 0xFFU);
-    GICR_REG32(GICR_WAKER(slotPwr)) |= GICR_WAKER_PROCESSORSLEEP;
-    while ((GICR_REG32(GICR_WAKER(slotPwr)) & GICR_WAKER_CHILDRENASLEEP) == 0U) { }
+    GICR_REG32(GICR_WAKER(slot)) |= GICR_WAKER_PROCESSORSLEEP;
+    /* Bounded wait for ChildrenAsleep: on this GIC WAKER.ProcessorSleep
+     * never latches (reads back 0 even with the wake line fully quiet -
+     * board-proven), so an unbounded wait can never succeed here; on a
+     * conforming GIC the bit follows within microseconds of the line going
+     * quiet. Poll a bounded number of iterations, then proceed regardless:
+     * PSCI CPU_OFF does not depend on the redistributor quiesce
+     * (board-proven - clean poweroff and a successful next start), and the
+     * master sends nothing after the CPU_OFF notify, so the parked core is
+     * not resurrected. */
+    {
+        UINT32 waitSpin = 0;
+        while ((GICR_REG32(GICR_WAKER(slot)) & GICR_WAKER_CHILDRENASLEEP) == 0U) {
+            if (++waitSpin > 100000U) {
+                break;
+            }
+        }
+    }
 
     __asm__ volatile (
         "dsb  sy\n"

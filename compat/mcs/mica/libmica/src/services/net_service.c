@@ -40,7 +40,7 @@ int np_connect(int fd, const uint8_t *addr, uint32_t addrLen)
     uint8_t msg[sizeof(struct rpc_sockaddr_args) + NP_ADDR_MAX];
     struct rpc_sockaddr_args *a = (struct rpc_sockaddr_args *)msg;
 
-    if (addrLen == 0 || addrLen > NP_ADDR_MAX) {
+    if (addr == NULL || addrLen == 0 || addrLen > NP_ADDR_MAX) {
         return -EINVAL;
     }
     a->fd = fd;
@@ -55,6 +55,10 @@ int np_send(int fd, const void *buf, uint32_t len, int flags)
     const uint8_t *p = (const uint8_t *)buf;
     uint32_t total = 0;
     int ret = 0;
+
+    if (buf == NULL && len > 0) {
+        return -EINVAL;
+    }
 
     while (len > 0) {
         uint8_t msg[RPC_MAX_PAYLOAD];
@@ -81,6 +85,9 @@ int np_send(int fd, const void *buf, uint32_t len, int flags)
 
 int np_recv(int fd, void *buf, uint32_t cap, int flags, int timeoutMs)
 {
+    if (buf == NULL && cap > 0) {
+        return -EINVAL;
+    }
     struct rpc_recv_args args = { fd, flags, timeoutMs };
     uint32_t got = 0;
     int ret;
@@ -100,7 +107,10 @@ int np_sendto(int fd, const void *buf, uint32_t len, int flags,
     struct rpc_sendto_args *a = (struct rpc_sendto_args *)msg;
     uint32_t maxData = RPC_MAX_PAYLOAD - sizeof(*a) - NP_ADDR_MAX;
 
-    if (addrLen == 0 || addrLen > NP_ADDR_MAX) {
+    if (dest == NULL || addrLen == 0 || addrLen > NP_ADDR_MAX) {
+        return -EINVAL;
+    }
+    if (buf == NULL && len > 0) {
         return -EINVAL;
     }
     if (len > maxData) {
@@ -119,6 +129,10 @@ int np_sendto(int fd, const void *buf, uint32_t len, int flags,
 int np_recvfrom(int fd, void *buf, uint32_t cap, int flags,
                 int timeoutMs, uint8_t *from, uint32_t *fromLen)
 {
+    if (buf == NULL && cap > 0) {
+        return -EINVAL;
+    }
+
     /* response payload: [addrlen u32][sockaddr bytes][data bytes] */
     uint8_t tmp[RPC_MAX_PAYLOAD];
     struct rpc_recvfrom_args args = { fd, flags, timeoutMs };
@@ -165,7 +179,7 @@ int np_bind(int fd, const uint8_t *addr, uint32_t addrLen)
     uint8_t msg[sizeof(struct rpc_sockaddr_args) + NP_ADDR_MAX];
     struct rpc_sockaddr_args *a = (struct rpc_sockaddr_args *)msg;
 
-    if (addrLen == 0 || addrLen > NP_ADDR_MAX) {
+    if (addr == NULL || addrLen == 0 || addrLen > NP_ADDR_MAX) {
         return -EINVAL;
     }
     a->fd = fd;

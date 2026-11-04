@@ -62,10 +62,10 @@ int mica_rpc_register_handler(mica_rpc_handler_t handler);
  * @param func_id   opcode (RPC_FUNC_*)
  * @param req       request payload (may be NULL when req_len == 0)
  * @param req_len   request payload length (<= RPC_MAX_PAYLOAD)
- * @param resp      response payload buffer (may be NULL)
+ * @param resp      response payload buffer (may be NULL only when resp_cap == 0)
  * @param resp_cap  response buffer capacity
  * @param resp_len  out: actual response payload length (may be NULL)
- * @param timeout_ms -1: wait forever; >=0: bounded wait
+ * @param timeout_ms any negative value (incl. -1): bounded wait of MICA_RPC_DEFAULT_TIMEOUT_MS; >=0: bounded wait
  * @return: hdr.ret of the response (>=0 or -1; on -1 the master errno is
  *          negated, e.g. -111 for ECONNREFUSED); on transport errors a
  *          negative errno of the local call itself (-ETIMEDOUT/-EIO/...)

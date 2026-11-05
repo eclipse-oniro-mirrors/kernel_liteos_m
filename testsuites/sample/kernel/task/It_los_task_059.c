@@ -51,6 +51,9 @@ static VOID HwiF01(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task1 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     TestHwiClear(HWI_NUM_TEST);
 
@@ -85,6 +88,9 @@ static UINT32 TestCase(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task1 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task1.uwStackSize = TASK_STACK_SIZE_TEST;
     task1.pcName = "Tsk059A";
@@ -100,6 +106,9 @@ static UINT32 TestCase(VOID)
     g_testCount++;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     TestHwiTrigger(HWI_NUM_TEST);

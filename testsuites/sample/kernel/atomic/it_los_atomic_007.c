@@ -67,6 +67,9 @@ static UINT32 TestCase(VOID)
         task[i].uwResved     = LOS_TASK_STATUS_DETACHED;
     }
     for (i = 0; i < ATOMIC_MUTI_TASK_NUM; i++) {
+        #ifdef LOSCFG_KERNEL_SMP
+        task[i].usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
         ret = LOS_TaskCreate(&taskId[i], &task[i]);
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     }

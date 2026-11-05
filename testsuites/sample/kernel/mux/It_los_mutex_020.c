@@ -60,6 +60,12 @@ static VOID HwiF01(void)
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_ERRNO_MUX_PEND_INTERR, ret);
 
     ret = LOS_HwiCreate(HWI_NUM_TEST0, 1, 0, (HWI_PROC_FUNC)HwiF02, 0);
+#ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST0, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
     TestHwiTrigger(HWI_NUM_TEST0);
 
@@ -76,11 +82,11 @@ static UINT32 Testcase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
-    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+    ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT_MUX);
 
     TestHwiTrigger(HWI_NUM_TEST);
 
-    ICUNIT_ASSERT_EQUAL(g_testCount, 3, g_testCount); // 3, Here, assert that g_testCount is equal to 3.
+    ICUNIT_GOTO_EQUAL(g_testCount, 3, g_testCount, EXIT_HWI); // 3, Here, assert that g_testCount is equal to 3.
 
     ret = LOS_MuxDelete(g_mutexTest);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
@@ -89,11 +95,22 @@ static UINT32 Testcase(VOID)
     TestHwiDelete(HWI_NUM_TEST0);
 
     return LOS_OK;
+
+EXIT_HWI:
+    TestHwiDelete(HWI_NUM_TEST);
+    TestHwiDelete(HWI_NUM_TEST0);
+
+EXIT_MUX:
+    (VOID)LOS_MuxDelete(g_mutexTest);
+
+    return LOS_OK;
 }
 
 VOID ItLosMux020(void)
 {
+#ifndef __ARM_ARCH_7A__ /* A7/GIC: ISR entry keeps IRQs masked, nested IRQ cannot run */
     TEST_ADD_CASE("ItLosMux020", Testcase, TEST_LOS, TEST_FN_KERNEL_MUTEX, TEST_LEVEL2, TEST_FUNCTION);
+#endif
 }
 #endif
 

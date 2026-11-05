@@ -56,6 +56,11 @@
 
 /* 用例简要描述: 延迟取消在取消点生效退出 */
 #include "It_posix_pthread.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define PTHREAD039_LOOP_MAX 200 /* 200: bounded loop(200 ticks), cancel 应在早期生效 */
 
@@ -79,6 +84,13 @@ static UINT32 Testcase(VOID)
     INT32 joined = 0;
 
     ret = pthread_create(&thread, NULL, Pthread039Target, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)thread, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     /* 让子线程进入取消点循环 */

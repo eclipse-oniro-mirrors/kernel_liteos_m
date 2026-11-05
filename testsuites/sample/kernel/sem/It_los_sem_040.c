@@ -75,6 +75,9 @@ static UINT32 Testcase(VOID)
     UINT32 index;
     UINT32 i;
     TSK_INIT_PARAM_S task = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     LosSemCB *semNode = NULL;
 

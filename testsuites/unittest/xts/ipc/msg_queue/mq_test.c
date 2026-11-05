@@ -29,6 +29,11 @@
  */
 
 #include "xts_ipc.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 LITE_TEST_SUIT(IPC, IpcMqApi, IpcMqApiTestSuite);
 
@@ -274,6 +279,13 @@ LITE_TEST_CASE(IpcMqApiTestSuite, testMqTwoThreadCom, Function | MediumTest | Le
     ICUNIT_ASSERT_NOT_EQUAL(queue, (mqd_t)-1, queue); /* -1, common data for test, no special meaning */
 
     ret = pthread_create(&tid, NULL, PthreadCom, (void *)queue);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_NOT_EQUAL(ret, -1, ret); /* -1, common data for test, no special meaning */
 
     ret = mq_send(queue, MQ_MSG, MQ_MSG_LEN, MQ_MSG_PRIO);
@@ -351,6 +363,13 @@ LITE_TEST_CASE(IpcMqApiTestSuite, testMqTimedTwoThreadCom, Function | MediumTest
     ICUNIT_ASSERT_NOT_EQUAL(queue, (mqd_t)-1, queue); /* -1, common data for test, no special meaning */
 
     ret = pthread_create(&tid, NULL, PthreadTimedCom, (void *)queue);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_NOT_EQUAL(ret, -1, ret); /* -1, common data for test, no special meaning */
 
     tts.tv_sec = time(NULL) + 1; /* 1, common data for test, no special meaning */
@@ -430,6 +449,13 @@ LITE_TEST_CASE(IpcMqApiTestSuite, testMqAllTwoThreadCom, Function | MediumTest |
     ICUNIT_ASSERT_NOT_EQUAL(queue, (mqd_t)-1, queue); /* -1, common data for test, no special meaning */
 
     ret = pthread_create(&tid, NULL, PthreadAllCom, (void *)queue);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_NOT_EQUAL(ret, -1, ret); /* -1, common data for test, no special meaning */
 
     ret = mq_send(queue, MQ_MSG, MQ_MSG_LEN, MQ_MSG_PRIO);

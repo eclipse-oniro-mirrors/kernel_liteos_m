@@ -62,7 +62,6 @@ static UINT32 Testcase(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task = {0};
-
     ret = LOS_MuxCreate(&g_mutexTest);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
@@ -73,6 +72,9 @@ static UINT32 Testcase(VOID)
     task.pcName = "VMuteB010";
     task.uwStackSize = LOS_TASK_MIN_TEST_STACK_SIZE;
     task.uwResved = 0;
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_TaskCreate(&g_testTaskID01, &task);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);

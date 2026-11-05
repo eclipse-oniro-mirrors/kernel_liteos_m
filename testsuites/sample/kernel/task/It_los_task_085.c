@@ -53,6 +53,9 @@ static VOID TaskF01(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task2 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task2.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     task2.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF02;
     task2.usTaskPrio = TASK_PRIO_TEST - 3; // 3, set new task priority base on testsuite task`s priority.
     task2.pcName = "Tsk085B";
@@ -76,6 +79,9 @@ static UINT32 TestCase(VOID)
     UINT32 ret;
     UINT32 loop;
     TSK_INIT_PARAM_S task1 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task1.usTaskPrio = TASK_PRIO_TEST - 5; // 5, set new task priority base on testsuite task`s priority.

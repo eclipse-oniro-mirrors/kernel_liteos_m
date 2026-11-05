@@ -29,6 +29,11 @@
  */
 
 #include "pthread_test.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 LITE_TEST_SUIT(PROCESS, PthreadBasicApi, PthreadBasicApiTestSuite);
 
@@ -60,6 +65,13 @@ LITE_TEST_CASE(PthreadBasicApiTestSuite, testPthreadCreateBasic, Function | Medi
     pthread_t tid;
     char str[] = "1234567890 !@#$%^&*()_= ZXCVBNM [];'./>?:\" +-*/qwertyuiopasdfghjklzxcvbnm";
     ret = pthread_create(&tid, NULL, ThreadPthreadCreateBasic, (void*)str);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ret = pthread_join(tid, NULL);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -78,6 +90,13 @@ LITE_TEST_CASE(PthreadBasicApiTestSuite, testJoinReturn, Function | MediumTest |
     int num = 4; /* 4, common data for test, no special meaning */
     void *joinRe = NULL;
     ret = pthread_create(&tid, NULL, ThreadPublic, (void*)&num);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ret = pthread_join(tid, &joinRe);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -97,6 +116,13 @@ LITE_TEST_CASE(PthreadBasicApiTestSuite, testJoinExited, Function | MediumTest |
     int ret;
     pthread_t tid;
     ret = pthread_create(&tid, NULL, ThreadPublic, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     usleep(50); /* 50, common data for test, no special meaning */
     ret = pthread_join(tid, NULL);
@@ -122,6 +148,13 @@ LITE_TEST_CASE(PthreadBasicApiTestSuite, testPthreadExitThread, Function | Mediu
     int num = 4; /* 4, common data for test, no special meaning */
     void *joinRe = NULL;
     ret = pthread_create(&tid, NULL, ThreadPthreadExitThread, (void*)&num);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ret = pthread_join(tid, &joinRe);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -153,6 +186,13 @@ LITE_TEST_CASE(PthreadBasicApiTestSuite, testPthreadExitFunction, Function | Med
     int num = 4; /* 4, common data for test, no special meaning */
     void *joinRe = NULL;
     ret = pthread_create(&tid, NULL, ThreadPthreadExitFunction, (void*)&num);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ret = pthread_join(tid, &joinRe);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -179,6 +219,13 @@ LITE_TEST_CASE(PthreadBasicApiTestSuite, testPthreadDetach, Function | MediumTes
     int ret;
     pthread_t tid;
     ret = pthread_create(&tid, NULL, ThreadDetachTarget, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ret = pthread_detach(tid);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -207,6 +254,13 @@ LITE_TEST_CASE(PthreadBasicApiTestSuite, testPthreadEqual, Function | MediumTest
     int ret;
     pthread_t tid;
     ret = pthread_create(&tid, NULL, ThreadPthreadEqual, (void*)&tid);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ret = pthread_equal(tid, pthread_self());
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);

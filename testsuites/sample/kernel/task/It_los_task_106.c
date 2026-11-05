@@ -70,6 +70,9 @@ static VOID TaskF01(VOID)
     g_testCount++;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
     TestHwiTrigger(HWI_NUM_TEST);
@@ -90,6 +93,9 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk106A";
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
 

@@ -31,6 +31,11 @@
 
 #include "It_posix_pthread.h"
 #include <errno.h>
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define SCHED035_POLL_LIMIT 100 /* 子任务等待上限(tick) */
 #define SCHED035_PRIO_LOWEST 31 /* OS_TASK_PRIORITY_LOWEST(los_task.h), setschedparam 拒绝 >=31 */
@@ -64,6 +69,13 @@ static UINT32 Testcase(VOID)
     g_sched035Go = 0;
 
     ret = pthread_create(&workerThread, NULL, Pthread035Worker, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)workerThread, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     /* 1. 非法 policy: 当前实现仅支持 SCHED_RR, 非法值返回 ENOTSUP

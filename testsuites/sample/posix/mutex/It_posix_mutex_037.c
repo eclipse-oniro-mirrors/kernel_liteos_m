@@ -29,6 +29,11 @@
  */
 
 #include "It_posix_mutex.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 static pthread_mutex_t g_mutex038;
 static sem_t g_sem038;
@@ -88,6 +93,13 @@ static UINT32 Testcase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&child, NULL, TaskF01, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)child, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = sem_wait(&g_sem038);

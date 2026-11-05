@@ -49,6 +49,9 @@ static UINT32 Testcase(VOID)
 
     /* F-Pos: 真实 ops 表(不换桩)下创建中断 */
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF052, NULL);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* F-Pos: 使能后软触发 -> Cortex-M pending 位立即派发, ISR 计数一次

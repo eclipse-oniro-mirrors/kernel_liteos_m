@@ -54,6 +54,9 @@ static UINT32 Testcase(VOID)
     CHAR buff1[QUEUE_SHORT_BUFFER_LENGTH] = "UniDSP";
 
     TSK_INIT_PARAM_S task1 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task1.pcName = "TskName";
     task1.uwStackSize = TASK_STACK_SIZE_TEST;

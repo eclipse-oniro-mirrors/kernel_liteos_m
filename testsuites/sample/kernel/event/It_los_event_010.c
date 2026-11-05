@@ -78,6 +78,10 @@ static UINT32 Testcase(VOID)
     ret = LOS_EventRead(&g_pevent, 0x1, LOS_WAITMODE_AND, 2); // 2, The timeout period for reading events.
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_EVENT_READ_TIMEOUT, ret, EXIT);
 
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
+
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     ICUNIT_GOTO_EQUAL(g_testCount, 1, g_testCount, EXIT);

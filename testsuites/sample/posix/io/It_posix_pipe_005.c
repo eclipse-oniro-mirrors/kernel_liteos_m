@@ -31,6 +31,11 @@
 
 #include "It_posix_io.h"
 #include <pthread.h>
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define PIPE005_FILL_LEN       1024 /* 管道环形缓冲容量(PIPE_DEV_BUF_SIZE, pipe.c:47) */
 #define PIPE005_MORE_LEN       64   /* 写满后追加写入长度 */
@@ -99,6 +104,13 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, (ssize_t)PIPE005_FILL_LEN, ret, EXIT);
 
     ret32 = pthread_create(&readerThread, NULL, Pipe005Reader, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)readerThread, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret32, 0, ret32, EXIT_CLOSE);
 
     /* 缓冲已满再写 64B: PipeRingbufferWrite 返回 0, 走写满阻塞分支

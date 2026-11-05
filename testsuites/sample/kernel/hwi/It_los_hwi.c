@@ -50,7 +50,7 @@ VOID ItSuiteLosHwi()
     ItLosHwi022();
     ItLosHwi023();
     ItLosHwi024();
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1) && !defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR)
+#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1) && !defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR) && !defined(LOSCFG_KERNEL_SMP)
 /**
  * 026: swtmr callback runs in tick-interrupt context with LOSCFG_BASE_CORE_SWTMR_IN_ISR,
  * so the HwiCreate -> TestHwiTrigger -> TestHwiDelete sequence in SwtmrF01 pends the

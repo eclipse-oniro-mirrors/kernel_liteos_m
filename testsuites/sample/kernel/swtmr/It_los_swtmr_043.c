@@ -73,6 +73,9 @@ static UINT32 Testcase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_HwiCreate(hwiNum, 1, 0, (HWI_PROC_FUNC)Case2, 0);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(hwiNum, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     TestHwiTrigger(hwiNum);

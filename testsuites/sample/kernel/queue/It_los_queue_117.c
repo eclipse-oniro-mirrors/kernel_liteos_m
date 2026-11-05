@@ -98,6 +98,9 @@ static UINT32 TestCase(VOID)
     taskParam.pcName = "TaskTC117";
     taskParam.uwStackSize = TASK_STACK_SIZE_TEST;
     taskParam.uwResved = LOS_TASK_ATTR_JOINABLE;
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_testTaskID01, &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 

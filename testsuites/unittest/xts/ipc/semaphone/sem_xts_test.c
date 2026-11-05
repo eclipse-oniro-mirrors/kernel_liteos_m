@@ -29,6 +29,11 @@
  */
 
 #include "xts_ipc.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 LITE_TEST_SUIT(IPC, SemApi, IpcSemApiXtsTestSuite);
 
@@ -241,6 +246,13 @@ LITE_TEST_CASE(IpcSemApiXtsTestSuite, testThreadChat, Function | MediumTest | Le
     ICUNIT_ASSERT_EQUAL(reInt, 0, reInt);
 
     reInt = pthread_create(&tid, NULL, ThreadChatF01, (void*)&sem);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(reInt, 0, reInt);
 
     usleep(20); /* 20, common data for test, no special meaning */
@@ -307,6 +319,13 @@ LITE_TEST_CASE(IpcSemApiXtsTestSuite, testThreadSemTimedWait, Function | MediumT
     ICUNIT_ASSERT_EQUAL(reInt, 0, reInt);
 
     reInt = pthread_create(&tid, NULL, ThreadSemTimedWait, (void*)&sem);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(reInt, 0, reInt);
 
     usleep(10); /* 10, common data for test, no special meaning */
@@ -384,9 +403,23 @@ LITE_TEST_CASE(IpcSemApiXtsTestSuite, testNThreadWait, Function | MediumTest | L
     ICUNIT_ASSERT_EQUAL(reInt, 0, reInt);
 
     reInt = pthread_create(&tid1, NULL, ThreadNThreadWaitF01, (void*)&sem);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid1, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(reInt, 0, reInt);
 
     reInt = pthread_create(&tid2, NULL, ThreadNThreadWaitF02, (void*)&sem);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid2, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(reInt, 0, reInt);
 
     usleep(200); /* 200, common data for test, no special meaning */

@@ -71,6 +71,9 @@ static UINT32 TestCase(VOID)
     UINT32 realSize;
     UINT32 taskId;
     TSK_INIT_PARAM_S taskParam = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     realSize = LOS_LmsAddCheckPool(g_lms036Pool, LMS036_POOL_SIZE);
     ICUNIT_GOTO_NOT_EQUAL(realSize, 0, realSize, EXIT);

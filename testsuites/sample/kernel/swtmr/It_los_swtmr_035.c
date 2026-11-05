@@ -147,12 +147,18 @@ static UINT32 Testcase(VOID)
     task1.usTaskPrio = TASK_PRIO_TEST_NORMAL;
     task1.uwStackSize = TASK_STACK_SIZE_TEST * 2; // 2, set statck size 
 
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)Case2;
     task1.pcName = "TskNameB";
     task1.usTaskPrio = TASK_PRIO_TEST_NORMAL - 1;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_testTaskID02, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
@@ -160,6 +166,9 @@ static UINT32 Testcase(VOID)
     task1.pcName = "TskNameC";
     // 2, set new task priority, it is higher than the current task.
     task1.usTaskPrio = TASK_PRIO_TEST_NORMAL - 2;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_testTaskID03, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 

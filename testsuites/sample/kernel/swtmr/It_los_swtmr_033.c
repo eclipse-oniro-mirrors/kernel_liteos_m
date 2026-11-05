@@ -87,6 +87,9 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_HwiCreate(HWI_NUM_INT11, 1, 0, (HWI_PROC_FUNC)Case1, 0);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_INT11, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* 同步 tick 起点后启动, 保证定时间隔为整拍: 中断当拍完成, 2 拍余量足够 */

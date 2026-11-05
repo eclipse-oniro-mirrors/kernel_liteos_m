@@ -35,6 +35,11 @@
 #include "los_config.h"
 #include "kernel_test.h"
 #include "log.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 /* *
  * @tc.desc      : register a test suite, this suite is used to test basic flow and interface dependency
@@ -177,6 +182,13 @@ LITE_TEST_CASE(PosixPthreadRwlockTrySharedTest, testRwlockTryShared004, Function
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&tid, NULL, RwlockTrySharedWriter, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     while (g_rwlockWriterState == 0) {

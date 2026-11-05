@@ -29,6 +29,11 @@
  */
 
 #include "xts_ipc.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 static int g_semTestStep = 0;
 
@@ -133,6 +138,13 @@ LITE_TEST_CASE(IpcSemApiTestSuite, testThreadChat0100, Function | MediumTest | L
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&tid, NULL, ThreadChat, (void *)&sem);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     req.tv_sec = 0;
@@ -216,9 +228,23 @@ LITE_TEST_CASE(IpcSemApiTestSuite, testThreadChat0400, Function | MediumTest | L
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
     ret = pthread_create(&tid1, NULL, ThreadNThreadWait1, (void *)&sem);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid1, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_SEM);
 
     ret = pthread_create(&tid2, NULL, ThreadNThreadWait2, (void *)&sem);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid2, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_TID1);
 
     ret = nanosleep(&req, NULL);

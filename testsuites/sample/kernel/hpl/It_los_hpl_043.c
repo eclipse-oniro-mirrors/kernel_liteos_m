@@ -94,6 +94,9 @@ static UINT32 TestCase(VOID)
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF43Hi;
     taskParam.pcName = "HplS43Hi";
     for (i = 0; i < HPL_043_HI_TASKS; i++) {
+#ifdef LOSCFG_KERNEL_SMP
+            taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
         ret = LOS_TaskCreate(&g_task43Ids[i], &taskParam);
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     }
@@ -121,6 +124,9 @@ static UINT32 TestCase(VOID)
         taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF43Ch;
         taskParam.pcName = "HplS43Ch";
         for (i = 0; i < HPL_043_CH_TASKS; i++) {
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
             ret = LOS_TaskCreate(&g_testTaskID01, &taskParam);
             ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
         }
@@ -151,5 +157,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosHpl043(VOID)
 {
-    TEST_ADD_CASE("ItLosHpl043", TestCase, TEST_LOS, TEST_HPL, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHpl043", TestCase, TEST_LOS, TEST_FN_KERNELEXT_HPL, TEST_LEVEL0, TEST_FUNCTION);
 }

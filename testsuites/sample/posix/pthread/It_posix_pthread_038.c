@@ -47,6 +47,11 @@
 
 /* 用例简要描述: 清理缓冲压栈弹栈正常流程 */
 #include "It_posix_pthread.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define PTHREAD038_ARG0 ((void *)0x11)
 #define PTHREAD038_ARG1 ((void *)0x22)
@@ -83,6 +88,13 @@ static UINT32 Testcase(VOID)
     g_pthread038LastArg = NULL;
 
     ret = pthread_create(&thread, NULL, Pthread038Thread, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)thread, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_join(thread, NULL);

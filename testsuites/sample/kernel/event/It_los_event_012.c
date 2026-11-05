@@ -83,6 +83,10 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
     LOS_EventInit(&g_pevent);
 
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
+
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     ICUNIT_GOTO_EQUAL(g_testCount, 1, g_testCount, EXIT);

@@ -54,6 +54,12 @@
  * 本用例已恢复执行, 作为回归看护用例常跑; BUG_03(091) 留待复测是否同根消解。
  */
 #include <errno.h>
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+extern int pthread_attr_setaffinity_np(pthread_attr_t *attr, size_t cpusetsize, const cpu_set_t *cpuset);
+#endif
 
 /* 跨任务同步方案: 参照 It_posix_signal_090.c(sender 子任务向主任务发信号)反向使用:
  * 本用例为"主任务 -> 等待子任务"方向, 子任务置 volatile 握手标志 g_sig094Ready
@@ -125,6 +131,14 @@ static UINT32 Testcase094(VOID)
     (VOID)pthread_attr_setschedparam(&waiterAttr, &sp);
     (VOID)pthread_attr_setinheritsched(&waiterAttr, PTHREAD_EXPLICIT_SCHED);
 
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (VOID)pthread_attr_setaffinity_np(&waiterAttr, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ret = pthread_create(&waiterThread, &waiterAttr, WaiterTask094, NULL);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_ATTR);
 

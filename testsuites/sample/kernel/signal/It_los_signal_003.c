@@ -71,6 +71,9 @@ STATIC VOID TaskF02(VOID)
 STATIC UINT32 Testcase(VOID)
 {
     TSK_INIT_PARAM_S task = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     UINT32 taskID1, taskID2;
     UINT32 ret;
 

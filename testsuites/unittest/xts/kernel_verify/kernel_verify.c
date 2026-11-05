@@ -164,9 +164,15 @@ uint32_t KernelVerifyBasic(void)
             runningCount++;
         }
     }
+#ifdef LOSCFG_KERNEL_SMP
+    if (runningCount != LOSCFG_KERNEL_SMP_CORE_NUM) {
+        err |= KERNEL_VERIFY_ERR_RUNNING_COUNT;
+    }
+#else
     if (runningCount != 1) {
         err |= KERNEL_VERIFY_ERR_RUNNING_COUNT;
     }
+#endif
 
     return err;
 }

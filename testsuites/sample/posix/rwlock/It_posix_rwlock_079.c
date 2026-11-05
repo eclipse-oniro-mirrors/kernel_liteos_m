@@ -50,6 +50,11 @@
 /* 用例简要描述: 读写锁过期绝对超时返回 */
 #include "It_posix_rwlock.h"
 #include <time.h>
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 static pthread_rwlock_t g_rwl079;
 static volatile INT32 g_rwlock079Holding = 0;
@@ -97,6 +102,13 @@ static UINT32 Testcase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&writer, NULL, Rwlock079Writer, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)writer, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
     for (i = 0; i < 100; i++) { /* 100: poll bound */

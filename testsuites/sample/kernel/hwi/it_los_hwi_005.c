@@ -35,7 +35,10 @@
 #include "it_los_hwi.h"
 
 #ifdef __RISC_V__
-#define HWI_NUM_INT0 HWI_NUM_TEST2
+#define HWI_NUM_INT1 HWI_NUM_TEST3
+#endif
+#ifdef __ARM_ARCH_7A__
+#undef  HWI_NUM_INT1
 #define HWI_NUM_INT1 HWI_NUM_TEST3
 #endif
 
@@ -54,15 +57,27 @@ static UINT32 Testcase(VOID)
     irqParam.pDevId = 0;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST2, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST2, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_HwiCreate(HWI_NUM_INT1, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_INT1, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT2);
 
     ret = LOS_HwiCreate(HWI_NUM_TEST1, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST1, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT3);
 
     TestHwiDelete(HWI_NUM_TEST1);

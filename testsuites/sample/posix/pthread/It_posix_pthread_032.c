@@ -36,6 +36,8 @@
 
 #include "It_posix_pthread.h"
 #include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
 
 /* 用例简要描述: sched_setaffinity/getaffinity 单核 no-op 契约 */
 static UINT32 Testcase(VOID)

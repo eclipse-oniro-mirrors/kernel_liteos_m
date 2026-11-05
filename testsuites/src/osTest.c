@@ -229,6 +229,9 @@ void TestKernel(void)
 #endif
 #if (LOS_KERNEL_CORE_CPUP_TEST == 1)
     ItSuiteLosCpup();
+#ifdef LOSCFG_KERNEL_SMP
+    ItSuiteSmpCpup();
+#endif
 #endif
 #if (LOS_KERNEL_DYNLINK_TEST == 1)
     ItSuiteLosDynlink();

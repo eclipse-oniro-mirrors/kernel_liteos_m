@@ -1,4 +1,10 @@
 #include "It_posix_rwlock.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+extern int pthread_attr_setaffinity_np(pthread_attr_t *attr, size_t cpusetsize, const cpu_set_t *cpuset);
+#endif
 
 static pthread_rwlock_t g_rwl071;
 static volatile int g_rwl071Readers = 0;
@@ -40,6 +46,14 @@ static UINT32 Testcase(void)
     pthread_attr_setschedparam(&attr1, &sp);
     pthread_attr_setinheritsched(&attr1, PTHREAD_EXPLICIT_SCHED);
 
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (VOID)pthread_attr_setaffinity_np(&attr1, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ret = pthread_create(&t1, &attr1, ReaderTask071, NULL);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_ATTR1);
 
@@ -53,6 +67,14 @@ static UINT32 Testcase(void)
     pthread_attr_setschedparam(&attr2, &sp);
     pthread_attr_setinheritsched(&attr2, PTHREAD_EXPLICIT_SCHED);
 
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (VOID)pthread_attr_setaffinity_np(&attr2, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ret = pthread_create(&t2, &attr2, ReaderTask071, NULL);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_ATTR2);
 

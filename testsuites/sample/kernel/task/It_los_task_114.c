@@ -53,6 +53,9 @@ static VOID TaskF01(VOID)
     irqParam.pDevId = 0;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
     TestHwiTrigger(HWI_NUM_TEST);
@@ -78,6 +81,9 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk114A";
     task1.usTaskPrio = TASK_PRIO_TEST - 2; // 2, set new task priority, it is higher than the current task.
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);

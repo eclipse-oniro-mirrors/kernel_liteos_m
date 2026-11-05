@@ -77,6 +77,9 @@ static UINT32 TestCase009(VOID)
     UINT16 usedCnt = 0;
     CPUP_INFO_S taskCpup[LOSCFG_BASE_CORE_TSK_LIMIT + 1] = {0};
     TSK_INIT_PARAM_S param = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    param.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     /* CPUP 统计由周期为 1 秒的软件定时器采样: 重置并等一个采样周期, 保证查询时统计已就绪 */
     LOS_CpupReset();

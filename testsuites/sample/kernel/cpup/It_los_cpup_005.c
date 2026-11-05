@@ -56,6 +56,9 @@ static UINT32 TestCase005(VOID)
     UINT32 sysCpupBefore;
     UINT32 sysCpupAfter;
     TSK_INIT_PARAM_S param = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    param.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     sysCpupBefore = LOS_SysCpuUsage();
     ICUNIT_ASSERT_WITHIN_EQUAL(sysCpupBefore, 0, LOS_CPUP_PRECISION, sysCpupBefore);

@@ -60,8 +60,14 @@
 
 /* 用例简要描述: 满管道阻塞写者+读2048 跨段全量读取 */
 #include "It_posix_io.h"
+#include <pthread.h>
 #include <fcntl.h>
 #include "los_task.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define PIPE016_WR_LEN 2048 /* 2048: writer total, fills 1024 buffer then blocks */
 #define PIPE016_WR_PRIO 20  /* 20: higher than test task(25), writer blocks first */
@@ -100,6 +106,13 @@ static UINT32 Testcase(VOID)
     param.pcName = "p016wr";
     param.uwStackSize = 0x800; /* 2KB: write path only, data buffers are static */
     param.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        param.usCpuAffiMask = (UINT16)inheritCpuset.__bits[0];
+    }
+#endif
     ret = LOS_TaskCreate(&tid, &param);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 

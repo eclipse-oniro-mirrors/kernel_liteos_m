@@ -57,6 +57,11 @@
 
 /* 用例简要描述: 多读者并发与写锁争用语义 */
 #include "It_posix_rwlock.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 static pthread_rwlock_t g_rwl080;
 static volatile INT32 g_rwlock080Held[2] = {0, 0};     /* 读者已持锁标记 */
@@ -119,6 +124,13 @@ static UINT32 Testcase(VOID)
 
     for (idx = 0; idx < 2; idx++) { /* 2: two readers */
         ret = pthread_create(&reader[idx], NULL, Rwlock080Reader, (VOID *)(UINTPTR)idx);
+#ifdef LOSCFG_KERNEL_SMP
+        {
+            cpu_set_t inheritCpuset;
+            (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+            (void)sched_setaffinity((pid_t)(UINTPTR)reader[idx], sizeof(cpu_set_t), &inheritCpuset);
+        }
+#endif
         if (ret != 0) {
             ICunitSaveErr(__LINE__, (iiUINT32)ret);
             goto EXIT_JOIN_ALL;

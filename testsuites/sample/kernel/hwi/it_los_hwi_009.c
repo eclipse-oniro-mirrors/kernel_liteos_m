@@ -73,12 +73,21 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_HwiCreate(HWI_NUM_TEST3, hwiPrio, mode, (HWI_PROC_FUNC)HwiF02, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST3, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
     ret = LOS_HwiCreate(HWI_NUM_TEST1, hwiPrio, mode, (HWI_PROC_FUNC)HwiF03, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST1, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT2);
 
     TestHwiTrigger(HWI_NUM_TEST);

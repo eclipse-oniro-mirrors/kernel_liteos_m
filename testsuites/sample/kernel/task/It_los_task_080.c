@@ -65,6 +65,9 @@ static VOID TaskF01(VOID)
     task1.pcName = "Tsk080B";
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     HWI_PRIOR_T hwiPrio = 3; // Set reasonable priority for interrupt.
     HWI_MODE_T mode = 0;
@@ -79,6 +82,9 @@ static VOID TaskF01(VOID)
     g_testCount++;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
     TestHwiTrigger(HWI_NUM_TEST);
@@ -96,6 +102,9 @@ static UINT32 TestCase(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task1 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task1.uwStackSize = TASK_STACK_SIZE_TEST; // Set reasonable stack space
     task1.pcName = "Tsk080A";

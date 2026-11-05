@@ -112,6 +112,9 @@ static UINT32 Testcase(VOID)
     task1.uwStackSize = TASK_STACK_SIZE_TEST;
     task1.usTaskPrio = TASK_PRIO_TEST - 2; // 2, set new task priority, it is higher than the test task.
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
@@ -121,6 +124,9 @@ static UINT32 Testcase(VOID)
     task1.uwStackSize = TASK_STACK_SIZE_TEST;
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_TaskCreate(&g_testTaskID02, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
@@ -130,6 +136,9 @@ static UINT32 Testcase(VOID)
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
+#ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
 
     TestHwiTrigger(HWI_NUM_TEST);
 

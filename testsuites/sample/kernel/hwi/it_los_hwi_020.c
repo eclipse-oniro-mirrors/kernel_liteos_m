@@ -53,7 +53,6 @@ static VOID HwiF01(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task = {0};
-
     TestHwiClear(HWI_NUM_TEST);
 
     task.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF02;
@@ -61,6 +60,9 @@ static VOID HwiF01(VOID)
     task.uwStackSize = TASK_STACK_SIZE_TEST;
     task.usTaskPrio = TASK_PRIO_TEST - 2; // 2, set new task priority, it is higher than the current task.
     task.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount++;
 
@@ -101,6 +103,9 @@ static UINT32 Testcase(VOID)
     irqParam.pDevId = 0;
 
     TSK_INIT_PARAM_S task = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     task.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task.pcName = "HwiTsk020A";
@@ -111,6 +116,9 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_TaskCreate(&g_testTaskID01, &task);

@@ -43,6 +43,9 @@ static UINT32 TestCase(VOID)
     UINT32 peakSize = 0xFFFFFFFF;
     BOOL overflow = TRUE;
     TSK_INIT_PARAM_S taskParam = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_TaskHplPeakSizeGet(10, NULL, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_HPL_PARAM_INVALID, ret);

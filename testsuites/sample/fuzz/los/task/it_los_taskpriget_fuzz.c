@@ -47,6 +47,9 @@ static UINT32 TestCase(VOID)
     UINT32 tid = 0;
     UINT32 ret;
     TSK_INIT_PARAM_S param = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    param.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     param.pcName = "FzT";
     param.pfnTaskEntry = (TSK_ENTRY_FUNC)FzTaskEntry;
     param.uwStackSize = 0x400;
@@ -66,6 +69,9 @@ static UINT32 TestCase(VOID)
     {
         UINT32 t2 = 0;
         TSK_INIT_PARAM_S p2 = {0};
+#ifdef LOSCFG_KERNEL_SMP
+        p2.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
         p2.pcName = "FzTI"; p2.pfnTaskEntry = (TSK_ENTRY_FUNC)FzTaskEntry;
         p2.uwStackSize = 0x400; p2.usTaskPrio = 27;
         if (LOS_TaskCreate(&t2, &p2) == LOS_OK) {

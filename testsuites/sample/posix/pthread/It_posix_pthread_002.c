@@ -29,6 +29,11 @@
  */
 
 #include "It_posix_pthread.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 static void *ThreadF01(void *arg)
 {
@@ -49,6 +54,13 @@ static UINT32 Testcase(VOID)
         uart_printf_func("Error creating thread\n");
         ICUNIT_ASSERT_EQUAL(1, 0, errno);
     }
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)a, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
 
     LOS_TaskDelay(1);
     if (pthread_cancel(a) != 0) {

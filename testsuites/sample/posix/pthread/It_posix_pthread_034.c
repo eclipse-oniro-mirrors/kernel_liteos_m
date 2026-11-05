@@ -30,6 +30,11 @@
  */
 
 #include "It_posix_pthread.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define COND034_POLL_LIMIT 100 /* 跨任务握手轮询上限(tick) */
 
@@ -80,6 +85,13 @@ static UINT32 Testcase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&signalerThread, NULL, Pthread034Signaler, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)signalerThread, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_MTX);
 
     /* 持锁后置位握手标志再 wait(规范用法): cond_wait 内 CondInitCheck 发现

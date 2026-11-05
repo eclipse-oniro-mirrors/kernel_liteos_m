@@ -71,6 +71,9 @@ static VOID TaskF01(VOID)
     task1.pcName = "Tsk054B";
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount++;
     ret = LOS_TaskCreate(&g_testTaskID02, &task1);
@@ -85,11 +88,20 @@ static VOID TaskF01(VOID)
         HwiIrqParam irqParam054 = {0};
         irqParam054.pDevId = (VOID *)1;
         ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, HwiF01_WithArg, &irqParam054);
+#ifdef LOSCFG_KERNEL_SMP
+            (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     }
 #elif defined(__RISC_V__) || defined(__ARM_ARCH_7A__)
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
 #else
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, HwiF01, (HwiIrqParam *)(UINTPTR)1);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
 #endif
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
@@ -110,6 +122,9 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk054A";
     task1.usTaskPrio = TASK_PRIO_TEST - 2; // 2, set new task priority, it is higher than the current task.
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
 

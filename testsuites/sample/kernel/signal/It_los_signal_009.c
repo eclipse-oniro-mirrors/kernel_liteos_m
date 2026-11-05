@@ -72,6 +72,10 @@ static UINT32 Testcase(VOID)
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)SubTask009;
     taskParam.usTaskPrio = TASK_PRIO_TEST - 1; /* 高于主任务: 注册+阻塞先于主任务发送 */
     taskParam.pcName = "TaskSig009";
+
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     taskParam.uwStackSize = TASK_STACK_SIZE_TEST;
     ret = LOS_TaskCreate(&auxTid, &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);

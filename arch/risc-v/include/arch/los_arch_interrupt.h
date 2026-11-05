@@ -126,9 +126,14 @@ extern UINT32 ArchSetExcHook(EXC_PROC_FUNC excHook);
 
 /**
  * Maximum number of supported hardware devices that generate hardware interrupts.
- * The maximum number of hardware devices that generate hardware interrupts supported by hi3518ev200 is 32.
+ * LOSCFG_PLATFORM_HWI_LIMIT (Kconfig RAM preset) caps the dispatch table to
+ * the actual IRQ count; OS_RISCV_VECTOR_CNT remains the architectural upper bound.
  */
+#ifdef LOSCFG_PLATFORM_HWI_LIMIT
+#define OS_HWI_MAX_NUM        LOSCFG_PLATFORM_HWI_LIMIT
+#else
 #define OS_HWI_MAX_NUM        OS_RISCV_VECTOR_CNT
+#endif
 
 /**
  * Maximum interrupt number.

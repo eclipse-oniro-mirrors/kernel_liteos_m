@@ -69,11 +69,43 @@ extern volatile UINT32 g_hplHookCalls;
 extern volatile UINT32 g_hplHookBytes;
 extern volatile UINT32 g_hplArgsEntryCnt;   /* HplCompressedArgsEntry count */
 extern volatile UINT32 g_hplFmtEntryCnt;    /* HplCompressedFormatEntry count */
-extern volatile UINT32 g_hplAbandonedCnt;   /* HplAbandonedLogEntry count */
-extern volatile UINT32 g_hplCheckpointCnt;  /* HplCheckPoint (version 1) count */
+extern volatile UINT32 g_hplAbandonedCnt;  /* HplAbandonedLogEntry count */
+extern volatile UINT32 g_hplCheckpointCnt; /* HplCheckPoint (version 1) count */
 
 UINT32 TestHplRecordHook(const UINT8 *buf, UINT32 size);
+
+/* TestHplPrepare: install the statistics record hook + open all log levels.
+ *
+ * NOTE: calling it first is a TEST-SIDE MITIGATION for a registered product
+ * issue (hpl_test_design/问题记录/20261102_165607), NOT a product contract --
+ * the functional design and los_hpl.h nowhere require a record hook to be
+ * registered before using HPL. Root cause: with recordHook NULL,
+ * OsHplDoCompressLog bails out at the checkpoint write (goto ERR,
+ * los_hpl_compression.c:273-275) and skips the whole cycle body, including
+ * the handle scan that frees preDelete'd staging buffers (a free that has
+ * no dependency on the output sink). Consequences without the hook:
+ *   - staging buffers of deleted tasks leak (ItLosHpl004 standalone run:
+ *     asserts pass, +1040B ResLeak report; masked in full-suite runs where
+ *     earlier cases installed the hook);
+ *   - the format ring buffer is never drained, so new format registrations
+ *     eventually fail and recording silently stops.
+ * Until the product side decouples the reclaim scan from the sink, a case
+ * MUST call it (or install any valid private hook, It_los_hpl_031.c style)
+ * when it: 1) asserts on the g_hpl* statistics; 2) logs entries whose
+ * delivery is counted; 3) creates a staging buffer freed via preDelete.
+ * Pure level/readback/error-code probes (001/002) do not need it. Once the
+ * product fix lands, requirement 3) disappears (keep it for 1)/2) only). */
 VOID TestHplPrepare(VOID);
+
+/* Raw compressed-stream capture used by the byte-layout verification cases.
+ * TestHplProbeHook keeps every TestHplRecordHook statistic up to date and
+ * additionally appends the stream bytes to g_hplProbeBuf; the case then walks
+ * the captured entries (args/format/checkpoint/abandoned/custom) and asserts
+ * per-format payload layout. Reset with g_hplProbeBytes = 0 before use. */
+#define HPL_PROBE_BUF_SIZE 16384
+extern UINT8 g_hplProbeBuf[HPL_PROBE_BUF_SIZE];
+extern volatile UINT32 g_hplProbeBytes;
+UINT32 TestHplProbeHook(const UINT8 *buf, UINT32 size);
 
 VOID ItLosHpl001(VOID);
 VOID ItLosHpl002(VOID);
@@ -84,11 +116,17 @@ VOID ItLosHpl011(VOID);
 VOID ItLosHpl012(VOID);
 VOID ItLosHpl013(VOID);
 VOID ItLosHpl014(VOID);
+VOID ItLosHpl015(VOID);
 VOID ItLosHpl021(VOID);
 VOID ItLosHpl022(VOID);
 VOID ItLosHpl023(VOID);
 VOID ItLosHpl024(VOID);
 VOID ItLosHpl031(VOID);
+VOID ItLosHpl041(VOID);
+VOID ItLosHpl042(VOID);
+VOID ItLosHpl043(VOID);
+VOID ItLosHpl044(VOID);
+VOID ItLosHpl045(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

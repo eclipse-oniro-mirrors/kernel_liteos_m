@@ -16,6 +16,9 @@
 
 #define TTY_MAX_BUFFER_SIZE  512
 
+/* One rpmsg frame's max payload: RPMSG_BUFFER_SIZE(512) - rpmsg header(16) */
+#define TTY_TX_MAX_PAYLOAD 496
+
 /* TTY receive message */
 struct tty_rcv_msg {
     void *data;
@@ -153,7 +156,7 @@ int mica_tty_init_service(pthread_attr_t *attr)
 
 int mica_tty_stop_service(void)
 {
-
+    return 0;
 }
 
 /**
@@ -161,20 +164,13 @@ int mica_tty_stop_service(void)
  */
 int mica_tty_send(unsigned char *data, size_t len)
 {
-    int ret;
-    uintptr_t intSave;
-
     if (!mica_tty_is_ready()) {
         return 0;
     }
-#if defined(MICA_SMP)
-    intSave = LOS_SplIrqLock(&g_ttyLock);
-#endif
-    ret = rpmsg_send(&g_tty_ept, data, len);
-#if defined(MICA_SMP)
-    LOS_SplIrqUnlock(&g_ttyLock, intSave);
-#endif
-    return ret;
+    if (data == NULL || len == 0 || len > TTY_TX_MAX_PAYLOAD) {
+        return -EINVAL;
+    }
+    return rpmsg_send(&g_tty_ept, data, len);
 }
 
 /**
@@ -184,15 +180,17 @@ int mica_tty_printf(const char *format, ...)
 {
     int len;
     va_list vaList;
-    unsigned char tty_buff[TTY_MAX_BUFFER_SIZE];
+    unsigned char tty_buff[TTY_TX_MAX_PAYLOAD];
 
-    mica_memset_s(tty_buff, TTY_MAX_BUFFER_SIZE, 0, TTY_MAX_BUFFER_SIZE);
+    mica_memset_s(tty_buff, sizeof(tty_buff), 0, sizeof(tty_buff));
     va_start(vaList, format);
-    len = vsnprintf(tty_buff, TTY_MAX_BUFFER_SIZE, format, vaList);
-    if (len == -1) {
+    len = vsnprintf(tty_buff, sizeof(tty_buff), format, vaList);
+    va_end(vaList);
+    if (len < 0) {
         return len;
     }
-    va_end(vaList);
-
-    return mica_tty_send(tty_buff, len + 1);
+    if ((size_t)len >= sizeof(tty_buff)) {
+        len = (int)sizeof(tty_buff) - 1; /* clamp: vsnprintf returns the untruncated length */
+    }
+    return mica_tty_send(tty_buff, (size_t)len + 1);
 }

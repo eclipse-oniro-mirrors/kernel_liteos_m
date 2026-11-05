@@ -115,6 +115,9 @@ int mica_rpc_register_handler(mica_rpc_handler_t handler)
     if (!mica_rpc_is_ready_pub()) {
         return -EAGAIN;
     }
+    if (handler == NULL) {
+        return -EINVAL;
+    }
     g_rpc_handler = handler;
     return 0;
 }
@@ -193,7 +196,12 @@ static void RpcHandleResponse(struct rpc_hdr *hdr, uint32_t len)
     g_rpc_resp_state.err = hdr->err;
 
     if (g_rpc_resp_state.buf != NULL && payload_len > 0) {
-        uint32_t room = g_rpc_resp_state.cap - g_rpc_resp_state.len;
+        uint32_t room;
+        if (g_rpc_resp_state.len >= g_rpc_resp_state.cap) {
+            room = 0; /* cap exhausted: no more copy */
+        } else {
+            room = g_rpc_resp_state.cap - g_rpc_resp_state.len;
+        }
         uint32_t copy = (payload_len < room) ? payload_len : room;
         memcpy(g_rpc_resp_state.buf + g_rpc_resp_state.len, payload, copy);
     }
@@ -268,6 +276,12 @@ int mica_rpc_call(uint32_t func_id,
         return -EAGAIN;
     }
     if (req_len > RPC_MAX_PAYLOAD || (req == NULL && req_len > 0)) {
+        return -EINVAL;
+    }
+    /* resp and resp_cap must be both "empty" (fire-and-forget) or both set:
+     * resp != NULL with resp_cap == 0 underflows room = cap - len in
+     * RpcHandleResponse on the second fragment of a fragmented response. */
+    if ((resp == NULL) != (resp_cap == 0)) {
         return -EINVAL;
     }
 

@@ -140,8 +140,12 @@ config PLATFORM_QEMU_XTENSA_ESP32
 config PLATFORM_WS63_M
     bool "ws63_m"
     select ARCH_LINXCORE_131
+    select RISCV_HIMIDEERV200_PLIC if ARCH_INTERRUPT_VENDOR
     help
         HiSilicon WS63 NearLink DK 3863 board (RISC-V LinxCore131).
+        Board riscv_hal.c wraps the in-tree himideerv200 PLIC driver,
+        so the driver must be compiled even in ARCH_INTERRUPT_VENDOR
+        mode (the core auto-select is skipped there).
 
 config PLATFORM_NRF52832
     bool "nrf52832"

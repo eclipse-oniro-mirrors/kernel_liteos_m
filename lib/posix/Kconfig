@@ -39,10 +39,10 @@ if POSIX_API
 
 config POSIX_THREAD_API
     bool "Enable POSIX Thread API"
+    default n if KERNEL_RAM_PRESET_TINY || KERNEL_RAM_PRESET_SMALL
     default y
     help
       Answer Y to enable LiteOS support POSIX Thread API.
-      Kept on because musl libc stdio (__lockfile) depends on pthread_mutex.
 
 config POSIX_SEM_API
     bool "Enable POSIX Semaphore API"
@@ -89,9 +89,10 @@ config POSIX_FS_API
 
 config POSIX_MALLOC_API
     bool "Enable POSIX MALLOC API"
+    default n if KERNEL_RAM_PRESET_TINY || KERNEL_RAM_PRESET_SMALL
     default y
+    depends on POSIX_THREAD_API
     help
       Answer Y to enable LiteOS support POSIX MALLOC API.
-      Kept on because musl libc and libsec depend on malloc/free.
 
 endif # POSIX_API

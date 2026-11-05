@@ -54,7 +54,6 @@
 =============================================================================*/
 #define LOSCFG_PLATFORM_HWI 1
 #define LOSCFG_USE_SYSTEM_DEFINED_INTERRUPT 1
-#define LOSCFG_PLATFORM_HWI_LIMIT 128
 /*=============================================================================
                                        Task module configuration
 =============================================================================*/
@@ -62,12 +61,6 @@
 
 /* IPC module configuration (SEM/MUX/QUEUE/EVENT) managed by Kconfig + vendor defconfig */
 
-/*=============================================================================
-                                       Software timer module configuration
-=============================================================================*/
-
-#define LOSCFG_BASE_CORE_SWTMR 1
-#define LOSCFG_BASE_CORE_SWTMR_ALIGN 1
 /*=============================================================================
                                        Memory module configuration
 =============================================================================*/

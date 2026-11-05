@@ -206,6 +206,28 @@ executable_config_ldflags = [
   "-Wl,-Map=$liteos_name.map",
 ]
 
+# board.ld uses __HWI_STACK_SIZE unconditionally, so it must always be defined here.
+if (defined(LOSCFG_HWI_STACK_SIZE)) {
+  executable_config_ldflags += [ "-Wl,-defsym,__HWI_STACK_SIZE=" + LOSCFG_HWI_STACK_SIZE ]
+} else {
+  executable_config_ldflags += [ "-Wl,-defsym,__HWI_STACK_SIZE=0x2000" ]
+}
+if (defined(LOSCFG_EXC_STACK_SIZE)) {
+  executable_config_ldflags += [ "-Wl,-defsym,__EXC_STACK_SIZE_DEF=" + LOSCFG_EXC_STACK_SIZE ]
+} else {
+  executable_config_ldflags += [ "-Wl,-defsym,__EXC_STACK_SIZE_DEF=0x400" ]
+}
+if (defined(LOSCFG_NMI_STACK_SIZE)) {
+  executable_config_ldflags += [ "-Wl,-defsym,__NMI_STACK_SIZE_DEF=" + LOSCFG_NMI_STACK_SIZE ]
+} else {
+  executable_config_ldflags += [ "-Wl,-defsym,__NMI_STACK_SIZE_DEF=0x400" ]
+}
+if (defined(LOSCFG_IRQ_STACK_SIZE)) {
+  executable_config_ldflags += [ "-Wl,-defsym,__IRQ_STACK_SIZE_DEF=" + LOSCFG_IRQ_STACK_SIZE ]
+} else {
+  executable_config_ldflags += [ "-Wl,-defsym,__IRQ_STACK_SIZE_DEF=0x800" ]
+}
+
 # Commands to generate kernel_image
 toochain_config_objcopy = "${compile_prefix}objcopy$toolchain_cmd_suffix"
 toochain_config_objdump = "${compile_prefix}objdump$toolchain_cmd_suffix"

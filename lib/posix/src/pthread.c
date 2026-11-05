@@ -117,6 +117,9 @@ static inline bool IsPthread(pthread_t thread)
         return false;
     }
     tcb = OS_TCB_FROM_TID((UINT32)(UINTPTR)thread);
+    if (tcb->taskStatus & OS_TASK_STATUS_UNUSED) {
+        return false;
+    }
     if ((UINTPTR)tcb->taskEntry != (UINTPTR)PthreadEntry) {
         return false;
     }
@@ -274,7 +277,7 @@ int pthread_setschedparam(pthread_t thread, int policy, const struct sched_param
 {
     if (!IsPthread(thread)) {
         PRINT_ERR("[%s:%d] This task %lu is not a posix thread!!!\n", __FUNCTION__, __LINE__, thread);
-        return EINVAL;
+        return ESRCH;
     }
 
     if ((param == NULL) || (param->sched_priority < OS_TASK_PRIORITY_HIGHEST) ||
@@ -298,7 +301,7 @@ int pthread_setschedprio(pthread_t thread, int prio)
 {
     if (!IsPthread(thread)) {
         PRINT_ERR("[%s:%d] This task %lu is not a posix thread!!!\n", __FUNCTION__, __LINE__, thread);
-        return EINVAL;
+        return ESRCH;
     }
 
     if (LOS_TaskPriSet((UINT32)(UINTPTR)thread, (UINT16)prio) != LOS_OK) {
@@ -411,7 +414,7 @@ int pthread_getschedparam(pthread_t thread, int *policy, struct sched_param *par
 
     if (!IsPthread(thread)) {
         PRINT_ERR("[%s:%d] This task %lu is not a posix thread!!!\n", __FUNCTION__, __LINE__, thread);
-        return EINVAL;
+        return ESRCH;
     }
 
     if ((policy == NULL) || (param == NULL)) {
@@ -467,7 +470,7 @@ int pthread_cancel(pthread_t thread)
     PthreadData *pthreadData = NULL;
     if (!IsPthread(thread)) {
         PRINT_ERR("[%s:%d] This task %lu is not a posix thread!!!\n", __FUNCTION__, __LINE__, thread);
-        return EINVAL;
+        return ESRCH;
     }
     intSave = LOS_IntLock();
     tcb = OS_TCB_FROM_TID((UINT32)(UINTPTR)thread);
@@ -510,7 +513,7 @@ int pthread_join(pthread_t thread, void **retval)
     UINT32 ret;
     if (!IsPthread(thread)) {
         PRINT_ERR("[%s:%d] This task %lu is not a posix thread!!!\n", __FUNCTION__, __LINE__, thread);
-        return EINVAL;
+        return ESRCH;
     }
 
     ret = LOS_TaskJoin((UINT32)(UINTPTR)thread, &result);
@@ -537,14 +540,14 @@ int pthread_detach(pthread_t thread)
     UINT32 ret;
     if (!IsPthread(thread)) {
         PRINT_ERR("[%s:%d] This task %lu is not a posix thread!!!\n", __FUNCTION__, __LINE__, thread);
-        return EINVAL;
+        return ESRCH;
     }
 
     ret = LOS_TaskDetach((UINT32)(UINTPTR)thread);
-    if (ret == LOS_ERRNO_TSK_ALREADY_JOIN) {
-        return ESRCH;
+    if ((ret == LOS_ERRNO_TSK_IS_DETACHED) || (ret == LOS_ERRNO_TSK_ALREADY_JOIN)) {
+        return EINVAL;              /* thread exists but is not joinable */
     } else if (ret != LOS_OK) {
-        return EINVAL;
+        return ESRCH;               /* thread not found or invalid operation */
     }
 
     return 0;
@@ -600,7 +603,7 @@ int pthread_setname_np(pthread_t thread, const char *name)
 
     if (!IsPthread(thread)) {
         PRINT_ERR("[%s:%d] This task %lu is not a posix thread!!!\n", __FUNCTION__, __LINE__, thread);
-        return EINVAL;
+        return ESRCH;
     }
 
     taskName = LOS_TaskNameGet((UINT32)(UINTPTR)thread);
@@ -637,7 +640,7 @@ int pthread_getname_np(pthread_t thread, char *buf, size_t buflen)
 
     if (!IsPthread(thread)) {
         PRINT_ERR("[%s:%d] This task %lu is not a posix thread!!!\n", __FUNCTION__, __LINE__, thread);
-        return EINVAL;
+        return ESRCH;
     }
 
     name = LOS_TaskNameGet((UINT32)(UINTPTR)thread);

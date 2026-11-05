@@ -33,6 +33,7 @@
 #include "los_interrupt.h"
 #include "los_task_pri.h"
 #include "los_sched_pri.h"
+#include "los_mp_pri.h"
 #include "los_trace.h"
 #include "los_exc.h"
 #include "los_hook.h"
@@ -113,10 +114,6 @@ LITE_OS_SEC_TEXT STATIC UINT32 OsEventReadCheck(const PEVENT_CB_S eventCB, UINT3
         return ret;
     }
 
-    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
-        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
-    }
-
     if (OS_INT_ACTIVE) {
         return LOS_ERRNO_EVENT_READ_IN_INTERRUPT;
     }
@@ -170,10 +167,6 @@ LITE_OS_SEC_TEXT STATIC UINT32 OsEventWrite(PEVENT_CB_S eventCB, UINT32 events, 
         return LOS_ERRNO_EVENT_PTR_NULL;
     }
 
-    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
-        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
-    }
-
     if (events & LOS_ERRTYPE_ERROR) {
         return LOS_ERRNO_EVENT_SETBIT_INVALID;
     }
@@ -204,6 +197,7 @@ LITE_OS_SEC_TEXT STATIC UINT32 OsEventWrite(PEVENT_CB_S eventCB, UINT32 events, 
     SCHEDULER_UNLOCK(intSave);
 
     if (exitFlag == 1) {
+        LOS_MpSchedule(OS_MP_CPU_ALL);
         LOS_Schedule();
     }
     return LOS_OK;
@@ -258,10 +252,6 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_EventDestroy(PEVENT_CB_S eventCB)
         return LOS_ERRNO_EVENT_PTR_NULL;
     }
 
-    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
-        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
-    }
-
     SCHEDULER_LOCK(intSave);
     if (!LOS_ListEmpty(&eventCB->stEventList)) {
         ret = LOS_ERRNO_EVENT_SHOULD_NOT_DESTROYED;
@@ -269,8 +259,6 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_EventDestroy(PEVENT_CB_S eventCB)
     }
 
     eventCB->uwEventID = 0;
-    eventCB->stEventList.pstNext = (LOS_DL_LIST *)NULL;
-    eventCB->stEventList.pstPrev = (LOS_DL_LIST *)NULL;
 OUT:
     SCHEDULER_UNLOCK(intSave);
 
@@ -340,10 +328,6 @@ LITE_OS_SEC_TEXT UINT32 EventCondRead(PEVENT_CB_S eventCB, UINT32 *timeout)
         return LOS_ERRNO_EVENT_PTR_NULL;
     }
 
-    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
-        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
-    }
-
     if (OS_INT_ACTIVE) {
         return LOS_ERRNO_EVENT_READ_IN_INTERRUPT;
     }
@@ -403,10 +387,6 @@ LITE_OS_SEC_TEXT UINT32 LOS_EventCondWrite(PEVENT_CB_S eventCB)
         return LOS_ERRNO_EVENT_PTR_NULL;
     }
 
-    if ((eventCB->stEventList.pstNext == NULL) || (eventCB->stEventList.pstPrev == NULL)) {
-        return LOS_ERRNO_EVENT_NOT_INITIALIZED;
-    }
-
     LOS_TRACE(EVENT_COND_WRITE, (UINTPTR)eventCB, eventCB->uwEventID);
 
     SCHEDULER_LOCK(intSave);
@@ -425,6 +405,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_EventCondWrite(PEVENT_CB_S eventCB)
     SCHEDULER_UNLOCK(intSave);
 
     if (exitFlag == 1) {
+        LOS_MpSchedule(OS_MP_CPU_ALL);
         LOS_Schedule();
     }
     return LOS_OK;

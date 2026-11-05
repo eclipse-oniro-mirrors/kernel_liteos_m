@@ -59,6 +59,9 @@ static UINT32 Testcase(VOID)
     UINT64 tickBefore;
     UINT64 tickAfter;
     TSK_INIT_PARAM_S task1 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     /* F-Pos: 创建高优先级辅助任务，创建后立即抢占运行并挂入 100 tick 延时。
      * 任务入口返回后由内核 OsTaskEntry 自动调 OsTaskDelete 自删，须显式指定

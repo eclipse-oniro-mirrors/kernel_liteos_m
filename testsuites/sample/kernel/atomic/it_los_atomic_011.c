@@ -222,6 +222,9 @@ static UINT32 TestCase(VOID)
     g_testCount = 0;
 
     TSK_INIT_PARAM_S stTask1 = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    stTask1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     stTask1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     stTask1.pcName       = "Atomic_011";
     stTask1.uwStackSize  = LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE;

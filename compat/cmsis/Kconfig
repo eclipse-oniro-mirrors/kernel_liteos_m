@@ -30,6 +30,7 @@
 config KAL_CMSIS
     bool "Enable KAL CMSIS"
     default y
+    depends on !KERNEL_SMP
     help
       Answer Y to enable LiteOS Kernel Abstraction Layer support CMSIS API.
 

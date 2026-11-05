@@ -80,6 +80,9 @@ static UINT32 TestCase(VOID)
     taskParam.usTaskPrio = 10; /* 高于主测试任务 */
     taskParam.pcName = "TaskTC015";
     taskParam.uwStackSize = TASK_STACK_SIZE_TEST;
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&auxTid, &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 

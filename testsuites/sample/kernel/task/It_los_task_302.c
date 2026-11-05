@@ -53,6 +53,9 @@ static UINT32 TestCase(VOID)
     UINT32 ret;
     UINT32 status = 0;
     TSK_INIT_PARAM_S task2 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task2.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     task2.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF02;
     task2.uwStackSize = TASK_STACK_SIZE_TEST;
     task2.pcName = "Tsk302A";

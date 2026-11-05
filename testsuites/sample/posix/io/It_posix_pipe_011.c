@@ -50,6 +50,11 @@
 #include "It_posix_io.h"
 #include <poll.h>
 #include <pthread.h>
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 static INT32 g_pipe011Fds[2] = {-1, -1}; /* 2: pipe fd pair */
 
@@ -86,6 +91,13 @@ static UINT32 Testcase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&writer, NULL, Pipe011Writer, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)writer, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_CLOSE);
 
     g_testCount = 1;

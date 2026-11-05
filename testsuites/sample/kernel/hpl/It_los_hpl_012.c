@@ -57,6 +57,9 @@ static UINT32 TestCase(VOID)
     UINT32 bytesBefore;
     UINT32 bytesNow;
     TSK_INIT_PARAM_S taskParam = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     TestHplPrepare();
 

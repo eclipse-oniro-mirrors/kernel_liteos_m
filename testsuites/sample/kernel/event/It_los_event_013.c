@@ -83,6 +83,10 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
     LOS_EventInit(&g_pevent);
 
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
+
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ICUNIT_GOTO_EQUAL(g_testCount, 1, g_testCount, EXIT);
@@ -94,6 +98,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(g_testCount, 6, g_testCount, EXIT1); // 6, Here, assert that g_testCount is equal to 6.
 
 EXIT1:
+    LOS_TaskDelete(g_testTaskID01);
     ret = LOS_EventClear(&g_pevent, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 

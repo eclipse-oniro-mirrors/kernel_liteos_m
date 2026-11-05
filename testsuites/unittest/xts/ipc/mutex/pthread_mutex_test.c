@@ -29,6 +29,11 @@
  */
 
 #include "xts_ipc.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 LITE_TEST_SUIT(FUTEX, PthreadMutexApiTest, PthreadMutexApiTestSuite);
 
@@ -120,8 +125,22 @@ LITE_TEST_CASE(PthreadMutexApiTestSuite, testPthreadMutexCond, Function | Medium
     memset_s(tid, sizeof(tid), POSIX_IPC_NO_ERROR, sizeof(tid));
     
     ret = pthread_create(&tid[0], NULL, PthreadProduce, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid[0], sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, POSIX_IPC_NO_ERROR, ret);
     ret = pthread_create(&tid[1], NULL, PthreadConsume, NULL); /* 1, common data for test, no special meaning */
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid[1], sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, POSIX_IPC_NO_ERROR, ret);
     ret = pthread_join(tid[0], NULL);
     ICUNIT_ASSERT_EQUAL(ret, POSIX_IPC_NO_ERROR, ret);

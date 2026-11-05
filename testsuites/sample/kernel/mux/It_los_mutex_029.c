@@ -83,6 +83,9 @@ static VOID TaskFuncA(VOID)
     UINT32 ret;
     TSK_INIT_PARAM_S task1 = {0};
     TSK_INIT_PARAM_S task2 = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task2.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     g_testCount++;
 
     ICUNIT_ASSERT_EQUAL_VOID(g_testCount, 1, g_testCount); // 1, Here, assert that g_testCount is equal to 1.
@@ -95,6 +98,9 @@ static VOID TaskFuncA(VOID)
     task1.pcName = "TaskB";
     task1.uwStackSize = LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE;
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_TaskCreate(&g_testTaskID02, &task1);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
@@ -134,6 +140,9 @@ static UINT32 Testcase(VOID)
     LosTaskCB *runTask = OsCurrTaskGet();
     UINT32 ret;
     TSK_INIT_PARAM_S task = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     g_testCount = 0;
 
     ret = LOS_MuxCreate(&g_mutexTest1);

@@ -81,22 +81,34 @@ static UINT32 Testcase(VOID)
     for (loop = 0; loop < HWI_LOOP_NUM; loop++) {
         g_testCount = 0;
         ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+        #ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+        #endif
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
         ret = LOS_HwiCreate(HWI_NUM_TEST3, hwiPrio, mode, (HWI_PROC_FUNC)HwiF02, &irqParam);
+        #ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST3, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+        #endif
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
         ret = LOS_HwiCreate(HWI_NUM_TEST1, hwiPrio, mode, (HWI_PROC_FUNC)HwiF03, &irqParam);
+        #ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST1, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+        #endif
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT2);
 
         TestHwiTrigger(HWI_NUM_TEST);
 
-        ICUNIT_ASSERT_EQUAL(g_testCount, 5, g_testCount); // Compare wiht the expected value 5.
+        ICUNIT_GOTO_EQUAL(g_testCount, 5, g_testCount, EXIT3); // Compare wiht the expected value 5.
 
         TestHwiDelete(HWI_NUM_TEST);
         TestHwiDelete(HWI_NUM_TEST3);
         TestHwiDelete(HWI_NUM_TEST1);
     }
+
+EXIT3:
+    TestHwiDelete(HWI_NUM_TEST1);
 
 EXIT2:
     TestHwiDelete(HWI_NUM_TEST3);

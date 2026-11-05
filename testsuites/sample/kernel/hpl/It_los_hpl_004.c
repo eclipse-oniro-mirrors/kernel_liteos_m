@@ -45,6 +45,9 @@ static UINT32 TestCase(VOID)
     UINT32 peakSize = 0;
     BOOL overflow = FALSE;
     TSK_INIT_PARAM_S taskParam = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     /* Invalid task id. */
     ret = LOS_TaskHplSizeSet(LOSCFG_BASE_CORE_TSK_LIMIT + 10, HPL_TEST_STAGING_SIZE);

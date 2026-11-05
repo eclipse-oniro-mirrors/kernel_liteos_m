@@ -39,6 +39,11 @@
 #include "kernel_test.h"
 #include "pthread.h"
 #include "log.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define TASK_PRIO_TEST           LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO
 #define PTHREAD_TASK_DELAY       10
@@ -110,6 +115,13 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread001, Function | MediumTest | Lev
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&newTh, &attr, pthread_join_f01, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)newTh, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_join(newTh, (void **)&uwtemp);
@@ -155,6 +167,13 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread002, Function | MediumTest | Lev
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&newTh, &attr, pthread_join_f02, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)newTh, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_join(newTh, (void **)&uwtemp);
@@ -202,6 +221,13 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread003, Function | MediumTest | Lev
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&newTh, &attr, pthread_join_f03, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)newTh, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_join(newTh, NULL);
@@ -249,6 +275,13 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread004, Function | MediumTest | Lev
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&newTh, &attr, pthread_join_f04, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)newTh, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ICUNIT_ASSERT_EQUAL(g_testCount, 1, g_testCount);
@@ -298,6 +331,13 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread005, Function | MediumTest | Lev
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&newTh, &attr, pthread_join_f05, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)newTh, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_join(newTh, NULL);
@@ -362,6 +402,13 @@ static VOID *pthread_f06(void *argument)
 
     for (i = 0; i < TEST_THREAD_COUNT; i++) {
         ret = pthread_create(&thread[i], &attr, pthread_cond_func001, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+        {
+            cpu_set_t cpuset;
+            (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+            (void)sched_setaffinity((pid_t)thread[i], sizeof(cpu_set_t), &cpuset);
+        }
+#endif
         ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     }
 
@@ -419,6 +466,13 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread006, Function | MediumTest | Lev
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&newTh, &attr, pthread_f06, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)newTh, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_join(newTh, NULL);
@@ -481,6 +535,13 @@ static VOID *pthread_f07(void *argument)
 
     for (i = 0; i < TEST_THREAD_COUNT; i++) {
         ret = pthread_create(&thread[i], &attr, pthread_cond_func002, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+        {
+            cpu_set_t cpuset;
+            (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+            (void)sched_setaffinity((pid_t)thread[i], sizeof(cpu_set_t), &cpuset);
+        }
+#endif
         ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     }
 
@@ -529,6 +590,13 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread007, Function | MediumTest | Lev
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&newTh, &attr, pthread_f07, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)newTh, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_join(newTh, NULL);
@@ -627,9 +695,23 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread008, Function | MediumTest | Lev
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&newTh1, &attr, pthread_f08, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)newTh1, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&newTh2, &attr, pthread_f08, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)newTh2, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_join(newTh1, (void **)&result);
@@ -683,6 +765,13 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread009, Function | MediumTest | Lev
 
     for (i = 0; i < TEST_THREAD_COUNT; i++) {
         ret = pthread_create(&thread[i], &attr, pthread_prio_f01, TEST_THREAD_COUNT - i);
+#ifdef LOSCFG_KERNEL_SMP
+        {
+            cpu_set_t cpuset;
+            (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+            (void)sched_setaffinity((pid_t)thread[i], sizeof(cpu_set_t), &cpuset);
+        }
+#endif
         ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     }
 
@@ -780,6 +869,13 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread011, Function | MediumTest | Lev
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&thread, &attr, pthread_cancel_f01, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)thread, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_cancel(thread);
@@ -842,6 +938,13 @@ LITE_TEST_CASE(PthreadFuncTestSuite, testPthread012, Function | MediumTest | Lev
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&thread, &attr, pthread_testcancel_f01, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)thread, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     while (g_pthreadSem == 0) {

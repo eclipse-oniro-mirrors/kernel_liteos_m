@@ -49,6 +49,9 @@ static UINT32 Testcase(VOID)
 
     /* F-Inv: NULL 处理函数 -> LOS_ERRNO_HWI_PROC_FUNC_NULL(内核级守卫,los_hwi.c) */
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, NULL, NULL);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_HWI_PROC_FUNC_NULL, ret, EXIT);
 
     /* F-Inv: 越界中断号 -> LOS_ERRNO_HWI_NUM_INVALID(两架构 ArchHwiCreate 守卫:
@@ -61,11 +64,17 @@ static UINT32 Testcase(VOID)
 
     /* F-Pos: 合法创建 */
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF047, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     created = 1;
 
     /* F-Inv: 同号重复创建 -> LOS_ERRNO_HWI_ALREADY_CREATED(两架构均断言既有钩子) */
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF047, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_HWI_ALREADY_CREATED, ret, EXIT);
 
     /* F-Pos: 删除后重建成功(资源回收闭环;重复 Delete 两架构语义不同不测) */
@@ -74,6 +83,9 @@ static UINT32 Testcase(VOID)
     created = 0;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF047, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     created = 1;
 

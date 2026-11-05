@@ -29,6 +29,12 @@
  */
 
 #include "It_posix_pthread.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+extern int pthread_attr_setaffinity_np(pthread_attr_t *attr, size_t cpusetsize, const cpu_set_t *cpuset);
+#endif
 
 #define LOOP_NUM 2
 static pthread_mutex_t g_pthreadMutexTest1 = PTHREAD_MUTEX_INITIALIZER;
@@ -99,6 +105,14 @@ static UINT32 Testcase(VOID)
     pthread_cond_init(&g_pthreadCondTest1, NULL);
     pthread_attr_init(&attr);
 
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (VOID)pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     rc = pthread_create(&threads[0], &attr, PthreadF01, (void *)t1);
     ICUNIT_ASSERT_EQUAL(rc, 0, rc);
 

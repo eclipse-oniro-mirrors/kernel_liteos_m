@@ -44,6 +44,11 @@ static int g_uwIndex;
 #define TEST_MAX_NUMBER_HWI OS_USER_HWI_MAX
 #define TEST_HWI_COUNT (TEST_MAX_NUMBER_HWI - 2)
 #endif
+#elif defined(__ARM_ARCH_7A__)
+#define TEST_MAX_NUMBER_HWI OS_USER_HWI_MAX
+#define TEST_HWI_COUNT (TEST_MAX_NUMBER_HWI - 2)
+#undef  HWI_NUM_INT0
+#define HWI_NUM_INT0 HWI_NUM_TEST
 #else
 #define TEST_MAX_NUMBER_HWI (OS_USER_HWI_MAX - HWI_NUM_INT0)
 #define TEST_HWI_COUNT (TEST_MAX_NUMBER_HWI - 2)
@@ -73,6 +78,9 @@ static UINT32 Testcase(VOID)
     /* Creates 3 interrupts in a row with interrupt number */
     for (g_uwIndex = 0; g_uwIndex < 3; g_uwIndex++) {
         ret = LOS_HwiCreate(HWI_NUM_INT0 + g_uwIndex, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+#ifdef LOSCFG_KERNEL_SMP
+            (VOID)LOS_HwiSetAffinity(HWI_NUM_INT0 + g_uwIndex, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
         TestHwiTrigger(HWI_NUM_INT0 + g_uwIndex);
     }
@@ -82,6 +90,9 @@ static UINT32 Testcase(VOID)
         /* if interrupt number is not HWI_NUM_INT0 + 5 */
         if (g_uwIndex != 5) {
             ret = LOS_HwiCreate(HWI_NUM_INT0 + g_uwIndex, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+#ifdef LOSCFG_KERNEL_SMP
+                (VOID)LOS_HwiSetAffinity(HWI_NUM_INT0 + g_uwIndex, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
             ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
             TestHwiTrigger(HWI_NUM_INT0 + g_uwIndex);
         }

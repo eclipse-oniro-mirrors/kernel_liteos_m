@@ -40,6 +40,11 @@
 #include "los_config.h"
 #include "kernel_test.h"
 #include "log.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define NANO_S 1000000000
 
@@ -459,6 +464,13 @@ LITE_TEST_CASE(PosixSemaphoreFuncTestSuite, testIpcSemParam004, Function | Mediu
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_create(&waiter, NULL, SemParam004Waiter, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)waiter, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_SEM);
 
     /* 等待者就绪并让出 2 tick 确保其已阻塞在 sem_wait 上 */
@@ -582,6 +594,13 @@ LITE_TEST_CASE(PosixSemaphoreFuncTestSuite, testIpcSemParam005, Function | Mediu
     /* 4. 远超时钳制: 500 天超时换算 tick 4.32e9(tick=100/s) > LOS_WAIT_FOREVER(0xFFFFFFFF)
            → 钳为永远等(:179-181), 由配对 post 唤醒(防挂死), 返回 0 */
     ret = pthread_create(&poster, NULL, SemParam005Poster, &sem);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)poster, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     (VOID)clock_gettime(CLOCK_REALTIME, &tsNow);
     ts.tv_sec = tsNow.tv_sec + 500 * 24 * 3600; /* 500 days: 换算 tick 必超 LOS_WAIT_FOREVER */

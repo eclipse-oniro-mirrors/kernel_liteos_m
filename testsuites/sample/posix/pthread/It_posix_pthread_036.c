@@ -50,6 +50,12 @@
 /* 用例简要描述: 任务耗尽时 create 错误码映射 */
 #include "It_posix_pthread.h"
 #include <semaphore.h>
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+extern int pthread_attr_setaffinity_np(pthread_attr_t *attr, size_t cpusetsize, const cpu_set_t *cpuset);
+#endif
 
 static sem_t g_sem036;
 
@@ -82,6 +88,14 @@ static UINT32 Testcase(VOID)
 
     /* 循环创建阻塞线程至任务资源耗尽 */
     for (i = 0; i < LOSCFG_BASE_CORE_TSK_LIMIT; i++) {
+#ifdef LOSCFG_KERNEL_SMP
+        {
+            cpu_set_t cpuset;
+            (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+            (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+            (VOID)pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
+        }
+#endif
         ret = pthread_create(&tids[i], &attr, Pthread036Blocker, NULL);
         if (ret != 0) {
             failRet = ret;
@@ -106,6 +120,13 @@ static UINT32 Testcase(VOID)
     /* 资源回收后可重建(再次阻塞-唤醒-回收) */
     pthread_t tidNew;
     ret = pthread_create(&tidNew, NULL, Pthread036Blocker, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)tidNew, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
     (VOID)sem_post(&g_sem036);
     ret = pthread_join(tidNew, NULL);

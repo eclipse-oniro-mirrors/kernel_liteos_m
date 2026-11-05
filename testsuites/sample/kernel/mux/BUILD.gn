@@ -68,6 +68,44 @@ static_library("test_mux") {
     "It_los_mutex_301.c",
     "It_los_mux.c",
   ]
+  if (defined(LOSCFG_KERNEL_SMP)) {
+    sources += [
+    "It_smp_los_mux_001.c",
+    "It_smp_los_mux_002.c",
+    "It_smp_los_mux_003.c",
+    "It_smp_los_mux_004.c",
+    "It_smp_los_mux_005.c",
+    "It_smp_los_mux_006.c",
+    "It_smp_los_mux_007.c",
+    "It_smp_los_mux_2001.c",
+    "It_smp_los_mux_2002.c",
+    "It_smp_los_mux_2003.c",
+    "It_smp_los_mux_2004.c",
+    "It_smp_los_mux_2005.c",
+    "It_smp_los_mux_2006.c",
+    "It_smp_los_mux_2007.c",
+    "It_smp_los_mux_2008.c",
+    "It_smp_los_mux_2009.c",
+    "It_smp_los_mux_2010.c",
+    "It_smp_los_mux_2011.c",
+    "It_smp_los_mux_2012.c",
+    "It_smp_los_mux_2013.c",
+    "It_smp_los_mux_2014.c",
+    "It_smp_los_mux_2015.c",
+    "It_smp_los_mux_2016.c",
+    "It_smp_los_mux_2017.c",
+    "It_smp_los_mux_2018.c",
+    "It_smp_los_mux_2021.c",
+    "It_smp_los_mux_2022.c",
+    "It_smp_los_mux_2024.c",
+    "It_smp_los_mux_2025.c",
+    "It_smp_los_mux_2026.c",
+    "It_smp_los_mux_2027.c",
+    "It_smp_los_mux_2028.c",
+    "It_smp_los_mux_2029.c",
+    "It_smp_mux.c",
+    ]
+  }
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]
 }

@@ -85,6 +85,32 @@ static_library("test_hwi") {
     "it_los_hwi_053.c",
     "llt_los_hwi_035.c",
   ]
+  if (defined(LOSCFG_KERNEL_SMP)) {
+    sources += [
+    "It_smp_los_hwi_001.c",
+    "It_smp_los_hwi_002.c",
+    "It_smp_los_hwi_003.c",
+    "It_smp_los_hwi_004.c",
+    "It_smp_los_hwi_005.c",
+    "It_smp_los_hwi_006.c",
+    "It_smp_los_hwi_007.c",
+    "It_smp_los_hwi_008.c",
+    "It_smp_los_hwi_009.c",
+    "It_smp_los_hwi_010.c",
+    "It_smp_los_hwi_011.c",
+    "It_smp_los_hwi_012.c",
+    "It_smp_los_hwi_013.c",
+    "It_smp_los_hwi_ipi_001.c",
+    "It_smp_los_hwi_ipi_002.c",
+    "It_smp_los_hwi_ipi_003.c",
+    "It_smp_los_hwi_ipi_004.c",
+    "It_smp_los_hwi_ipi_005.c",
+    "It_smp_los_hwi_ipi_006.c",
+    "It_smp_los_hwi_ipi_007.c",
+    "It_smp_los_hwi_ipi_008.c",
+    "It_smp_hwi.c",
+    ]
+  }
 
   # GICD MMU access-switch cases (ItLosHwi054-057): aarch64 AMP
   # slave (GICv3 + MCS) only - same conditional-source style as the

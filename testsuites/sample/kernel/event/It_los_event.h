@@ -31,6 +31,7 @@
 
 #include "osTest.h"
 
+/* liteos_a It_los_event.h:46 */
 #ifdef __cplusplus
 #if __cplusplus
 extern "C" {
@@ -108,6 +109,45 @@ extern VOID ItLosEvent040(VOID);
 extern VOID ItLosEvent041(VOID);
 extern VOID ItLosEvent042(VOID);
 extern VOID ItLosEvent043(VOID);
+#ifdef LOSCFG_KERNEL_SMP
+extern VOID ItSmpLosEvent001(VOID);
+extern VOID ItSmpLosEvent002(VOID);
+extern VOID ItSmpLosEvent003(VOID);
+extern VOID ItSmpLosEvent004(VOID);
+extern VOID ItSmpLosEvent005(VOID);
+extern VOID ItSmpLosEvent006(VOID);
+extern VOID ItSmpLosEvent007(VOID);
+extern VOID ItSmpLosEvent008(VOID);
+extern VOID ItSmpLosEvent009(VOID);
+extern VOID ItSmpLosEvent010(VOID);
+extern VOID ItSmpLosEvent011(VOID);
+extern VOID ItSmpLosEvent012(VOID);
+extern VOID ItSmpLosEvent013(VOID);
+extern VOID ItSmpLosEvent014(VOID);
+extern VOID ItSmpLosEvent015(VOID);
+extern VOID ItSmpLosEvent016(VOID);
+extern VOID ItSmpLosEvent017(VOID);
+extern VOID ItSmpLosEvent018(VOID);
+extern VOID ItSmpLosEvent019(VOID);
+extern VOID ItSmpLosEvent020(VOID);
+extern VOID ItSmpLosEvent021(VOID);
+extern VOID ItSmpLosEvent022(VOID);
+extern VOID ItSmpLosEvent023(VOID);
+extern VOID ItSmpLosEvent024(VOID);
+extern VOID ItSmpLosEvent025(VOID);
+extern VOID ItSmpLosEvent026(VOID);
+extern VOID ItSmpLosEvent027(VOID);
+extern VOID ItSmpLosEvent028(VOID);
+extern VOID ItSmpLosEvent029(VOID);
+extern VOID ItSmpLosEvent030(VOID);
+extern VOID ItSmpLosEvent031(VOID);
+extern VOID ItSmpLosEvent032(VOID);
+extern VOID ItSmpLosEvent033(VOID);
+extern VOID ItSmpLosEvent034(VOID);
+extern VOID ItSmpLosEvent035(VOID);
+extern VOID ItSmpLosEvent036(VOID);
+extern VOID ItSmpLosEvent037(VOID);
+#endif /* LOSCFG_KERNEL_SMP */
 
 #ifdef __cplusplus
 #if __cplusplus

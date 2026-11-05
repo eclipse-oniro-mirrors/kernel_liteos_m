@@ -59,6 +59,9 @@
 #include "securec.h"
 #include "securectype.h"
 #include "test_common.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include "los_atomic.h" /* SMP task cases use LOS_AtomicInc (liteos_a chain) */
+#endif /* LOSCFG_KERNEL_SMP */
 
 #ifdef __cplusplus
 #if __cplusplus
@@ -217,6 +220,9 @@ extern "C" {
 #define LOSCFG_TEST_MUCH_LOG 0
 
 extern UINT32 volatile g_testCount;
+#ifdef LOSCFG_KERNEL_SMP
+extern UINT32 g_testCount2;
+#endif /* LOSCFG_KERNEL_SMP */
 extern UINT32 g_testTskHandle;
 extern UINT32 g_testTaskID01;
 extern UINT32 g_testTaskID02;
@@ -226,9 +232,20 @@ extern UINT32 g_hwiNum1;
 extern UINT32 g_hwiNum2;
 extern UINT32 g_usSemID;
 extern UINT32 g_usSemID2;
+#ifdef LOSCFG_KERNEL_SMP
+
+/*
+ * SMP test helper family (liteos_a testsuites osTest.h:147-152 +
+ * osTest.c:143-312): tick wrappers, non-yielding busy delay, seeded random.
+ * Used by the ported TEST_FULL-tier SMP task cases; case bodies are
+ * SMP-gated so on UP builds these are dead code (gc-stripped).
+ */
+#define TestTickCountGet LOS_TickCountGet
+extern UINT32 TRandom(VOID);
+#endif /* LOSCFG_KERNEL_SMP */
 extern UINT32 g_mutexTest;
 
-extern UINT16 g_usSwTmrID;
+extern UINT32 g_usSwTmrID;
 extern UINT32 g_usSemID;
 extern UINT32 g_testQueueID01;
 extern UINT32 g_testQueueID02;
@@ -316,6 +333,12 @@ extern EVENT_CB_S g_exampleEvent;
 
 #define TASK_PRIO_TEST 25
 #define TASK_PRIO_TEST_NORMAL 20
+#ifdef LOSCFG_KERNEL_SMP
+/* liteos_a testsuites osTest.h:112 - priority of suite-created subtasks
+ * (SMP cases); same value as TASK_PRIO_TEST here. */
+#define TASK_PRIO_TEST_TASK 25
+#define TASK_PRIO_TEST_SWTMR 4
+#endif /* LOSCFG_KERNEL_SMP */
 
 #define TEST_WAIT_TIMEOUT 100
 
@@ -336,6 +359,32 @@ extern EVENT_CB_S g_exampleEvent;
 #define TEST_TASK_PRIORITY_MAX osPriorityAboveNormal5
 
 #define LOS_TASK_STATUS_DETACHED 0x0100
+#ifdef LOSCFG_KERNEL_SMP
+#define OS_TASK_STATUS_DETACHED 0
+#define OS_TASK_STATUS_CHECK_MASK  0x05FFU
+#define TEST_TIMESLICE_TICKS  (LOSCFG_BASE_CORE_TIMESLICE_TIMEOUT / (1000000 / LOSCFG_BASE_CORE_TICK_PER_SECOND))
+
+/* Poll a task's masked status until `wantMask` appears (bounded, ticks).
+ */
+#define TEST_POLL_TASK_STATUS(tid, wantMask, retVar, budgetTicks)                     \
+    do {                                                                              \
+        UINT32 poll__ = (budgetTicks);                                                \
+        (retVar) = OS_TCB_FROM_TID(tid)->taskStatus & OS_TASK_STATUS_CHECK_MASK;      \
+        while (((retVar) & (wantMask)) == 0 && (poll__ != 0)) {                       \
+            LOS_TaskDelay(1);       \
+            (retVar) = OS_TCB_FROM_TID(tid)->taskStatus & OS_TASK_STATUS_CHECK_MASK;  \
+            poll__--;                                                                 \
+        }                                                                             \
+    } while (0)
+#define TEST_YIELD_WAIT_COUNT(budgetTicks, flag)                                      \
+    do {                                                                              \
+        UINT32 wait__ = (budgetTicks);                                                \
+        while ((g_testCount != (flag)) && (wait__ != 0)) {                            \
+            LOS_TaskDelay(1);                                                         \
+            wait__--;                                                                 \
+        }                                                                             \
+    } while (0)
+#endif /* LOSCFG_KERNEL_SMP */
 
 #define LOS_SYS_MS_PER_SECOND 1000    // Number of ms in one second.
 #define LOS_SYS_US_PER_SECOND 1000000 // Number of us in one second.
@@ -364,6 +413,27 @@ extern EVENT_CB_S g_exampleEvent;
 #define TASK_STACK_SIZE_TEST OS_TSK_TEST_STACK_SIZE
 #define TEST_TASK_STACK_SIZE OS_TSK_TEST_STACK_SIZE
 #define TASK_CMSIS_STACK_SIZE_TEST 0x600
+
+#ifdef LOSCFG_KERNEL_SMP
+/*
+ * Task-param init helpers (liteos_a testsuites osTest.h:89-103).
+ * Note the trailing ';' inside the do-while: the AFFI macro appends the
+ * affinity assignment AFTER the complete statement.
+ */
+#define TEST_TASK_PARAM_INIT(testTask, task_name, entry, prio)                              \
+    do {                                                                                    \
+        (void)memset_s(&(testTask), sizeof(TSK_INIT_PARAM_S), 0, sizeof(TSK_INIT_PARAM_S)); \
+        (testTask).pfnTaskEntry = (TSK_ENTRY_FUNC)entry;                                    \
+        (testTask).uwStackSize = TASK_STACK_SIZE_TEST;                                      \
+        (testTask).pcName = task_name;                                                      \
+        (testTask).usTaskPrio = prio;                                                       \
+        (testTask).uwResved = LOS_TASK_STATUS_DETACHED;                                     \
+    } while (0);
+
+#define TEST_TASK_PARAM_INIT_AFFI(testTask, task_name, entry, prio, affi) \
+    TEST_TASK_PARAM_INIT(testTask, task_name, entry, prio)                \
+    (testTask).usCpuAffiMask = affi;
+#endif /* LOSCFG_KERNEL_SMP */
 
 #define OS_EVENT_TIMEOUT_MAX_VAL 0xFFFFFFFF
 
@@ -485,6 +555,13 @@ extern VOID TEST_HwiDeleteAll(VOID);
 extern VOID TestHwiTrigger(UINT32 hwiNum);
 extern VOID TestHwiSync(VOID);
 extern VOID TestHwiClear(UINT32 hwiNum);
+#ifdef LOSCFG_KERNEL_SMP
+extern VOID TestDumpCpuid(VOID);
+extern UINT32 g_testPeriod;
+#ifndef LOOP
+#define LOOP 10 /* liteos_a It_smp_hwi.h:44 / It_los_event.h:46 */
+#endif
+#endif /* LOSCFG_KERNEL_SMP */
 #ifdef __RISC_V__
 extern UINT64 LosCpuCycleGet(VOID);
 #else
@@ -504,6 +581,16 @@ extern VOID ItSuiteLosEvent(void);
 extern VOID ItSuiteLosSem(void);
 extern VOID ItSuiteLosRwsem(void);
 extern VOID ItSuiteLosSwtmr(void);
+#ifdef LOSCFG_KERNEL_SMP
+extern VOID ItSuiteSmpTask(void);
+extern VOID ItSuiteSmpSem(void);
+extern VOID ItSuiteSmpMux(void);
+extern VOID ItSuiteSmpEvent(void);
+extern VOID ItSuiteSmpQueue(void);
+extern VOID ItSuiteSmpSwtmr(void);
+extern VOID ItSuiteSmpHwi(void);
+#endif /* LOSCFG_KERNEL_SMP */
+
 extern VOID ItSuiteLosHwi(void);
 extern VOID ItSuiteLosMem(void);
 extern VOID ItSuiteLosTrace(void);

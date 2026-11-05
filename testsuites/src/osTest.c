@@ -71,7 +71,6 @@ UINT32 g_cpupTestCount;
 UINT32 g_cmsisRobinCount1;
 UINT32 g_cmsisCount;
 
-UINT16 g_usSwTmrID;
 
 UINT32 g_testQueueID01;
 UINT32 g_testQueueID02;
@@ -169,6 +168,8 @@ extern VOID ItSuiteLosUart(VOID);
 #endif
 
 #ifdef LOSCFG_TEST_ICUNIT_KERNEL
+
+
 void TestKernel(void)
 {
 #if (LOS_KERNEL_ATOMIC_TEST == 1)
@@ -181,17 +182,32 @@ void TestKernel(void)
 #if (LOS_KERNEL_CORE_TASK_TEST == 1)
     ItSuiteLosTask();
 #endif
+#ifdef LOSCFG_KERNEL_SMP
+    ItSuiteSmpTask();
+#endif
 #if (LOS_KERNEL_IPC_QUEUE_TEST == 1)
     ItSuiteLosQueue();
+#endif
+#ifdef LOSCFG_KERNEL_SMP
+    ItSuiteSmpQueue();
 #endif
 #if (LOS_KERNEL_IPC_MUX_TEST == 1)
     ItSuiteLosMux();
 #endif
+#ifdef LOSCFG_KERNEL_SMP
+    ItSuiteSmpMux();
+#endif
 #if (LOS_KERNEL_IPC_EVENT_TEST == 1)
     ItSuiteLosEvent();
 #endif
+#ifdef LOSCFG_KERNEL_SMP
+    ItSuiteSmpEvent();
+#endif
 #if (LOS_KERNEL_IPC_SEM_TEST == 1)
     ItSuiteLosSem();
+#endif
+#ifdef LOSCFG_KERNEL_SMP
+    ItSuiteSmpSem();
 #endif
 #if (LOS_KERNEL_IPC_RWSEM_TEST == 1)
     ItSuiteLosRwsem();
@@ -199,8 +215,14 @@ void TestKernel(void)
 #if (LOS_KERNEL_CORE_SWTMR_TEST == 1)
     ItSuiteLosSwtmr();
 #endif
+#ifdef LOSCFG_KERNEL_SMP
+    ItSuiteSmpSwtmr();
+#endif
 #if (LOS_KERNEL_HWI_TEST == 1)
     ItSuiteLosHwi();
+#endif
+#ifdef LOSCFG_KERNEL_SMP
+    ItSuiteSmpHwi();
 #endif
 #if (LOS_KERNEL_MEM_TEST == 1)
     ItSuiteLosMem();
@@ -378,6 +400,34 @@ VOID TestTaskEntry(VOID)
     dprintf("--- Test End ---\n");
 }
 
+/*
+ * SMP test helper family, ported from liteos_a testsuites osTest.c:143-158
+ * (TRandom) and osTest.c:269-312 (tick wrappers + busy delay). The A7
+ * generic-timer system counter is coherent across cores, so the
+ * cycle-derived LOS_TickCountGet serves both per-cpu wrappers.
+ */
+#ifdef LOSCFG_KERNEL_SMP
+
+
+UINT32 TRandom(VOID)
+{
+    UINT32 high, low;
+    UINT64 cpuCycle;
+    INT64 x, hi, lo, t;
+
+    LOS_GetCpuCycle(&high, &low);
+    cpuCycle = (((UINT64)high << 30) + low); /* 30: seed mix */
+    x = (INT64)cpuCycle;
+    hi = x / 127773; /* 127773: LCG parameter */
+    lo = x % 127773;
+    t = 16807 * lo - 2836 * hi; /* 16807, 2836: LCG parameters */
+    if (t <= 0) {
+        t += 0x7fffffff;
+    }
+    return (UINT32)t;
+}
+#endif /* LOSCFG_KERNEL_SMP */
+
 UINT32 los_TestInit(VOID)
 {
     UINT32 ret;
@@ -388,6 +438,9 @@ UINT32 los_TestInit(VOID)
     osTaskInitParam.pcName = "IT_TST_INI";
     osTaskInitParam.usTaskPrio = TASK_PRIO_TEST;
     osTaskInitParam.uwResved = LOS_TASK_ATTR_JOINABLE;
+#ifdef LOSCFG_KERNEL_SMP
+    osTaskInitParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_TaskCreate(&g_testTskHandle, &osTaskInitParam);
     if (LOS_OK != ret) {
@@ -686,8 +739,18 @@ VOID TestHwiClear(UINT32 hwiNum)
     (VOID)LOS_HwiClear(hwiNum);
 #endif
 }
-
 #endif
+
+UINT32 g_testPeriod;
+
+
+VOID TestDumpCpuid(VOID)
+{
+#ifdef LOSCFG_KERNEL_SMP
+    PRINT_DEBUG("%d,cpuid = %d\n", LOS_CurTaskIDGet(), ArchCurrCpuid());
+#endif
+    return;
+}
 
 #if (LOSCFG_BASE_IPC_SEM == 1)
 UINT32 TestSemDelete(UINT32 semHandle)

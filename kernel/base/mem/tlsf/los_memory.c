@@ -29,7 +29,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "los_memory.h"
+#include "los_memory_internal.h"
 #include "los_init.h"
 #include "los_memory_pri.h"
 #include "securec.h"

@@ -139,6 +139,38 @@ static VOID *app_task(UINT32 arg)
     return NULL;
 }
 
+/* HI3322 console UART (UART2 "L0" @ 0x5200B000, DW/V151 IP):
+ * CTL@0x08 (bit0=div_en, bits2-3=dlen), DIV_H@0x0C, DIV_L@0x10,
+ * DIV_FRA@0x14 (6-bit, value/64). 32MHz / (16 * (2 + 43/64)) = 748538Hz. */
+#define UART_CTL_REG       (*(volatile UINT32 *)(UART0_BASE + 0x08))
+#define UART_DIV_H_REG     (*(volatile UINT32 *)(UART0_BASE + 0x0C))
+#define UART_DIV_L_REG     (*(volatile UINT32 *)(UART0_BASE + 0x10))
+#define UART_DIV_FRA_REG   (*(volatile UINT32 *)(UART0_BASE + 0x14))
+
+static VOID ConsoleBaudSwitch750000(VOID)
+{
+    volatile UINT32 wait = 0;
+
+    /* Divisor writes are silently dropped while the UART is busy:
+     * wait for TX FIFO empty plus a shift-register drain margin. */
+    while ((UART0_FIFO_STATUS & (1U << 1)) == 0) { /* tx_fifo_empty */
+        if (wait++ >= 0x1000000) { /* bounded: degrade to no-op, not hang */
+            return;
+        }
+    }
+    wait = 0x8000; /* ~2ms @32MHz; one 115200 byte is 87us */
+    while (wait--) {
+        __asm volatile ("nop");
+    }
+
+    UINT32 ctl = UART_CTL_REG;
+    UART_CTL_REG = ctl | 0x01U;            /* div_en=1 */
+    UART_DIV_H_REG = 0x00;
+    UART_DIV_L_REG = 0x02;
+    UART_DIV_FRA_REG = 43;                 /* 2 + 43/64 -> 748538Hz */
+    UART_CTL_REG = ctl & ~(UINT32)0x01U;   /* div_en=0, restore */
+}
+
 LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
 {
     UINT32 ret;
@@ -156,6 +188,12 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
      * the early UART marker added there.
      */
     PRINTK("main: enter\n");
+
+    /* Switch the console to 750000: boot-stage lines above stay at 115200
+     * (garbled on a 750000 host — expected); BAUDSWITCH marks the boundary. */
+    PRINTK("BAUDSWITCH:750000\n");
+    ConsoleBaudSwitch750000();
+    PRINTK("main: console baud switched to 750000\n");
 
     pmp_init();
     PRINTK("main: pmp_init ok\n");

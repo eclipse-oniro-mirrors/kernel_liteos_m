@@ -364,13 +364,13 @@ RUN_TEST_SUITE(IpcSemApiTestSuite);
 
 void PosixSemFuncTest()
 {
-    RUN_ONE_TESTCASE(testSemInit0100);
-    RUN_ONE_TESTCASE(testSemPost0100);
-    RUN_ONE_TESTCASE(testSemWait0100);
-    RUN_ONE_TESTCASE(testThreadChat0100);
-    RUN_ONE_TESTCASE(testThreadChat0400);
-    RUN_ONE_TESTCASE(testSemInitAbnormal0200);
-    RUN_ONE_TESTCASE(testSemPostAbnormal);
-    RUN_ONE_TESTCASE(testSemTimedWaitAbnormalA);
-    RUN_ONE_TESTCASE(testSemTimedWaitAbnormalB);
+    RUN_ONE_TESTCASE_M(testSemInit0100, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemPost0100, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemWait0100, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testThreadChat0100, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testThreadChat0400, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemInitAbnormal0200, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemPostAbnormal, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemTimedWaitAbnormalA, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemTimedWaitAbnormalB, TEST_FN_COMPAT_POSIX);
 }

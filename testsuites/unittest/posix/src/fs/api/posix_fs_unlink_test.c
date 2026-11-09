@@ -83,6 +83,6 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsUnlinkENOENT, Function | MediumTest |
 
 void PosixFsUnlinkTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsUnlinkOK);
-    RUN_ONE_TESTCASE(TestFsUnlinkENOENT);
+    RUN_ONE_TESTCASE_M(TestFsUnlinkOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsUnlinkENOENT, TEST_FN_FS_VFS);
 }

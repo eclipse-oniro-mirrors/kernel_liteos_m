@@ -114,7 +114,7 @@ EXIT:
 VOID ItSmpLosSem023(VOID) // IT_Layer_ModuleORFeature_No
 {
 #ifdef LOSCFG_KERNEL_SMP
-        TEST_ADD_CASE("ItSmpLosSem023", Testcase, TEST_LOS, TEST_SEM, TEST_LEVEL2, TEST_FUNCTION);
+        TEST_ADD_CASE("ItSmpLosSem023", Testcase, TEST_LOS, TEST_FN_KERNEL_SEM, TEST_LEVEL2, TEST_FUNCTION);
 #endif
 }
 #ifdef __cplusplus

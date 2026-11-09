@@ -2234,74 +2234,74 @@ RUN_TEST_SUITE(CmsisTaskFuncTestSuite);
 
 void CmsisTaskFuncTest1(void)
 {
-    RUN_ONE_TESTCASE(testOsThreadTerminate001);
-    RUN_ONE_TESTCASE(testOsThreadTerminate002);
-    RUN_ONE_TESTCASE(testOsThreadTerminate003);
-    RUN_ONE_TESTCASE(testOsThreadGetCount001);
-    RUN_ONE_TESTCASE(testOsThreadGetCount002);
-    RUN_ONE_TESTCASE(testOsThreadGetCount003);
-    RUN_ONE_TESTCASE(testOsThreadGetCount004);
+    RUN_ONE_TESTCASE_M(testOsThreadTerminate001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadTerminate002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadTerminate003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetCount001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetCount002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetCount003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetCount004, TEST_FN_COMPAT_CMSIS);
 
-    RUN_ONE_TESTCASE(testOsKernelGetInfo001);
-    RUN_ONE_TESTCASE(testOsKernelGetState001);
-    RUN_ONE_TESTCASE(testOsKernelGetState002);
-    RUN_ONE_TESTCASE(testOsKernelLock001);
-    RUN_ONE_TESTCASE(testOsKernelLock002);
-    RUN_ONE_TESTCASE(testOsKernelUnLock001);
-    RUN_ONE_TESTCASE(testOsKernelUnLock002);
-    RUN_ONE_TESTCASE(testOsKernelUnLock003);
-    RUN_ONE_TESTCASE(testOsKernelRestoreLock001);
-    RUN_ONE_TESTCASE(testOsKernelRestoreLock002);
-    RUN_ONE_TESTCASE(testOsKernelRestoreLock003);
+    RUN_ONE_TESTCASE_M(testOsKernelGetInfo001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsKernelGetState001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsKernelGetState002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsKernelLock001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsKernelLock002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsKernelUnLock001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsKernelUnLock002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsKernelUnLock003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsKernelRestoreLock001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsKernelRestoreLock002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsKernelRestoreLock003, TEST_FN_COMPAT_CMSIS);
 }
 
 void CmsisTaskFuncTest(void)
 {
-    RUN_ONE_TESTCASE(testOsThreadNew001);
-    RUN_ONE_TESTCASE(testOsThreadNew002);
-    RUN_ONE_TESTCASE(testOsThreadNew003);
-    RUN_ONE_TESTCASE(testOsThreadNew004);
-    RUN_ONE_TESTCASE(testOsThreadNew005);
-    RUN_ONE_TESTCASE(testOsThreadNew006);
-    RUN_ONE_TESTCASE(testOsThreadNew007);
-    RUN_ONE_TESTCASE(testOsThreadNew008);
-    RUN_ONE_TESTCASE(testOsThreadNew009);
-    RUN_ONE_TESTCASE(testOsThreadGetName001);
-    RUN_ONE_TESTCASE(testOsThreadGetName002);
-    RUN_ONE_TESTCASE(testOsThreadGetName003);
-    RUN_ONE_TESTCASE(testOsThreadGetState001);
+    RUN_ONE_TESTCASE_M(testOsThreadNew001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadNew002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadNew003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadNew004, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadNew005, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadNew006, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadNew007, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadNew008, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadNew009, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetName001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetName002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetName003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetState001, TEST_FN_COMPAT_CMSIS);
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
-    RUN_ONE_TESTCASE(testOsThreadGetState002);
-    RUN_ONE_TESTCASE(testOsThreadGetState003);
-    RUN_ONE_TESTCASE(testOsThreadGetState004);
+    RUN_ONE_TESTCASE_M(testOsThreadGetState002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetState003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetState004, TEST_FN_COMPAT_CMSIS);
 #endif
-    RUN_ONE_TESTCASE(testOsThreadSuspend001);
-    RUN_ONE_TESTCASE(testOsThreadSuspend002);
-    RUN_ONE_TESTCASE(testOsThreadSuspend003);
-    RUN_ONE_TESTCASE(testOsThreadSuspend004);
-    RUN_ONE_TESTCASE(testOsThreadGetId001);
-    RUN_ONE_TESTCASE(testOsThreadGetId002);
-    RUN_ONE_TESTCASE(testOsThreadGetId003);
-    RUN_ONE_TESTCASE(testOsThreadGetId004);
-    RUN_ONE_TESTCASE(testOsThreadGetStackSize001);
-    RUN_ONE_TESTCASE(testOsThreadGetStackSize002);
-    RUN_ONE_TESTCASE(testOsThreadGetStackSize003);
-    RUN_ONE_TESTCASE(testOsThreadGetStackSpace001);
-    RUN_ONE_TESTCASE(testOsThreadGetStackSpace002);
-    RUN_ONE_TESTCASE(testOsThreadGetStackSpace003);
-    RUN_ONE_TESTCASE(testOsThreadGetStackSpace004);
-    RUN_ONE_TESTCASE(testOsThreadYield001);
-    RUN_ONE_TESTCASE(testOsThreadYield002);
-    RUN_ONE_TESTCASE(testOsThreadYield003);
-    RUN_ONE_TESTCASE(testOsThreadYield004);
-    RUN_ONE_TESTCASE(testOsThreadYield005);
-    RUN_ONE_TESTCASE(testOsThreadYield006);
-    RUN_ONE_TESTCASE(testOsThreadYield007);
-    RUN_ONE_TESTCASE(testOsThreadYield008);
+    RUN_ONE_TESTCASE_M(testOsThreadSuspend001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSuspend002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSuspend003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSuspend004, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetId001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetId002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetId003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetId004, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetStackSize001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetStackSize002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetStackSize003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetStackSpace001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetStackSpace002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetStackSpace003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetStackSpace004, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadYield001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadYield002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadYield003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadYield004, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadYield005, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadYield006, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadYield007, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadYield008, TEST_FN_COMPAT_CMSIS);
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
-    RUN_ONE_TESTCASE(testOsThreadYield009);
+    RUN_ONE_TESTCASE_M(testOsThreadYield009, TEST_FN_COMPAT_CMSIS);
 #endif
-    RUN_ONE_TESTCASE(testOsThreadResume001);
-    RUN_ONE_TESTCASE(testOsThreadResume002);
+    RUN_ONE_TESTCASE_M(testOsThreadResume001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadResume002, TEST_FN_COMPAT_CMSIS);
     CmsisTaskFuncTest1();
 }

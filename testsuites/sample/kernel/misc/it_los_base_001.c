@@ -54,7 +54,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_MISC
+ * @ingroup TEST_FN_KERNEL_TIME
  * @par TestCase_Number
  * ItLosBase001
  * @par TestCase_TestCase_Type
@@ -77,5 +77,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosBase001(VOID)
 {
-    TEST_ADD_CASE("ItLosBase001", TestCase, TEST_LOS, TEST_MISC, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosBase001", TestCase, TEST_LOS, TEST_FN_KERNEL_TIME, TEST_LEVEL0, TEST_FUNCTION);
 }

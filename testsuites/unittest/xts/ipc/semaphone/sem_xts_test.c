@@ -426,11 +426,11 @@ RUN_TEST_SUITE(IpcSemApiXtsTestSuite);
 
 void PosixSemXtsFuncTest()
 {
-    RUN_ONE_TESTCASE(testSemInitA);
-    RUN_ONE_TESTCASE(testSemInitB);
-    RUN_ONE_TESTCASE(testSemInitC);
-    RUN_ONE_TESTCASE(testSemPost);
-    RUN_ONE_TESTCASE(testSemWait);
-    RUN_ONE_TESTCASE(testSemdestroy);
-    RUN_ONE_TESTCASE(testThreadChat);
+    RUN_ONE_TESTCASE_M(testSemInitA, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemInitB, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemInitC, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemPost, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemWait, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemdestroy, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testThreadChat, TEST_FN_COMPAT_POSIX);
 }

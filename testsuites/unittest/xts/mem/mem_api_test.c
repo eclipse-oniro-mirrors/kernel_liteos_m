@@ -193,9 +193,9 @@ RUN_TEST_SUITE(MemApiTestSuite);
 
 void MemApiTest(void)
 {
-    RUN_ONE_TESTCASE(testMemset);
-    RUN_ONE_TESTCASE(testMemcpy);
-    RUN_ONE_TESTCASE(testMemmove);
-    RUN_ONE_TESTCASE(testMemmoveOverlay);
-    RUN_ONE_TESTCASE(testMemcmp);
+    RUN_ONE_TESTCASE_M(testMemset, TEST_FN_LIB_SAFEC);
+    RUN_ONE_TESTCASE_M(testMemcpy, TEST_FN_LIB_SAFEC);
+    RUN_ONE_TESTCASE_M(testMemmove, TEST_FN_LIB_SAFEC);
+    RUN_ONE_TESTCASE_M(testMemmoveOverlay, TEST_FN_LIB_SAFEC);
+    RUN_ONE_TESTCASE_M(testMemcmp, TEST_FN_LIB_STRING);
 }

@@ -29,6 +29,22 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* 用例简要描述: 【BUG_25 缺陷回归看护用例(默认隔离)】LOS_MemFree 对非法节点地址
+ * (块内偏移 ±16)应返回错误码而不崩核
+ * 【现象】    RK3568 从核(aarch64/bestfit)特定镜像布局下, p0+16 伪节点的 pstNext
+ *             指向未映射地址(0x9ec69544), LOS_MemFree 解引用写链触发 L1
+ *             Translation Fault(WRITE) 崩核, ExcSlavePoweroff 关断全套件
+ *             (同镜像两轮确定性复现, ItLosMem012 通过后即崩)
+ * 【根因】    kernel/liteos_m/kernel/base/mem/bestfit/los_memory.c:OsMemFreeNode/
+ *             OsMemListDelete: free 合并路径对 prev/next 空闲节点指针与 magic
+ *             未做"先校验后写链", 非法节点直接进入链表写路径
+ * 【修复方向】合并前校验节点指针合法性与 magic, 坏链节点返回 LOS_NOK 不致崩核
+ * 【恢复方法】修复后把 bug_isolate.h 中 KERNEL_BUG_25_MEMFREE_WILD_DEREF 置 1,
+ *             用例恢复注册执行(聚合注册点隔离, it_los_mem.c)
+ * 【关联】    BUG_25 / 本地问题记录 20261107_0115(与 20261104_162007 ItLosMux007
+ *             插桩崩核同根因)
+ */
+
 #include "osTest.h"
 #include "It_los_mem.h"
 
@@ -74,6 +90,6 @@ EXIT:
 
 VOID ItLosMem013(void)
 {
-    TEST_ADD_CASE("ItLosMem013", TestCase, TEST_LOS, TEST_MEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosMem013", TestCase, TEST_LOS, TEST_FN_KERNEL_DYNMEM, TEST_LEVEL1, TEST_FUNCTION);
 }
 

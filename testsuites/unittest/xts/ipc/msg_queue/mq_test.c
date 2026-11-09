@@ -500,12 +500,12 @@ RUN_TEST_SUITE(IpcMqApiTestSuite);
 
 void IpcMqFuncTest(void)
 {
-    RUN_ONE_TESTCASE(testMqOneLevelCom);
-    RUN_ONE_TESTCASE(testMqTimedOneLevelCom);
-    RUN_ONE_TESTCASE(testMqAllOneLevelCom001);
-    RUN_ONE_TESTCASE(testMqAllOneLevelCom002);
-    RUN_ONE_TESTCASE(testMqTwoThreadCom);
-    RUN_ONE_TESTCASE(testMqTimedTwoThreadCom);
-    RUN_ONE_TESTCASE(testMqAllTwoThreadCom);
-    RUN_ONE_TESTCASE(testMqSetGetAttr);
+    RUN_ONE_TESTCASE_M(testMqOneLevelCom, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testMqTimedOneLevelCom, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testMqAllOneLevelCom001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testMqAllOneLevelCom002, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testMqTwoThreadCom, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testMqTimedTwoThreadCom, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testMqAllTwoThreadCom, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testMqSetGetAttr, TEST_FN_COMPAT_POSIX);
 }

@@ -103,7 +103,7 @@ EXIT:
 }
 
  /**
- * @ingroup TEST_ATO
+ * @ingroup TEST_FN_KERNEL_DATASTRUCT
  * @par TestCase_Number
  * ItLosAtomic009
  * @par TestCase_TestCase_Type
@@ -126,5 +126,5 @@ EXIT:
 
 VOID ItLosAtomic009(VOID)
 {
-    TEST_ADD_CASE("ItLosAtomic009", TestCase, TEST_LOS, TEST_ATO, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosAtomic009", TestCase, TEST_LOS, TEST_FN_KERNEL_DATASTRUCT, TEST_LEVEL0, TEST_FUNCTION);
 }

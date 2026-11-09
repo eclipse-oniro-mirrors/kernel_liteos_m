@@ -162,11 +162,11 @@ LITE_TEST_CASE(PosixCTypeIsdigitTest, testCTypeIsdigit005, Function | MediumTest
 void PosixIsdigitFuncTest()
 {
     LOG("begin PosixIsdigitFuncTest....");
-    RUN_ONE_TESTCASE(testCTypeIsdigit001);
-    RUN_ONE_TESTCASE(testCTypeIsdigit002);
-    RUN_ONE_TESTCASE(testCTypeIsdigit003);
-    RUN_ONE_TESTCASE(testCTypeIsdigit004);
-    RUN_ONE_TESTCASE(testCTypeIsdigit005);
+    RUN_ONE_TESTCASE_M(testCTypeIsdigit001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsdigit002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsdigit003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsdigit004, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsdigit005, TEST_FN_LIB_STRING);
 
     return;
 }

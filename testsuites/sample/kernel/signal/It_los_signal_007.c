@@ -120,7 +120,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_SIGNAL
+ * @ingroup TEST_FN_KERNEL_SIGNAL
  * @par TestCase_Number
  * ItLosSignal007
  * @par TestCase_TestCase_Type
@@ -147,7 +147,7 @@ EXIT:
 
 VOID ItLosSignal007(VOID)
 {
-    TEST_ADD_CASE("ItLosSignal007", Testcase, TEST_LOS, TEST_SIGNAL, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSignal007", Testcase, TEST_LOS, TEST_FN_KERNEL_SIGNAL, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

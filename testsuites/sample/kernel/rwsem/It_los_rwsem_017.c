@@ -90,7 +90,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_RWSEM
+ * @ingroup TEST_FN_KERNEL_RWSEM
  * @par TestCase_Number
  * ItLosRwsem017
  * @par TestCase_TestCase_Type
@@ -114,7 +114,7 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosRwsem017(VOID)
 {
-    TEST_ADD_CASE("ItLosRwsem017", TestCase, TEST_LOS, TEST_RWSEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosRwsem017", TestCase, TEST_LOS, TEST_FN_KERNEL_RWSEM, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

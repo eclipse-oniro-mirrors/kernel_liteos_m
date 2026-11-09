@@ -269,17 +269,17 @@ LITE_TEST_CASE(PosixCTypeIsxdigitTest, testCtypeIsxdigitCount001, Function | Med
 void PosixIsxdigitFuncTest()
 {
     LOG("begin PosixIsxdigitFuncTest....");
-    RUN_ONE_TESTCASE(testCTypeIsxdigit001);
-    RUN_ONE_TESTCASE(testCTypeIsxdigit002);
-    RUN_ONE_TESTCASE(testCTypeIsxdigit003);
-    RUN_ONE_TESTCASE(testCTypeIsxdigit004);
-    RUN_ONE_TESTCASE(testCTypeIsxdigit005);
-    RUN_ONE_TESTCASE(testCTypeIsxdigit006);
-    RUN_ONE_TESTCASE(testCTypeIsxdigit007);
-    RUN_ONE_TESTCASE(testCTypeIsxdigit008);
-    RUN_ONE_TESTCASE(testCTypeIsxdigit009);
-    RUN_ONE_TESTCASE(testCTypeIsxdigit010);
-    RUN_ONE_TESTCASE(testCtypeIsxdigitCount001);
+    RUN_ONE_TESTCASE_M(testCTypeIsxdigit001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsxdigit002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsxdigit003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsxdigit004, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsxdigit005, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsxdigit006, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsxdigit007, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsxdigit008, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsxdigit009, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeIsxdigit010, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCtypeIsxdigitCount001, TEST_FN_LIB_STRING);
 
     return;
 }

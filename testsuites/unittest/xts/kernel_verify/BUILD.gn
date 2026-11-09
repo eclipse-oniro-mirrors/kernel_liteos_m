@@ -29,11 +29,11 @@
 import("//kernel/liteos_m/liteos.gni")
 
 # Case attribution: kernel layer (same pattern as xts/cmsis defines) --
-# displayed as ItLostestKernelVerify-TEST_LOS-TEST_MISC-TEST_LEVEL0.
+# displayed as ItLostestKernelVerify-TEST_LOS-TEST_FN_KERNEL_TASKMGMT-TEST_LEVEL0.
 # NOTE: the defines list must stay shared by ALL sources of this target
 _kv_defines = [
   "XTS_CASE_LAYER=TEST_LOS",
-  "XTS_CASE_MODULE=TEST_MISC",
+  "XTS_CASE_MODULE=TEST_FN_KERNEL_TASKMGMT",
   "XTS_CASE_LEVEL=TEST_LEVEL0",
 ]
 

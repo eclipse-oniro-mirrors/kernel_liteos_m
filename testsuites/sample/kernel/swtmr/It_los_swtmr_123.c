@@ -54,7 +54,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_SWTMR
+ * @ingroup TEST_FN_KERNEL_SWTMR
  * @par TestCase_Number
  * ItLosSwtmr123
  * @par TestCase_TestCase_Type
@@ -78,7 +78,7 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosSwtmr123(VOID)
 {
-    TEST_ADD_CASE("ItLosSwtmr123", TestCase, TEST_LOS, TEST_SWTMR, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSwtmr123", TestCase, TEST_LOS, TEST_FN_KERNEL_SWTMR, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

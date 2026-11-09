@@ -74,6 +74,6 @@ RUN_TEST_SUITE(ProcessApiTestSuite);
 
 void ActsProcessApiTest(void)
 {
-    RUN_ONE_TESTCASE(testPthreadSetnameNp1000);
+    RUN_ONE_TESTCASE_M(testPthreadSetnameNp1000, TEST_FN_COMPAT_POSIX);
 }
 

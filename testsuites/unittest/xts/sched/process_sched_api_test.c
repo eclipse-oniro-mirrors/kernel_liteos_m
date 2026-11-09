@@ -129,8 +129,8 @@ RUN_TEST_SUITE(ProcessSchedApiTestSuite);
 
 void ProcessSchedApiTest(void)
 {
-    RUN_ONE_TESTCASE(testSchedGetPriorityMaxError0200);
-    RUN_ONE_TESTCASE(testSchedGetPriorityMaxError0300);
-    RUN_ONE_TESTCASE(testSchedGetPriorityMinError0200);
-    RUN_ONE_TESTCASE(testSchedGetPriorityMinError0300);
+    RUN_ONE_TESTCASE_M(testSchedGetPriorityMaxError0200, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSchedGetPriorityMaxError0300, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSchedGetPriorityMinError0200, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSchedGetPriorityMinError0300, TEST_FN_COMPAT_POSIX);
 }

@@ -1159,30 +1159,30 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLfsRemountEnosys, Function | MediumTe
 
 void PosixFsLfsTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsLfsRemountEnosys);
-    RUN_ONE_TESTCASE(TestFsLfsPathsVariants);
-    RUN_ONE_TESTCASE(TestFsLfsSeekBoundary);
+    RUN_ONE_TESTCASE_M(TestFsLfsRemountEnosys, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsPathsVariants, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsSeekBoundary, TEST_FN_FS_VFS);
 #if !defined(LOSCFG_PLATFORM_WS63_M) && !defined(LOSCFG_PLATFORM_HI3322)
-    RUN_ONE_TESTCASE(TestFsLfsFileLarge);
+    RUN_ONE_TESTCASE_M(TestFsLfsFileLarge, TEST_FN_FS_VFS);
 #endif
-    RUN_ONE_TESTCASE(TestFsLfsEntriesInterspersed);
-    RUN_ONE_TESTCASE(TestFsLfsOpenFlagMatrix);
-    RUN_ONE_TESTCASE(TestFsLfsErrnoPaths);
-    RUN_ONE_TESTCASE(TestFsLfsReaddirTypes);
-    RUN_ONE_TESTCASE(TestFsLfsFcntl);
-    RUN_ONE_TESTCASE(TestFsLfsIoctlPoll);
-    RUN_ONE_TESTCASE(TestFsLfsRwEdge);
-    RUN_ONE_TESTCASE(TestFsLfsReadvWritev);
-    RUN_ONE_TESTCASE(TestFsLfsPreadPwrite);
-    RUN_ONE_TESTCASE(TestFsLfsAccessRemove);
-    RUN_ONE_TESTCASE(TestFsLfsOpendirLimit);
+    RUN_ONE_TESTCASE_M(TestFsLfsEntriesInterspersed, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsOpenFlagMatrix, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsErrnoPaths, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsReaddirTypes, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsFcntl, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsIoctlPoll, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRwEdge, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsReadvWritev, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsPreadPwrite, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsAccessRemove, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsOpendirLimit, TEST_FN_FS_VFS);
 #if !defined(LOSCFG_PLATFORM_WS63_M)
     /* ws63 gate: 253 个并发 open 需 ~50KB 堆(VFS 文件结构), ws63 fs 域挂 48KB
      * 盘后空闲 ~42KB, 堆先于 fd 表耗尽返 ENOMEM 而非 ENFILE(板级资源上限);
      * fd 表上限语义由 qemu 覆盖 */
-    RUN_ONE_TESTCASE(TestFsLfsOpenFileLimit);
+    RUN_ONE_TESTCASE_M(TestFsLfsOpenFileLimit, TEST_FN_FS_VFS);
 #endif
-    RUN_ONE_TESTCASE(TestFsLfsFtruncate);
-    RUN_ONE_TESTCASE(TestFsLfsStatVariants);
-    RUN_ONE_TESTCASE(TestFsLfsFsync);
+    RUN_ONE_TESTCASE_M(TestFsLfsFtruncate, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsStatVariants, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsFsync, TEST_FN_FS_VFS);
 }

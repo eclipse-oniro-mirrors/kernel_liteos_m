@@ -282,11 +282,11 @@ RUN_TEST_SUITE(PosixStdlibMultibyteTest);
 void PosixStdlibMultibyteFuncTest(void)
 {
     LOG("begin PosixStdlibMultibyteFuncTest....");
-    RUN_ONE_TESTCASE(testStdlibMbtowc001);
-    RUN_ONE_TESTCASE(testStdlibMbtowcUtf8001);
-    RUN_ONE_TESTCASE(testStdlibWctomb001);
-    RUN_ONE_TESTCASE(testStdlibWcrtomb001);
-    RUN_ONE_TESTCASE(testStdlibMbCurMax001);
+    RUN_ONE_TESTCASE_M(testStdlibMbtowc001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibMbtowcUtf8001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibWctomb001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibWcrtomb001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibMbCurMax001, TEST_FN_LIB_MISC);
 
     return;
 }

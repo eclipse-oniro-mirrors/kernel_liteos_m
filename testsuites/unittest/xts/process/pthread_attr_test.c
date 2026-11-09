@@ -110,7 +110,7 @@ RUN_TEST_SUITE(PthreadAttrTestSuite);
 
 void PthreadAttrTest(void)
 {
-    RUN_ONE_TESTCASE(testPthreadAttrSetdetachstate);
-    RUN_ONE_TESTCASE(testPthreadAttrSetstacksizeEINVAL);
+    RUN_ONE_TESTCASE_M(testPthreadAttrSetdetachstate, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testPthreadAttrSetstacksizeEINVAL, TEST_FN_COMPAT_POSIX);
 }
 

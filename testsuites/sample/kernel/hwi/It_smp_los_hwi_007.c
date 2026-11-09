@@ -112,7 +112,7 @@ EXIT:
 VOID ItSmpLosHwi007(VOID)
 {
 #ifdef LOSCFG_KERNEL_SMP
-                TEST_ADD_CASE("ItSmpLosHwi007", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL1, TEST_FUNCTION);
+                TEST_ADD_CASE("ItSmpLosHwi007", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 #endif

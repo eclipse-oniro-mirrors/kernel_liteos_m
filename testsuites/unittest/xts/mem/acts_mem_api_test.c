@@ -82,8 +82,8 @@ RUN_TEST_SUITE(ActsMemApiTestSuite);
 
 void ActsMemApiTest(void)
 {
-    RUN_ONE_TESTCASE(testMemchr_0100);
-    RUN_ONE_TESTCASE(testMemchr_1000);
-    RUN_ONE_TESTCASE(testMemchr_1100);
+    RUN_ONE_TESTCASE_M(testMemchr_0100, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testMemchr_1000, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testMemchr_1100, TEST_FN_LIB_STRING);
 }
 

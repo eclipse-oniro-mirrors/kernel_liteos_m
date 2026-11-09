@@ -182,7 +182,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_MEM
+ * @ingroup TEST_FN_KERNEL_DYNMEM
  * @par TestCase_Number
  * ItLosMem316
  * @par TestCase_TestCase_Type
@@ -207,7 +207,7 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosMem316(VOID)
 {
-    TEST_ADD_CASE("ItLosMem316", TestCase, TEST_LOS, TEST_MEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosMem316", TestCase, TEST_LOS, TEST_FN_KERNEL_DYNMEM, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

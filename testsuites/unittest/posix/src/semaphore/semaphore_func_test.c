@@ -617,16 +617,16 @@ EXIT:
 void PosixSemaphoreFuncTest()
 {
     dprintf("begin PosixSemaphoreFuncTest....");
-    RUN_ONE_TESTCASE(testIpcSem_Timedwait001);
-    RUN_ONE_TESTCASE(testIpcSem_Named001);
-    RUN_ONE_TESTCASE(testIpcSem_Timedwait002);
-    RUN_ONE_TESTCASE(testIpcSem_Timedwait003);
-    RUN_ONE_TESTCASE(testIpcSem_Trywait004);
-    RUN_ONE_TESTCASE(testIpcSemParam001);
-    RUN_ONE_TESTCASE(testIpcSemParam002);
-    RUN_ONE_TESTCASE(testIpcSemParam003);
-    RUN_ONE_TESTCASE(testIpcSemParam004);
-    RUN_ONE_TESTCASE(testIpcSemParam005);
+    RUN_ONE_TESTCASE_M(testIpcSem_Timedwait001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testIpcSem_Named001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testIpcSem_Timedwait002, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testIpcSem_Timedwait003, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testIpcSem_Trywait004, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testIpcSemParam001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testIpcSemParam002, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testIpcSemParam003, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testIpcSemParam004, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testIpcSemParam005, TEST_FN_COMPAT_POSIX);
 
     return;
 }

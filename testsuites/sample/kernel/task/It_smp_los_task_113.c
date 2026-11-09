@@ -112,7 +112,7 @@ static UINT32 Testcase(void)
 void ItSmpLosTask113(void)
 {
 #ifdef LOSCFG_KERNEL_SMP
-    TEST_ADD_CASE("ItSmpLosTask113", Testcase, TEST_LOS, TEST_TASK, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItSmpLosTask113", Testcase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 

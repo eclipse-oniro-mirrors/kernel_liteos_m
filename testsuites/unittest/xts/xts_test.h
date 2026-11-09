@@ -42,13 +42,13 @@
 /*
  * 用例归属由 XTS_CASE_LAYER/XTS_CASE_MODULE/XTS_CASE_LEVEL 决定，
  * 默认 lib/libc；各测试库可在 BUILD.gn defines 中按目录覆盖
- * （如 xts/cmsis: TEST_COMPAT/TEST_CMSIS，xts/math: TEST_LIB/TEST_LIBM）。
+ * （如 xts/cmsis: TEST_FN_COMPAT_CMSIS，xts/math: TEST_FN_LIB_MATH）。
  */
 #ifndef XTS_CASE_LAYER
 #define XTS_CASE_LAYER TEST_LIB
 #endif
 #ifndef XTS_CASE_MODULE
-#define XTS_CASE_MODULE TEST_LIBC
+#define XTS_CASE_MODULE TEST_FN_LIB_MISC
 #endif
 #ifndef XTS_CASE_LEVEL
 #define XTS_CASE_LEVEL TEST_LEVEL0
@@ -57,6 +57,12 @@
 #ifndef ADD_TEST_CASE /* osTest.c 会同时包含 posix_test.h，避免重复定义 */
 #define ADD_TEST_CASE(func) \
     TEST_ADD_CASE(TEST_HEAD_TO_STR(TEST_STR(func)), func, XTS_CASE_LAYER, XTS_CASE_MODULE, XTS_CASE_LEVEL, TEST_FUNCTION)
+#endif
+/* 逐用例功能模块宏显式注册（功能基线 features.csv FN 对应关系，见
+ * feature_baseline/case_feature_map.csv）；与 ADD_TEST_CASE 同名族避免头重复定义 */
+#ifndef ADD_TEST_CASE_M
+#define ADD_TEST_CASE_M(func, module) \
+    TEST_ADD_CASE(TEST_HEAD_TO_STR(TEST_STR(func)), func, XTS_CASE_LAYER, module, XTS_CASE_LEVEL, TEST_FUNCTION)
 #endif
 
 #define LITE_TEST_SUIT(subsystem, module, testsuit)
@@ -67,6 +73,9 @@
     ICUNIT_ASSERT_EQUAL(((expected) == (actual)) || (isnan(expected) && isnan(actual)), TRUE, 0)
 
 #define RUN_ONE_TESTCASE(caseName) ADD_TEST_CASE(caseName)
+#ifndef RUN_ONE_TESTCASE_M
+#define RUN_ONE_TESTCASE_M(caseName, module) ADD_TEST_CASE_M(caseName, module)
+#endif
 #define AUTO_RUN_ONE_TESTCASEFUNC(func) UnityDefaultTestRun(func, __FILE__, __LINE__)
 
 uint32_t GetRandom(uint32_t max);

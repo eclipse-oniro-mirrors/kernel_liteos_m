@@ -94,7 +94,7 @@ EXIT:
 #endif /* LOSCFG_ARCH_ARM && LOSCFG_CORTEX_M_NVIC */
 
 /**
- * @ingroup TEST_HWI
+ * @ingroup TEST_FN_KERNEL_IRQ
  * @par TestCase_Number
  * ItLosHwi052
  * @par TestCase_TestCase_Type
@@ -121,6 +121,6 @@ EXIT:
 VOID ItLosHwi052(VOID) // IT_Layer_ModuleORFeature_No
 {
 #if defined(LOSCFG_ARCH_ARM) && defined(LOSCFG_CORTEX_M_NVIC)
-    TEST_ADD_CASE("ItLosHwi052", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHwi052", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL0, TEST_FUNCTION);
 #endif
 }

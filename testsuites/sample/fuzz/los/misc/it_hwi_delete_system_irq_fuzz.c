@@ -54,5 +54,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItFuzzHwiDeleteSystemIrq(VOID)
 {
-    TEST_ADD_CASE("ItFuzzHwiDeleteSystemIrq", TestCase, TEST_LOS, TEST_MISC, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItFuzzHwiDeleteSystemIrq", TestCase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL0, TEST_FUNCTION);
 }

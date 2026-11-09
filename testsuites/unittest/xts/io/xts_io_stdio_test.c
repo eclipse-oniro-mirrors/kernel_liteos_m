@@ -77,6 +77,6 @@ void XtsIoStdioFuncTest(void)
     // FPU instructions through securec's SecFormatFloat. Skip on
     // boards with LOSCFG_ARCH_FPU_DISABLE.
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
-    RUN_ONE_TESTCASE(testVsnprintf);
+    RUN_ONE_TESTCASE_M(testVsnprintf, TEST_FN_LIB_STDIO);
 #endif
 }

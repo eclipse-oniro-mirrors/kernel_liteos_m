@@ -109,7 +109,7 @@ static UINT32 Testcase(void)
 VOID ItSmpLosSwtmr001(VOID)
 {
 #ifdef LOSCFG_KERNEL_SMP
-        TEST_ADD_CASE("ItSmpLosSwtmr001", Testcase, TEST_LOS, TEST_SWTMR, TEST_LEVEL1, TEST_FUNCTION);
+        TEST_ADD_CASE("ItSmpLosSwtmr001", Testcase, TEST_LOS, TEST_FN_KERNEL_SWTMR, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 

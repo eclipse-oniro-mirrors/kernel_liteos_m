@@ -82,7 +82,7 @@ EXIT:
 #endif /* LOSCFG_ARCH_RISCV && LOSCFG_RISCV_HIMIDEERV200_PLIC */
 
 /**
- * @ingroup TEST_HWI
+ * @ingroup TEST_FN_KERNEL_IRQ
  * @par TestCase_Number
  * ItLosHwi053
  * @par TestCase_TestCase_Type
@@ -107,6 +107,6 @@ EXIT:
 VOID ItLosHwi053(VOID) // IT_Layer_ModuleORFeature_No
 {
 #if defined(LOSCFG_ARCH_RISCV) && defined(LOSCFG_RISCV_HIMIDEERV200_PLIC)
-    TEST_ADD_CASE("ItLosHwi053", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHwi053", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }

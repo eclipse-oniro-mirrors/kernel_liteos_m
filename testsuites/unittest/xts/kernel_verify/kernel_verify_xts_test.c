@@ -58,5 +58,5 @@ RUN_TEST_SUITE(KernelVerifyTestSuite);
 
 void KernelVerifyFuncTest(void)
 {
-    RUN_ONE_TESTCASE(testKernelVerify);
+    RUN_ONE_TESTCASE_M(testKernelVerify, TEST_FN_KERNEL_TASKMGMT);
 }

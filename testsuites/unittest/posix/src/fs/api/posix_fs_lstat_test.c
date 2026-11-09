@@ -127,7 +127,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsLstatEINVAL, Function | MediumTest | 
 
 void PosixFsLstatTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsLstatOK);
-    RUN_ONE_TESTCASE(TestFsLstatENOENT);
-    RUN_ONE_TESTCASE(TestFsLstatEINVAL);
+    RUN_ONE_TESTCASE_M(TestFsLstatOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLstatENOENT, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLstatEINVAL, TEST_FN_FS_VFS);
 }

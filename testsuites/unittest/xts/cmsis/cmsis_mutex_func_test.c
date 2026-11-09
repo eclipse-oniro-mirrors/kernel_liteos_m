@@ -281,16 +281,16 @@ RUN_TEST_SUITE(CmsisMutexFuncTestSuite);
 
 void CmsisMutexFuncTest(void)
 {
-    RUN_ONE_TESTCASE(testOsMutexNew001);
-    RUN_ONE_TESTCASE(testOsMutexNew002);
-    RUN_ONE_TESTCASE(testOsMutexDelete001);
-    RUN_ONE_TESTCASE(testOsMutexDelete002);
-    RUN_ONE_TESTCASE(testOsMutexDelete003);
-    RUN_ONE_TESTCASE(testOsMutexDelete004);
-    RUN_ONE_TESTCASE(testOsMutexAcquire001);
-    RUN_ONE_TESTCASE(testOsMutexAcquire002);
-    RUN_ONE_TESTCASE(testOsMutexRelease001);
-    RUN_ONE_TESTCASE(testOsMutexRelease002);
-    RUN_ONE_TESTCASE(testOsMutexGetOwner001);
-    RUN_ONE_TESTCASE(testOsMutexGetOwner002);
+    RUN_ONE_TESTCASE_M(testOsMutexNew001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexNew002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexDelete001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexDelete002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexDelete003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexDelete004, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexAcquire001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexAcquire002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexRelease001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexRelease002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexGetOwner001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMutexGetOwner002, TEST_FN_COMPAT_CMSIS);
 }

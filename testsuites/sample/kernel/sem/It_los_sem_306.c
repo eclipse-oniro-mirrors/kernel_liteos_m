@@ -75,7 +75,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_SEM
+ * @ingroup TEST_FN_KERNEL_SEM
  * @par TestCase_Number
  * ItLosSem306
  * @par TestCase_TestCase_Type
@@ -99,7 +99,7 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosSem306(VOID)
 {
-    TEST_ADD_CASE("ItLosSem306", TestCase, TEST_LOS, TEST_SEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSem306", TestCase, TEST_LOS, TEST_FN_KERNEL_SEM, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

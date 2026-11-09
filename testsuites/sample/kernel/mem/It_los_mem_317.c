@@ -182,7 +182,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_MEM
+ * @ingroup TEST_FN_KERNEL_DYNMEM
  * @par TestCase_Number
  * ItLosMem317
  * @par TestCase_TestCase_Type
@@ -210,7 +210,7 @@ EXIT:
 VOID ItLosMem317(VOID)
 {
 #ifdef LOSCFG_KERNEL_MEM_BESTFIT
-    TEST_ADD_CASE("ItLosMem317", TestCase, TEST_LOS, TEST_MEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosMem317", TestCase, TEST_LOS, TEST_FN_KERNEL_DYNMEM, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 

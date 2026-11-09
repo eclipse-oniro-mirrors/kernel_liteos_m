@@ -87,6 +87,6 @@ Testcase brief in English
 
 VOID ItLosHwi025(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosHwi025", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL2, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHwi025", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL2, TEST_FUNCTION);
 }
 

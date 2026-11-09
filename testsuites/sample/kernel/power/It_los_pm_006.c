@@ -276,7 +276,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_PM
+ * @ingroup TEST_FN_KERNELEXT_POWER
  * @par TestCase_Number
  * ItLosPm006
  * @par TestCase_TestCase_Type
@@ -301,7 +301,7 @@ EXIT:
 VOID ItLosPm006(VOID)
 {
 #if (LOSCFG_KERNEL_PM == 1)
-    TEST_ADD_CASE("ItLosPm006", TestCase, TEST_LOS, TEST_PM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosPm006", TestCase, TEST_LOS, TEST_FN_KERNELEXT_POWER, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 

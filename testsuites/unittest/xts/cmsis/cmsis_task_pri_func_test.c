@@ -1093,38 +1093,38 @@ RUN_TEST_SUITE(CmsisTaskPriFuncTestSuite);
 
 void CmsisTaskPriFuncTest(void)
 {
-    RUN_ONE_TESTCASE(testOsThreadGetPriority001);
-    RUN_ONE_TESTCASE(testOsThreadGetPriority002);
-    RUN_ONE_TESTCASE(testOsThreadGetPriority003);
-    RUN_ONE_TESTCASE(testOsThreadGetPriority004);
-    RUN_ONE_TESTCASE(testOsThreadGetPriority005);
-    RUN_ONE_TESTCASE(testOsThreadGetPriority006);
-    RUN_ONE_TESTCASE(testOsThreadGetPriority007);
-    RUN_ONE_TESTCASE(testOsThreadGetPriority008);
-    RUN_ONE_TESTCASE(testOsThreadGetPriority009);
-    RUN_ONE_TESTCASE(testOsThreadGetPriority010);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority001);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority002);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority003);
+    RUN_ONE_TESTCASE_M(testOsThreadGetPriority001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetPriority002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetPriority003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetPriority004, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetPriority005, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetPriority006, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetPriority007, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetPriority008, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetPriority009, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadGetPriority010, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority003, TEST_FN_COMPAT_CMSIS);
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
-    RUN_ONE_TESTCASE(testOsThreadSetPriority004);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority005);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority004, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority005, TEST_FN_COMPAT_CMSIS);
 #endif
-    RUN_ONE_TESTCASE(testOsThreadSetPriority006);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority006, TEST_FN_COMPAT_CMSIS);
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
-    RUN_ONE_TESTCASE(testOsThreadSetPriority007);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority007, TEST_FN_COMPAT_CMSIS);
 #endif
-    RUN_ONE_TESTCASE(testOsThreadSetPriority008);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority009);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority010);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority011);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority012);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority013);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority008, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority009, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority010, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority011, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority012, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority013, TEST_FN_COMPAT_CMSIS);
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
-    RUN_ONE_TESTCASE(testOsThreadSetPriority014);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority015);
-    RUN_ONE_TESTCASE(testOsThreadSetPriority016);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority014, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority015, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsThreadSetPriority016, TEST_FN_COMPAT_CMSIS);
 #endif
-    RUN_ONE_TESTCASE(testOsDelay);
-    RUN_ONE_TESTCASE(testOsDelayUntil);
+    RUN_ONE_TESTCASE_M(testOsDelay, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsDelayUntil, TEST_FN_COMPAT_CMSIS);
 }

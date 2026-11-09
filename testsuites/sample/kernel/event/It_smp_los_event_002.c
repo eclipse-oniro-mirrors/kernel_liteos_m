@@ -99,7 +99,7 @@ EXIT:
 VOID ItSmpLosEvent002(VOID) // IT_Layer_ModuleORFeature_No
 {
 #ifdef LOSCFG_KERNEL_SMP
-        TEST_ADD_CASE("ItSmpLosEvent002", Testcase, TEST_LOS, TEST_EVENT, TEST_LEVEL2, TEST_FUNCTION);
+        TEST_ADD_CASE("ItSmpLosEvent002", Testcase, TEST_LOS, TEST_FN_KERNEL_EVENT, TEST_LEVEL2, TEST_FUNCTION);
 #endif
 }
 

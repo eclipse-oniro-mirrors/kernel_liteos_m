@@ -204,9 +204,9 @@ LITE_TEST_CASE(PosixPthreadRwlockTrySharedTest, testRwlockTryShared004, Function
 void PosixPthreadRwlockTrySharedFuncTest(void)
 {
     LOG("begin PosixPthreadRwlockTrySharedFuncTest....");
-    RUN_ONE_TESTCASE(testRwlockTryShared001);
-    RUN_ONE_TESTCASE(testRwlockTryShared002);
-    RUN_ONE_TESTCASE(testRwlockTryShared003);
-    RUN_ONE_TESTCASE(testRwlockTryShared004);
+    RUN_ONE_TESTCASE_M(testRwlockTryShared001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testRwlockTryShared002, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testRwlockTryShared003, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testRwlockTryShared004, TEST_FN_COMPAT_POSIX);
     return;
 }

@@ -115,7 +115,7 @@ EXIT:
 
 void PosixFsPwriteTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsPwriteOK);
-    RUN_ONE_TESTCASE(TestFsPwriteEFAULT);
-    RUN_ONE_TESTCASE(TestFsPwriteEACCES);
+    RUN_ONE_TESTCASE_M(TestFsPwriteOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsPwriteEFAULT, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsPwriteEACCES, TEST_FN_FS_VFS);
 }

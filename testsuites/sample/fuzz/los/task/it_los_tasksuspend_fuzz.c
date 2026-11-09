@@ -68,5 +68,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItFuzzLosTaskSuspend(VOID)
 {
-    TEST_ADD_CASE("ItFuzzLosTaskSuspend", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItFuzzLosTaskSuspend", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL0, TEST_FUNCTION);
 }

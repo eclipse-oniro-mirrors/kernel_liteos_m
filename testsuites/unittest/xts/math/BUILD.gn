@@ -31,7 +31,7 @@ import("//kernel/liteos_m/liteos.gni")
 static_library("math_test") {
   defines = [
     "XTS_CASE_LAYER=TEST_LIB",
-    "XTS_CASE_MODULE=TEST_LIBM",
+    "XTS_CASE_MODULE=TEST_FN_LIB_MATH",
     "XTS_CASE_LEVEL=TEST_LEVEL0",
   ]
 

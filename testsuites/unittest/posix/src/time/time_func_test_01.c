@@ -1444,45 +1444,45 @@ void PosixTimeFuncTest(void)
     LOG("begin PosixTimeFuncTest....\n");
 
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
-    RUN_ONE_TESTCASE(testTimeUSleep001);
+    RUN_ONE_TESTCASE_M(testTimeUSleep001, TEST_FN_COMPAT_POSIX);
 #endif
-    RUN_ONE_TESTCASE(testTimeUSleep002);
-    RUN_ONE_TESTCASE(testTimeGmtime001);
+    RUN_ONE_TESTCASE_M(testTimeUSleep002, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeGmtime001, TEST_FN_COMPAT_POSIX);
 #if (LOSCFG_LIBC_MUSL == 1)
-    RUN_ONE_TESTCASE(testTimeLocaltime001);
-    RUN_ONE_TESTCASE(testTimeLocaltime002);
-    RUN_ONE_TESTCASE(testTimeLocaltime003);
-    RUN_ONE_TESTCASE(testTimeLocaltimer001);
-    RUN_ONE_TESTCASE(testTimeLocaltimer002);
+    RUN_ONE_TESTCASE_M(testTimeLocaltime001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeLocaltime002, TEST_FN_LIB_TIME);
+    RUN_ONE_TESTCASE_M(testTimeLocaltime003, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeLocaltimer001, TEST_FN_LIB_TIME);
+    RUN_ONE_TESTCASE_M(testTimeLocaltimer002, TEST_FN_LIB_TIME);
 #endif
-    RUN_ONE_TESTCASE(testTimeMktime001);
-    RUN_ONE_TESTCASE(testTimeMktime002);
+    RUN_ONE_TESTCASE_M(testTimeMktime001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeMktime002, TEST_FN_COMPAT_POSIX);
 #if (LOSCFG_LIBC_MUSL == 1)
-    RUN_ONE_TESTCASE(testTimeStrftime001);
-    RUN_ONE_TESTCASE(testTimeStrftime002);
-    RUN_ONE_TESTCASE(testTimeStrftime003);
+    RUN_ONE_TESTCASE_M(testTimeStrftime001, TEST_FN_LIB_TIME);
+    RUN_ONE_TESTCASE_M(testTimeStrftime002, TEST_FN_LIB_TIME);
+    RUN_ONE_TESTCASE_M(testTimeStrftime003, TEST_FN_LIB_TIME);
 #endif
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
-    RUN_ONE_TESTCASE(testTimes);
+    RUN_ONE_TESTCASE_M(testTimes, TEST_FN_COMPAT_POSIX);
 #endif
 #if (LOSCFG_LIBC_MUSL == 1) && !defined(__LP64__)
-    RUN_ONE_TESTCASE(testTimeLocaltime64001);
-    RUN_ONE_TESTCASE(testTimeGmtime64001);
-    RUN_ONE_TESTCASE(testTimeAsctime64001);
-    RUN_ONE_TESTCASE(testTimeCtime64001);
+    RUN_ONE_TESTCASE_M(testTimeLocaltime64001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeGmtime64001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeAsctime64001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeCtime64001, TEST_FN_COMPAT_POSIX);
 #endif
 #if (LOSCFG_LIBC_MUSL == 1)
-    RUN_ONE_TESTCASE(testTimeGmtimeMktimeLoop001);
-    RUN_ONE_TESTCASE(testTimeMktimeGmtimeRev001);
-    RUN_ONE_TESTCASE(testTimeMktime2038001);
-    RUN_ONE_TESTCASE(testTimeLeapYear001);
-    RUN_ONE_TESTCASE(testTimeErrnoSide001);
-    RUN_ONE_TESTCASE(testTimeStrftimeConv001);
-    RUN_ONE_TESTCASE(testTimeStrftimeFlag001);
-    RUN_ONE_TESTCASE(testTimeStrftimeWeek001);
-    RUN_ONE_TESTCASE(testTimeStrptimeConv001);
-    RUN_ONE_TESTCASE(testTimeStrptimeWidth001);
-    RUN_ONE_TESTCASE(testTimeMktimeBigYear001);
+    RUN_ONE_TESTCASE_M(testTimeGmtimeMktimeLoop001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeMktimeGmtimeRev001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeMktime2038001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeLeapYear001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeErrnoSide001, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testTimeStrftimeConv001, TEST_FN_LIB_TIME);
+    RUN_ONE_TESTCASE_M(testTimeStrftimeFlag001, TEST_FN_LIB_TIME);
+    RUN_ONE_TESTCASE_M(testTimeStrftimeWeek001, TEST_FN_LIB_TIME);
+    RUN_ONE_TESTCASE_M(testTimeStrptimeConv001, TEST_FN_LIB_TIME);
+    RUN_ONE_TESTCASE_M(testTimeStrptimeWidth001, TEST_FN_LIB_TIME);
+    RUN_ONE_TESTCASE_M(testTimeMktimeBigYear001, TEST_FN_LIB_TIME);
 #endif
     return;
 }

@@ -159,7 +159,7 @@ EXIT:
 
 void PosixFsAccessTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsAccessOK);
-    RUN_ONE_TESTCASE(TestFsAccessEINVAL);
-    RUN_ONE_TESTCASE(TestFsAccessModeMatrix);
+    RUN_ONE_TESTCASE_M(TestFsAccessOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsAccessEINVAL, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsAccessModeMatrix, TEST_FN_FS_VFS);
 }

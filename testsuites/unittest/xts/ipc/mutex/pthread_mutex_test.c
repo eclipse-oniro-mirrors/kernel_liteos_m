@@ -136,6 +136,6 @@ RUN_TEST_SUITE(PthreadMutexApiTestSuite);
 void PosixFutexMutexTest(void)
 {
 #if !defined(LOSCFG_ARCH_FPU_DISABLE) && !defined(LOSCFG_PLATFORM_HI3322)
-    RUN_ONE_TESTCASE(testPthreadMutexCond);
+    RUN_ONE_TESTCASE_M(testPthreadMutexCond, TEST_FN_COMPAT_POSIX);
 #endif
 }

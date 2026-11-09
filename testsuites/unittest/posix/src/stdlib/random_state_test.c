@@ -334,11 +334,11 @@ RUN_TEST_SUITE(PosixStdlibRandomStateTest);
 void PosixStdlibRandomStateFuncTest(void)
 {
     LOG("begin PosixStdlibRandomStateFuncTest....");
-    RUN_ONE_TESTCASE(testStdlibInitstate001);
-    RUN_ONE_TESTCASE(testStdlibSetstate001);
-    RUN_ONE_TESTCASE(testStdlibInitstateDegenerate001);
-    RUN_ONE_TESTCASE(testStdlibInitstateTiers001);
-    RUN_ONE_TESTCASE(testStdlibSrand001);
+    RUN_ONE_TESTCASE_M(testStdlibInitstate001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testStdlibSetstate001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testStdlibInitstateDegenerate001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testStdlibInitstateTiers001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testStdlibSrand001, TEST_FN_LIB_MATH);
 
     return;
 }

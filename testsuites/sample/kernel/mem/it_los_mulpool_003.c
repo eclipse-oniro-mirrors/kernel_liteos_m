@@ -102,7 +102,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_MISC
+ * @ingroup TEST_FN_KERNEL_DYNMEM
  * @par TestCase_Number
  * ItLosMulPool003
  * @par TestCase_TestCase_Type
@@ -130,7 +130,7 @@ static UINT32 TestCase(VOID)
 VOID ItLosMulPool003(VOID)
 {
 #ifdef LOSCFG_MEM_MUL_POOL_ALLOC
-    TEST_ADD_CASE("ItLosMulPool003", TestCase, TEST_LOS, TEST_MEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosMulPool003", TestCase, TEST_LOS, TEST_FN_KERNEL_DYNMEM, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 

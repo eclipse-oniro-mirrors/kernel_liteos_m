@@ -219,12 +219,12 @@ RUN_TEST_SUITE(PthreadBasicApiTestSuite);
 
 void PthreadBasicApiTest(void)
 {
-    RUN_ONE_TESTCASE(testPthreadCreateBasic);
-    RUN_ONE_TESTCASE(testJoinReturn);
-    RUN_ONE_TESTCASE(testJoinExited);
-    RUN_ONE_TESTCASE(testPthreadExitThread);
-    RUN_ONE_TESTCASE(testPthreadExitFunction);
-    RUN_ONE_TESTCASE(testPthreadDetach);
-    RUN_ONE_TESTCASE(testPthreadEqual);
+    RUN_ONE_TESTCASE_M(testPthreadCreateBasic, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testJoinReturn, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testJoinExited, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testPthreadExitThread, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testPthreadExitFunction, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testPthreadDetach, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testPthreadEqual, TEST_FN_COMPAT_POSIX);
 }
 

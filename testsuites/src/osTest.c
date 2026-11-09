@@ -398,6 +398,20 @@ VOID TestTaskEntry(VOID)
     dprintf(">>> gcov coverage dump complete.\n");
 #endif
     dprintf("--- Test End ---\n");
+
+#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
+    /* Sequence-terminal fault injection (ItLosHwi057 contract: 必须为测试
+     * 序列最后一个用例): lock the GICD MMU window and read GICD_CTLR ->
+     * Translation Fault -> "GICD access blocked" classifier message ->
+     * exception dump -> AMP slave self-powers-off (ExcSlavePoweroff ->
+     * CPU_OFF). Runs AFTER the summary print so the counted suite result
+     * survives; pass evidence is the classifier message + dump on the
+     * serial console, never an iCUnit count (see it_los_hwi_057.c).
+     * 双门控对非 AMP 板(qemu/ws63/hi3322)编译惰性。 */
+    extern VOID ItLosHwi057(VOID);
+    dprintf("\n--- ItLosHwi057: terminal GICD fault injection ---\n");
+    ItLosHwi057();
+#endif
 }
 
 /*

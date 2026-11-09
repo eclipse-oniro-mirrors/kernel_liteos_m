@@ -51,5 +51,5 @@ static UINT32 TestCase(VOID)
 /* LmsTestMemset_sOverflow */
 VOID ItLosLms020(void)
 {
-    TEST_ADD_CASE("ItLosLms020", TestCase, TEST_LOS, TEST_LMS, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosLms020", TestCase, TEST_LOS, TEST_FN_KERNELEXT_LMS, TEST_LEVEL1, TEST_FUNCTION);
 }

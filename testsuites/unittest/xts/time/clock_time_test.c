@@ -141,8 +141,8 @@ RUN_TEST_SUITE(TimeClockTimeTestSuite);
 
 void ClockTimeTest(void)
 {
-    RUN_ONE_TESTCASE(testClockGettimeAll);
-    RUN_ONE_TESTCASE(testClockSettime);
-    RUN_ONE_TESTCASE(testGettimeofday);
-    RUN_ONE_TESTCASE(testSettimeofday);
+    RUN_ONE_TESTCASE_M(testClockGettimeAll, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testClockSettime, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testGettimeofday, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSettimeofday, TEST_FN_COMPAT_POSIX);
 }

@@ -59,7 +59,7 @@ static UINT32 Testcase(VOID)
 #endif /* LOSCFG_SHELL_EXCINFO_DUMP */
 
 /**
- * @ingroup TEST_EXC
+ * @ingroup TEST_FN_KERNEL_EXC
  * @par TestCase_Number
  * ItLosExc012
  * @par TestCase_TestCase_Type
@@ -87,6 +87,6 @@ static UINT32 Testcase(VOID)
 VOID ItLosExc012(VOID)
 {
 #ifdef LOSCFG_SHELL_EXCINFO_DUMP
-    TEST_ADD_CASE("ItLosExc012", Testcase, TEST_LOS, TEST_EXC, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosExc012", Testcase, TEST_LOS, TEST_FN_KERNEL_EXC, TEST_LEVEL0, TEST_FUNCTION);
 #endif
 }

@@ -123,6 +123,6 @@ RUN_TEST_SUITE(TimeSleepTestSuite);
 
 void SleepTest(void)
 {
-    RUN_ONE_TESTCASE(testClockNanosleepInvalidID);
-    RUN_ONE_TESTCASE(testClockNanosleepInvalidPara);
+    RUN_ONE_TESTCASE_M(testClockNanosleepInvalidID, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testClockNanosleepInvalidPara, TEST_FN_COMPAT_POSIX);
 }

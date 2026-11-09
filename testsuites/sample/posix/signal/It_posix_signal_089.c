@@ -35,5 +35,5 @@ static UINT32 Testcase(void)
 
 VOID ItPosixSignal089(void)
 {
-    TEST_ADD_CASE("ItPosixSignal089", Testcase, TEST_LIB, TEST_POSIX, TEST_LEVEL2, TEST_FUNCTION);
+    TEST_ADD_CASE("ItPosixSignal089", Testcase, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL2, TEST_FUNCTION);
 }

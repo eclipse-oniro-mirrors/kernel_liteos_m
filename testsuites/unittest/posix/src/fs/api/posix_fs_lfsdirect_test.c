@@ -904,18 +904,18 @@ void PosixFsLfsDirectTest(void)
         return;
     }
 
-    RUN_ONE_TESTCASE(TestFsLfsDirectTruncate);
-    RUN_ONE_TESTCASE(TestFsLfsDirectFilePos);
-    RUN_ONE_TESTCASE(TestFsLfsDirectOpenCfg);
-    RUN_ONE_TESTCASE(TestFsLfsDirectDirPos);
-    RUN_ONE_TESTCASE(TestFsLfsDirectAttrs);
-    RUN_ONE_TESTCASE(TestFsLfsDirectFsStat);
-    RUN_ONE_TESTCASE(TestFsLfsDirectFsSizeTraverse);
-    RUN_ONE_TESTCASE(TestFsLfsDirectFsGrow);
-    RUN_ONE_TESTCASE(TestFsLfsDirectFsGcMkconsistent);
-    RUN_ONE_TESTCASE(TestFsLfsDirectRambd);
-    RUN_ONE_TESTCASE(TestFsLfsDirectSuperblockCfg);
-    RUN_ONE_TESTCASE(TestFsLfsDirectOpenCfgAttrs);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectTruncate, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectFilePos, TEST_FN_LIB_ARMOPT);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectOpenCfg, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectDirPos, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectAttrs, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectFsStat, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectFsSizeTraverse, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectFsGrow, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectFsGcMkconsistent, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectRambd, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectSuperblockCfg, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsDirectOpenCfgAttrs, TEST_FN_FS_VFS);
 
     /* 各用例自建自销实例(不经 VFS 挂载表), 断言失败退出时残留的实例无
      * 后续访问路径, 直接归还存储即可 */

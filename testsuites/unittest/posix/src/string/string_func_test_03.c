@@ -494,22 +494,22 @@ RUN_TEST_SUITE(PosixStringFuncTestSuite);
 void PosixStringFuncTest03()
 {
     LOG("begin PosixStringFuncTest03....");
-    RUN_ONE_TESTCASE(testStrstrcmp001);
-    RUN_ONE_TESTCASE(testStrstrcmp002);
-    RUN_ONE_TESTCASE(testStrstrcmp003);
-    RUN_ONE_TESTCASE(testStrStrdup001);
-    RUN_ONE_TESTCASE(testStrStrdup002);
-    RUN_ONE_TESTCASE(testStrStrcspn001);
-    RUN_ONE_TESTCASE(testStrStrcspn002);
+    RUN_ONE_TESTCASE_M(testStrstrcmp001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrstrcmp002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrstrcmp003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrStrdup001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrStrdup002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrStrcspn001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrStrcspn002, TEST_FN_LIB_STRING);
 #ifndef LOSCFG_COMPILER_ICCARM
-    RUN_ONE_TESTCASE(testStrStrptime001);
+    RUN_ONE_TESTCASE_M(testStrStrptime001, TEST_FN_LIB_SAFEC);
 #endif
-    RUN_ONE_TESTCASE(testOsStrncpy001);
-    //RUN_ONE_TESTCASE(testOsStrncat001);
-    //RUN_ONE_TESTCASE(testOsStrcpyOverlap001);
-    RUN_ONE_TESTCASE(testOsStrchrTable001);
-    RUN_ONE_TESTCASE(testOsStrcspnEdge001);
-    RUN_ONE_TESTCASE(testOsStrstrOffset001);
+    RUN_ONE_TESTCASE_M(testOsStrncpy001, TEST_FN_LIB_STRING);
+    //RUN_ONE_TESTCASE_M(testOsStrncat001, TEST_FN_LIB_STRING);
+    //RUN_ONE_TESTCASE_M(testOsStrcpyOverlap001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testOsStrchrTable001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testOsStrcspnEdge001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testOsStrstrOffset001, TEST_FN_LIB_STRING);
 
     return;
 }

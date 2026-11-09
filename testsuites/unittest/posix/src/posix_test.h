@@ -47,7 +47,7 @@
 #define POSIX_CASE_LAYER TEST_LIB
 #endif
 #ifndef POSIX_CASE_MODULE
-#define POSIX_CASE_MODULE TEST_LIBC
+#define POSIX_CASE_MODULE TEST_FN_LIB_MISC
 #endif
 #ifndef POSIX_CASE_LEVEL
 #define POSIX_CASE_LEVEL TEST_LEVEL0
@@ -56,6 +56,12 @@
 #ifndef ADD_TEST_CASE /* osTest.c 会同时包含 xts_test.h，避免重复定义 */
 #define ADD_TEST_CASE(func) \
     TEST_ADD_CASE(TEST_HEAD_TO_STR(TEST_STR(func)), func, POSIX_CASE_LAYER, POSIX_CASE_MODULE, POSIX_CASE_LEVEL, TEST_FUNCTION)
+#endif
+/* 逐用例功能模块宏显式注册（功能基线 features.csv FN 对应关系，见
+ * feature_baseline/case_feature_map.csv）；与 ADD_TEST_CASE 同名族避免头重复定义 */
+#ifndef ADD_TEST_CASE_M
+#define ADD_TEST_CASE_M(func, module) \
+    TEST_ADD_CASE(TEST_HEAD_TO_STR(TEST_STR(func)), func, POSIX_CASE_LAYER, module, POSIX_CASE_LEVEL, TEST_FUNCTION)
 #endif
 
 #define Function   0

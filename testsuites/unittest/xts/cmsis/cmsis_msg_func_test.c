@@ -397,23 +397,23 @@ RUN_TEST_SUITE(CmsisMsgFuncTestSuite);
 
 void CmsisMsgFuncTest(void)
 {
-    RUN_ONE_TESTCASE(testOsMessageQueueNew001);
-    RUN_ONE_TESTCASE(testOsMessageQueueNew002);
-    RUN_ONE_TESTCASE(testOsMessageQueueNew003);
-    RUN_ONE_TESTCASE(testOsMessageQueueDelete001);
-    RUN_ONE_TESTCASE(testOsMessageQueueDelete002);
-    RUN_ONE_TESTCASE(testOsMessageQueuePut001);
-    RUN_ONE_TESTCASE(testOsMessageQueuePut002);
-    RUN_ONE_TESTCASE(testOsMessageQueuePut003);
-    RUN_ONE_TESTCASE(testOsMessageQueueGet001);
-    RUN_ONE_TESTCASE(testOsMessageQueueGet002);
-    RUN_ONE_TESTCASE(testOsMessageQueueGet003);
-    RUN_ONE_TESTCASE(testOsMessageQueueGetMsgSize001);
-    RUN_ONE_TESTCASE(testOsMessageQueueGetMsgSize002);
-    RUN_ONE_TESTCASE(testOsMessageQueueGetCapacity001);
-    RUN_ONE_TESTCASE(testOsMessageQueueGetCapacity002);
-    RUN_ONE_TESTCASE(testOsMessageQueueGetCount001);
-    RUN_ONE_TESTCASE(testOsMessageQueueGetCount002);
-    RUN_ONE_TESTCASE(testOsMessageQueueGetSpace001);
-    RUN_ONE_TESTCASE(testOsMessageQueueGetSpace002);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueNew001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueNew002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueNew003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueDelete001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueDelete002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueuePut001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueuePut002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueuePut003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGet001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGet002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGet003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGetMsgSize001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGetMsgSize002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGetCapacity001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGetCapacity002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGetCount001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGetCount002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGetSpace001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsMessageQueueGetSpace002, TEST_FN_COMPAT_CMSIS);
 }

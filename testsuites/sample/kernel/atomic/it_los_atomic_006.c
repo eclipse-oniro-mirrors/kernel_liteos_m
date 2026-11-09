@@ -96,7 +96,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_ATO
+ * @ingroup TEST_FN_KERNEL_DATASTRUCT
  * @par TestCase_Number
  * ItLosAtomic006
  * @par TestCase_TestCase_Type
@@ -118,5 +118,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosAtomic006(VOID)
 {
-    TEST_ADD_CASE("ItLosAtomic006", TestCase, TEST_LOS, TEST_ATO, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosAtomic006", TestCase, TEST_LOS, TEST_FN_KERNEL_DATASTRUCT, TEST_LEVEL0, TEST_FUNCTION);
 }

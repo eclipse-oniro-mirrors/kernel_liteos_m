@@ -176,12 +176,12 @@ LITE_TEST_CASE(PosixCTypeTolowerTest, testCtypeTolowerL001, Function | MediumTes
 void PosixTolowerFuncTest()
 {
     LOG("begin PosixTolowerFuncTest....");
-    RUN_ONE_TESTCASE(testCTypeTolower001);
-    RUN_ONE_TESTCASE(testCTypeTolower002);
-    RUN_ONE_TESTCASE(testCTypeTolower003);
-    RUN_ONE_TESTCASE(testCTypeTolower004);
-    RUN_ONE_TESTCASE(testCTypeTolower005);
-    RUN_ONE_TESTCASE(testCtypeTolowerL001);
+    RUN_ONE_TESTCASE_M(testCTypeTolower001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeTolower002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeTolower003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeTolower004, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeTolower005, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCtypeTolowerL001, TEST_FN_LIB_STRING);
 
     return;
 }

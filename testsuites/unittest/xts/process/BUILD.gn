@@ -31,7 +31,7 @@ import("//kernel/liteos_m/liteos.gni")
 static_library("pthread_test") {
   defines = [
     "XTS_CASE_LAYER=TEST_LIB",
-    "XTS_CASE_MODULE=TEST_POSIX",
+    "XTS_CASE_MODULE=TEST_FN_COMPAT_POSIX",
     "XTS_CASE_LEVEL=TEST_LEVEL0",
   ]
 

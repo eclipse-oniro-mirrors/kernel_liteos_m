@@ -64,6 +64,6 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsRmdirEINVAL, Function | MediumTest | 
 
 void PosixFsRmdirTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsRmdirOK);
-    RUN_ONE_TESTCASE(TestFsRmdirEINVAL);
+    RUN_ONE_TESTCASE_M(TestFsRmdirOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsRmdirEINVAL, TEST_FN_FS_VFS);
 }

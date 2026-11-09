@@ -1078,31 +1078,31 @@ void PosixStdioFuncTest(void)
         LOG("PosixStdioFuncTest: TEST_ROOT volume unavailable, skip\n");
         return;
     }
-    RUN_ONE_TESTCASE(testStdioPerror001);
-    RUN_ONE_TESTCASE(testStdioFopenParam001);
-    RUN_ONE_TESTCASE(testStdioPrintfInt001);
-    RUN_ONE_TESTCASE(testStdioPrintfPosixArg001);
-    RUN_ONE_TESTCASE(testStdioPrintfFloat001);
-    RUN_ONE_TESTCASE(testStdioPrintfWide001);
-    RUN_ONE_TESTCASE(testStdioSnprintfEdge001);
+    RUN_ONE_TESTCASE_M(testStdioPerror001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFopenParam001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioPrintfInt001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioPrintfPosixArg001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioPrintfFloat001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioPrintfWide001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioSnprintfEdge001, TEST_FN_LIB_STDIO);
 #if defined(LOSCFG_PLATFORM_QEMU_ARM_VIRT_CM4)
-    RUN_ONE_TESTCASE(testStdioPrintfStdout001);
+    RUN_ONE_TESTCASE_M(testStdioPrintfStdout001, TEST_FN_LIB_STDIO);
 #endif
 #ifdef STDIO_TEST_ROOT
-    RUN_ONE_TESTCASE(testStdioFputcFgetc001);
-    RUN_ONE_TESTCASE(testStdioFgetcEof001);
-    RUN_ONE_TESTCASE(testStdioFgets001);
-    RUN_ONE_TESTCASE(testStdioFgetsParam001);
-    RUN_ONE_TESTCASE(testStdioUngetc001);
-    RUN_ONE_TESTCASE(testStdioUngetcEof001);
-    RUN_ONE_TESTCASE(testStdioFdopenParam001);
-    RUN_ONE_TESTCASE(testStdioFwriteRdonly001);
-    RUN_ONE_TESTCASE(testStdioFreadNoFlush001);
-    RUN_ONE_TESTCASE(testStdioFreadBuffered001);
-    RUN_ONE_TESTCASE(testStdioFtellBuffered001);
-    RUN_ONE_TESTCASE(testStdioFwriteLinebuf001);
-    RUN_ONE_TESTCASE(testStdioUngetcGuard001);
-    RUN_ONE_TESTCASE(testStdioFscanfFile001);
+    RUN_ONE_TESTCASE_M(testStdioFputcFgetc001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFgetcEof001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFgets001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFgetsParam001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioUngetc001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioUngetcEof001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFdopenParam001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFwriteRdonly001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFreadNoFlush001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFreadBuffered001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFtellBuffered001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFwriteLinebuf001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioUngetcGuard001, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testStdioFscanfFile001, TEST_FN_LIB_STDIO);
 #endif
     (void)TestFsVolumeRelease();
 

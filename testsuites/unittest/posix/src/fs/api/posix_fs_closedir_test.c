@@ -73,6 +73,6 @@ EXIT:
 
 void PosixFsClosedirTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsClosedirOK);
-    RUN_ONE_TESTCASE(TestFsClosedirEBADF);
+    RUN_ONE_TESTCASE_M(TestFsClosedirOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsClosedirEBADF, TEST_FN_FS_VFS);
 }

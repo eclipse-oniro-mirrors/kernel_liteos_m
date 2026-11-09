@@ -348,17 +348,17 @@ RUN_TEST_SUITE(CmsisEventFuncTestSuite);
 
 void CmsisEventFuncTest(void)
 {
-    RUN_ONE_TESTCASE(testOsEventFlagsNew001);
-    RUN_ONE_TESTCASE(testOsEventFlagsDelete001);
-    RUN_ONE_TESTCASE(testOsEventFlagsDelete002);
-    RUN_ONE_TESTCASE(testOsEventFlagsSet001);
-    RUN_ONE_TESTCASE(testOsEventFlagsSet002);
-    RUN_ONE_TESTCASE(testOsEventFlagsSet003);
-    RUN_ONE_TESTCASE(testOsEventFlagsWait001);
-    RUN_ONE_TESTCASE(testOsEventFlagsWait002);
-    RUN_ONE_TESTCASE(testOsEventFlagsWait003);
-    RUN_ONE_TESTCASE(testOsEventFlagsGet001);
-    RUN_ONE_TESTCASE(testOsEventFlagsGet002);
-    RUN_ONE_TESTCASE(testOsEventFlagsClear001);
-    RUN_ONE_TESTCASE(testOsEventFlagsClear002);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsNew001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsDelete001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsDelete002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsSet001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsSet002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsSet003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsWait001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsWait002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsWait003, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsGet001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsGet002, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsClear001, TEST_FN_COMPAT_CMSIS);
+    RUN_ONE_TESTCASE_M(testOsEventFlagsClear002, TEST_FN_COMPAT_CMSIS);
 }

@@ -52,10 +52,10 @@ if (defined(LOSCFG_SUPPORT_LITTLEFS)) {
 }
 
 static_library("fs") {
-  # fs 用例归属：layer=TEST_VFS, module=TEST_FS
+  # fs 用例归属：layer=TEST_VFS, module=TEST_FN_FS_VFS
   defines = [
     "POSIX_CASE_LAYER=TEST_VFS",
-    "POSIX_CASE_MODULE=TEST_FS",
+    "POSIX_CASE_MODULE=TEST_FN_FS_VFS",
     "POSIX_CASE_LEVEL=TEST_LEVEL0",
   ]
 

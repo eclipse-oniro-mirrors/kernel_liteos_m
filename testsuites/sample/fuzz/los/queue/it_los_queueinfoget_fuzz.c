@@ -58,5 +58,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItFuzzLosQueueInfoGet(VOID)
 {
-    TEST_ADD_CASE("ItFuzzLosQueueInfoGet", TestCase, TEST_LOS, TEST_QUE, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItFuzzLosQueueInfoGet", TestCase, TEST_LOS, TEST_FN_KERNEL_MSGQUEUE, TEST_LEVEL0, TEST_FUNCTION);
 }

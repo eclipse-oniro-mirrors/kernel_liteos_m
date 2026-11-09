@@ -176,12 +176,12 @@ LITE_TEST_CASE(PosixCTypeToupperTest, testCtypeToupperL001, Function | MediumTes
 void PosixToupperFuncTest()
 {
     LOG("begin PosixToupperFuncTest....");
-    RUN_ONE_TESTCASE(testCTypeToupper001);
-    RUN_ONE_TESTCASE(testCTypeToupper002);
-    RUN_ONE_TESTCASE(testCTypeToupper003);
-    RUN_ONE_TESTCASE(testCTypeToupper004);
-    RUN_ONE_TESTCASE(testCTypeToupper005);
-    RUN_ONE_TESTCASE(testCtypeToupperL001);
+    RUN_ONE_TESTCASE_M(testCTypeToupper001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeToupper002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeToupper003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeToupper004, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCTypeToupper005, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testCtypeToupperL001, TEST_FN_LIB_STRING);
 
     return;
 }

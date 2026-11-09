@@ -293,7 +293,7 @@ EXIT:
 
 void PosixFsPressureTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsPressure001);
-    RUN_ONE_TESTCASE(TestFsPressure002);
-    RUN_ONE_TESTCASE(TestFsPressure003);
+    RUN_ONE_TESTCASE_M(TestFsPressure001, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsPressure002, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsPressure003, TEST_FN_KERNEL_PRINTF);
 }

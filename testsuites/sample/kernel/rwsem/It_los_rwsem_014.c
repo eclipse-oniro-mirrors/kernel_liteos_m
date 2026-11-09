@@ -95,7 +95,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_RWSEM
+ * @ingroup TEST_FN_KERNEL_RWSEM
  * @par TestCase_Number
  * ItLosRwsem014
  * @par TestCase_TestCase_Type
@@ -121,5 +121,5 @@ EXIT:
  */
 VOID ItLosRwsem014(VOID)
 {
-    TEST_ADD_CASE("ItLosRwsem014", Testcase, TEST_LOS, TEST_RWSEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosRwsem014", Testcase, TEST_LOS, TEST_FN_KERNEL_RWSEM, TEST_LEVEL1, TEST_FUNCTION);
 }

@@ -36,6 +36,9 @@
  *   - ItPosixSignal091        (BUG_03: sigtimedwait 后续 semaphore 误 post,
  *     疑与 BUG_08 同根因; BUG_08 已修复(20260923)恢复 sigwait 族阻塞唤醒路径,
  *     本项保留隔离待复测 semaphore 误 post 是否随同消解)
+ *   - ItLosMem013             (BUG_25: bestfit free 路径对非法/已毁节点未校验
+ *     即写链, RK3568 从核布局敏感 Data Abort 崩核, 与 20261104_162007(ItLosMux007
+ *     插桩崩核)同根因; 问题 20261107_0115)
  *
  * 历史隔离项(已消解):
  *   - ItPosixSignal094        (BUG_08: posix sigwait 族唤醒 mask 位序错位 ——
@@ -221,5 +224,25 @@
                                                * (extern+完整实现+零 consumer)。修复: 提供公共 API 暴露
                                                * slab usedSize 或删除孤儿函数。仅 slab 板注册(qemu 无
                                                * slab 不注册)。 */
+#define KERNEL_BUG_25_MEMFREE_WILD_DEREF  0 /* ItLosMem013(tip 32f62cb9 同步后新增回归):
+                                              * 【现象】LOS_MemFree(g_memPool, p0±16) 非法节点鲁棒性用例触发
+                                               * Data Abort: ELR 0x7410FA90, ESR 0x96000005(L2 translation
+                                               * fault READ), FAR 0x9EC6B544(野指针) → 异常 dump →
+                                               * ExcSlavePoweroff → CPU_OFF 整套件终止(rk3568_m_testsuits,
+                                               * 2026-11-02 实测; 单用例白名单复跑 PASS——堆状态相关,
+                                               * 全序列上下文确定性复现);
+                                               * 2026-11-07 FN 功能模块宏关联镜像(非插桩)再次确定性复现:
+                                               * ELR 0x7410F948(OsMemFreeNode), ESR 0x96000005, FAR
+                                               * 0x9EC69544, ItLosMem012 通过后即崩, 同镜像两轮复现
+                                               * (问题 20261107_0115);
+                                               * 【根因】bestfit free 路径对"节点头落在用户数据区"的伪
+                                               * 节点先解引用后校验(kernel/base/mem/bestfit/los_memory.c
+                                               * OsMemFreeNode/OsMemListDelete free 分支; 基线 bench_wip
+                                               * 同用例全绿——布局敏感窗口);
+                                               * 【修复方向】free 入口先做 magic/对齐/范围校验再走链,
+                                               * 伪节点应返回 LOS_NOK;
+                                               * 【恢复方法】修复后宏置 1, 用例恢复注册作为回归看护常跑
+                                                * (双看护: ItLosMem013 契约用例 + ItLosMem334 伪节点
+                                                * 手工构造的确定性复刻用例, 不依赖堆残留)。 */
 
 #endif /* _BUG_ISOLATE_H */

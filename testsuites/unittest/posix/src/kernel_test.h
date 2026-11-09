@@ -48,6 +48,9 @@
 #define THREAD_STACK_SPACE_MAX    4096
 
 #define RUN_ONE_TESTCASE(caseName) ADD_TEST_CASE(caseName)
+#ifndef RUN_ONE_TESTCASE_M /* 逐用例功能模块宏（features.csv FN），ADD_TEST_CASE_M 由 posix_test.h 提供 */
+#define RUN_ONE_TESTCASE_M(caseName, module) ADD_TEST_CASE_M(caseName, module)
+#endif
 #define AUTO_RUN_ONE_TESTCASEFUNC(func) UnityDefaultTestRun(func, __FILE__, __LINE__)
 
 /*

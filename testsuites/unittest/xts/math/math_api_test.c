@@ -64,5 +64,5 @@ RUN_TEST_SUITE(MathApiTestSuite);
 
 void MathApiTest(void)
 {
-    RUN_ONE_TESTCASE(testsignbit);
+    RUN_ONE_TESTCASE_M(testsignbit, TEST_FN_LIB_MATH);
 }

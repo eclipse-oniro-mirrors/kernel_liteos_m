@@ -83,6 +83,6 @@ RUN_TEST_SUITE(MathStdApiTestSuite);
 
 void MathStdApiTest(void)
 {
-    RUN_ONE_TESTCASE(testAbs);
-    RUN_ONE_TESTCASE(testllabs);
+    RUN_ONE_TESTCASE_M(testAbs, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testllabs, TEST_FN_LIB_MISC);
 }

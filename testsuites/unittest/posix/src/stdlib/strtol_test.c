@@ -586,27 +586,27 @@ RUN_TEST_SUITE(PosixStdlibStrtolTest);
 void PosixStdlibStrtolFuncTest()
 {
     LOG("begin PosixStdlibStrtolFuncTest....");
-    RUN_ONE_TESTCASE(testStdlibStrtol001);
-    RUN_ONE_TESTCASE(testStdlibStrtol002);
-    RUN_ONE_TESTCASE(testStdlibStrtol003);
-    RUN_ONE_TESTCASE(testStdlibStrtol004);
-    RUN_ONE_TESTCASE(testStdlibStrtol005);
-    RUN_ONE_TESTCASE(testStdlibStrtol006);
-    RUN_ONE_TESTCASE(testStdlibStrtol007);
-    RUN_ONE_TESTCASE(testStdlibStrtol008);
-    RUN_ONE_TESTCASE(testStdlibStrtol009);
-    RUN_ONE_TESTCASE(testStdlibStrtol010);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol002, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol003, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol004, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol005, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol006, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol007, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol008, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol009, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol010, TEST_FN_LIB_MISC);
 #if (LOSCFG_LIBC_MUSL == 1)
-    RUN_ONE_TESTCASE(testStdlibStrtol011);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol011, TEST_FN_LIB_MISC);
 #endif
-    RUN_ONE_TESTCASE(testStdlibStrtol012);
-    RUN_ONE_TESTCASE(testStdlibStrtol013);
-    RUN_ONE_TESTCASE(testStdlibStrtolOverflow001);
-    RUN_ONE_TESTCASE(testStdlibStrtolBase001);
-    RUN_ONE_TESTCASE(testStdlibStrtolWs001);
-    RUN_ONE_TESTCASE(testStdlibStrtoll001);
-    RUN_ONE_TESTCASE(testStdlibStrtollBase001);
-    RUN_ONE_TESTCASE(testStdlibStrtollOverflow001);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol012, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtol013, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtolOverflow001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtolBase001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtolWs001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoll001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtollBase001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtollOverflow001, TEST_FN_LIB_MISC);
 
     return;
 }

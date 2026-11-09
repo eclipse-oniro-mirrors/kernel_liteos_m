@@ -154,10 +154,10 @@ EXIT:
 void PosixFsFtruncateTest(void)
 {
 #if (LOSCFG_SUPPORT_FATFS == 1)
-    RUN_ONE_TESTCASE(TestFsFtruncateOK);
+    RUN_ONE_TESTCASE_M(TestFsFtruncateOK, TEST_FN_FS_VFS);
 #endif
-    RUN_ONE_TESTCASE(TestFsFtruncateEBADF001);
-    RUN_ONE_TESTCASE(TestFsFtruncateEBADF002);
-    RUN_ONE_TESTCASE(TestFsFtruncateEINVAL);
-    RUN_ONE_TESTCASE(TestFsFtruncateEACCES);
+    RUN_ONE_TESTCASE_M(TestFsFtruncateEBADF001, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsFtruncateEBADF002, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsFtruncateEINVAL, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsFtruncateEACCES, TEST_FN_FS_VFS);
 }

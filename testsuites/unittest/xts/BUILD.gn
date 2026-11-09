@@ -33,6 +33,7 @@ static_library("xts_test") {
   deps = [
     "io:io_test",
     "ipc:ipc_test",
+    "kernel_verify:kernel_verify_test",
     "math:math_test",
     "mem:mem_test",
     "process:pthread_test",

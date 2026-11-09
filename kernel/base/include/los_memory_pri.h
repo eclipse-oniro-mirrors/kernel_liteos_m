@@ -85,10 +85,47 @@ typedef struct LosHeapManager {
 
 #elif defined(LOSCFG_KERNEL_MEM_TLSF)
 
-/*
- * tlsf keeps its own pool head (struct OsMemPoolHead, declared in los_memory.h);
- * alias it so the common multipool helpers can manage the linked list uniformly.
- */
+/* Supposing a Second Level Index: SLI = 3. */
+/* Giving 1 free list for each small bucket: 4, 8, 12, up to 124. */
+#define OS_MEM_SLI                      3
+#define OS_MEM_SMALL_BUCKET_COUNT       31
+#define OS_MEM_SMALL_BUCKET_MAX_SIZE    128
+/* Giving 2^OS_MEM_SLI free lists for each large bucket. */
+#define OS_MEM_LARGE_BUCKET_COUNT       24
+/* OS_MEM_SMALL_BUCKET_MAX_SIZE to the power of 2 is 7. */
+#define OS_MEM_LARGE_START_BUCKET       7
+
+/* The count of free list. */
+#define OS_MEM_FREE_LIST_COUNT  (OS_MEM_SMALL_BUCKET_COUNT + (OS_MEM_LARGE_BUCKET_COUNT << OS_MEM_SLI))
+/* The bitmap is used to indicate whether the free list is empty, 1: not empty, 0: empty. */
+#define OS_MEM_BITMAP_WORDS     ((OS_MEM_FREE_LIST_COUNT >> 5) + 1)
+
+/* Full definition lives in mem/tlsf/los_memory_internal.h; pool head only needs pointers. */
+struct OsMemFreeNodeHead;
+
+struct OsMemPoolInfo {
+    VOID *pool;
+    UINT32 totalSize;
+    UINT32 attr;
+#if (LOSCFG_MEM_WATERLINE == 1)
+    UINT32 waterLine;   /* Maximum usage size in a memory pool */
+    UINT32 curUsedSize; /* Current usage size in a memory pool */
+#endif
+#if (LOSCFG_MEM_MUL_REGIONS == 1)
+    UINT32 totalGapSize;
+#endif
+};
+
+struct OsMemPoolHead {
+    struct OsMemPoolInfo info;
+    UINT32 freeListBitmap[OS_MEM_BITMAP_WORDS];
+    struct OsMemFreeNodeHead *freeList[OS_MEM_FREE_LIST_COUNT];
+#if (LOSCFG_MEM_MUL_POOL == 1)
+    VOID *nextPool;
+#endif
+};
+
+/* Alias so the common multipool helpers can manage the linked list uniformly. */
 typedef struct OsMemPoolHead LosMemPoolInfo;
 
 #endif

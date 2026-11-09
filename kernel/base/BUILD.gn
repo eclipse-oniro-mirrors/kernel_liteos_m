@@ -98,6 +98,7 @@ kernel_module(module_name) {
   }
   if (defined(LOSCFG_KERNEL_MEM_TLSF)) {
     sources += [ "mem/tlsf/los_memory.c" ]
+    include_dirs += [ "mem/tlsf" ]
   }
   if (defined(LOSCFG_KERNEL_MEM_BESTFIT)) {
     sources += [

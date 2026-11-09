@@ -156,7 +156,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_MEM
+ * @ingroup TEST_FN_KERNEL_TIME
  * @par TestCase_Number
  * ItLosTick017
  * @par TestCase_TestCase_Type
@@ -180,7 +180,7 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosTick017(VOID)
 {
-    TEST_ADD_CASE("ItLosTick017", TestCase, TEST_LOS, TEST_MEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTick017", TestCase, TEST_LOS, TEST_FN_KERNEL_TIME, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

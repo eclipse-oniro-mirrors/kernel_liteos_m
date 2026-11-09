@@ -67,7 +67,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_HWI
+ * @ingroup TEST_FN_KERNEL_IRQ
  * @par TestCase_Number
  * ItLosHwi054
  * @par TestCase_TestCase_Type
@@ -91,5 +91,5 @@ EXIT:
 VOID ItLosHwi054(VOID)
 {
     /* 状态机往返/幂等/压力循环 */
-    TEST_ADD_CASE("ItLosHwi054", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHwi054", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL1, TEST_FUNCTION);
 }

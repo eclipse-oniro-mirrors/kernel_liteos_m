@@ -188,8 +188,8 @@ RUN_TEST_SUITE(SemAbnormalTestSuite);
 
 void PosixSemAbnFuncTest()
 {
-    RUN_ONE_TESTCASE(testSemInitAbnormalSemvaluemax);
-    RUN_ONE_TESTCASE(testSemInitAbnormalInitTwice);
-    RUN_ONE_TESTCASE(testSemTimedwaitAbnormalA);
-    RUN_ONE_TESTCASE(testSemTimedwaitAbnormalB);
+    RUN_ONE_TESTCASE_M(testSemInitAbnormalSemvaluemax, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemInitAbnormalInitTwice, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemTimedwaitAbnormalA, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testSemTimedwaitAbnormalB, TEST_FN_COMPAT_POSIX);
 }

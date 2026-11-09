@@ -59,7 +59,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_CACHE
+ * @ingroup TEST_FN_KERNEL_ARCH
  * @par TestCase_Number
  * ItLosCache013
  * @par TestCase_TestCase_Type
@@ -83,5 +83,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosCache013(VOID)
 {
-    TEST_ADD_CASE("ItLosCache013", TestCase, TEST_LOS, TEST_CACHE, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosCache013", TestCase, TEST_LOS, TEST_FN_KERNEL_ARCH, TEST_LEVEL0, TEST_FUNCTION);
 }

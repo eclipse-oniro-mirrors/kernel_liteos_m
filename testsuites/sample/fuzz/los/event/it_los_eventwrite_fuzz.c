@@ -58,5 +58,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItFuzzLosEventWrite(VOID)
 {
-    TEST_ADD_CASE("ItFuzzLosEventWrite", TestCase, TEST_LOS, TEST_EVENT, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItFuzzLosEventWrite", TestCase, TEST_LOS, TEST_FN_KERNEL_EVENT, TEST_LEVEL0, TEST_FUNCTION);
 }

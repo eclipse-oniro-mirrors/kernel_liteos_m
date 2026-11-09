@@ -49,6 +49,6 @@ static UINT32 TestCase(VOID)
 /* LmsTestOsmallocOverflow */
 VOID ItLosLms001(void)
 {
-    TEST_ADD_CASE("ItLosLms001", TestCase, TEST_LOS, TEST_LMS, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosLms001", TestCase, TEST_LOS, TEST_FN_KERNELEXT_LMS, TEST_LEVEL1, TEST_FUNCTION);
 }
 

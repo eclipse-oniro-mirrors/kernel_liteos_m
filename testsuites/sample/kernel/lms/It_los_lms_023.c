@@ -86,5 +86,5 @@ static UINT32 TestCase(VOID)
 /* LmsTestStrcat_sOverflow */
 VOID ItLosLms023(void)
 {
-    TEST_ADD_CASE("ItLosLms023", TestCase, TEST_LOS, TEST_LMS, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosLms023", TestCase, TEST_LOS, TEST_FN_KERNELEXT_LMS, TEST_LEVEL1, TEST_FUNCTION);
 }

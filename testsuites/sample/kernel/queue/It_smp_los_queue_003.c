@@ -99,7 +99,7 @@ EXIT:
 VOID ItSmpLosQueue003(VOID) // IT_Layer_ModuleORFeature_No
 {
 #ifdef LOSCFG_KERNEL_SMP
-        TEST_ADD_CASE("ItSmpLosQueue003", Testcase, TEST_LOS, TEST_QUE, TEST_LEVEL2, TEST_FUNCTION);
+        TEST_ADD_CASE("ItSmpLosQueue003", Testcase, TEST_LOS, TEST_FN_KERNEL_MSGQUEUE, TEST_LEVEL2, TEST_FUNCTION);
 #endif
 }
 #ifdef __cplusplus

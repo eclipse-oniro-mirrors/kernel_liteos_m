@@ -57,7 +57,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_MISC
+ * @ingroup TEST_FN_KERNEL_DATASTRUCT
  * @par TestCase_Number
  * ItLosCompiler001
  * @par TestCase_TestCase_Type
@@ -81,5 +81,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosCompiler001(VOID)
 {
-    TEST_ADD_CASE("ItLosCompiler001", TestCase, TEST_LOS, TEST_MISC, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosCompiler001", TestCase, TEST_LOS, TEST_FN_KERNEL_DATASTRUCT, TEST_LEVEL0, TEST_FUNCTION);
 }

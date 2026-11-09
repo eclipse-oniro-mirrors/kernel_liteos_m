@@ -54,5 +54,5 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsCloseOK, Function | MediumTest | Leve
 
 void PosixFsCloseTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsCloseOK);
+    RUN_ONE_TESTCASE_M(TestFsCloseOK, TEST_FN_FS_VFS);
 }

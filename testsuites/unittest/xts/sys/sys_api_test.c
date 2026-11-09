@@ -62,5 +62,5 @@ RUN_TEST_SUITE(SysApiTestSuite);
 
 void SysApiFuncTest(void)
 {
-    RUN_ONE_TESTCASE(testStrerror);
+    RUN_ONE_TESTCASE_M(testStrerror, TEST_FN_LIB_MISC);
 }

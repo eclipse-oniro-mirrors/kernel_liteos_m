@@ -82,6 +82,6 @@ RUN_TEST_SUITE(IoStringsApiTestSuite);
 
 void XtsIoStringsFuncTest(void)
 {
-    RUN_ONE_TESTCASE(testStrncasecmp);
-    RUN_ONE_TESTCASE(testStrcasecmp);
+    RUN_ONE_TESTCASE_M(testStrncasecmp, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrcasecmp, TEST_FN_LIB_STRING);
 }

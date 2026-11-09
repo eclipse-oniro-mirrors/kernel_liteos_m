@@ -185,7 +185,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_MISC
+ * @ingroup TEST_FN_KERNEL_DEBUG
  * @par TestCase_Number
  * ItLosHook001
  * @par TestCase_TestCase_Type
@@ -212,7 +212,7 @@ static UINT32 TestCase(VOID)
 VOID ItLosHook001(VOID)
 {
 #ifdef LOSCFG_DEBUG_HOOK
-    TEST_ADD_CASE("ItLosHook001", TestCase, TEST_LOS, TEST_MISC, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHook001", TestCase, TEST_LOS, TEST_FN_KERNEL_DEBUG, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 

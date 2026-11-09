@@ -74,5 +74,5 @@ RUN_TEST_SUITE(IoOtherTestSuite);
 
 void XtsIoOtherTest(void)
 {
-    RUN_ONE_TESTCASE(testStrptime);
+    RUN_ONE_TESTCASE_M(testStrptime, TEST_FN_LIB_TIME);
 }

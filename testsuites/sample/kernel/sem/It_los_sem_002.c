@@ -45,6 +45,6 @@ static UINT32 Testcase(VOID)
 
 VOID ItLosSem002(void) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosSem002", Testcase, TEST_LOS, TEST_SEM, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSem002", Testcase, TEST_LOS, TEST_FN_KERNEL_SEM, TEST_LEVEL0, TEST_FUNCTION);
 }
 

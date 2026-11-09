@@ -222,8 +222,8 @@ RUN_TEST_SUITE(PthreadCondApiTestSuite);
 
 void PosixFutexCondTest(void)
 {
-    RUN_ONE_TESTCASE(testPthreadCondInit);
-    RUN_ONE_TESTCASE(testPthreadCondDestroy);
-    RUN_ONE_TESTCASE(testPthreadCondattrInit);
-    RUN_ONE_TESTCASE(testPthreadCondBroadcast);
+    RUN_ONE_TESTCASE_M(testPthreadCondInit, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testPthreadCondDestroy, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testPthreadCondattrInit, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testPthreadCondBroadcast, TEST_FN_COMPAT_POSIX);
 }

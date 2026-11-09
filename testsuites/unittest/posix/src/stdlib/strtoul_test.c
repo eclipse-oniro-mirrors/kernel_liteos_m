@@ -353,20 +353,20 @@ RUN_TEST_SUITE(PosixStdlibStrtoulTest);
 void PosixStdlibStrtoulFuncTest()
 {
     LOG("begin PosixStdlibStrtoulFuncTest....");
-    RUN_ONE_TESTCASE(testStdlibStrtoul001);
-    RUN_ONE_TESTCASE(testStdlibStrtoul002);
-    RUN_ONE_TESTCASE(testStdlibStrtoul003);
-    RUN_ONE_TESTCASE(testStdlibStrtoul004);
-    RUN_ONE_TESTCASE(testStdlibStrtoul005);
-    RUN_ONE_TESTCASE(testStdlibStrtoul006);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoul001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoul002, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoul003, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoul004, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoul005, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoul006, TEST_FN_LIB_MISC);
 #if (LOSCFG_LIBC_MUSL == 1)
-    RUN_ONE_TESTCASE(testStdlibStrtoul007);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoul007, TEST_FN_LIB_MISC);
 #endif
-    RUN_ONE_TESTCASE(testStdlibStrtoul008);
-    RUN_ONE_TESTCASE(testStdlibStrtoul009);
-    RUN_ONE_TESTCASE(testStdlibStrtoul010);
-    RUN_ONE_TESTCASE(testStdlibStrtoulNeg001);
-    RUN_ONE_TESTCASE(testStdlibStrtoulOverflow001);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoul008, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoul009, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoul010, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoulNeg001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoulOverflow001, TEST_FN_LIB_MISC);
 
     return;
 }

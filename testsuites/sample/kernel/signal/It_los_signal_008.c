@@ -188,7 +188,7 @@ static UINT32 Testcase(VOID)
 }
 
 /**
- * @ingroup TEST_SIGNAL
+ * @ingroup TEST_FN_KERNEL_SIGNAL
  * @par TestCase_Number
  * ItLosSignal008
  * @par TestCase_TestCase_Type
@@ -218,7 +218,7 @@ static UINT32 Testcase(VOID)
 
 VOID ItLosSignal008(VOID)
 {
-    TEST_ADD_CASE("ItLosSignal008", Testcase, TEST_LOS, TEST_SIGNAL, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSignal008", Testcase, TEST_LOS, TEST_FN_KERNEL_SIGNAL, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

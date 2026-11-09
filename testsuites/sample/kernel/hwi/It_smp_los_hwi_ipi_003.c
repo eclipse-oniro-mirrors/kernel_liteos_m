@@ -105,7 +105,7 @@ static UINT32 Testcase(void)
 VOID ItSmpLosHwiIpi003(VOID)
 {
 #ifdef LOSCFG_KERNEL_SMP
-                TEST_ADD_CASE("ItSmpLosHwiIpi003", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL1, TEST_FUNCTION);
+                TEST_ADD_CASE("ItSmpLosHwiIpi003", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 #endif

@@ -88,7 +88,7 @@ EXIT:
 #endif /* LOSCFG_PLATFORM_EXC */
 
 /**
- * @ingroup TEST_EXC
+ * @ingroup TEST_FN_KERNELEXT_EXCHOOK
  * @par TestCase_Number
  * ItLosExc014
  * @par TestCase_TestCase_Type
@@ -125,7 +125,7 @@ EXIT:
 VOID ItLosExc014(VOID)
 {
 #ifdef LOSCFG_PLATFORM_EXC
-    TEST_ADD_CASE("ItLosExc014", Testcase, TEST_LOS, TEST_EXC, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosExc014", Testcase, TEST_LOS, TEST_FN_KERNELEXT_EXCHOOK, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 

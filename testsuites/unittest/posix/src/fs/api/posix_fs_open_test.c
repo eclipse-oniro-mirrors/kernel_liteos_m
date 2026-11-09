@@ -101,7 +101,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsOpenENOENT, Function | MediumTest | L
 
 void PosixFsOpenTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsOpenOK);
-    RUN_ONE_TESTCASE(TestFsOpenEINVAL);
-    RUN_ONE_TESTCASE(TestFsOpenENOENT);
+    RUN_ONE_TESTCASE_M(TestFsOpenOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsOpenEINVAL, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsOpenENOENT, TEST_FN_FS_VFS);
 }

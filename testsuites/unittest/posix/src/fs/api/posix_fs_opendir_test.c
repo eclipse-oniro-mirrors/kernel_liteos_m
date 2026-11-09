@@ -83,7 +83,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsOpendirENOENT, Function | MediumTest 
 
 void PosixFsOpendirTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsOpendirOK);
-    RUN_ONE_TESTCASE(TestFsOpendirEINVAL);
-    RUN_ONE_TESTCASE(TestFsOpendirENOENT);
+    RUN_ONE_TESTCASE_M(TestFsOpendirOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsOpendirEINVAL, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsOpendirENOENT, TEST_FN_FS_VFS);
 }

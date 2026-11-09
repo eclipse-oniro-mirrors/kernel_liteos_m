@@ -283,11 +283,11 @@ RUN_TEST_SUITE(PosixStdlibStrtodTest);
 void PosixStdlibStrtodFuncTest(void)
 {
     LOG("begin PosixStdlibStrtodFuncTest....");
-    RUN_ONE_TESTCASE(testStdlibStrtodHex001);
-    RUN_ONE_TESTCASE(testStdlibStrtodLiteral001);
-    RUN_ONE_TESTCASE(testStdlibStrtodForm001);
-    RUN_ONE_TESTCASE(testStdlibStrtoullRange001);
-    RUN_ONE_TESTCASE(testStdlibSscanfInt001);
+    RUN_ONE_TESTCASE_M(testStdlibStrtodHex001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtodLiteral001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtodForm001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibStrtoullRange001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibSscanfInt001, TEST_FN_LIB_STDIO);
 
     return;
 }

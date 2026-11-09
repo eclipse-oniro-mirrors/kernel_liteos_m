@@ -274,11 +274,11 @@ RUN_TEST_SUITE(IoStdlibApiTestSuite);
 void XtsIoStdlibFuncTest(void)
 {
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
-    RUN_ONE_TESTCASE(testStrtof);
-    RUN_ONE_TESTCASE(testStrtod);
-    RUN_ONE_TESTCASE(testStrtold);
+    RUN_ONE_TESTCASE_M(testStrtof, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStrtod, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStrtold, TEST_FN_LIB_MISC);
 #endif
-    RUN_ONE_TESTCASE(testStrtol);
-    RUN_ONE_TESTCASE(testStrtoul);
-    RUN_ONE_TESTCASE(testStrtoull);
+    RUN_ONE_TESTCASE_M(testStrtol, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStrtoul, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStrtoull, TEST_FN_LIB_MISC);
 }

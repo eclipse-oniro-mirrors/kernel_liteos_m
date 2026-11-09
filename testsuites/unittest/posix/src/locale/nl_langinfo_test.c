@@ -112,7 +112,7 @@ RUN_TEST_SUITE(PosixLocaleFuncTestSuite);
 void PosixLocaleFuncTest(void)
 {
     LOG("begin PosixLocaleFuncTest....");
-    RUN_ONE_TESTCASE(testLocaleNlLanginfo001);
+    RUN_ONE_TESTCASE_M(testLocaleNlLanginfo001, TEST_FN_LIB_MISC);
 
     return;
 }

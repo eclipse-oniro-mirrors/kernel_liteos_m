@@ -244,19 +244,19 @@ RUN_TEST_SUITE(PosixStdlibAtoiTest);
 void PosixStdlibAtoiFuncTest()
 {
     LOG("begin PosixStdlibAtoiFuncTest....");
-    RUN_ONE_TESTCASE(testStdlibAtoi001);
-    RUN_ONE_TESTCASE(testStdlibAtoi002);
-    RUN_ONE_TESTCASE(testStdlibAtoi003);
+    RUN_ONE_TESTCASE_M(testStdlibAtoi001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoi002, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoi003, TEST_FN_LIB_MISC);
 #if (LOSCFG_LIBC_MUSL == 1)
-    RUN_ONE_TESTCASE(testStdlibAtoi004);
-    RUN_ONE_TESTCASE(testStdlibAtoi005);
+    RUN_ONE_TESTCASE_M(testStdlibAtoi004, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoi005, TEST_FN_LIB_MISC);
 #endif
-    RUN_ONE_TESTCASE(testStdlibAtoi006);
-    RUN_ONE_TESTCASE(testStdlibAtoi007);
-    RUN_ONE_TESTCASE(testStdlibAtoi008);
-    RUN_ONE_TESTCASE(testStdlibAtoi009);
+    RUN_ONE_TESTCASE_M(testStdlibAtoi006, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoi007, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoi008, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoi009, TEST_FN_LIB_MISC);
 #if (LOSCFG_LIBC_MUSL == 1)
-    RUN_ONE_TESTCASE(testStdlibAtoi010);
+    RUN_ONE_TESTCASE_M(testStdlibAtoi010, TEST_FN_LIB_MISC);
 #endif
     return;
 }

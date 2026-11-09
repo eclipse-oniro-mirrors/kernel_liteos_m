@@ -58,5 +58,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItFuzzPthreadCleanupTaskCtx(VOID)
 {
-    TEST_ADD_CASE("ItFuzzPthreadCleanupTaskCtx", TestCase, TEST_LIB, TEST_PTHREAD, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItFuzzPthreadCleanupTaskCtx", TestCase, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
 }

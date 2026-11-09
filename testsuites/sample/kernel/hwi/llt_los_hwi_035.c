@@ -77,6 +77,6 @@ Testcase brief in English
 
 VOID LltLosHwi035(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("LltLosHwi035", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL3, TEST_PRESSURE);
+    TEST_ADD_CASE("LltLosHwi035", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL3, TEST_PRESSURE);
 }
 

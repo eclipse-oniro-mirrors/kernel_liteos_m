@@ -117,7 +117,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsWriteEACCES, Function | MediumTest | 
 
 void PosixFsWriteTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsWriteOK);
-    RUN_ONE_TESTCASE(TestFsWriteEINVAL);
-    RUN_ONE_TESTCASE(TestFsWriteEACCES);
+    RUN_ONE_TESTCASE_M(TestFsWriteOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsWriteEINVAL, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsWriteEACCES, TEST_FN_FS_VFS);
 }

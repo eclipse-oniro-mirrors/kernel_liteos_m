@@ -1842,29 +1842,29 @@ void PosixFsLfsRamTest(void)
         return;
     }
 
-    RUN_ONE_TESTCASE(TestFsLfsRamUmountRoot);
-    RUN_ONE_TESTCASE(TestFsLfsRamDiskPartition);
-    RUN_ONE_TESTCASE(TestFsLfsRamMountFormatFallback);
-    RUN_ONE_TESTCASE(TestFsLfsRamMountCorrupt);
-    RUN_ONE_TESTCASE(TestFsLfsRamMountFail);
-    RUN_ONE_TESTCASE(TestFsLfsRamExhaustion);
-    RUN_ONE_TESTCASE(TestFsLfsRamDirSplit);
-    RUN_ONE_TESTCASE(TestFsLfsRamRelocate);
-    RUN_ONE_TESTCASE(TestFsLfsRamWriteFail);
-    RUN_ONE_TESTCASE(TestFsLfsRamFormatOps);
-    RUN_ONE_TESTCASE(TestFsLfsRamRdonlyMount);
-    RUN_ONE_TESTCASE(TestFsLfsRamRenameCrossDir);
-    RUN_ONE_TESTCASE(TestFsLfsRamMkdirInSplitDir);
-    RUN_ONE_TESTCASE(TestFsLfsRamAppendRewrite);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamUmountRoot, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamDiskPartition, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamMountFormatFallback, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamMountCorrupt, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamMountFail, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamExhaustion, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamDirSplit, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamRelocate, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamWriteFail, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamFormatOps, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamRdonlyMount, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamRenameCrossDir, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamMkdirInSplitDir, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamAppendRewrite, TEST_FN_FS_VFS);
 #if (LOSCFG_SUPPORT_LITTLEFS == 1)
-    RUN_ONE_TESTCASE(TestFsLfsRamMkconsistentGc);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamMkconsistentGc, TEST_FN_FS_VFS);
 #endif
-    RUN_ONE_TESTCASE(TestFsLfsRamVerifyFail);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamVerifyFail, TEST_FN_FS_VFS);
 #if (LOSCFG_SUPPORT_LITTLEFS == 1)
-    RUN_ONE_TESTCASE(TestFsLfsRamReadFailScan);
-    RUN_ONE_TESTCASE(TestFsLfsRamFullDiskOps);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamReadFailScan, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamFullDiskOps, TEST_FN_FS_VFS);
 #endif
-    RUN_ONE_TESTCASE(TestFsLfsRamMountCfgMismatch);
+    RUN_ONE_TESTCASE_M(TestFsLfsRamMountCfgMismatch, TEST_FN_FS_VFS);
 
     /* 兜底卸载本族挂载点: 单用例断言失败退出会跳过自身 umount, 悬挂的
      * littlefs 实例会在后续 TestFsVolumeRelease 的 umount 冲刷元数据时

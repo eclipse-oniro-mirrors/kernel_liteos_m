@@ -41,5 +41,5 @@ static UINT32 Testcase(void)
 
 VOID ItPosixRwlock072(void)
 {
-    TEST_ADD_CASE("ItPosixRwlock072", Testcase, TEST_LIB, TEST_POSIX, TEST_LEVEL2, TEST_FUNCTION);
+    TEST_ADD_CASE("ItPosixRwlock072", Testcase, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL2, TEST_FUNCTION);
 }

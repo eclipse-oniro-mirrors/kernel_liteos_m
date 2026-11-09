@@ -103,7 +103,7 @@ RUN_TEST_SUITE(PosixStringsFuncTestSuite);
 void PosixStringStrcasecmpFuncTest()
 {
     LOG("begin PosixStringStrcasecmpFuncTest....");
-    RUN_ONE_TESTCASE(testStrCaseCmp001);
+    RUN_ONE_TESTCASE_M(testStrCaseCmp001, TEST_FN_LIB_STRING);
 
     return;
 }

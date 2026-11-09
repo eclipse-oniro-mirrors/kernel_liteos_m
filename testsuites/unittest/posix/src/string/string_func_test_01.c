@@ -336,26 +336,26 @@ RUN_TEST_SUITE(PosixStringFuncTestSuite);
 void PosixStringFuncTest02()
 {
     LOG("begin PosixStringFuncTest02....");
-    RUN_ONE_TESTCASE(testStringStrlen001);
-    RUN_ONE_TESTCASE(testStringStrlen002);
-    RUN_ONE_TESTCASE(testStringStrlen003);
-    RUN_ONE_TESTCASE(testStringStrlen004);
-    RUN_ONE_TESTCASE(testStringStrlen005);
-    RUN_ONE_TESTCASE(testStringStrncasecmp001);
-    RUN_ONE_TESTCASE(testStringStrncasecmp002);
-    RUN_ONE_TESTCASE(testStringStrncasecmp003);
-    RUN_ONE_TESTCASE(testStringStrncasecmp004);
-    RUN_ONE_TESTCASE(testStringStrncasecmp005);
-    RUN_ONE_TESTCASE(testStringStrncmp001);
-    RUN_ONE_TESTCASE(testStringStrncmp002);
-    RUN_ONE_TESTCASE(testStringStrncmp003);
-    RUN_ONE_TESTCASE(testStringStrncmp004);
-    RUN_ONE_TESTCASE(testStringStrncmp005);
-    RUN_ONE_TESTCASE(testStringStrrchr001);
-    RUN_ONE_TESTCASE(testStringStrrchr002);
-    RUN_ONE_TESTCASE(testStringStrrchr003);
-    RUN_ONE_TESTCASE(testStringStrrchr004);
-    RUN_ONE_TESTCASE(testStringStrrchr005);
+    RUN_ONE_TESTCASE_M(testStringStrlen001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrlen002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrlen003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrlen004, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrlen005, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrncasecmp001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrncasecmp002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrncasecmp003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrncasecmp004, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrncasecmp005, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrncmp001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrncmp002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrncmp003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrncmp004, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrncmp005, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrrchr001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrrchr002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrrchr003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrrchr004, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrrchr005, TEST_FN_LIB_STRING);
 
     return;
 }

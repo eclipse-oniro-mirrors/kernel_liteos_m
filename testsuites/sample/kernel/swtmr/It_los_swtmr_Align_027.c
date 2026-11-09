@@ -132,6 +132,6 @@ EXIT:
 
 VOID ItLosSwtmrAlign027(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosSwtmrAlign027", Testcase, TEST_LOS, TEST_SWTMR, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSwtmrAlign027", Testcase, TEST_LOS, TEST_FN_KERNEL_SWTMR, TEST_LEVEL1, TEST_FUNCTION);
 }
 #endif

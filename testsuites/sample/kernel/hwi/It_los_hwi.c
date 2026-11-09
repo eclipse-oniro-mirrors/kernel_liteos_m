@@ -139,6 +139,7 @@ VOID ItSuiteLosHwi()
     ItLosHwi054();
     ItLosHwi055();
     ItLosHwi056();
-    ItLosHwi057();
+    /* 057 移至 osTest.c 序列终位(其契约要求全套件最后执行, 聚合尾部中段调用
+     * 会关核杀掉其后所有套件); 本块 GICv3+MCS 双门控仅 AMP 从核生效 */
 #endif
 }

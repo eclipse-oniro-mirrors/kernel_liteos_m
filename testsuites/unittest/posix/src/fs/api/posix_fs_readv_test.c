@@ -194,7 +194,7 @@ EXIT1:
 
 void PosixFsReadvTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsReadvOK);
-    RUN_ONE_TESTCASE(TestFsReadvPartial);
-    RUN_ONE_TESTCASE(TestFsReadvEINVAL);
+    RUN_ONE_TESTCASE_M(TestFsReadvOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsReadvPartial, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsReadvEINVAL, TEST_FN_FS_VFS);
 }

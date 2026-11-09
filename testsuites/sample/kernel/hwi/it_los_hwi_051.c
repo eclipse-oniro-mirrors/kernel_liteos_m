@@ -85,7 +85,7 @@ static UINT32 Testcase(VOID)
 }
 
 /**
- * @ingroup TEST_HWI
+ * @ingroup TEST_FN_KERNEL_IRQ
  * @par TestCase_Number
  * ItLosHwi051
  * @par TestCase_TestCase_Type
@@ -111,5 +111,5 @@ static UINT32 Testcase(VOID)
  */
 VOID ItLosHwi051(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosHwi051", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHwi051", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL1, TEST_FUNCTION);
 }

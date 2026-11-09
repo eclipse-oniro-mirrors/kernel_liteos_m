@@ -232,12 +232,12 @@ RUN_TEST_SUITE(PthreadSchedApiTestSuite);
 
 void PthreadSchedApiTest(void)
 {
-    RUN_ONE_TESTCASE(testAttrGetInheritsched);
-    RUN_ONE_TESTCASE(testAttrSetInheritsched);
-    RUN_ONE_TESTCASE(testAttrSetInheritschedError);
-    RUN_ONE_TESTCASE(testAttrSetSchedParam);
-    RUN_ONE_TESTCASE(testAttrGetSchedPolicy);
-    RUN_ONE_TESTCASE(testAttrSetSchedPolicyError);
-    RUN_ONE_TESTCASE(testAttrGetScope);
-    RUN_ONE_TESTCASE(testAttrSetScope);
+    RUN_ONE_TESTCASE_M(testAttrGetInheritsched, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testAttrSetInheritsched, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testAttrSetInheritschedError, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testAttrSetSchedParam, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testAttrGetSchedPolicy, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testAttrSetSchedPolicyError, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testAttrGetScope, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testAttrSetScope, TEST_FN_COMPAT_POSIX);
 }

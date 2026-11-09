@@ -83,7 +83,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsMkdirENOENT, Function | MediumTest | 
 
 void PosixFsMkdirTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsMkdirOK);
-    RUN_ONE_TESTCASE(TestFsMkdirEINVAL);
-    RUN_ONE_TESTCASE(TestFsMkdirENOENT);
+    RUN_ONE_TESTCASE_M(TestFsMkdirOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsMkdirEINVAL, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsMkdirENOENT, TEST_FN_FS_VFS);
 }

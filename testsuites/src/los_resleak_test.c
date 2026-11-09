@@ -39,7 +39,7 @@
 #include "los_swtmr.h"
 #include "los_task_pri.h"
 #include "los_task.h"
-#include "los_memory.h"
+#include "los_memory_pri.h"
 #include "los_config.h"
 #if (LOSCFG_KERNEL_SIGNAL == 1)
 #include "los_signal.h"

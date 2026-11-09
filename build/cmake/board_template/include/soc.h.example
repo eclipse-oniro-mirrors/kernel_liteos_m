@@ -25,6 +25,25 @@
 /* #define SOC_TIMER_BASE     0x... */
 /* #define SOC_INTC_BASE      0x... */
 
+/* Interrupt counts (example: 3322 values) — los_common_interrupt.c needs
+ * both; replace with your SoC's real IRQ/vector counts. */
+#define RISCV_SYS_MAX_IRQ       25
+#define RISCV_PLIC_VECTOR_CNT   80
+
+/* Board-glue driver registers (example: 3322 values) — the default
+ * EVOLVE_EXTRA_SOURCES compiles riscv_lcmp_clic.c (CLIC) and
+ * dw_apb_timer.c, which read these. Replace per SoC — or override
+ * EVOLVE_EXTRA_SOURCES with your own board glue entirely. */
+#define CLIC_BASE_ADDR          0xB0000000UL   /* interrupt controller (CLIC) */
+#define SOC_TIMER_CTL_BASE      0x52003000UL   /* timer sysctl / lock base */
+#define DW_APB_TIMER_BASE       (SOC_TIMER_CTL_BASE + 0x100)
+#define DW_APB_TIMER_LOCK_BASE  SOC_TIMER_CTL_BASE
+
+/* 标准板级链路：soc_common.h → arch/cpu.h 提供 CSR 宏（mtvec/
+ * RISCV_MSTATUS_MIE 等，los_interrupt.c 依赖）。3322 参考的 soc.h 同样
+ * 以此开头（src/kernel/liteos_m_port/board/asm/soc.h:37）。 */
+#include "soc_common.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

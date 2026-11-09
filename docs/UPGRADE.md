@@ -2,8 +2,8 @@
 
 升级 `liteos_m` 上游 fork 时（重新同步到更新的 OpenHarmony tag，或 rebase 本地提交），按顺序过此清单。构建框架的快照消费设计意味着大部分上游变更经已提交的导出落地（`sources.cmake`、`kconfig_values.cmake`、`menuconfig.snapshot.h`），但若干分叉点需要人工介入。
 
-> **摘要** ——共 **12 个验证点**，分 6 个阶段。
-> 阶段 2（快照分叉）有配置期守护，将最危险的泄漏转为 `FATAL_ERROR`；其余为人工。
+> **摘要** ——共 **14 个验证点**，分 6 个阶段。
+> 阶段 2（快照分叉）与阶段 4（模块门禁）有配置期守护/gate sync，将最危险的泄漏转为 `FATAL_ERROR`/自动跟随；其余为人工。
 
 ---
 
@@ -28,9 +28,9 @@
 
 ---
 
-## 阶段 2 —— 快照分叉守护（4 点，自动检查）
+## 阶段 2 —— 快照分叉守护（5 点，自动检查）
 
-GN 基线与 fbb 调优的 `target_config.h` 在 4 个关键时序/容量值上分叉。`target_config.h` 覆盖它们；快照基线**不得**泄漏。
+GN 基线与 fbb 调优的 `target_config.h` 在 5 个关键时序/容量值上分叉。`target_config.h` 覆盖它们；快照基线**不得**泄漏。
 
 | `LOSCFG_*` | 基线（快照） | fbb（target_config.h） | 泄漏症状 |
 |---|---|---|---|
@@ -38,9 +38,10 @@ GN 基线与 fbb 调优的 `target_config.h` 在 4 个关键时序/容量值上�
 | `BASE_CORE_TIMESLICE_TIMEOUT` | 20000 | 2000 | 时间片 2000→20000（10×） |
 | `HWI_PRIO_LIMIT` | 32 | 7 | CLIC `#error` 或优先级计算错误 |
 | `CPUP_SAMPLE_PERIOD` | 100 | 10000 | CPUP 窗口 10s→0.1s |
+| `BASE_IPC_QUEUE_LIMIT` | 30 | 64 | 队列限额 64→30 |
 
 **自动守护**：`liteos_m/CMakeLists.txt` 在配置期运行分叉守护（通过
-`EVOLVE_DIVERGE_GUARD` 变量，默认为上述 4 符号）。对每个符号检查
+`EVOLVE_DIVERGE_GUARD` 变量，默认为上述 5 符号）。对每个符号检查
 `target_config.h` 仍有 `#define`：
 
 - **缺失 `#define`** → 配置期 `FATAL_ERROR`（上游默认会泄漏 →"启动一次 OK 后静默"）。恢复覆盖。
@@ -68,20 +69,43 @@ grep -E "los_trap\.S|riscv_lcmp_clic|dw_apb_timer" build/cmake/sources.cmake
 # 期望：无匹配
 ```
 
+### 本地 fork 补丁（1 点，人工）
+
+`arch/risc-v/include/arch/cache.h` 带一处本地补丁：`#include <stdint.h>`
+（公共头自含性修复——osal_cache.c 等内核外消费方首个头就是它，没有这行
+拿不到 `uintptr_t`；可上游化）。原 liteos_m_port/include/arch/cache.h
+影子副本已删除，`<arch/cache.h>` 现在直接解析到本文件。
+
+**上游重同步后操作**：确认该 include 仍在（冲突时保本地版）。若上游自身
+补了自含性，删除本地补丁即可。
+
+```sh
+grep -n "stdint" arch/risc-v/include/arch/cache.h
+# 期望：命中
+```
+
 ---
 
-## 阶段 4 —— 模块禁用（4 点，人工）
+## 阶段 4 —— 模块门禁（自动 gate sync + 1 个人工点）
 
-`liteos_m/CMakeLists.txt` 经 `EVOLVE_MODULE_DISABLES` 变量强制禁用 4 个模块（默认值 = 下列 4 个；板级覆盖）。这些与 prebuilt `libc.a` 冲突或在旧清单中缺失：
+模块的开/关**不再**由 `EVOLVE_MODULE_DISABLES` 手工清单维护：
+`liteos_m/CMakeLists.txt` 配置期运行 gate sync
+（`build/cmake/target_config_sync.cmake`），把 `sources.cmake` 里每个
+`if(LOSCFG_*)` 门禁重置为 `target_config.h` 的值：
 
-| `LOSCFG_*` 置 "0" | 原因 |
+| `target_config.h` | 模块源码 |
 |---|---|
-| `POSIX_API` | fork 的 `lib/posix/src/` 重新实现 pthread/sem/mqueue → 与 `libc.a` 符号重复 |
-| `FS_VFS` | HI3322 无文件系统；旧清单省略 |
-| `KERNEL_SIGNAL` | 旧清单省略；`libc.a` 提供 signal 函数 |
-| `PLATFORM_EXC` | 旧清单省略（`kernel/base` 的 `los_exc.c` 覆盖基础） |
+| `#define LOSCFG_X 1` | 编入 |
+| `#define LOSCFG_X 0` / 未定义 | 剔除（与 los_config.h 默认 OFF 语义一致） |
 
-**重新生成后操作**：确认 `CMakeLists.txt` 的 `EVOLVE_MODULE_DISABLES` 默认值仍有效。若升级重命名了符号，更新默认值。若 `sources.cmake` 中某新源依赖这些模块之一且编译失败，加入阶段 5 的排除列表。
+3322 现状：SIGNAL / PLATFORM_EXC 在 `target_config.h` 中未定义 → 自动剔除
+（`EVOLVE_MODULE_DISABLES` 默认已置空，仅作集成方强制关停锤保留）。
+
+**重新生成后操作**：确认配置输出出现一行
+`liteos_m gate sync: N module gates ... target_config.h`，且 N 覆盖
+`sources.cmake` 的全部门禁。若升级**新增**了带 `LOSCFG_*` 守卫的模块组，
+同步会在下个构建自动跟随 `target_config.h`——但要人工确认该开关在
+`target_config.h` 中的取值符合预期（新符号默认未定义 = 关）。
 
 ---
 
@@ -108,12 +132,14 @@ cd src && python3 build.py diting-community-kernel-lm
 **成功标准**：
 
 1. 构建完成（增量约 5–10s，全量重配置更久）。
-2. `application.bin` 大小 ≈ **191792 字节**（md5 基线
-   `f8f3a5202bb6f438c688ae2f5a07f260`）。少量字节漂移对琐碎上游变更可接受；千字节级漂移意味着模块/符号静默变更——接受前调查。
-3. 配置输出出现 4 行 "divergence guard … OK" STATUS。
+2. `application.bin` 大小与 md5 与升级前基线一致（逐字节对比最近一次
+   已知良好构建；千字节级漂移意味着模块/符号静默变更——接受前调查）。
+3. 配置输出出现 5 行 "divergence guard … OK" STATUS。
+4. 配置输出出现 1 行 "gate sync: … module gates … target_config.h" STATUS。
 
 构建失败时：
-- **重定义错误** → 阶段 3（gap-fill 重复）或阶段 4（模块禁用缺失）。
+- **重定义错误** → 阶段 3（gap-fill 重复）或模块被 gate sync 误开
+  （查 `target_config.h` 对应开关）。
 - **`#ifdef` 后未声明标识符** → 阶段 5（新源需排除，或 `target_config.h` 需加守护）。
 - **CLIC `#error LOSCFG_HWI_PRIO_LIMIT exceeds…`** → 阶段 2（HWI_PRIO 覆盖丢失）。
 
@@ -132,7 +158,7 @@ cd src && python3 build.py diting-community-kernel-lm
 
 ---
 
-## 速查 —— 12 个点
+## 速查 —— 14 个点
 
 | # | 阶段 | 点 | 自动？ |
 |---|---|---|---|
@@ -143,10 +169,12 @@ cd src && python3 build.py diting-community-kernel-lm
 | 5 | 2 | TIMESLICE_TIMEOUT 覆盖存在 | **守护** |
 | 6 | 2 | HWI_PRIO_LIMIT 覆盖存在 | **守护** |
 | 7 | 2 | CPUP_SAMPLE_PERIOD 覆盖存在 | **守护** |
-| 8 | 3 | gap-fill 3 源不在 sources.cmake | 人工 |
-| 9 | 4 | 4 个模块禁用仍有效 | 人工 |
-| 10 | 5 | 3 个源排除仍匹配路径 | 人工 |
-| 11 | 5 | target_config.h 排除项守护未变 | 人工 |
-| 12 | 6 | application.bin 字节级 sanity | 人工 |
+| 8 | 2 | QUEUE_LIMIT 覆盖存在 | **守护** |
+| 9 | 3 | gap-fill 3 源不在 sources.cmake | 人工 |
+| 10 | 3 | fork cache.h 的 stdint 本地补丁仍在 | 人工 |
+| 11 | 4 | gate sync 覆盖全部门禁且取值符合预期 | **sync** + 人工 |
+| 12 | 5 | 3 个源排除仍匹配路径 | 人工 |
+| 13 | 5 | target_config.h 排除项守护未变 | 人工 |
+| 14 | 6 | application.bin 字节级 sanity | 人工 |
 
-点 4–7 现已配置期强制；其余仍为人工。
+点 4–8 现已配置期强制；点 11 由 gate sync 自动执行、取值需人工确认；其余仍为人工。

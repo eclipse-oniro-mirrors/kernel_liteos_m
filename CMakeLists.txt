@@ -1,9 +1,22 @@
 #===============================================================================
 # @brief    liteos_m kernel — source-level CMake integration
-# Builds the liteos_m kernel as a build_component() STATIC lib from the
-# auto-generated kconfig_values.cmake + sources.cmake snapshots.
+#
+# Builds the liteos_m kernel from the auto-generated kconfig_values.cmake +
+# sources.cmake snapshots. Two integration shapes:
+#   * fbb-style hosts (build_component() defined + TARGET_COMPONENT gate):
+#     component "liteos_m" (+ liteos_m_interface) via build_component().
+#   * plain add_subdirectory() consumers: standalone liteos_m_kernel (STATIC)
+#     + liteos_m_kernel_headers (INTERFACE) targets, see the bottom of this
+#     file — the docs/integration-guide.md quick-start works as documented.
+#
 # Config comes from target_config.h (via los_config.h), NOT menuconfig.h —
 # see divergence guard below (target_config.h diverges from the GN baseline).
+# Module gating ALSO follows target_config.h:
+# evolve_sync_gates_from_target_config() (build/cmake/target_config_sync.cmake)
+# re-points every LOSCFG_* switch guarding a module in sources.cmake at the
+# board header, so the sources built always match the macros compiled.
+# kconfig_values.cmake remains the source only for the numeric values the
+# divergence guard compares.
 #
 # All board-specifics are integrator-injected EVOLVE_* variables with defaults
 # that reproduce the 3322/hispark_hiditing reference integration, so existing
@@ -12,8 +25,14 @@
 #===============================================================================
 
 set(COMPONENT_NAME "liteos_m")
-if(NOT ${COMPONENT_NAME} IN_LIST TARGET_COMPONENT)
-    return()
+if(DEFINED TARGET_COMPONENT)
+    # Component-gated host (fbb): build this component only when it is on the
+    # target's component list (RAM_COMPONENT/ROM_COMPONENT from the host
+    # config). Hosts without TARGET_COMPONENT fall through to the standalone
+    # liteos_m_kernel/liteos_m_kernel_headers targets at the bottom.
+    if(NOT ${COMPONENT_NAME} IN_LIST TARGET_COMPONENT)
+        return()
+    endif()
 endif()
 
 # === Integrator-injected variables (see docs/integration-guide.md) ==========
@@ -41,15 +60,29 @@ if(NOT DEFINED EVOLVE_BOARD_DIR)
 endif()
 set(_PORT ${EVOLVE_BOARD_DIR})
 
-# --- kconfig snapshot: sets LOSCFG_* CMake variables ---
+# --- kconfig snapshot: sets LOSCFG_* CMake variables (GN baseline) ---
 include(${EVOLVE_TOP_DIR}/build/cmake/kconfig_values.cmake)
+
+# --- module gating follows the board header (single source of truth) -------
+# kconfig_values.cmake is a frozen GN export of ONE board; the macros the code
+# actually compiles with come from ${_TARGET_CONFIG_H} (pulled in by
+# kernel/include/los_config.h:40). The sync re-points every LOSCFG_* switch
+# guarding a module in sources.cmake at that header, so flipping a feature
+# there now adds/drops the module's sources to match — before this, the two
+# sides could only drift (SIGNAL/PLATFORM_EXC had to be reconciled by hand
+# via EVOLVE_MODULE_DISABLES). Numeric LOSCFG_* keep their snapshot values:
+# they are what the divergence guard below compares the header against.
+set(_TARGET_CONFIG_H ${_PORT}/include/target_config.h)
+include(${EVOLVE_TOP_DIR}/build/cmake/target_config_sync.cmake)
+evolve_sync_gates_from_target_config()
 
 # POSIX is kept enabled: lib/posix glue (malloc/errno/lock/time) compiles from
 # source alongside the porting musl (LOSCFG_LIBC_MUSL), replacing libc.a.
+# EVOLVE_MODULE_DISABLES stays as an explicit force-off hammer that wins over
+# the header sync. The 3322 default is now EMPTY: SIGNAL/PLATFORM_EXC are
+# silent in target_config.h, so the sync above turns them off automatically.
 if(NOT DEFINED EVOLVE_MODULE_DISABLES)
-    set(EVOLVE_MODULE_DISABLES
-        LOSCFG_KERNEL_SIGNAL
-        LOSCFG_PLATFORM_EXC)
+    set(EVOLVE_MODULE_DISABLES "")
 endif()
 foreach(_m IN LISTS EVOLVE_MODULE_DISABLES)
     set(${_m} "0")
@@ -66,7 +99,6 @@ if(NOT DEFINED EVOLVE_DIVERGE_GUARD)
         LOSCFG_CPUP_SAMPLE_PERIOD
         LOSCFG_BASE_IPC_QUEUE_LIMIT)
 endif()
-set(_TARGET_CONFIG_H ${_PORT}/include/target_config.h)
 if(EXISTS ${_TARGET_CONFIG_H} AND EVOLVE_DIVERGE_GUARD)
     foreach(_sym IN LISTS EVOLVE_DIVERGE_GUARD)
         file(STRINGS ${_TARGET_CONFIG_H} _hit REGEX "^#define ${_sym}[ \t]+")
@@ -135,10 +167,11 @@ if(LOSCFG_LIBC_MUSL)
     # Drop dirname.c: string.h `basename(void)` vs libgen.h `basename(char*)`
     # is a hard conflicting-types error.
     list(FILTER EVOLVE_MUSL_SOURCES EXCLUDE REGEX "/misc/dirname\\.c$")
-    # Add vprintf.c: sources.cmake snapshot omits it; vendor_libc_compat.c's
+    # Link-gap additions, gated behind EVOLVE_MUSL_EXTRA_SOURCES (default
+    # reproduces the 3322 reference; other boards trim or replace the list —
+    # e.g. a non-riscv32 board must drop the setjmp/riscv32 pair):
+    # vprintf.c — sources.cmake snapshot omits it; vendor_libc_compat.c's
     # dprintf calls vprintf. printf.c does not exist in the porting tree.
-    list(APPEND EVOLVE_MUSL_SOURCES
-        ${EVOLVE_MUSL_DIR}/porting/liteos_m/kernel/src/stdio/vprintf.c)
     # --- Link-gap full-tree additions (build 9 -> 10): upstream musl src/
     # files the sources.cmake snapshot never walks (it only walks the porting
     # tree + lib/posix graph, so plain /src/ files never match the musl
@@ -164,22 +197,26 @@ if(LOSCFG_LIBC_MUSL)
     # __jmp_buf[32], safely above the .S's 19*8-byte footprint. qsort_nr.c
     # supplies the 4-arg qsort on top of qsort.c's __qsort_r; sprintf.c's
     # vsprintf is already in musl.a.
-    list(APPEND EVOLVE_MUSL_SOURCES
-        ${EVOLVE_MUSL_DIR}/src/stdio/sprintf.c
-        ${EVOLVE_MUSL_DIR}/src/stdio/fprintf.c
-        ${EVOLVE_MUSL_DIR}/src/stdio/ferror.c
-        ${EVOLVE_MUSL_DIR}/src/stdio/setbuf.c
-        ${EVOLVE_MUSL_DIR}/src/stdlib/qsort.c
-        ${EVOLVE_MUSL_DIR}/src/stdlib/qsort_nr.c
-        ${EVOLVE_MUSL_DIR}/src/string/strpbrk.c
-        ${EVOLVE_MUSL_DIR}/src/string/strcasestr.c
-        ${EVOLVE_MUSL_DIR}/src/time/difftime.c
-        ${EVOLVE_MUSL_DIR}/src/multibyte/mbrlen.c
-        ${EVOLVE_MUSL_DIR}/src/multibyte/mbsrtowcs.c
-        ${EVOLVE_MUSL_DIR}/src/multibyte/mbsnrtowcs.c
-        ${EVOLVE_MUSL_DIR}/src/multibyte/wcsnrtombs.c
-        ${EVOLVE_MUSL_DIR}/src/setjmp/riscv32/setjmp.S
-        ${EVOLVE_MUSL_DIR}/src/setjmp/riscv32/longjmp.S)
+    if(NOT DEFINED EVOLVE_MUSL_EXTRA_SOURCES)
+        set(EVOLVE_MUSL_EXTRA_SOURCES
+            ${EVOLVE_MUSL_DIR}/porting/liteos_m/kernel/src/stdio/vprintf.c
+            ${EVOLVE_MUSL_DIR}/src/stdio/sprintf.c
+            ${EVOLVE_MUSL_DIR}/src/stdio/fprintf.c
+            ${EVOLVE_MUSL_DIR}/src/stdio/ferror.c
+            ${EVOLVE_MUSL_DIR}/src/stdio/setbuf.c
+            ${EVOLVE_MUSL_DIR}/src/stdlib/qsort.c
+            ${EVOLVE_MUSL_DIR}/src/stdlib/qsort_nr.c
+            ${EVOLVE_MUSL_DIR}/src/string/strpbrk.c
+            ${EVOLVE_MUSL_DIR}/src/string/strcasestr.c
+            ${EVOLVE_MUSL_DIR}/src/time/difftime.c
+            ${EVOLVE_MUSL_DIR}/src/multibyte/mbrlen.c
+            ${EVOLVE_MUSL_DIR}/src/multibyte/mbsrtowcs.c
+            ${EVOLVE_MUSL_DIR}/src/multibyte/mbsnrtowcs.c
+            ${EVOLVE_MUSL_DIR}/src/multibyte/wcsnrtombs.c
+            ${EVOLVE_MUSL_DIR}/src/setjmp/riscv32/setjmp.S
+            ${EVOLVE_MUSL_DIR}/src/setjmp/riscv32/longjmp.S)
+    endif()
+    list(APPEND EVOLVE_MUSL_SOURCES ${EVOLVE_MUSL_EXTRA_SOURCES})
 endif()
 
 
@@ -211,9 +248,24 @@ if(NOT DEFINED EVOLVE_LIBC_INCLUDE_DIRS)
         ${EVOLVE_MUSL_DIR}/porting/liteos_m/kernel/include)
 endif()
 if(NOT DEFINED EVOLVE_LWIP_INCLUDE_DIRS)
-    set(EVOLVE_LWIP_INCLUDE_DIRS
-        ${ROOT_DIR}/ohos/third_party/lwip/lwip_v2.1.3/src/include
-        ${ROOT_DIR}/ohos/third_party/lwip/lwip_adapter/liteos/src/include)
+    if(DEFINED ROOT_DIR)
+        set(EVOLVE_LWIP_INCLUDE_DIRS
+            ${ROOT_DIR}/ohos/third_party/lwip/lwip_v2.1.3/src/include
+            ${ROOT_DIR}/ohos/third_party/lwip/lwip_adapter/liteos/src/include)
+    else()
+        # Plain-CMake integrator without the fbb ROOT_DIR layout: omit lwip
+        # headers (only TUs that include lwip need them; supply your own via
+        # EVOLVE_LWIP_INCLUDE_DIRS if your tree requires them).
+        set(EVOLVE_LWIP_INCLUDE_DIRS "")
+    endif()
+endif()
+# securec.h location for the musl target's lib/posix sources. The default is
+# the fbb middleware hwsec_c component — it crosses the kernel-repo boundary
+# (middleware/ is an fbb tree), so it is injectable for other integrations.
+# Set empty to omit.
+if(NOT DEFINED EVOLVE_SECUREC_INCLUDE_DIR)
+    set(EVOLVE_SECUREC_INCLUDE_DIR
+        ${EVOLVE_SOURCE_ROOT}/../middleware/utils/hwsec_c/include)
 endif()
 # Prepend the libc++ headers AHEAD of the libc include dirs. libc++ ships its
 # own <stddef.h>/<stdint.h> wrappers in c++/v1: they include_next into the
@@ -284,7 +336,38 @@ set(COMPONENT_CCFLAGS
     "$<$<COMPILE_LANGUAGE:ASM>:-include${_PORT}/include/lm_asm_config.h>"
 )
 
-build_component()
+if(COMMAND build_component)
+    build_component()
+else()
+    # --- standalone / plain-CMake integration --------------------------------
+    # No build_component() infrastructure: any CMake project integrates
+    # liteos_m with a bare add_subdirectory(). Provides the targets the
+    # integration-guide.md quick-start documents:
+    #   liteos_m_kernel          STATIC    — kernel + glue sources (${SOURCES})
+    #   liteos_m_kernel_headers  INTERFACE — public headers/defines for
+    #                                        consumers that only need headers
+    # ABI flags (-march/-mabi/--target) come from the integrator's toolchain
+    # file / CMAKE_C_FLAGS — the same "one ABI with the rest of the firmware"
+    # rule as the fbb path (build_component.cmake:308 there).
+    add_library(liteos_m_kernel STATIC ${SOURCES})
+    target_include_directories(liteos_m_kernel PUBLIC ${PUBLIC_HEADER})
+    # __LITEOS__/__LITEOS_M__ mirror the GN misc_config globals the fbb path
+    # injects through its own ${DEFINES} (target_config.py define list).
+    target_compile_definitions(liteos_m_kernel PUBLIC
+        ${PUBLIC_DEFINES} __LITEOS__ __LITEOS_M__)
+    target_compile_options(liteos_m_kernel PRIVATE ${COMPONENT_CCFLAGS})
+    add_library(liteos_m_kernel_headers INTERFACE)
+    target_include_directories(liteos_m_kernel_headers INTERFACE ${PUBLIC_HEADER})
+    target_compile_definitions(liteos_m_kernel_headers INTERFACE
+        ${PUBLIC_DEFINES} __LITEOS__ __LITEOS_M__)
+    if(LOSCFG_LIBC_MUSL)
+        # musl upstream headers trip -Werror on consumers too — keep the
+        # suppression interface-visible, mirroring the fbb _interface target.
+        target_compile_options(liteos_m_kernel PUBLIC ${COMPONENT_PUBLIC_CCFLAGS})
+        target_compile_options(liteos_m_kernel_headers INTERFACE
+            ${COMPONENT_PUBLIC_CCFLAGS})
+    endif()
+endif()
 
 # liteos_m_musl: isolated include scope (src/include + src/internal musl-only).
 if(LOSCFG_LIBC_MUSL AND EVOLVE_MUSL_SOURCES)
@@ -314,8 +397,9 @@ if(LOSCFG_LIBC_MUSL AND EVOLVE_MUSL_SOURCES)
         ${_PORT}/include
         ${_PORT}/board
         ${_PORT}/board/asm
-        # securec.h: lib/posix sources include it; lives in middleware hwsec_c.
-        ${EVOLVE_SOURCE_ROOT}/../middleware/utils/hwsec_c/include
+        # securec.h: lib/posix sources include it; lives in middleware hwsec_c
+        # (fbb default, injectable via EVOLVE_SECUREC_INCLUDE_DIR).
+        ${EVOLVE_SECUREC_INCLUDE_DIR}
         ${EVOLVE_LIBC_INCLUDE_DIRS}
         ${EVOLVE_LWIP_INCLUDE_DIRS}
         # Full-tree arch dir at the very END (lowest precedence):
@@ -326,11 +410,33 @@ if(LOSCFG_LIBC_MUSL AND EVOLVE_MUSL_SOURCES)
         # bits/alltypes.h and bits/setjmp.h), so no existing
         # include resolution changes.
         ${EVOLVE_MUSL_DIR}/arch/riscv32)
-    target_compile_definitions(liteos_m_musl PRIVATE ${PUBLIC_DEFINES} ${DEFINES})
+    # ${DEFINES} is the fbb global define list (__LITEOS__, CHIP_*, ...). A
+    # plain-CMake integrator has no DEFINES — fall back to the GN misc_config
+    # set (__LITEOS__/__LITEOS_M__), which musl's OH-touched param_check
+    # blocks are gated on.
+    if(DEFINED DEFINES)
+        target_compile_definitions(liteos_m_musl PRIVATE
+            ${PUBLIC_DEFINES} ${DEFINES})
+    else()
+        target_compile_definitions(liteos_m_musl PRIVATE
+            ${PUBLIC_DEFINES} __LITEOS__ __LITEOS_M__)
+    endif()
     # Undef _ALL_SOURCE: features.h turns it into _GNU_SOURCE, which activates
     # stdio.h's `#define fopen64 fopen` and breaks fopen.c's weak_alias.
     target_compile_options(liteos_m_musl PRIVATE
         -U_ALL_SOURCE -U_GNU_SOURCE -U_LARGEFILE64_SOURCE)
+    # Fail fast with an actionable message instead of a wall of compile
+    # errors in lib/posix (every TU includes securec.h).
+    if(LOSCFG_LIBC_MUSL AND NOT EXISTS ${EVOLVE_SECUREC_INCLUDE_DIR}/securec.h)
+        message(WARNING
+            "liteos_m_musl: securec.h not found under "
+            "${EVOLVE_SECUREC_INCLUDE_DIR} —\n"
+            "lib/posix sources include securec.h and will not compile.\n"
+            "Set EVOLVE_SECUREC_INCLUDE_DIR to your securec include dir.")
+    endif()
+    # ${COMPILE_CCFLAGS} is the fbb-propagated global ${CCFLAGS} (ABI options;
+    # build_component.cmake:308). Standalone integrators leave it empty and
+    # provide ABI flags via their toolchain file / CMAKE_C_FLAGS instead.
     # musl upstream code trips -Werror (unparenthesized ops, sign compares,
     # library-function redeclarations). Suppress; musl sources are upstream.
     target_compile_options(liteos_m_musl PRIVATE ${COMPILE_CCFLAGS}

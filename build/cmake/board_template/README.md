@@ -23,7 +23,7 @@ board_template/                  # 复制本目录作为你的 board 胶水目�
 2. 编辑 `include/target_config.h`——**这是功能开关的唯一事实源**：
    时钟、tick、堆、任务/IPC 限额，以及各 `LOSCFG_*` 模块开关
    （`#define LOSCFG_X 1` 编入 / `0` 或不定义剔除）。配置期 gate sync
-   会据此自动增删 `sources.cmake` 里对应模块的源码。
+   会据此自动增删 `sources*.cmake` 里对应模块的源码。
    `kernel_configs/debug.config` 只是 GN/Kconfig 参考片段，本集成路径
    **不读取**——留着供 GN 重新导出快照时参考。
 3. 编辑 `include/target_config.h` 中的分叉守护值——分叉
@@ -40,7 +40,7 @@ board_template/                  # 复制本目录作为你的 board 胶水目�
    直接 `#include` 它（中断控制器的读寄存器/Hart 上下文接口）。3322 参考：
    `src/kernel/liteos_m_port/board/riscv_hal.h`（+ 同目录 `riscv_hal.c`
    板级胶水源，经你的宿主组件或 `EVOLVE_EXTRA_SOURCES` 编入）。
-6. 在你产品的 CMakeLists.txt 中，`add_subdirectory(kernel/liteos_m)` 之前：
+7. 在你产品的 CMakeLists.txt 中，`add_subdirectory(kernel/liteos_m)` 之前：
 
    ```cmake
    set(EVOLVE_BOARD_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/path/to/your_board_dir)
@@ -52,7 +52,7 @@ board_template/                  # 复制本目录作为你的 board 胶水目�
    ```
    工具链/ABI 选项（`-march`/`-mabi`/`--target`/`CHIP_<NAME>=1`）由你的
    toolchain 文件或 `CMAKE_C_FLAGS` 提供，内核不注入。
-7. 构建并对照基线验证大小/符号。
+8. 构建并对照基线验证大小/符号。
 
 ## 参考
 

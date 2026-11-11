@@ -41,8 +41,8 @@ section 收集的自注册代码若确需 whole-archive，只对 `liteos_m_kerne
 
 `LOSCFG_*` 功能开关**只在板头文件**
 `${EVOLVE_BOARD_DIR}/include/target_config.h` 里改。配置期 gate sync
-（`build/cmake/target_config_sync.cmake`）解析 `sources.cmake` 的全部
-模块门禁，并按 `target_config.h` 重置每一个：
+（`build/cmake/target_config_sync.cmake`）解析 `sources*.cmake`（自动
+快照 + 手写契约）的全部模块门禁，并按 `target_config.h` 重置每一个：
 
 | target_config.h | 模块源码 | 编译进代码的宏 |
 |---|---|---|
@@ -77,8 +77,8 @@ GN 基线，供分叉守护对比（见下）。布尔开关不再从快照取�
 | 变量 | 默认值（3322） | 含义 |
 |---|---|---|
 | `EVOLVE_EXTRA_SOURCES` | `los_trap.S`、`riscv_lcmp_clic.c`、`dw_apb_timer.c` | `export_cmake_sources.py` 采集不到的板级专属源（脚本只遍历 `//kernel/liteos_m:libkernel` GN 图；板级 trap/驱动源在其外）。追加到内核源码列表。 |
-| `EVOLVE_EXCLUDE_SOURCES` | `los_memstat.c`、`los_slab.c`、`los_slabmem.c` | 要完全剔除的源——其 `LOSCFG_*` 守护在 `target_config.h` 中缺失，或与 prebuilt 重复。从源码列表移除。空列表保留全部。 |
-| `EVOLVE_MUSL_EXTRA_SOURCES` | vprintf + sprintf/fprintf/ferror/setbuf/qsort/qsort_nr/strpbrk/strcasestr/difftime/mbrlen/mbsrtowcs/mbsnrtowcs/wcsnrtombs + riscv32 setjmp/longjmp | musl link-gap 补源：porting 树缺的 vprintf + 上游 `src/` 全树里快照从不遍历的文件（每文件成因见 `liteos_m/CMakeLists.txt` 注释）。换 musl checkout 或换架构（非 riscv32 必须去掉 setjmp 对）时覆盖。 |
+| `EVOLVE_EXCLUDE_SOURCES` | *空* | 硬排除锤子——无守卫可表达的需求（如与 prebuilt 重复的副本）。3322 的 memstat/slab 剔除已由 `sources_extra.cmake` 的 mem 子树守卫自动完成（`target_config.h` 沉默 → gate sync → OFF）。空列表保留全部。 |
+| `EVOLVE_MUSL_EXTRA_SOURCES` | vprintf + sprintf/fprintf/ferror/setbuf/qsort/qsort_nr/strpbrk/strcasestr/difftime/mbrlen/mbsrtowcs/mbsnrtowcs/wcsnrtombs + riscv32 setjmp/longjmp | musl link-gap 补源：porting 树缺的 vprintf + 上游 `src/` 全树里快照从不遍历的文件（每文件成因见 `build/cmake/sources_extra.cmake` 注释）。换 musl checkout 或换架构（非 riscv32 必须去掉 setjmp 对）时覆盖。 |
 
 ### 模块禁用与分叉守护
 
@@ -94,7 +94,7 @@ GN 基线，供分叉守护对比（见下）。布尔开关不再从快照取�
 | `EVOLVE_LIBC_INCLUDE_DIRS` | porting musl include | libc 头目录（musl）。其他板指向自己的 libc 树；空则省略。 |
 | `EVOLVE_LWIP_INCLUDE_DIRS` | fbb lwip 布局（`${ROOT_DIR}/ohos/...`；无 `ROOT_DIR` 的纯 CMake 工程默认为空） | lwip 头目录。空则省略。 |
 | `EVOLVE_SECUREC_INCLUDE_DIR` | fbb middleware `hwsec_c/include` | `securec.h` 位置（musl 目标的 `lib/posix` 源包含它）。跨出 kernel 仓边界，故可注入；musl 开启且文件缺失时配置期 WARNING。 |
-| `EVOLVE_PUBLIC_DEFINES` | lwip 配置宏 | 所有内核 TU 的额外 `-D` 宏。 |
+| `EVOLVE_PUBLIC_DEFINES` | lwip 配置宏（`LWIP_CONFIG_FILE`/`LWIP_SHARED_CONFIG_FILE`） | 所有内核 TU 的额外 `-D` 宏（kernel/headers/musl 三类目标消费）。整表覆盖；空则省略。 |
 
 ### Board 契约（`EVOLVE_BOARD_DIR`）
 
@@ -131,14 +131,14 @@ GN 基线，供分叉守护对比（见下）。布尔开关不再从快照取�
   ```
   （evolve 的 VFS 已提供 `remove`；musl 副本被剔除。）
 
-  注意：设置 `EVOLVE_EXCLUDE_SOURCES` 会**覆盖** 3322 默认值
-  （memstat/slab 排除项）。若要扩展而非替换，从默认列表起头再追加。
-
 ## 源码列表来源
 
 `build/cmake/sources.cmake` 与 `build/cmake/kconfig_values.cmake` /
 `menuconfig.snapshot.h` 是维护者从 GN 构建图生成的**已提交导出**
 （见 `tools/export_cmake_sources.py`）。下游构建绝不调用 GN。
+手写契约（板级 gap-fill、musl 补源、mem 子树守卫）在伴生的
+`build/cmake/sources_extra.cmake`——重导出只覆盖 `sources.cmake`，
+手工内容绝不能并入自动导出。
 
 由于 board 的 `.config` 决定图中包含哪些模块，导出也快照了
 *已展开*的 Kconfig 状态。若大幅改动 board 配置（开关整个子系统），
@@ -188,13 +188,14 @@ python3 tools/export_cmake_sources.py --gn-out /tmp/out
 
 ```
 EVOLVE_EXTRA_SOURCES       = los_trap.S + riscv_lcmp_clic.c + dw_apb_timer.c
-EVOLVE_EXCLUDE_SOURCES     = los_memstat.c + los_slab.c + los_slabmem.c
+EVOLVE_EXCLUDE_SOURCES     = 空（memstat/slab 经 sources_extra.cmake 守卫自动剔除）
 EVOLVE_MUSL_EXTRA_SOURCES  = vprintf + 13 个上游 src/ 文件 + riscv32 setjmp 对
 EVOLVE_MODULE_DISABLES     = 空（gate sync 按 target_config.h 自动处理）
 EVOLVE_DIVERGE_GUARD       = TICK + TIMESLICE + HWI_PRIO + CPUP + QUEUE_LIMIT
 EVOLVE_LIBC_INCLUDE_DIRS   = porting musl include
 EVOLVE_LWIP_INCLUDE_DIRS   = ${ROOT_DIR}/ohos/third_party/lwip/...
 EVOLVE_SECUREC_INCLUDE_DIR = fbb middleware hwsec_c/include
+EVOLVE_PUBLIC_DEFINES      = LWIP_CONFIG_FILE + LWIP_SHARED_CONFIG_FILE
 ```
 （`CHIP_<NAME>=1` 不在此列——它由集成方 CCFLAGS 提供，内核不注入。）
 

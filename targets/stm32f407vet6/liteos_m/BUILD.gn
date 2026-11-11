@@ -1,0 +1,10 @@
+# STM32F407VET6 LiteOS-M board demo.
+# Modeled on targets/arm_mps2_an386/liteos_m/BUILD.gn.
+
+group("liteos_m") {
+  deps = [ "board" ]
+}
+
+config("public") {
+  configs = [ "board:public" ]
+}

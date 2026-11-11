@@ -102,6 +102,37 @@ HalExcHardFault:
     b       osExcDispatch
     .fnend
 #else
+#ifdef LOSCFG_BOX
+    /* BOX: svc executed with PRIMASK=1 escalates to HardFault;
+     * recognize the 0xDF opcode byte below the stacked pc and
+     * reroute to the syscall entry (refs exception.S rescue).
+     * Hardened against misrouting a genuine fault: the frame must be
+     * on psp (thread context - reading a garbage psp below could double
+     * fault into lockup), PRIMASK must still be set (the mask survives
+     * the escalation, an unmasked fault is real), and the faulting pc
+     * must sit inside COMMON_FLASH - the only region holding svc
+     * instructions (the veneers). A stacked pc from anywhere else that
+     * happens to have 0xDF above it must take the normal dump path. */
+    tst   lr, #0x4
+    beq   90f                        /* frame on msp: handler/init fault */
+    mrs   r0, psp
+    ldr   r0, [r0, #24]              /* frame->pc */
+    mrs   r1, primask
+    tst   r1, #1
+    beq   90f                        /* unmasked: genuine fault */
+    ldr   r1, =__common_text_start
+    cmp   r0, r1
+    bls   90f                        /* pc below COMMON_FLASH */
+    ldr   r1, =__common_text_end
+    cmp   r0, r1
+    bhs   90f                        /* pc above COMMON_FLASH */
+    ldrb  r0, [r0, #-1]              /* high byte of svc imm16 = 0xDF */
+    cmp   r0, #0xDF
+    ldr   r1, =OsExcSvcCall
+    it    eq
+    bxeq  r1
+90:
+#endif
     mov  r0, #OS_EXC_CAUSE_HARDFAULT
     ldr  r2, =OS_NVIC_HFSR
     ldr  r2, [r2]

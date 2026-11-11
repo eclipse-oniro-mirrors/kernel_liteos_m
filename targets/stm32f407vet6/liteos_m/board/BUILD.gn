@@ -1,0 +1,82 @@
+# STM32F407VET6 board build, modeled on arm_mps2_an386/liteos_m/board/BUILD.gn.
+# Trimmed: no fs/net drivers, no shell hooks, no board testcases.
+
+import("//kernel/liteos_m/liteos.gni")
+
+module_name = "bsp_config"
+
+kernel_module(module_name) {
+  asmflags = board_asmflags
+
+  # Section routing for this module only (kernel modules stay default):
+  # LITE_OS_SEC_* -> .kernel.text/.data/.bss, .box.res, .usr.text ... 
+  # All collected by liteos.ld (see los_builddef_target.h mapping).
+  cflags = [
+    "-include",
+    rebase_path("include/los_builddef_target.h"),
+  ]
+
+  sources = [
+    "driver/uart.c",
+    "libc/dprintf.c",
+    "main.c",
+    "startup.s",
+  ]
+
+  if (defined(LOSCFG_BOX)) {
+    # BOX kernel world: kernel-side box sources + the syscalls.h rename
+    # root (module-local on purpose - config("public") propagates through
+    # liteos_m:public into every kernel_module, which would leak the
+    # rename header into the box usr world ahead of its stub root).
+    sources += [
+      "../box/offsets/los_offsets.c",
+      "../box/kernel/los_box_mini.c",
+      "../box/kernel/los_box_mpu.c",
+      "../box/syscalls/los_syscall_table.c",
+      "../box/syscalls/los_syscall_entry.S",
+      "../box/syscalls/los_svc_entry.S",
+      "../box/boxes_cfg/boxes_conf.c",
+    ]
+    configs += [ "$LITEOSTOPDIR/arch/arm/cortex_m:box_syscalls" ]
+    deps = [
+      # box user world (stub syscalls.h root + veneer-linked LOS_xxx)
+      "../box/usr_demo",
+      # asm-offsets regeneration: runs before this module compiles
+      # (los_offsets.c asserts against the freshly generated header)
+      "../box/offsets:gen_box_offsets",
+    ]
+  }
+}
+
+config("public") {
+  include_dirs = [
+    ".",
+    "include",
+    "driver",
+    "../box/kernel",
+    "../box/boxes_cfg",
+  ]
+  ldflags = [
+    "-nostartfiles",
+    "-Wl,-T" + rebase_path("liteos.ld"),
+    "-nostdlib",
+  ]
+
+  if (defined(LOSCFG_BOX)) {
+    ldflags += [ "-Wl,-T" + rebase_path("../box/boxes_cfg/boxes.ld") ]
+  }
+
+  libs = [
+    "nosys",
+    "gcc",
+  ]
+
+  if (defined(LOSCFG_LIBC_NEWLIB)) {
+    ldflags -= [ "-nostdlib" ]
+    libs -= [ "nosys" ]
+    libs += [
+      "c",
+      "m",
+    ]
+  }
+}

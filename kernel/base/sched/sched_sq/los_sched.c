@@ -402,6 +402,12 @@ LosTaskCB *OsSchedStart(VOID)
 
     OsSchedExpireTimeUpdate(newTask, newTask);
 
+#ifdef LOSCFG_BOX
+    /* BOX: enter the first task's MPU view before the initial dispatch,
+     * so ArchStartToRun/__StartUserTask stays pure register loading
+     * (no C call from asm, no PSP dependency). */
+    BoxMpuSwitch(newTask->boxCB);
+#endif
     ArchStartToRun(newTask);
     return newTask;
 }

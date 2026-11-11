@@ -241,6 +241,13 @@ STATIC INLINE VOID OsSchedUnlock(VOID)
     LOS_SpinUnlock(&g_taskSpin);
 }
 
+#ifdef LOSCFG_BOX
+/* BOX: defined in targets/stm32f407vet6/liteos_m/box/kernel/los_box_mpu.c.
+ * Incomplete type on purpose - the full LosBoxCB lives in los_box_pri.h. */
+struct LosBoxCBtag;
+extern VOID BoxMpuSwitch(const struct LosBoxCBtag *boxCB);
+#endif
+
 #ifdef __cplusplus
 #if __cplusplus
 }

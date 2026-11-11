@@ -567,6 +567,13 @@ config BASE_CORE_TSK_DEFAULT_STACK_SIZE
     help
       This represents the task default stack size.
 
+config USER_THREAD_KERNEL_STACK_SIZE
+    int "User Task's Kernel Stack Size"
+    default 2048
+    depends on BOX
+    help
+      This represents the user task's kernel stack size.
+
 config BASE_CORE_TSK_SWTMR_STACK_SIZE
     int "Swtmr Task Stack Size"
     default BASE_CORE_TSK_DEFAULT_STACK_SIZE
@@ -656,6 +663,15 @@ menuconfig BASE_IPC_EVENT
       Enable event module. When disabled, all LOS_Event* APIs are unavailable
       and los_event.c is not compiled into the image.
 
+if BASE_IPC_EVENT
+config EVENT_PERM_MODE
+    int "Event permission manaing mode"
+    default 1
+    depends on BASE_IPC_PERM
+    help
+      0 for public mode, 1 for private mode and 2 for managing mode.
+endif #BASE_IPC_EVENT
+
 menuconfig BASE_IPC_SEM
     bool "Enable Sem"
     default n if KERNEL_RAM_PRESET_TINY
@@ -674,6 +690,13 @@ config BASE_IPC_SEM_LIMIT
     default 6
     help
       This represents the maximum number of semaphores.
+
+config SEM_PERM_MODE
+    int "Semaphore permission manaing mode"
+    default 1
+    depends on BASE_IPC_PERM
+    help
+      0 for public mode, 1 for private mode and 2 for managing mode.
 
 endif # BASE_IPC_SEM
 
@@ -718,6 +741,13 @@ config MUTEX_WAITMODE_PRIO
       Higher priority tasks are inserted before lower priority ones in the wait list.
 endchoice
 
+config MUX_PERM_MODE
+    int "Mutex permission manaing mode"
+    default 1
+    depends on BASE_IPC_PERM
+    help
+      0 for public mode, 1 for private mode and 2 for managing mode.
+
 endif # BASE_IPC_MUX
 
 menuconfig BASE_IPC_QUEUE
@@ -755,6 +785,13 @@ config QUEUE_STATIC_ALLOCATION
     help
       This option will support users to create a queue with static memory.
 
+config QUEUE_PERM_MODE
+    int "Queue permission manaing mode"
+    default 1
+    depends on BASE_IPC_PERM
+    help
+      0 for public mode, 1 for private mode and 2 for managing mode.
+
 endif # BASE_IPC_QUEUE
 
 menuconfig BASE_IPC_RWSEM
@@ -783,6 +820,16 @@ config BASE_IPC_RINGBUF
       the image. Currently consumed by the HPL emulation channel.
 
 endmenu
+
+config BASE_IPC_BOXCALL
+    depends on BOX && TASK_STACK_REUSE
+    bool "Enable Cross-Box Invoking"
+    default n
+
+config BASE_IPC_KERNEL_BOXCALL
+    depends on BOX && !TASK_STACK_REUSE
+    bool "Enable Kernel-to-Box Kernel Invoking"
+    default n
 
 menu "Debug"
     config DEBUG_KERNEL

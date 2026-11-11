@@ -1,0 +1,135 @@
+menu "Box Config"
+
+menu "dbx Config"
+
+config DBX_TASK_LIMIT
+    int "dbx task num"
+    default 3
+
+config DBX_EVENT_LIMIT
+    int "dbx event num"
+    default 3
+
+config DBX_MUX_LIMIT
+    int "dbx mux num"
+    default 3
+
+config DBX_QUEUE_LIMIT
+    int "dbx queue num"
+    default 3
+
+config DBX_SEM_LIMIT
+    int "dbx sem num"
+    default 3
+
+config DBX_SHM_LIMIT
+    int "dbx shm num"
+    default 0
+
+config DBX_SWT_LIMIT
+    int "dbx swt num"
+    default 3
+
+config DBX_COND_LIMIT
+    int "dbx cond num"
+    default 0
+
+config DBX_MQUEUE_LIMIT
+    int "dbx mqueue num"
+    default 0
+
+config DBX_SID_LIMIT
+    int "dbx sid num"
+    default 20
+
+endmenu
+
+menu "appBox Config"
+
+config APPBOX_TASK_LIMIT
+    int "appBox task num"
+    default 10
+
+config APPBOX_EVENT_LIMIT
+    int "appBox event num"
+    default 10
+
+config APPBOX_MUX_LIMIT
+    int "appBox mux num"
+    default 10
+
+config APPBOX_QUEUE_LIMIT
+    int "appBox queue num"
+    default 10
+
+config APPBOX_SEM_LIMIT
+    int "appBox sem num"
+    default 10
+
+config APPBOX_SHM_LIMIT
+    int "appBox shm num"
+    default 0
+
+config APPBOX_SWT_LIMIT
+    int "appBox swt num"
+    default 10
+
+config APPBOX_COND_LIMIT
+    int "appBox cond num"
+    default 4
+
+config APPBOX_MQUEUE_LIMIT
+    int "appBox mqueue num"
+    default 10
+
+config APPBOX_SID_LIMIT
+    int "appBox sid num"
+    default 100
+
+endmenu
+
+menu "thirdBox Config"
+
+config THIRDBOX_TASK_LIMIT
+    int "thirdBox task num"
+    default 3
+
+config THIRDBOX_EVENT_LIMIT
+    int "thirdBox event num"
+    default 3
+
+config THIRDBOX_MUX_LIMIT
+    int "thirdBox mux num"
+    default 3
+
+config THIRDBOX_QUEUE_LIMIT
+    int "thirdBox queue num"
+    default 3
+
+config THIRDBOX_SEM_LIMIT
+    int "thirdBox sem num"
+    default 3
+
+config THIRDBOX_SHM_LIMIT
+    int "thirdBox shm num"
+    default 0
+
+config THIRDBOX_SWT_LIMIT
+    int "thirdBox swt num"
+    default 3
+
+config THIRDBOX_COND_LIMIT
+    int "thirdBox cond num"
+    default 0
+
+config THIRDBOX_MQUEUE_LIMIT
+    int "thirdBox mqueue num"
+    default 0
+
+config THIRDBOX_SID_LIMIT
+    int "thirdBox sid num"
+    default 20
+
+endmenu
+
+endmenu

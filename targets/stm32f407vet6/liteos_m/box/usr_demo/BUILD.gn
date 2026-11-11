@@ -1,0 +1,35 @@
+# Box user-demo module - the USER world of the two-world syscall split.
+# Compiled with the usr-side include root only: los_base.h resolves
+# "kernel/syscalls.h" to the EMPTY stub (syscalls/include_usr), so the
+# LOS_xxx -> SYS_LOS_xxx rename never exists here and box code links the
+# COMMON_TEXT veneers of the plain names. (In refs the user world is a
+# separate build without the kernel config; this module is the one-world
+# equivalent.)
+
+import("//kernel/liteos_m/liteos.gni")
+
+kernel_module("box_usr_demo") {
+  # Same section-routing force-include as bsp_config (LITE_OS_SEC_* ->
+  # .box.res / .boxA.bss / .boxB.bss ...).
+  cflags = [
+    "-include",
+    rebase_path("../../board/include/los_builddef_target.h"),
+  ]
+
+  sources = [
+    "tboxA/boxA_main.c",
+    "tboxB/boxB_main.c",
+  ]
+}
+
+config("public") {
+  include_dirs = [
+    # usr world root: #include "syscalls.h" resolves the user-side
+    # prototypes header. The root carries no kernel/ subdir, so
+    # los_base.h's __has_include("kernel/syscalls.h") stays FALSE in
+    # user TUs - the rename header is unreachable from the user world.
+    rebase_path("//kernel/liteos_m/arch/arm/cortex_m/syscalls/include/usr"),
+    # boxes_conf.h / boxes_res_conf.h / boxes_res_auto.cfg
+    "../boxes_cfg",
+  ]
+}

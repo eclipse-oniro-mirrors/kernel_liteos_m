@@ -137,7 +137,7 @@ typedef struct {
 const SymInfo sym_##func __attribute__((__used__, section(".sym."#func))) = { \
     .name = #func,                                                  \
     .addr = (UINTPTR)func                                           \
-};
+}
 
 /*
  * @brief Load the shared library file named by the NULL-terminated string filename and

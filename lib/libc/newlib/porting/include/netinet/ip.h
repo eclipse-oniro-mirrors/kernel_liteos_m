@@ -43,22 +43,22 @@ struct timestamp {
     uint8_t len;
     uint8_t ptr;
 #if BYTE_ORDER == LITTLE_ENDIAN
-    unsigned int flags:4;
-    unsigned int overflow:4;
+    unsigned int flags : 4;
+    unsigned int overflow : 4;
 #else
-    unsigned int overflow:4;
-    unsigned int flags:4;
+    unsigned int overflow : 4;
+    unsigned int flags : 4;
 #endif
     uint32_t data[9];
-  };
+};
 
 struct iphdr {
 #if BYTE_ORDER == LITTLE_ENDIAN
-    unsigned int ihl:4;
-    unsigned int version:4;
+    unsigned int ihl : 4;
+    unsigned int version : 4;
 #else
-    unsigned int version:4;
-    unsigned int ihl:4;
+    unsigned int version : 4;
+    unsigned int ihl : 4;
 #endif
     uint8_t tos;
     uint16_t tot_len;
@@ -73,11 +73,11 @@ struct iphdr {
 
 struct ip {
 #if BYTE_ORDER == LITTLE_ENDIAN
-    unsigned int ip_hl:4;
-    unsigned int ip_v:4;
+    unsigned int ip_hl : 4;
+    unsigned int ip_v : 4;
 #else
-    unsigned int ip_v:4;
-    unsigned int ip_hl:4;
+    unsigned int ip_v : 4;
+    unsigned int ip_hl : 4;
 #endif
     uint8_t ip_tos;
     uint16_t ip_len;
@@ -99,11 +99,11 @@ struct ip_timestamp {
     uint8_t ipt_len;
     uint8_t ipt_ptr;
 #if BYTE_ORDER == LITTLE_ENDIAN
-    unsigned int ipt_flg:4;
-    unsigned int ipt_oflw:4;
+    unsigned int ipt_flg : 4;
+    unsigned int ipt_oflw : 4;
 #else
-    unsigned int ipt_oflw:4;
-    unsigned int ipt_flg:4;
+    unsigned int ipt_oflw : 4;
+    unsigned int ipt_flg : 4;
 #endif
     uint32_t data[9];
 };

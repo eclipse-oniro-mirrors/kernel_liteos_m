@@ -189,16 +189,18 @@ typedef struct {
  *
  * @attention
  * <ul>
- * <li>If the starting address of a memory pool is specified, the start address of the non-continuous memory regions should be
- *  greater than the end address of the memory pool.</li>
+ * <li>If the starting address of a memory pool is specified, the start address of the non-continuous memory regions
+ *  should be greater than the end address of the memory pool.</li>
  * <li>The multiple non-continuous memory regions shouldn't conflict with each other.</li>
  * </ul>
  *
- * @param pool           [IN] The memory pool address. If NULL is specified, the start address of first memory region will be
- *                            initialized as the memory pool address. If not NULL, it should be a valid address of a memory pool.
- * @param memRegions     [IN] The LosMemRegion array that contains multiple non-continuous memory regions. The start address
- *                           of the memory regions are placed in ascending order.
- * @param memRegionCount [IN] The count of non-continuous memory regions, and it should be the length of the LosMemRegion array.
+ * @param pool           [IN] The memory pool address. If NULL is specified, the start address of first memory region
+ *                            will be initialized as the memory pool address. If not NULL, it should be a valid address
+ *                            of a memory pool.
+ * @param memRegions     [IN] The LosMemRegion array that contains multiple non-continuous memory regions. The start
+ *                           address of the memory regions are placed in ascending order.
+ * @param memRegionCount [IN] The count of non-continuous memory regions, and it should be the length of the
+ *                           LosMemRegion array.
  *
  * @retval #LOS_NOK    The multiple non-continuous memory regions fails to be initialized.
  * @retval #LOS_OK     The multiple non-continuous memory regions is initialized successfully.
@@ -239,7 +241,7 @@ typedef struct {
  * <li>The size parameter value should match the following two conditions :
  * 1) Be less than or equal to the Memory pool size;
  * 2) Be greater than the size of OS_MEM_MIN_POOL_SIZE.</li>
- * <li>Call this API when dynamic memory needs to be initialized during the startup of Huawei LiteOS.</li>
+ * <li>Call this API when dynamic memory needs to be initialized during the startup of LiteOS.</li>
  * <li>The parameter input must be four byte-aligned.</li>
  * <li>The init area [pool, pool + size] should not conflict with other pools.</li>
  * </ul>
@@ -674,7 +676,7 @@ extern UINT32 LOS_MemMusedGet(UINT32 moduleId);
  * <li>The size parameter value should match the following two conditions :
  * 1) Be less than or equal to the Memory pool size;
  * 2) Be greater than the size of OS_MEM_MIN_POOL_SIZE.</li>
- * <li>Call this API when dynamic memory needs to be initialized during the startup of Huawei LiteOS.</li>
+ * <li>Call this API when dynamic memory needs to be initialized during the startup of LiteOS.</li>
  * <li>The parameter input must be OS_MEM_ALIGN_SIZE byte-aligned.</li>
  * <li>The init area [pool, pool + size] should not conflict with other pools.</li>
  * </ul>

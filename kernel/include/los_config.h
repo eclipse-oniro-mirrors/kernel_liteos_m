@@ -649,15 +649,6 @@ extern UINTPTR g_sys_mem_addr_end;
 #define LOSCFG_KERNEL_PRINTF                                1
 #endif
 
-/* Dynamic buffer extension for long outputs (>256 bytes).
- * Default ON, matching self_src. When OsVprintf buffer is not enough,
- * LOS_MemAlloc doubles the buffer. NULL guard prevents infinite loop
- * if LOS_MemAlloc fails (e.g. during early boot before OsMemSystemInit). 
- */
-#ifndef LOSCFG_KERNEL_PRINTF_SIZE_EXTEND
-/* #define LOSCFG_KERNEL_PRINTF_SIZE_EXTEND  -- default off; enable in target_config.h if needed */
-#endif
-
 /* =============================================================================
                                        misc configuration
 ============================================================================= */
@@ -734,7 +725,7 @@ extern UINTPTR g_sys_mem_addr_end;
 #endif
 
 /*
- * TODO: Temporary‌ use only. When all boards support initcall, we can delete it.
+ * Temporary use only. When all boards support initcall, we can delete it.
  * Set to 1 to use initcall mechanism (OsMain), 0 to use flat LOS_KernelInit
  */
 #ifndef LOSCFG_KERNEL_INITCALL

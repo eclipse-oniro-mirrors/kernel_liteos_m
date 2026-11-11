@@ -94,7 +94,8 @@ STATIC INLINE BOOL ValidTimeSpec(const struct timespec *tp)
 
 STATIC INLINE UINT32 OsTimeSpec2Tick(const struct timespec *tp)
 {
-    UINT64 tick, ns;
+    UINT64 tick;
+    UINT64 ns;
 
     ns = (UINT64)tp->tv_sec * OS_SYS_NS_PER_SECOND + tp->tv_nsec;
     /* Round up for ticks */

@@ -258,8 +258,8 @@ enum LOS_MODULE_ID {
  * @brief Error handling macro capable of returning error codes.
  *
  * @par Description:
- * This API is used to call the error handling function by using an error code and the line number of the erroneous line,
-   and return the same error code.
+ * This API is used to call the error handling function by using an error code and the line number of the erroneous
+ * line, and return the same error code.
  * @attention
  * <ul>
  * <li>None.</li>

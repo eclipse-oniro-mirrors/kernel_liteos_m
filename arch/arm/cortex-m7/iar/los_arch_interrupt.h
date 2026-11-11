@@ -64,12 +64,6 @@ extern "C" {
 
 /* *
  * @ingroup los_arch_interrupt
- * Boot interrupt vector table.
- */
-extern UINT32 _BootVectors[];
-
-/* *
- * @ingroup los_arch_interrupt
  * Count of M-Core system interrupt vector.
  */
 #define OS_SYS_VECTOR_CNT                     16

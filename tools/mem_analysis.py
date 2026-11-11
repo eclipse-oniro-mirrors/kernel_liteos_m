@@ -22,17 +22,18 @@ import argparse
 import os
 import datetime
 
-g_version = 2.5
+VERSION = 2.5
 g_excel_support = False
 g_row_num = 0
 
 try:
     from openpyxl import Workbook
-except:
+except Exception:
     print("excel output is not support, need install openpyxl")
 else:
     g_excel_support = True
     
+
 def is_number(num):
     try:
         int(num, 16)
@@ -42,20 +43,23 @@ def is_number(num):
     return False
 
 static_map = {}
-def storage_static_data(offset, section, sizeHex, symbol, lib, obj):
+
+
+def storage_static_data(offset, section, size_hex, symbol, lib, obj):
     global g_row_num
     if (0 == g_row_num):
-        static_map[g_row_num] = {'offsets' : "offsets", 'section' : "section",\
-            'sizeH' : "size(Hex)", 'sizeD' : "size(Dec)",\
-            'symbol' : "symbol", 'lib' : "lib", 'obj' : "object"}
+        static_map[g_row_num] = {'offsets': "offsets", 'section': "section", \
+            'sizeH': "size(Hex)", 'sizeD': "size(Dec)", \
+            'symbol': "symbol", 'lib': "lib", 'obj': "object"}
         g_row_num = g_row_num + 1
     
-    size = int(sizeHex, 16)
-    static_map[g_row_num] = {'offsets': offset, 'section' : section,\
-            'sizeH' : sizeHex, 'sizeD' : size,\
-            'symbol' : symbol, 'lib' : lib, 'obj' : obj}
+    size = int(size_hex, 16)
+    static_map[g_row_num] = {'offsets': offset, 'section': section, \
+            'sizeH': size_hex, 'sizeD': size, \
+            'symbol': symbol, 'lib': lib, 'obj': obj}
     g_row_num = g_row_num + 1
  
+
 def store_static_excel():
     wb = Workbook()
     ws = wb.active
@@ -77,6 +81,7 @@ def store_static_excel():
     wb.save('static_symbol-%s.xlsx' % datetime.datetime.now().strftime('%Y-%m-%d %H_%M_%S'))
     return
 
+
 def format_store_static():
     global g_excel_support
     target_list = []
@@ -97,22 +102,28 @@ def format_store_static():
     
 dync_map = {}
 #dync map multiple LR, first dync_map node will record LR size 
+
+
 def storage_dync_head(size):
     global g_row_num
-    dync_map[0] = {'addr' : "Memnode", 'symbol' : "size", 'lib' : size}
+    dync_map[0] = {'addr': "Memnode", 'symbol': "size", 'lib': size}
     g_row_num = 1
 
 #when the analysis of one line LR is finished, need record "\r\n" and the new line info
+
+
 def storage_dync_node(node_addr, size):
     global g_row_num
-    dync_map[g_row_num] = {'addr' : "\r\n", 'symbol' : node_addr, 'lib' : size}
+    dync_map[g_row_num] = {'addr': "\r\n", 'symbol': node_addr, 'lib': size}
     g_row_num = g_row_num + 1
+
 
 def storage_dync_data(addr, symbol, lib):
     global g_row_num
-    dync_map[g_row_num] = {'addr' : addr, 'symbol' : symbol, 'lib' : lib}
+    dync_map[g_row_num] = {'addr': addr, 'symbol': symbol, 'lib': lib}
     g_row_num = g_row_num + 1
     
+
 def store_dync_excel():
     wb = Workbook()
     ws = wb.active
@@ -155,6 +166,7 @@ def store_dync_excel():
     wb.save('dync_mem-%s.xlsx' % datetime.datetime.now().strftime('%Y-%m-%d %H_%M_%S'))
     return
 
+
 def format_store_dync():
     global g_excel_support
     target_list = []
@@ -184,21 +196,25 @@ def format_store_dync():
     return
 
 address_map = {}
+
+
 def get_func_by_name(function_name):
     for base_address, values in address_map.items():
         if values.get('func_name') == function_name:
             return values.get('lib_name'), values.get('obj_name')
     return "none", "none" 
 
+
 def get_func_by_address(address):
     if 0 == address:
         return "none", "none"
 
     for base_address, values in address_map.items():
-        if (base_address <= address) and (base_address  + values.get('size') > address):
+        if (base_address <= address) and (base_address + values.get('size') > address):
             return values.get('func_name'), values.get('obj_name')
     return "none", "none"
     
+
 def line_start_check(line):
     if line.startswith(' .text.'):
         function_name = line.split(".text.")[1]
@@ -214,61 +230,56 @@ def line_start_check(line):
         return None
     return function_name
     
+
+def parse_symbol_entry(strs):
+    """解析符号表一行: 返回 (func_name, obj_name, lib_name)。"""
+    func_name = strs[0].strip()
+    found = re.findall(r'[(](.*?)[)]', strs[-1], re.S)
+    obj_name = found[0] if found else strs[-1]
+    parts = strs[-1].split('(')
+    lib_name = parts[0].split('/')[-1] if len(parts) > 1 else "none"
+    return func_name, obj_name, lib_name
+
+
+def store_symbol_line(line, prev_name):
+    """解析符号行并存储到 address_map; 返回 (function_name, new_parse_begin)。"""
+    symbol = line_start_check(line)
+    if symbol is None:
+        return prev_name, False
+    strs = symbol.split()
+    if len(strs) <= 1:
+        return prev_name, True
+    name, obj_name, lib_name = parse_symbol_entry(strs)
+    address = int(strs[1], 16)
+    size = int(strs[2], 16)
+    address_map[address] = {'size': size, 'lib_name': lib_name,
+        'obj_name': obj_name, 'func_name': name}
+    return name, False
+
+
+def store_map_entry(line, function_name):
+    """解析3列map续行并存储到 address_map。"""
+    strs = line.split()
+    if len(strs) != 3:
+        return
+    _, obj_name, lib_name = parse_symbol_entry(strs)
+    address = int(strs[0], 16)
+    size = int(strs[1], 16)
+    address_map[address] = {'size': size, 'lib_name': lib_name,
+        'obj_name': obj_name, 'func_name': function_name.strip()}
+
+
 def parse_map(file_path):
     parse_begin = False
     function_name = ""
-    address = None
-    size = None
-    obj_name = ""
-    lib_name = ""
-    pl = re.compile(r'[(](.*?)[)]', re.S)
     with open(file_path, "r") as f:
         for line in f.readlines():
             if not parse_begin:
-                function_name = line_start_check(line)
-                if function_name != None:
-                    if len(function_name.split()) > 1:
-                        strs = function_name.split()
-                        function_name = strs[0]
-                        function_name = function_name.strip()
-                        address = int(strs[1], 16)
-                        size = int(strs[2], 16)
-                        obj_name = re.findall(pl, strs[3])
-                        if len(obj_name) > 0:
-                            obj_name = obj_name[0]
-                        else:
-                            obj_name = strs[3]
-                        char_temp = strs[3].split('(')
-                        if len(char_temp) > 1:
-                            lib_name = char_temp[0].split('/')[-1]
-                        else:
-                            lib_name = "none"
-                        address_map[address] = {'size' : size, 'lib_name' : lib_name, \
-                            'obj_name' : obj_name, 'func_name' : function_name}
-                    else:
-                        parse_begin = True
-                else:
-                    continue
+                function_name, parse_begin = store_symbol_line(line, function_name)
             else:
                 parse_begin = False
-                if len(line.strip().split()) != 3:
-                    continue
-                strs = line.strip().split()
-                address = int(strs[0], 16)
-                size = int(strs[1], 16)
-                obj_name = re.findall(pl, strs[2])
-                if len(obj_name) > 0:
-                    obj_name = obj_name[0]
-                else:
-                    obj_name = strs[2]
-                function_name = function_name.strip()
-                char_temp = strs[2].split('(')
-                if len(char_temp) > 1:
-                    lib_name = char_temp[0].split('/')[-1]
-                else:
-                    lib_name = "none"
-                address_map[address] = {'size' : size, 'lib_name' : lib_name, \
-                    'obj_name' : obj_name, 'func_name' : function_name}
+                store_map_entry(line.strip(), function_name)
+
 
 def parse_dump(dump_path):
     with open(dump_path, "r") as symbol_fd:
@@ -290,6 +301,18 @@ def parse_dump(dump_path):
         lib, obj = get_func_by_name(symbol_list[-1])
         storage_static_data(offset, sec, size, symbol_list[-1], lib, obj)
 
+
+def store_dync_log_fields(char_list, mem_addr):
+    """存储一条动态内存日志的有效字段: 首字段为节点地址, 其后为调用链。"""
+    for i, item in enumerate(char_list):
+        if i == 0:
+            size = int(char_list[1], 16)
+            storage_dync_node(mem_addr[0], size)
+        if i > 1:
+            symbol, lib = get_func_by_address(int(item, 16))
+            storage_dync_data(item, symbol, lib)
+
+
 def parse_log(log_path):
     with open(log_path, "r") as log_fd:
         logline = log_fd.readlines()
@@ -306,19 +329,14 @@ def parse_log(log_path):
         if True == get_valid_log:
             mem_addr = char_list[0].split(':')
             if True == is_number(mem_addr[0]):
-                for i in range(len(char_list)):
-                    if i == 0:
-                        size = int(char_list[1], 16)
-                        storage_dync_node(mem_addr[0], size)
-                    if i > 1:
-                        symbol, lib = get_func_by_address(int(char_list[i], 16))
-                        storage_dync_data(char_list[i], symbol, lib)
+                store_dync_log_fields(char_list, mem_addr)
             else:
                 get_valid_log = False
                 continue
 
+
 def main():
-    print("memory parses tool ver.%2f\r\n" % g_version)
+    print("memory parses tool ver.%2f\r\n" % VERSION)
     parser = argparse.ArgumentParser()
     parser.add_argument('--m', help='map path.')
     parser.add_argument('--l', help='dynamic mem log path.')    
@@ -326,14 +344,14 @@ def main():
     args = parser.parse_args()
     
     print("map path: %s\r\n" % args.m)
-    if args.m == None :
+    if args.m is None:
         print("arg error, input -h get the help list\r\n")
         return
 
     parse_map(args.m)
 
     print("dump path: %s" % args.d)
-    if args.d != None :
+    if args.d is not None:
         parse_dump(args.d)
         format_store_static()
     else:
@@ -341,7 +359,7 @@ def main():
         print("you can enter the objdump -t command under the linux shell to obtain dump information\r\n")
     
     print("log path: %s" % args.l)
-    if args.l != None :
+    if args.l is not None:
         parse_log(args.l)
         format_store_dync()
     else:

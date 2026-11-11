@@ -1,7 +1,6 @@
 /* ----------------------------------------------------------------------------
  * Copyright (c) Huawei Technologies Co., Ltd. 2020-2020. All rights reserved.
  * Description: Time64 file
- * Author: Huawei LiteOS Team
  * Create: 2020-08-28
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:

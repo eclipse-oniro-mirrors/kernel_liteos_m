@@ -147,12 +147,12 @@ extern SPIN_LOCK_S g_memSpin;
     if (!(((struct OsMemPoolHead *)(pool))->info.attr & OS_MEM_POOL_UNLOCK_ENABLE)) { \
         LOS_SpinLockSave(&g_memSpin, &(state));             \
     }                                                       \
-} while (0);
+} while (0)
 #define MEM_UNLOCK(pool, state)     do {                    \
     if (!(((struct OsMemPoolHead *)(pool))->info.attr & OS_MEM_POOL_UNLOCK_ENABLE)) { \
         LOS_SpinUnlockRestore(&g_memSpin, state);           \
     }                                                       \
-} while (0);
+} while (0)
 #endif
 
 extern UINTPTR g_sys_mem_addr_end;

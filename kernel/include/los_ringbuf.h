@@ -97,7 +97,6 @@ typedef struct {
  * @par Dependency:
  * <ul><li>los_ringbuf.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_RingbufInit
- * @since Huawei LiteOS V200R005C10
  */
 extern UINT32 LOS_RingbufInit(Ringbuf *ringbuf, CHAR *fifo, UINT32 size, RingbufFlag flag);
 
@@ -117,7 +116,6 @@ extern UINT32 LOS_RingbufInit(Ringbuf *ringbuf, CHAR *fifo, UINT32 size, Ringbuf
  * @par Dependency:
  * <ul><li>los_ringbuf.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_RingbufReset
- * @since Huawei LiteOS V200R005C10
  */
 extern VOID LOS_RingbufReset(Ringbuf *ringbuf);
 
@@ -139,7 +137,6 @@ extern VOID LOS_RingbufReset(Ringbuf *ringbuf);
  * @par Dependency:
  * <ul><li>los_ringbuf.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_RingbufWrite
- * @since Huawei LiteOS V200R005C10
  */
 extern UINT32 LOS_RingbufWrite(Ringbuf *ringbuf, const CHAR *buf, UINT32 size);
 
@@ -161,7 +158,6 @@ extern UINT32 LOS_RingbufWrite(Ringbuf *ringbuf, const CHAR *buf, UINT32 size);
  * @par Dependency:
  * <ul><li>los_ring.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_RingbufRead
- * @since Huawei LiteOS V200R005C10
  */
 extern UINT32 LOS_RingbufRead(Ringbuf *ringbuf, CHAR *buf, UINT32 size);
 
@@ -183,7 +179,6 @@ extern UINT32 LOS_RingbufRead(Ringbuf *ringbuf, CHAR *buf, UINT32 size);
  * @par Dependency:
  * <ul><li>los_ring.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_RingbufPeek
- * @since Huawei LiteOS V200R006C20
  */
 extern UINT32 LOS_RingbufPeek(Ringbuf *ringbuf, CHAR *buf, UINT32 size);
 
@@ -203,7 +198,6 @@ extern UINT32 LOS_RingbufPeek(Ringbuf *ringbuf, CHAR *buf, UINT32 size);
  * @par Dependency:
  * <ul><li>los_ringbuf.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_RingbufUsedSize
- * @since Huawei LiteOS V200R005C10
  */
 extern UINT32 LOS_RingbufUsedSize(Ringbuf *ringbuf);
 

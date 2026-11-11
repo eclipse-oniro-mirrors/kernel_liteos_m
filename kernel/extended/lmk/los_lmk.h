@@ -105,7 +105,8 @@ typedef UINT32 (*RestoreKilledTask)(VOID);
 
 typedef struct {
     UINT32 priority;             /**< The priority in the LMK list, the higher priority with a smaller number. */
-    UINT32 (*freeMem)(VOID);     /**< Release the memory of tasks in the LMK list. Return LOS_OK for a successful release. */
+    UINT32 (*freeMem)(VOID);     /**< Release the memory of tasks in the LMK list.
+                                      Return LOS_OK for a successful release. */
     UINT32 (*restoreTask)(VOID); /**< Restore the tasks killed by freeMem(). Return LOS_OK for a successful restore. */
     LOS_DL_LIST node;            /**< LosLmkOpsNode node.  */
 } LosLmkOpsNode;

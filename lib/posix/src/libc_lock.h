@@ -1,7 +1,6 @@
 /* ----------------------------------------------------------------------------
- * Copyright (c) Huawei Technologies Co., Ltd. 2021-2021. All rights reserved.
+ * Copyright (c) 2021-2021 Huawei Technologies Co., Ltd. All rights reserved.
  * Description: LiteOS libc lock adapt for morpheus liteos_m
- * Author: Huawei LiteOS Team
  * Create: 2021-06-10
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -33,8 +32,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-/* recursive libc lock, adapted from fbb lib/liteos_libc/lock/libc_lock_adapt.h,
- * implemented with lazy-init LOS recursive mux (LosMuxCB muxCount). */
+/* recursive libc lock, implemented with lazy-init LOS recursive mux (LosMuxCB muxCount). */
 #define LIBC_LOCK_INITIALIZER ((unsigned int)-1)
 #define LIBC_LOCK_INIT(x) volatile unsigned int x = LIBC_LOCK_INITIALIZER
 #define LIBC_LOCK(x) LibcLock(&(x))

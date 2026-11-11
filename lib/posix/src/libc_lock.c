@@ -1,7 +1,6 @@
 /* ----------------------------------------------------------------------------
  * Copyright (c) Huawei Technologies Co., Ltd. 2021-2021. All rights reserved.
  * Description: LiteOS libc lock adapt for morpheus liteos_m
- * Author: Huawei LiteOS Team
  * Create: 2021-06-10
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:

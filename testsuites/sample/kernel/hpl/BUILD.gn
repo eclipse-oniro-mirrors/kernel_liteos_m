@@ -39,11 +39,17 @@ static_library("test_hpl") {
     "It_los_hpl_012.c",
     "It_los_hpl_013.c",
     "It_los_hpl_014.c",
+    "It_los_hpl_015.c",
     "It_los_hpl_021.c",
     "It_los_hpl_022.c",
     "It_los_hpl_023.c",
     "It_los_hpl_024.c",
     "It_los_hpl_031.c",
+    "It_los_hpl_041.c",
+    "It_los_hpl_042.c",
+    "It_los_hpl_043.c",
+    "It_los_hpl_044.c",
+    "It_los_hpl_045.c",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

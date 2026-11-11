@@ -84,8 +84,35 @@ VOID TestHplPrepare(VOID)
     (VOID)LOS_HplSetLogLevel(HPL_TEST_LOG_LEVEL);
 }
 
+/* Raw stream capture for the byte-layout verification cases. */
+UINT8 g_hplProbeBuf[HPL_PROBE_BUF_SIZE];
+volatile UINT32 g_hplProbeBytes = 0;
+
+/* Combined hook: delegates to TestHplRecordHook so the shared statistics stay
+ * correct for the surrounding cases, then appends the stream bytes to the
+ * capture buffer (capacity guarded). ARGS_RECORD_FUNC, compress task context. */
+UINT32 TestHplProbeHook(const UINT8 *buf, UINT32 size)
+{
+    (VOID)TestHplRecordHook(buf, size);
+    if ((buf == NULL) || (size == 0)) {
+        return LOS_OK;
+    }
+    if ((g_hplProbeBytes + size) > HPL_PROBE_BUF_SIZE) {
+        return LOS_OK;
+    }
+    if (memcpy_s(&g_hplProbeBuf[g_hplProbeBytes], HPL_PROBE_BUF_SIZE - g_hplProbeBytes,
+                 buf, size) != EOK) {
+        return LOS_OK;
+    }
+    g_hplProbeBytes += size;
+    return LOS_OK;
+}
+
 VOID ItSuiteLosHpl(void)
 {
+    /* ItLosHpl045 must stay the first HPL case: it reproduces the no-hook
+     * boot window (problem 20261102_165607) and self-asserts the ordering. */
+    ItLosHpl045();
     ItLosHpl001();
     ItLosHpl002();
     ItLosHpl003();
@@ -95,9 +122,14 @@ VOID ItSuiteLosHpl(void)
     ItLosHpl012();
     ItLosHpl013();
     ItLosHpl014();
+    ItLosHpl015();
     ItLosHpl021();
     ItLosHpl022();
     ItLosHpl023();
     ItLosHpl024();
     ItLosHpl031();
+    ItLosHpl041();
+    ItLosHpl042();
+    ItLosHpl043();
+    ItLosHpl044();
 }

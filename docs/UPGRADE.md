@@ -20,11 +20,13 @@
 
 | 产物 | 携带内容 |
 |---|---|
-| `build/cmake/sources.cmake` | 源码列表（79 引用，6 个模块守护 `if(LOSCFG_*)` 块） |
-| `build/cmake/kconfig_values.cmake` | 79 个 `LOSCFG_*` CMake 变量（GN 展开） |
+| `build/cmake/sources.cmake` | 源码列表（281 条目，9 个模块守护 `if(LOSCFG_*)` 块） |
+| `build/cmake/kconfig_values.cmake` | 84 个 `LOSCFG_*` CMake 变量（GN 展开） |
 | `build/cmake/menuconfig.snapshot.h` | 同值 C 宏（参考快照，**不**注入） |
 
 **提交这三个文件。** 它们是构建关于"编译哪些文件、哪些模块开启"的真理来源。
+手写契约（gap-fill、musl 补源、mem 子树守卫）在 `build/cmake/sources_extra.cmake`
+——**不在导出之列**，重导出不会触碰它。
 
 ---
 
@@ -54,7 +56,7 @@ GN 基线与 fbb 调优的 `target_config.h` 在 5 个关键时序/容量值上�
 
 ## 阶段 3 —— Gap-fill 源码（3 点，人工）
 
-`sources.cmake` 只采集 GN 图中从 `//kernel/liteos_m:libkernel` 可达的源。3 个 3322 专属源不在该图中，在 `liteos_m/CMakeLists.txt` 中经 `EVOLVE_EXTRA_SOURCES` 变量手工追加（默认值 = 下列 3 源；板级经变量覆盖）：
+`sources.cmake` 只采集 GN 图中从 `//kernel/liteos_m:libkernel` 可达的源。3 个 3322 专属源不在该图中，在 `build/cmake/sources_extra.cmake` 经 `EVOLVE_EXTRA_SOURCES` 变量手工追加（默认值 = 下列 3 源；板级经变量覆盖）：
 
 | 源 | gap-fill 原因 |
 |---|---|
@@ -90,36 +92,37 @@ grep -n "stdint" arch/risc-v/include/arch/cache.h
 
 模块的开/关**不再**由 `EVOLVE_MODULE_DISABLES` 手工清单维护：
 `liteos_m/CMakeLists.txt` 配置期运行 gate sync
-（`build/cmake/target_config_sync.cmake`），把 `sources.cmake` 里每个
-`if(LOSCFG_*)` 门禁重置为 `target_config.h` 的值：
+（`build/cmake/target_config_sync.cmake`），把 `sources*.cmake`（自动
+快照 + 手写契约）里每个 `if(LOSCFG_*)` 门禁重置为 `target_config.h` 的值：
 
 | `target_config.h` | 模块源码 |
 |---|---|
 | `#define LOSCFG_X 1` | 编入 |
 | `#define LOSCFG_X 0` / 未定义 | 剔除（与 los_config.h 默认 OFF 语义一致） |
 
-3322 现状：SIGNAL / PLATFORM_EXC 在 `target_config.h` 中未定义 → 自动剔除
-（`EVOLVE_MODULE_DISABLES` 默认已置空，仅作集成方强制关停锤保留）。
+3322 现状：SIGNAL / PLATFORM_EXC / MEM_TASK_STAT / SLAB_EXTENTION 在
+`target_config.h` 中未定义 → 自动剔除（`EVOLVE_MODULE_DISABLES` 默认已
+置空，仅作集成方强制关停锤保留；mem 子树守卫见阶段 5）。
 
 **重新生成后操作**：确认配置输出出现一行
 `liteos_m gate sync: N module gates ... target_config.h`，且 N 覆盖
-`sources.cmake` 的全部门禁。若升级**新增**了带 `LOSCFG_*` 守卫的模块组，
+`sources*.cmake` 的全部门禁。若升级**新增**了带 `LOSCFG_*` 守卫的模块组，
 同步会在下个构建自动跟随 `target_config.h`——但要人工确认该开关在
 `target_config.h` 中的取值符合预期（新符号默认未定义 = 关）。
 
 ---
 
-## 阶段 5 —— 源码排除（3 点，人工）
+## 阶段 5 —— mem 子树守卫（3 点，人工）
 
-`liteos_m/CMakeLists.txt` 经 `EVOLVE_EXCLUDE_SOURCES` 变量移除 3 个源（默认值 = 下列 3 源；板级覆盖）。它们依赖 `target_config.h` 置 0 或未定义的配置项：
+`kernel/base/BUILD.gn` 在目标内部按 `if(defined(LOSCFG_*))` 守护这 3 个源，`gn desc` 导出时被基线求值掉（3322 开 → 平铺进快照）。`build/cmake/sources_extra.cmake` 把它们从快照摘出、按原守卫放回；`target_config.h` 沉默的板（含 3322）经 gate sync 自动剔除——`EVOLVE_EXCLUDE_SOURCES` 默认已退役为空，仅作硬排除锤子保留。
 
-| 排除的源 | 所需守护 |
+| 摘出重守卫的源 | 守卫 |
 |---|---|
-| `kernel/base/mem/common/memstat/los_memstat.c` | `LOSCFG_MEM_TASK_STAT`（未定义） |
-| `kernel/base/mem/slab/los_slab.c` | `LOSCFG_KERNEL_MEM_SLAB_EXTENTION`（未定义；`LOSCFG_KERNEL_MEM_SLAB=0`） |
-| `kernel/base/mem/slab/los_slabmem.c` | `SLAB_MEM_COUNT` / `LosSlabControlHeader`（同守护） |
+| `kernel/base/mem/common/memstat/los_memstat.c` | `LOSCFG_MEM_TASK_STAT` |
+| `kernel/base/mem/slab/los_slab.c` | `LOSCFG_KERNEL_MEM_SLAB_EXTENTION` |
+| `kernel/base/mem/slab/los_slabmem.c` | `LOSCFG_KERNEL_MEM_SLAB_EXTENTION`（同上） |
 
-**重新生成后操作**：确认 `CMakeLists.txt` 的 `EVOLVE_EXCLUDE_SOURCES` 默认值仍匹配真实路径（上游可能移动了文件）。若构建在某个守护后的未知类型上失败，将新文件加入排除列表。若 `target_config.h` 现在定义了这些守护之一，移除对应排除项（让该源编译）。
+**重新生成后操作**：确认 `sources_extra.cmake` 里这 3 个路径仍匹配真实文件（上游可能移动了文件）。路径失配时 `REMOVE_ITEM` 静默无效：守卫 OFF 的板会让旧路径文件平铺回编译列表（静默漂移，靠阶段 6 大小基线兜底）；守卫 ON 的板在 `add_library` 处配置期报错（当场可见）。上游移动了文件就同步更新守卫路径。
 
 ---
 
@@ -140,7 +143,7 @@ cd src && python3 build.py diting-community-kernel-lm
 构建失败时：
 - **重定义错误** → 阶段 3（gap-fill 重复）或模块被 gate sync 误开
   （查 `target_config.h` 对应开关）。
-- **`#ifdef` 后未声明标识符** → 阶段 5（新源需排除，或 `target_config.h` 需加守护）。
+- **`#ifdef` 后未声明标识符** → 阶段 5（`EVOLVE_EXCLUDE_SOURCES` 排除，或 `target_config.h` 加守护）。
 - **CLIC `#error LOSCFG_HWI_PRIO_LIMIT exceeds…`** → 阶段 2（HWI_PRIO 覆盖丢失）。
 
 ---
@@ -173,8 +176,8 @@ cd src && python3 build.py diting-community-kernel-lm
 | 9 | 3 | gap-fill 3 源不在 sources.cmake | 人工 |
 | 10 | 3 | fork cache.h 的 stdint 本地补丁仍在 | 人工 |
 | 11 | 4 | gate sync 覆盖全部门禁且取值符合预期 | **sync** + 人工 |
-| 12 | 5 | 3 个源排除仍匹配路径 | 人工 |
-| 13 | 5 | target_config.h 排除项守护未变 | 人工 |
+| 12 | 5 | mem 守卫路径（sources_extra.cmake）仍匹配 | 人工 |
+| 13 | 5 | mem 守卫在 target_config.h 的取值符合预期 | 人工 |
 | 14 | 6 | application.bin 字节级 sanity | 人工 |
 
 点 4–8 现已配置期强制；点 11 由 gate sync 自动执行、取值需人工确认；其余仍为人工。

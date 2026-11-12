@@ -37,6 +37,11 @@
 #include "los_arch_regs.h"
 #endif
 
+#ifdef LOSCFG_BOX
+#include "los_box_pri.h"   /* LosBoxCB: box user-stack bounds for backtrace */
+#include "los_offsets.h"   /* generated: OS_TASK_STATUS_INUSER */
+#endif
+
 #if (LOSCFG_BACKTRACE_TYPE != 0)
 /* When non-NULL, backtrace helpers use this task's stack boundaries instead of
    the current running task's. Set by LOS_TaskBackTrace, restored to NULL after. */
@@ -52,6 +57,30 @@ WEAK BOOL OsStackDataIsCodeAddr(UINTPTR value)
     }
     return FALSE;
 }
+
+#ifdef LOSCFG_BOX
+/* BOX dual-stack: a fault in user mode saves uwSP on the box user stack
+ * (the entry stack and the box heap both live inside the box data region),
+ * which is outside the kernel anchor-stack bounds. Returns TRUE and fills
+ * *stackEnd so the exception backtrace scans the correct stack. */
+STATIC INLINE BOOL OsBacktraceBoxUserStack(const LosTaskCB *taskCB, UINTPTR SP, UINTPTR *stackEnd)
+{
+    const LosBoxCB *boxCB = NULL;
+
+    if ((taskCB == NULL) || (taskCB->boxCB == NULL) ||
+        ((taskCB->taskStatus & OS_TASK_STATUS_INUSER) == 0)) {
+        return FALSE;
+    }
+    boxCB = (const LosBoxCB *)taskCB->boxCB;
+    if ((boxCB->layout[0].boxDataStartAddr != 0) &&
+        (SP >= boxCB->layout[0].boxDataStartAddr) &&
+        (SP < boxCB->layout[0].boxDataEndAddr)) {
+        *stackEnd = boxCB->layout[0].boxDataEndAddr;
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
 
 #if (LOSCFG_BACKTRACE_TYPE == 1)
 #define OS_BACKTRACE_START     2
@@ -91,6 +120,11 @@ STATIC INLINE UINT32 OsStackAddrGet(UINTPTR *stackStart, UINTPTR *stackEnd, UINT
             if (taskCB == NULL) {
                 taskCB = OS_TCB_FROM_TID(LOS_CurTaskIDGet());
             }
+#ifdef LOSCFG_BOX
+            if (OsBacktraceBoxUserStack(taskCB, SP, stackEnd)) {
+                return LOS_OK;
+            }
+#endif
             *stackEnd = (UINTPTR)taskCB->topOfStack + taskCB->stackSize;
             if ((SP < (UINTPTR)taskCB->topOfStack) || (SP >= *stackEnd)) {
                 PRINT_ERR("msp statck [0x%x, 0x%x], cur task stack [0x%x, 0x%x], cur sp(0x%x) is overflow!\n",
@@ -307,6 +341,11 @@ STATIC INLINE UINT32 OsStackAddrGet(UINTPTR *stackStart, UINTPTR *stackEnd, UINT
             if (taskCB == NULL) {
                 taskCB = OS_TCB_FROM_TID(LOS_CurTaskIDGet());
             }
+#ifdef LOSCFG_BOX
+            if (OsBacktraceBoxUserStack(taskCB, SP, stackEnd)) {
+                return LOS_OK;
+            }
+#endif
             *stackEnd = (UINTPTR)taskCB->topOfStack + taskCB->stackSize;
             if ((SP < (UINTPTR)taskCB->topOfStack) || (SP >= *stackEnd)) {
                 PRINT_ERR("msp statck [0x%x, 0x%x], cur task stack [0x%x, 0x%x], cur sp(0x%x) is overflow!\n",

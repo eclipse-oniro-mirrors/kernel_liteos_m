@@ -158,6 +158,24 @@ UINT32 OsBoxInit(LosBoxCB * const userBoxArr, SysMemLayout * const sysMemLayoutA
     return LOS_OK;
 }
 
+#if (LOSCFG_BACKTRACE_TYPE == 1)
+/*
+ * Exception backtrace support: strong override of the weak default in
+ * kernel/extended/backtrace/los_backtrace.c - the upstream extension point
+ * for multi-code-section projects. Box-world return addresses live in
+ * common text (veneers) and the box code slots besides kernel text - one
+ * contiguous flash range on this board layout (asm/memmap_config.h).
+ */
+BOOL OsStackDataIsCodeAddr(UINTPTR value)
+{
+    if ((value > (UINTPTR)&__text_start) &&
+        (value < (BOX_B_CODE_SLOT_BASE + BOX_B_CODE_SLOT_SIZE))) {
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -35,6 +35,7 @@
 #include "securec.h"
 #include "los_arch.h"
 #include "los_config.h"
+#include "los_trace.h"
 #include "los_debug.h"
 #include "los_hook.h"
 #include "los_interrupt.h"
@@ -920,6 +921,7 @@ UINT32 LOS_MemInit(VOID *pool, UINT32 size)
 #endif
 
     OsHookCall(LOS_HOOK_TYPE_MEM_INIT, pool, size);
+    LOS_TRACE(MEM_INFO_REQ, pool, size);
 
     return LOS_OK;
 }
@@ -1005,6 +1007,7 @@ VOID *LOS_MemAlloc(VOID *pool, UINT32 size)
     MEM_UNLOCK(poolHead, intSave);
 
     OsHookCall(LOS_HOOK_TYPE_MEM_ALLOC, pool, ptr, size);
+    LOS_TRACE(MEM_ALLOC, pool, (UINTPTR)ptr, size);
 
     return ptr;
 }
@@ -1066,6 +1069,7 @@ VOID *LOS_MemAllocAlign(VOID *pool, UINT32 size, UINT32 boundary)
     MEM_UNLOCK(poolHead, intSave);
 
     OsHookCall(LOS_HOOK_TYPE_MEM_ALLOCALIGN, pool, ptr, size, boundary);
+    LOS_TRACE(MEM_ALLOC_ALIGN, pool, (UINTPTR)ptr, size, boundary);
 
     return ptr;
 }
@@ -1257,6 +1261,7 @@ UINT32 LOS_MemFree(VOID *pool, VOID *ptr)
     }
 
     OsHookCall(LOS_HOOK_TYPE_MEM_FREE, pool, ptr);
+    LOS_TRACE(MEM_FREE, pool, (UINTPTR)ptr);
 
     UINT32 ret = LOS_NOK;
     struct OsMemPoolHead *poolHead = (struct OsMemPoolHead *)pool;
@@ -1364,6 +1369,7 @@ VOID *LOS_MemRealloc(VOID *pool, VOID *ptr, UINT32 size)
     }
 
     OsHookCall(LOS_HOOK_TYPE_MEM_REALLOC, pool, ptr, size);
+    LOS_TRACE(MEM_REALLOC, pool, (UINTPTR)ptr, size);
 
     if (ptr == NULL) {
         return LOS_MemAlloc(pool, size);

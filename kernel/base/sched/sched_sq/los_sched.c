@@ -38,6 +38,7 @@
 #include "los_tick.h"
 #include "los_swtmr.h"
 #include "los_swtmr_pri.h"
+#include "los_trace.h"
 #include "los_debug.h"
 #include "los_hook.h"
 #if (LOSCFG_KERNEL_PM == 1)
@@ -111,6 +112,8 @@ VOID OsSchedResched(VOID)
             g_pfnUsrTskSwitchHook(runTask->taskId, newTask->taskId);
         }
         OsHookCall(LOS_HOOK_TYPE_TASK_SWITCHEDIN);
+        LOS_TRACE(TASK_SWITCH, newTask->taskId, runTask->priority, runTask->taskStatus,
+            newTask->priority, newTask->taskStatus);
 #if (LOSCFG_DEBUG_TOOLS == 1)
         OsSchedTraceRecord(newTask, runTask);
 #endif
@@ -240,6 +243,7 @@ BOOL OsSchedPrioModify(LosTaskCB *taskCB, UINT16 priority)
         return TRUE;
     }
 
+    LOS_TRACE(TASK_PRIOSET, taskCB->taskId, taskCB->taskStatus, taskCB->priority, priority);
     taskCB->priority = priority;
     OsHookCall(LOS_HOOK_TYPE_TASK_PRIMODIFY, taskCB, taskCB->priority);
     if (taskCB->taskStatus & OS_TASK_STATUS_RUNNING) {
@@ -293,6 +297,7 @@ UINT32 OsSchedSuspend(LosTaskCB *taskCB)
 
     taskCB->taskStatus |= OS_TASK_STATUS_SUSPEND;
     OsHookCall(LOS_HOOK_TYPE_MOVEDTASKTOSUSPENDEDLIST, taskCB);
+    LOS_TRACE(TASK_SUSPEND, taskCB->taskId, taskCB->taskStatus, OsCurrTaskGet()->taskId);
 
     if (taskCB->taskStatus & OS_TASK_STATUS_RUNNING) {
         OsTaskReSched();
@@ -328,6 +333,7 @@ VOID OsSchedTaskEnQueue(LosTaskCB *taskCB)
             OsPriQueueEnqueue(&taskCB->pendList, taskCB->priority, PRI_QUEUE_TAIL);
         }
         OsHookCall(LOS_HOOK_TYPE_MOVEDTASKTOREADYSTATE, taskCB);
+        LOS_TRACE(TASK_RESUME, taskCB->taskId, taskCB->taskStatus, taskCB->priority);
     }
 
     taskCB->taskStatus &= ~(OS_TASK_STATUS_PEND | OS_TASK_STATUS_SUSPEND |

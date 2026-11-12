@@ -38,7 +38,6 @@
 #define _LOS_TRACE_H
 
 #include "los_task.h"
-#include "trace_cnv.h"
 
 #ifdef __cplusplus
 #if __cplusplus

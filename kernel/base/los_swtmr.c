@@ -35,6 +35,7 @@
 #include "los_interrupt.h"
 #include "los_task_pri.h"
 #include "los_memory.h"
+#include "los_trace.h"
 #include "los_debug.h"
 #include "los_hook.h"
 #include "los_sched.h"
@@ -401,6 +402,7 @@ LITE_OS_SEC_TEXT BOOL OsSwtmrScan(VOID)
         swtmr = LOS_DL_LIST_ENTRY(sortList, LosSwtmrCB, sortList);
 
         OsHookCall(LOS_HOOK_TYPE_SWTMR_EXPIRED, swtmr);
+        LOS_TRACE(SWTMR_EXPIRED, swtmr->timerId);
 #ifdef LOSCFG_BASE_CORE_SWTMR_IN_ISR
         SWTMR_PROC_FUNC handler = swtmr->handler;
         UINTPTR arg = swtmr->arg;
@@ -585,6 +587,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
 #endif
 
     OsHookCall(LOS_HOOK_TYPE_SWTMR_CREATE, swtmr);
+    LOS_TRACE(SWTMR_CREATE, swtmr->timerId);
 
     return LOS_OK;
 }
@@ -677,6 +680,7 @@ LITE_OS_SEC_TEXT UINT32 OsSwtmrStartTimer(UINT32 swtmrId, UINT32 interval, UINT3
 
     SWTMR_UNLOCK(intSave);
     OsHookCall(LOS_HOOK_TYPE_SWTMR_START, swtmr);
+    LOS_TRACE(SWTMR_START, swtmr->timerId, swtmr->mode, swtmr->interval);
     return ret;
 }
 
@@ -719,6 +723,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_SwtmrStop(UINT32 swtmrId)
 
     SWTMR_UNLOCK(intSave);
     OsHookCall(LOS_HOOK_TYPE_SWTMR_STOP, swtmr);
+    LOS_TRACE(SWTMR_STOP, swtmr->timerId);
     return ret;
 }
 
@@ -822,6 +827,7 @@ STATIC UINT32 OsSwtmrDeleteOption(UINT32 swtmrId, BOOL isSync)
 EXIT:
     SWTMR_UNLOCK(intSave);
     OsHookCall(LOS_HOOK_TYPE_SWTMR_DELETE, swtmr);
+    LOS_TRACE(SWTMR_DELETE, swtmr->timerId);
     return ret;
 }
 

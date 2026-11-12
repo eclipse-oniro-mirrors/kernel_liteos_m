@@ -69,6 +69,9 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     TSK_INIT_PARAM_S task1;
     (void)memset_s(&task1, sizeof(TSK_INIT_PARAM_S), 0, sizeof(TSK_INIT_PARAM_S));
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task1.pcName = "EventTsk9";
     task1.uwStackSize = LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE;

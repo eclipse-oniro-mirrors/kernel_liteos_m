@@ -147,6 +147,9 @@ static UINT32 TestCase(VOID)
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF42Inf;
     taskParam.pcName = "HplC42Inf";
     for (i = 0; i < HPL_042_INF_N; i++) {
+#ifdef LOSCFG_KERNEL_SMP
+            taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
         ret = LOS_TaskCreate(&g_setter42Ids[i], &taskParam);
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     }
@@ -155,6 +158,9 @@ static UINT32 TestCase(VOID)
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF42Rec;
     taskParam.pcName = "HplC42Rec";
     for (i = 0; i < HPL_042_RECORDER_N; i++) {
+#ifdef LOSCFG_KERNEL_SMP
+            taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
         ret = LOS_TaskCreate(&g_task42Ids[i], &taskParam);
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     }
@@ -188,15 +194,24 @@ static UINT32 TestCase(VOID)
     taskParam.usTaskPrio = TASK_PRIO_TEST - 2;
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF42X;
     taskParam.pcName = "HplC42X";
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_x42Id, &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF42Set;
     taskParam.pcName = "HplC42S1";
+#ifdef LOSCFG_KERNEL_SMP
+        taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_setter42Ids[0], &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF42Set2;
     taskParam.pcName = "HplC42S2";
+#ifdef LOSCFG_KERNEL_SMP
+        taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_setter42Ids[1], &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
@@ -246,5 +261,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosHpl042(VOID)
 {
-    TEST_ADD_CASE("ItLosHpl042", TestCase, TEST_LOS, TEST_HPL, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHpl042", TestCase, TEST_LOS, TEST_FN_KERNELEXT_HPL, TEST_LEVEL0, TEST_FUNCTION);
 }

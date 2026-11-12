@@ -66,6 +66,9 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk090A";
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     LOS_TaskDelay(1);
     LOS_TaskLock();
@@ -77,6 +80,9 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk090B";
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_testTaskID02, &task1);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     LOS_TaskUnlock();

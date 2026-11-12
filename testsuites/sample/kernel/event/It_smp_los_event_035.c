@@ -87,9 +87,9 @@ static UINT32 Testcase(VOID)
     UINT32 ret, currCpuid, i;
     (VOID)i;
     TSK_INIT_PARAM_S testTask;
-    #ifdef LOSCFG_KERNEL_SMP
+#ifdef LOSCFG_KERNEL_SMP
     testTask.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
-    #endif
+#endif
 
     g_testCount = 0;
     g_runFlag = 1;

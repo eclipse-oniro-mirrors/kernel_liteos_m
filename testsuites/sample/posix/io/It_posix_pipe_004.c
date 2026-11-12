@@ -31,6 +31,11 @@
 
 #include "It_posix_io.h"
 #include <pthread.h>
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define PIPE004_BUF_LEN       64  /* 单次读写数据长度 */
 #define PIPE004_WRITER_DELAY  10  /* 子任务写前延时(tick), 制造主任务读阻塞窗口 */
@@ -87,6 +92,13 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret32, 0, ret32, EXIT);
 
     ret32 = pthread_create(&writerThread, NULL, Pipe004Writer, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)writerThread, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret32, 0, ret32, EXIT_CLOSE);
 
     /* 置位就绪标志后立即读空管: PipeRead 发现 readIndex==writeIndex 且未回绕,

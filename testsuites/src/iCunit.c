@@ -288,6 +288,9 @@ iUINT32 ICunitRunF(void)
 #if (ICUNIT_CASE_TIME_STAT == 1)
         startCycles = LOS_SysCycleGet();
 #endif
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_TaskCpuAffiSet(LOS_CurTaskIDGet(), CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
         caseRet = psubCaseArray->pstCaseFunc();
 #if (ICUNIT_CASE_TIME_STAT == 1)
         costUs = ICunitCyclesToUs(LOS_SysCycleGet() - startCycles);

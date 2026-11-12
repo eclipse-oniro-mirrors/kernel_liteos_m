@@ -75,6 +75,9 @@ static VOID SubTask008(VOID)
     g_hwiDone008 = 0;
     g_hwiSendRet008 = 0xFF;
     ret = LOS_HwiCreate(HWI_NUM_TEST, 2, 0, (HWI_PROC_FUNC)HwiHandler008, &irqParam);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     if (ret != LOS_OK) {
         goto OUT;
     }
@@ -162,6 +165,9 @@ static UINT32 Testcase(VOID)
     taskParam.pcName = "TaskSig008";
     taskParam.uwStackSize = TASK_STACK_SIZE_TEST;
     taskParam.uwResved = LOS_TASK_ATTR_JOINABLE;
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&auxTid, &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 

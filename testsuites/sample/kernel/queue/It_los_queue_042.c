@@ -72,7 +72,13 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
 
     TSK_INIT_PARAM_S task1 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     TSK_INIT_PARAM_S task2 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task2.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF02;
     task1.pcName = "TskName1";
     task1.uwStackSize = TASK_STACK_SIZE_TEST;

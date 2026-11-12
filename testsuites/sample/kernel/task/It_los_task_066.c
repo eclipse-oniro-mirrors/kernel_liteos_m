@@ -58,6 +58,9 @@ static VOID TaskF01(VOID)
     task1.pcName = "Tsk066B";
     task1.usTaskPrio = TASK_PRIO_TEST - 2; // 2, set new task priority, it is higher than the current task.
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ICUNIT_ASSERT_EQUAL_VOID(g_testCount, 0, g_testCount);
     g_testCount++;
@@ -69,6 +72,9 @@ static VOID TaskF01(VOID)
     task1.pcName = "Tsk066C";
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_TaskCreate(&g_testTaskID03, &task1);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
@@ -88,6 +94,9 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk066A";
     task1.usTaskPrio = TASK_PRIO_TEST - 3; // 3, set new task priority base on testsuite task`s priority.
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
 

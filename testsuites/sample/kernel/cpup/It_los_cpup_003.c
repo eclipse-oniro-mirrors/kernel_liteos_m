@@ -54,6 +54,9 @@ static UINT32 TestCase003(VOID)
     UINT32 taskId;
     UINT32 busyCpup;
     TSK_INIT_PARAM_S param = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    param.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     /* Measure this short-lived busy task in its own CPUP sampling window. */
     LOS_CpupReset();

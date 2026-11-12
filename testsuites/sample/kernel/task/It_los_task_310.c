@@ -39,6 +39,9 @@ static UINT32 TestCase(VOID)
     UINTPTR retval = 0;
     UINT32 loop;
     TSK_INIT_PARAM_S taskParam = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     /* T: joinable, CreateOnly 创建即挂起(不运行), 优先级低于本任务 */
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskT310;

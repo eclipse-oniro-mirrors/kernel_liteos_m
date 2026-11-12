@@ -216,6 +216,9 @@ static UINT32 TestCase(VOID)
     taskParam.uwResved = LOS_TASK_STATUS_DETACHED;
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF45a;
     taskParam.pcName = "HplRp45a";
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_testTaskID01, &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_TaskHplSizeSet(g_testTaskID01, HPL_045_W1_STAGING);
@@ -228,6 +231,9 @@ static UINT32 TestCase(VOID)
     g_probe45Done = 0;
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF45b;
     taskParam.pcName = "HplRp45b";
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_testTaskID02, &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     wait = 0;
@@ -330,5 +336,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosHpl045(VOID)
 {
-    TEST_ADD_CASE("ItLosHpl045", TestCase, TEST_LOS, TEST_HPL, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHpl045", TestCase, TEST_LOS, TEST_FN_KERNELEXT_HPL, TEST_LEVEL0, TEST_FUNCTION);
 }

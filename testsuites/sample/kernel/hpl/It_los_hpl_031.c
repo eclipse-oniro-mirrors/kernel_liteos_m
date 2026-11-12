@@ -130,6 +130,9 @@ STATIC UINT32 TestCase(VOID)
     UINT32 ret;
     UINT32 wait = 0;
     TSK_INIT_PARAM_S taskParam = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_e2eBytes = 0;
     g_testCount = 0;

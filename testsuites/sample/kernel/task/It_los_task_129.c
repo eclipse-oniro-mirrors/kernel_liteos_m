@@ -43,6 +43,9 @@ static UINT32 TestCase(VOID)
     UINT32 ret;
     UINT32 taskId;
     TSK_INIT_PARAM_S osTaskInitParam = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    osTaskInitParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     VOID *taskStack = NULL;
     g_testCount = 0;
 

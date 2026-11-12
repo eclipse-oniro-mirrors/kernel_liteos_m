@@ -76,6 +76,9 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     TSK_INIT_PARAM_S task = {0};
     TSK_INIT_PARAM_S task2 = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task2.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
 
@@ -84,6 +87,9 @@ static UINT32 Testcase(VOID)
     task.pcName = "VMuteB2_1";
     task.uwStackSize = LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE;
     task.uwResved = 0;
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_MuxCreate(&g_mutexTest);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
@@ -95,6 +101,9 @@ static UINT32 Testcase(VOID)
     task2.usTaskPrio = (TASK_PRIO_TEST - 2); // 2, set new task priority, it is higher than the current task.
     task2.pcName = "VMuteB2_2";
     task2.uwStackSize = LOSCFG_BASE_CORE_TSK_MIN_STACK_SIZE;
+#ifdef LOSCFG_KERNEL_SMP
+    task2.uwStackSize = OS_TSK_TEST_STACK_SIZE;
+#endif
     task2.uwResved = 0;
 
     ret = LOS_TaskCreate(&g_testTaskID02, &task2);

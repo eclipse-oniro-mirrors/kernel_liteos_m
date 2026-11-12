@@ -58,6 +58,9 @@ static UINT32 Testcase(VOID)
 #ifdef LOSCFG_PLATFORM_WS63_M
     /* F-Inv: 优先级 7 越界 → setIrqPriority 失败 → OsHwiDel 回退清理表项 */
     ret = LOS_HwiCreate(HWI_NUM_TEST, 7, mode, (HWI_PROC_FUNC)HwiF01, NULL); // 7 = PLIC_PRIO_LEVELS
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_HWI_PRIO_INVALID, ret);
 #else
     {
@@ -68,6 +71,9 @@ static UINT32 Testcase(VOID)
         /* F-Inv: setIrqPriority 失败桩 → LOS_HwiCreate 走 OsHwiDel 回退分支 */
         ops->setIrqPriority = HwiSetPriorityFail;
         ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, NULL);
+        #ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+        #endif
         ops->setIrqPriority = origSetPri; /* 先恢复 ops 再断言，保证异常路径也不污染全局 */
         ICUNIT_ASSERT_EQUAL(ret, LOS_NOK, ret);
     }
@@ -75,6 +81,9 @@ static UINT32 Testcase(VOID)
 
     /* F-Pos: 失败回退已清理表项，同号再创建应成功（证明无资源泄漏残留） */
     ret = LOS_HwiCreate(HWI_NUM_TEST, 3, mode, (HWI_PROC_FUNC)HwiF01, NULL); // 3, valid priority.
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_HwiDisable(HWI_NUM_TEST);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);

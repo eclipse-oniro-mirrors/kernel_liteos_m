@@ -73,6 +73,9 @@ static UINT32 TestCase(VOID)
             g_fzMuxH = m2; g_fzMuxHeld = 0;
             UINT32 th = 0; UINT32 w = 0;
             TSK_INIT_PARAM_S ph = {0};
+#ifdef LOSCFG_KERNEL_SMP
+            ph.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
             ph.pcName = "FzMxH"; ph.pfnTaskEntry = (TSK_ENTRY_FUNC)FzMuxHolderEntry;
             ph.uwStackSize = 0x400; ph.usTaskPrio = 27;   /* lower prio than self */
             if (LOS_TaskCreate(&th, &ph) == LOS_OK) {

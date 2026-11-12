@@ -54,6 +54,9 @@ static VOID TaskF01(VOID)
     TestHwiDelete(HWI_NUM_TEST);
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF02, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
 EXIT:
@@ -67,6 +70,9 @@ static VOID HwiF01(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     TestHwiClear(HWI_NUM_TEST);
 
@@ -95,6 +101,9 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     TestHwiTrigger(HWI_NUM_TEST);

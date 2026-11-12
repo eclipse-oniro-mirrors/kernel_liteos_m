@@ -46,6 +46,11 @@
 
 /* 用例简要描述: 读锁阻塞于写者后的唤醒获取 */
 #include "It_posix_rwlock.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 static pthread_rwlock_t g_rwl078;
 static volatile INT32 g_rwlock078Ready = 0;
@@ -89,6 +94,13 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
     ret = pthread_create(&reader, NULL, Rwlock078Reader, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)reader, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_W);
 
     /* 等读者就绪并让出 2 tick 确保其已阻塞在 rdlock 上 */

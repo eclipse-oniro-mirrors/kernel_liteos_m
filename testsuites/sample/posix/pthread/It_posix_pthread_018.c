@@ -29,6 +29,11 @@
  */
 
 #include "It_posix_pthread.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 static VOID *PthreadF01(VOID *num)
 {
@@ -52,6 +57,13 @@ static UINT32 Testcase(VOID)
     }
 
     ret = pthread_create(&newTh, NULL, PthreadF01, (void *)&arg);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)newTh, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
     ret = pthread_join(newTh, NULL);

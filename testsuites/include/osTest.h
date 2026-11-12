@@ -258,7 +258,11 @@ extern UINT32 g_usSemID3[];
 extern EVENT_CB_S g_exampleEvent;
 
 #ifndef LOS_TASK_MIN_TEST_STACK_SIZE
+#ifdef LOSCFG_KERNEL_SMP
+#define LOS_TASK_MIN_TEST_STACK_SIZE OS_TSK_TEST_STACK_SIZE
+#else
 #define LOS_TASK_MIN_TEST_STACK_SIZE LOSCFG_BASE_CORE_TSK_MIN_STACK_SIZE + 0x20
+#endif
 #endif
 
 #ifndef TASK_TEST
@@ -589,6 +593,7 @@ extern VOID ItSuiteSmpEvent(void);
 extern VOID ItSuiteSmpQueue(void);
 extern VOID ItSuiteSmpSwtmr(void);
 extern VOID ItSuiteSmpHwi(void);
+extern VOID ItSuiteSmpCpup(void);
 #endif /* LOSCFG_KERNEL_SMP */
 
 extern VOID ItSuiteLosHwi(void);

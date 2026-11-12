@@ -74,6 +74,9 @@ static UINT32 Testcase(VOID)
     irqParam.pDevId = 0;
 
     TSK_INIT_PARAM_S task = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     task.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task.pcName = "HwiTsk018A";
@@ -84,6 +87,9 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_TaskCreate(&g_testTaskID01, &task);

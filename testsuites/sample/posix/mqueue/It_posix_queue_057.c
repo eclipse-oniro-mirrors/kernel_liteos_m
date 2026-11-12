@@ -72,6 +72,11 @@
 /* 用例简要描述: 阻塞引用中删除队列的清理路径 */
 #include "It_posix_queue.h"
 #include <time.h>
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define MQ057_MSG_LEN 64    /* 64: 满足 receive msgLen ≥ queueSize-4(默认属性) */
 #define MQ057_BLOCK_TICKS 50  /* 50: 等待者实际阻塞 tick 数(见偏离说明 3) */
@@ -122,6 +127,13 @@ static UINT32 Testcase(VOID)
     ICUNIT_ASSERT_NOT_EQUAL(g_mq057Mqds, (mqd_t)-1, (UINTPTR)g_mq057Mqds);
 
     ret = pthread_create(&receiver, NULL, Mqueue057Receiver, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)receiver, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
     /* 等接收者就绪并让出 2 tick 确保其已阻塞在队列读上 */

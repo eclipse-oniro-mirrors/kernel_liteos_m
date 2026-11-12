@@ -61,6 +61,9 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     UINT32 loop;
     TSK_INIT_PARAM_S task = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     for (loop = 0; loop < IT_SEMLOOP; loop++) {
         task.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;

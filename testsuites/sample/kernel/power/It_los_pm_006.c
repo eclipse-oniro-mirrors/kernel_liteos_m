@@ -217,6 +217,9 @@ static UINT32 TestCase(VOID)
     auxParam.usTaskPrio = 10;
     auxParam.pcName = "PmAux006";
     auxParam.uwStackSize = TASK_STACK_SIZE_TEST;
+#ifdef LOSCFG_KERNEL_SMP
+    auxParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_auxTid006, &auxParam);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 

@@ -92,6 +92,9 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk116A";
     task1.usTaskPrio = TASK_PRIO_TEST - 2; // 2, set new task priority, it is higher than the current task.
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);

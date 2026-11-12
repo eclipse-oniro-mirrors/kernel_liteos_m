@@ -46,6 +46,9 @@ static UINT32 TestCase(VOID)
 
     UINT32 tid = 0; UINT32 ret; UINTPTR retval = 0;
     TSK_INIT_PARAM_S param = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    param.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     param.pcName = "FzTJ"; param.pfnTaskEntry = (TSK_ENTRY_FUNC)FzTaskJoinEntry;
     param.uwStackSize = 0x400; param.usTaskPrio = 20;
     param.uwResved = LOS_TASK_ATTR_JOINABLE;

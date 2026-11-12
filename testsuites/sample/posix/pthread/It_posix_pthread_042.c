@@ -48,6 +48,11 @@
 /* 用例简要描述: 静态条件变量懒初始化等待 */
 #include "It_posix_pthread.h"
 #include <time.h>
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 static pthread_cond_t g_cond042 = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t g_mux042 = PTHREAD_MUTEX_INITIALIZER;
@@ -91,6 +96,13 @@ static UINT32 Testcase(VOID)
     g_pthread042UnlockRet = -1;
 
     ret = pthread_create(&waiter, NULL, Pthread042Waiter, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)waiter, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     /* 等待者就绪(持锁并即将进入 timedwait) */

@@ -1,4 +1,15 @@
 #include "It_posix_rwlock.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
+
+#ifdef LOSCFG_KERNEL_SMP
+extern int pthread_attr_setaffinity_np(pthread_attr_t *attr, size_t cpusetsize, const cpu_set_t *cpuset);
+#endif
+
+
 
 static pthread_rwlock_t g_rwl066;
 static volatile int g_rwl066Step = 0;
@@ -38,6 +49,14 @@ static UINT32 Testcase(void)
     pthread_attr_setschedparam(&writerAttr, &sp);
     pthread_attr_setinheritsched(&writerAttr, PTHREAD_EXPLICIT_SCHED);
 
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (VOID)pthread_attr_setaffinity_np(&writerAttr, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ret = pthread_create(&writerThread, &writerAttr, WriterTask066, NULL);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_ATTR);
 

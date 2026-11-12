@@ -44,5 +44,22 @@ static_library("test_cpup") {
     "it_los_cpup.c",
   ]
 
+  if (defined(LOSCFG_KERNEL_SMP)) {
+    sources += [
+      "It_smp_cpup.c",
+      "It_smp_extend_cpup_001.c",
+      "It_smp_extend_cpup_002.c",
+      "It_smp_extend_cpup_003.c",
+      "It_smp_extend_cpup_004.c",
+      "It_smp_extend_cpup_005.c",
+      "It_smp_extend_cpup_007.c",
+      "It_smp_extend_cpup_008.c",
+      "It_smp_extend_cpup_009.c",
+      "It_smp_extend_cpup_010.c",
+      "It_smp_extend_cpup_011.c",
+      "It_smp_extend_cpup_012.c",
+    ]
+  }
+
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]
 }

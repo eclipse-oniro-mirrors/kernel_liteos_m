@@ -44,6 +44,9 @@ static UINT32 TestCase(VOID)
     UINT32 ret;
     UINTPTR uwtemp = 1;
     TSK_INIT_PARAM_S osTaskInitParam = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    osTaskInitParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
 

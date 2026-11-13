@@ -33,9 +33,9 @@
 
 uint16_t htons(uint16_t n)
 {
-    union {
-        int i;
-        char c;
-    } u = { 1 };
-    return u.c ? bswap_16(n) : n;
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    return bswap_16(n);
+#else
+    return n;
+#endif
 }

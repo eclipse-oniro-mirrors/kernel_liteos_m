@@ -43,13 +43,28 @@ kernel_module(module_name) {
     "los_percpu.c",
     "los_task.c",
     "los_tick.c",
-    "los_bitmap.c",
     "los_exc.c",
-    "los_printf.c",
     "utils/los_debug.c",
     "utils/los_error.c",
     "utils/los_hook.c",
   ]
+
+  if (!defined(LOSCFG_BOX)) {
+    # M5D single shared copy: under BOX los_bitmap.c compiles ONCE in the
+    # usr_demo box_usr_mem module (COMMON sections, lds file-name routing)
+    # — the box-side allocator (los_multipledlinkhead.c, also common)
+    # calls LOS_HighBitGet on every alloc path and must not reach into
+    # kernel-flash code from user mode; the kernel cross-calls the COMMON
+    # copy instead (COMMON_TEXT is kernel-executable).
+    sources += [ "los_bitmap.c" ]
+
+    # M5G-R: under BOX los_printf.c also compiles ONCE in box_usr_mem -
+    # the "full PRINTK" for box user code (PRINTK -> LOS_Printf ->
+    # OsLogLevelCheck + the lightweight engine; OsLogLevelCheck/g_logString
+    # moved in from utils/los_debug.c for this). Without BOX the plain
+    # kernel build compiles it here with the full vsnprintf_s engine.
+    sources += [ "los_printf.c" ]
+  }
 
   include_dirs = [
     "include",
@@ -59,6 +74,31 @@ kernel_module(module_name) {
   ]
 
   if (defined(LOSCFG_BOX)) {
+    # BOX core + task mechanisms (M5A/M5B, relocated from the target demo
+    # layer, mirroring refs kernel_s/base/los_box.c + the refs task-module
+    # BOX family extracted into los_task_box.c). The box private headers
+    # live in base/include (los_box_pri.h + the los_*_pri.h shims).
+    # M5C: los_sec.c = SID module core (refs kernel_s/base/los_sec.c
+    # reconstruction, see the file header).
+    sources += [
+      "los_box.c",
+      "los_task_box.c",
+      "los_sec.c",
+    ]
+
+    # M5C: SID-based mux mechanisms (per-box pools + sId resolution),
+    # mirroring refs los_mux.c BOX parts; pend/post core stays in
+    # los_mux.c.
+    if (defined(LOSCFG_BASE_IPC_MUX)) {
+      sources += [ "los_mux_box.c" ]
+    }
+
+    # M5G: SID-based sem mechanisms (the mux-face shape; per-box pools +
+    # sId resolution), pend/post core stays in los_sem.c.
+    if (defined(LOSCFG_BASE_IPC_SEM)) {
+      sources += [ "los_sem_box.c" ]
+    }
+
     # BOX rename root - the config lives in the arch module next to the
     # headers. kernel/base has no dep edge on arch and arch:public is
     # globally aggregated, so this stays an explicit conditional
@@ -109,10 +149,18 @@ kernel_module(module_name) {
     sources += [ "mem/tlsf/los_memory.c" ]
   }
   if (defined(LOSCFG_KERNEL_MEM_BESTFIT)) {
-    sources += [
-      "mem/bestfit/los_memory.c",
-      "mem/bestfit/los_multipledlinkhead.c",
-    ]
+    if (!defined(LOSCFG_BOX)) {
+      # M5D single shared copy: under BOX the bestfit allocator, its
+      # dlink-table helper and the multipool registry compile ONCE into
+      # the shared COMMON sections (targets usr_demo: box_usr_mem routes
+      # the whole objects via the linker script) — kernel and boxes
+      # execute the same code; only the pool locks go through the mux
+      # veneers. Without BOX the plain kernel build compiles them here.
+      sources += [
+        "mem/bestfit/los_memory.c",
+        "mem/bestfit/los_multipledlinkhead.c",
+      ]
+    }
     include_dirs += [ "mem/bestfit" ]
   }
 
@@ -143,9 +191,13 @@ kernel_module(module_name) {
   }
 
   if (defined(LOSCFG_MEM_MUL_POOL)) {
-    sources += [
-        "mem/common/multipool/los_multipool.c"
-    ]
+    if (!defined(LOSCFG_BOX)) {
+      # M5D: under BOX the multipool registry lives in the shared COMMON
+      # sections together with the allocator (see the BESTFIT block note).
+      sources += [
+          "mem/common/multipool/los_multipool.c"
+      ]
+    }
   }
 
   if (defined(LOSCFG_KERNEL_MEM_SLAB_EXTENTION)) {

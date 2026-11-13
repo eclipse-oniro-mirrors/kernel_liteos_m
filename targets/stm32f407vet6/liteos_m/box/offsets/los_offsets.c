@@ -14,6 +14,7 @@
 #include "los_typedef.h"
 #include "los_task_base.h"
 #include "los_arch_context.h"
+#include "los_box_pri.h"    /* LosBoxCB: BOX_CB_LAYOUT0_MEMPOOL (M5A) */
 #ifndef GEN_OFFSETS   /* generation run skips the staleness check */
 #include "../kernel/los_offsets.h"   /* generated; checked below */
 #endif
@@ -38,9 +39,15 @@ VOID OsBoxOffsetsEmit(VOID)
     _Static_assert(TASK_CB_BOX_CB == __builtin_offsetof(LosTaskCB, boxCB), "stale");
     _Static_assert(TASK_CB_USER_SP == __builtin_offsetof(LosTaskCB, userStackPointer), "stale");
     _Static_assert(TASK_CB_SYSCALL_NEST_CNT == __builtin_offsetof(LosTaskCB, syscallNestCnt), "stale");
+    _Static_assert(TASK_CB_CUR_BOX_ID == __builtin_offsetof(LosTaskCB, curBoxId), "stale");
+    _Static_assert(BOX_CB_LAYOUT0_MEMPOOL == __builtin_offsetof(LosBoxCB, layout[0].boxMemPoolAddr), "stale");
     _Static_assert(TASK_CTX_R4 == __builtin_offsetof(TaskContext, uwR4), "stale");
     _Static_assert(TASK_CTX_R0 == __builtin_offsetof(TaskContext, uwR0), "stale");
     _Static_assert(TASK_CTX_SIZE == sizeof(TaskContext), "stale");
+    /* Status-bit value contract (checked against los_task_base.h, which owns
+     * the C definition; the asm-offsets header no longer re-exports it -
+     * asm consumers get the bit from los_box_dispatch.h, which mirrors
+     * this value). */
     _Static_assert(OS_TASK_STATUS_INUSER == 0x0200, "stale");
 #endif
 
@@ -50,15 +57,16 @@ VOID OsBoxOffsetsEmit(VOID)
     BOX_OFFSET(TASK_CB_BOX_CB,           __builtin_offsetof(LosTaskCB, boxCB));
     BOX_OFFSET(TASK_CB_USER_SP,          __builtin_offsetof(LosTaskCB, userStackPointer));
     BOX_OFFSET(TASK_CB_SYSCALL_NEST_CNT, __builtin_offsetof(LosTaskCB, syscallNestCnt));
+    BOX_OFFSET(TASK_CB_CUR_BOX_ID,       __builtin_offsetof(LosTaskCB, curBoxId));
+
+    /* LosBoxCB offset: dispatch publishes the box pool address to the user
+     * world (g_boxLocalPool) on box switches. */
+    BOX_OFFSET(BOX_CB_LAYOUT0_MEMPOOL,   __builtin_offsetof(LosBoxCB, layout[0].boxMemPoolAddr));
 
     /* TaskContext offsets (OHOS layout: uwR4 first, FPU block per arch header). */
     BOX_OFFSET(TASK_CTX_R4,              __builtin_offsetof(TaskContext, uwR4));
     BOX_OFFSET(TASK_CTX_R0,              __builtin_offsetof(TaskContext, uwR0));
     BOX_OFFSET(TASK_CTX_SIZE,            sizeof(TaskContext));
-
-    /* User-mode status bit: 0x0200, same value the SECURE path uses for its
-     * user-task flag, so the two mechanisms can share the bit. */
-    BOX_OFFSET(OS_TASK_STATUS_INUSER,    0x0200);
 #else
     BOX_OFFSET(BOX_DISABLED,             0);
 #endif

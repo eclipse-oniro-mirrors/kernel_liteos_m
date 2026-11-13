@@ -56,13 +56,6 @@
 .equ    OS_CONTROL_USER_MODE,        0x3
 .equ    OS_TASK_FLAG_USER_TASK,      0x0200
 #endif
-#ifdef LOSCFG_BOX
-/* BOX dual-stack offsets, generated from the live LosTaskCB by the
- * target's box/offsets action; staleness-checked by los_offsets.c.
- * Resolved via the include path the board config provides
- * (targets/<board>/liteos_m/box/kernel) - no hardcoded target path. */
-#include "los_offsets.h"
-#endif
 
     .section .text
     .thumb
@@ -132,11 +125,6 @@ ArchStartToRun:
     cpsie   i
     bx      r6
 #else
-#ifdef LOSCFG_BOX
-    ldrh    r2, [r0, #TASK_CB_STATUS]
-    tst     r2, #OS_TASK_STATUS_INUSER
-    bne     __StartUserTask
-#endif
     ldr     r12, [r0]
 
     ldr.w   r1, =OS_FPU_CPACR
@@ -163,33 +151,6 @@ __DisabledFPU:
     mov     lr, r5
     cpsie   i
     bx      r6
-
-#ifdef LOSCFG_BOX
-__StartUserTask:
-    /* BOX: first dispatch of a user task. The MPU view was already
-     * switched to this task's box by OsSchedStart() (C, right before
-     * ArchStartToRun), so this path is pure register loading — no
-     * C calls, no stack usage, no PSP dependency. */
-    ldr     r12, [r0, #TASK_CB_USER_SP]
-    adds    r12, r12, #36              /* skip r4-r11 + primask */
-    ldmfd   r12!, {r0-r7}              /* r0-r3, r12, lr, pc, xpsr */
-    msr     psp, r12
-    ldr     r2, =g_sysMode
-    movs    r3, #1
-    str     r3, [r2]
-    movs    r2, #3                    /* CONTROL: PSP + unprivileged */
-    mov     lr, r5
-    cpsid   i                         /* airtight: masked until the
-                                       * trampoline's msr primask - no
-                                       * kernel-flash window at all */
-    movs    r12, #0                   /* PRIMASK: fresh task runs unmasked */
-    mov     r3, r6                    /* entry pc (thumb bit from the C ptr) */
-    b       OsBoxUsrEntry             /* protocol r12/r2/r3 - see the
-                                       * trampoline. Note: r2/r3 do not carry
-                                       * the task's initial args (box entry
-                                       * tasks take r0 = taskId only; r0/r1
-                                       * ride through untouched) */
-#endif
 #endif
 
     .fnend
@@ -307,16 +268,6 @@ __DisabledFPU1:
     /* g_oldTask->stackPointer = saved SP */
     ldr     r5, =g_oldTask
     ldr     r6, [r5]
-#ifdef LOSCFG_BOX
-    /* BOX: a task switched out in user mode keeps its context on
-     * the user stack; record it, stackPointer stays at kernel sp. */
-    ldrh    r2, [r6, #TASK_CB_STATUS]
-    tst     r2, #OS_TASK_STATUS_INUSER
-    beq     1f
-    str     r0, [r6, #TASK_CB_USER_SP]
-    ldr     r0, [r6]
-1:
-#endif
     str     r0, [r6]
 
     /* g_oldTask = g_runTask */
@@ -348,31 +299,6 @@ __DisabledFPU1:
     msr     psp, r0
     msr     primask, r1
 #else
-#ifdef LOSCFG_BOX
-    /* BOX: switch MPU to the new box (only on box change). */
-    ldr     r2, [r0, #TASK_CB_BOX_CB]
-    ldr     r3, [r6, #TASK_CB_BOX_CB]
-    cmp     r2, r3
-    beq     2f
-    push    {r0, lr}
-    mov     r0, r2
-    bl      BoxMpuSwitch
-    pop     {r0, lr}
-2:
-    /* Mode + dual-stack select: pick the user stack and drop
-     * privilege for a task suspended in user mode. */
-    ldrh    r2, [r0, #TASK_CB_STATUS]
-    mrs     r3, control
-    bic     r3, r3, #1
-    tst     r2, #OS_TASK_STATUS_INUSER
-    itt     ne
-    ldrne   r1, [r0, #TASK_CB_USER_SP]
-    orrne   r3, r3, #1
-    msr     control, r3
-    ldr     r2, =g_sysMode
-    and     r3, r3, #1
-    str     r3, [r2]
-#endif
 SignalContextRestore:
     ldr.w   r3, =OS_FPU_CPACR
     ldr     r3, [r3]
@@ -406,34 +332,3 @@ HalPendSVNoSwitch:
     bx      lr
 
     .fnend
-
-
-#ifdef LOSCFG_BOX
-/* BOX user entry/return trampoline. Tail-jumped from __StartUserTask AND
- * the syscall epilogue (los_svc_entry.S) while still privileged and
- * MASKED, with
- *   r12 = PRIMASK to restore, r2 = CONTROL value (PSP | nPRIV),
- *   r3  = user pc (thumb bit set).
- * Must live in .usr.text (COMMON area, MPU R0): the unmask (msr primask)
- * has to run privileged, so doing it in kernel flash opens a window
- * where an interrupt (with reschedule) saves a kernel-flash pc with
- * INUSER set - the resume then refetches it unprivileged and the MPU
- * denies kernel flash (hardware-confirmed crash class, design doc
- * pitfall 25). Here the first unmasked instant sits inside COMMON_TEXT:
- * a window reschedule saves a COMMON_TEXT pc, resumes legally, and the
- * refetched msr are no-ops in unprivileged mode (PendSV already
- * restored the equivalent state). Protocol registers are all
- * caller-saved: r4-r11 carry live user values on the syscall-return
- * path and must ride through untouched (the veneer's pop {r0-r3}
- * restores r0-r3 after the return); r12 has held the epilogue's saved
- * PRIMASK since its first instruction. */
-    .section .usr.text, "ax"
-    .global OsBoxUsrEntry
-    .type   OsBoxUsrEntry, %function
-    .thumb_func
-OsBoxUsrEntry:
-    msr     primask, r12
-    msr     control, r2
-    isb
-    bx      r3
-#endif

@@ -44,6 +44,7 @@ extern char __boxA_heap_end;
 #define LOS_BOXB_STACK_SIZE     0x1000
 extern UINT8 g_boxbStack[LOS_BOXB_STACK_SIZE];
 extern void boxBEntry(void);
+extern void boxBChurnEntry(void);
 extern char __boxB_text_start;
 extern char __boxB_text_end;
 extern char __boxB_rodata_start;

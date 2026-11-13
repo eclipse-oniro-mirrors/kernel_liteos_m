@@ -13,16 +13,20 @@
  *    type independent - basic, FPU-extended, with or without the
  *    STKALIGN pad - because the veneer pushed the block BEFORE the
  *    exception, so its address never moves.
- *  - FPU (extended-frame) syscalls under LOSCFG_ARCH_FPU_ENABLE: the
- *    user's S0-S15/FPSCR stay LIVE through the syscall - FPCCR.LSPACT
- *    is cleared so the pending lazy save cannot fire into the graft
- *    area, and the graft returns through a forced BASIC frame so no S
- *    state is ever popped from uninitialized kernel stack memory (the
- *    refs path reserved 72 bytes and let the deferred save fire there;
- *    a basic return cannot read S registers at all). Blocking syscalls
- *    still preserve the FPU state: PendSV saves/restores it in its own
- *    extended frame (FPCA = 1). Kernel implementations must not use the
- *    FPU (softfp kernel rule).
+ *  - FPU (extended-frame) syscalls under LOSCFG_ARCH_FPU_ENABLE, refs
+ *    semantics verbatim: OsExcSvcCall CLEARS FPCCR.LSPACT (refs
+ *    los_hw_syscalls.S: "config FPCCR for bx EXC_RETURN to ... clear
+ *    FPCCR.LSPACT") - the pending hardware lazy save is abandoned, and
+ *    the graft keeps the ORIGINAL (extended) EXC_RETURN with a 72-byte
+ *    FP area reserved above the integer frame. The extended return
+ *    preserves CONTROL.FPCA = 1 (mandatory for the PendSV extended-frame
+ *    save; a basic graft return clears FPCA and breaks the 204-byte
+ *    context geometry - QEMU-proven lockup) and unstacks the unwritten
+ *    reserved area into S0-S15, exactly like refs - harmless for softfp
+ *    user code (S regs are caller-saved, no FP value lives across a
+ *    call). Task switching is NOT lazy: PendSV forces the pending save
+ *    to disk and moves S0-S31 + FPSCR with the task context. Kernel
+ *    implementations must not use the FPU (softfp kernel rule).
  *  - kernel-sp anchor: [implementation entry SP + 16] - AAPCS caller
  *    territory, above the stack-args area [SP, SP+16), which callees
  *    never write - stores the pre-graft kernel sp. The epilogue reads
@@ -51,8 +55,23 @@
 .fpu softvfp
 .thumb
 
-#include "../kernel/los_offsets.h"
+/* bare include like los_dispatch.S: the generated header lives in the
+ * target's box/kernel dir, resolved through the propagated include path
+ * (no hardcoded target path in arch code, pitfall 31) */
+#include "los_offsets.h"
+/* OS_TASK_STATUS_INUSER: asm-side value home (offsets header exports
+ * offsets only - re-exporting a status bit there collided with the C
+ * definition, see los_offsets.c). */
+#include "los_box_dispatch.h"
 #include "syscalls_num.h"
+
+/* Enable the FPU-aware (lazy) syscall path: user tasks run with FPCA = 1,
+ * so the hardware pushes extended frames on the user stack and (with
+ * FPCCR.LSPEN, set by main.c) leaves the S0-S15/FPSCR save pending. The
+ * graft keeps that state pending and reserves the matching FP area, so the
+ * syscall is FPU-lazy by construction. The kernel itself stays soft-float
+ * (TaskContext unchanged - PendSV uses a runtime CPACR check for d8-d15). */
+#define LOSCFG_ARCH_FPU_ENABLE 1
 
 .equ    OS_FPU_CPACR,        0xE000ED88
 .equ    OS_FPU_CPACR_ENABLE, 0x00F00000
@@ -92,35 +111,22 @@ OsExcSvcCall:
     movs    r2, #0
     str     r2, [r3]
 
+    ldr     lr, [r12, #-4]             /* stashed EXC_RETURN */
 #ifdef LOSCFG_ARCH_FPU_ENABLE
-    /*
-     * FPU path (refs los_hw_syscalls.S, reworked for the GCC ABI):
-     * extended frame = stashed EXC_RETURN bit4 == 0. Keep the user's
-     * FPU state LIVE through the syscall:
-     *   - clear FPCCR.LSPACT: the deferred lazy save must not fire into
-     *     the graft area on the bx below;
-     *   - return through a forced BASIC frame (EXC_RETURN_BASIC): the
-     *     pop restores r0-r3/r12/lr/pc/xpsr only, so S0-S15/FPSCR ride
-     *     along untouched (the refs reserved 72 bytes and let the
-     *     deferred save fire there - restoring whatever it wrote - but
-     *     a basic return cannot read S registers from uninitialized
-     *     kernel memory at all).
-     * The epilogue still reads the ORIGINAL stash to skip the user
-     * frame's S area when resuming. Blocking syscalls are covered by
-     * PendSV's own extended-frame save/restore (FPCA = 1).
-     */
-    ldr     r2, [r12, #-4]            /* stashed EXC_RETURN */
-    tst     r2, #0x10                  /* bit4: 0 = extended frame */
-    bne     1f
-    ldr     r0, =OS_FPU_FPCCR
-    ldr     r3, [r0]
-    bic     r3, r3, #OS_FPU_LSPACT     /* cancel pending lazy save */
-    str     r3, [r0]
-    ldr     lr, =EXC_RETURN_BASIC      /* forced basic-frame graft return */
-    b       2f
-1:
-    ldr     lr, [r12, #-4]             /* basic frame: stashed value */
-2:
+    /* refs los_hw_syscalls.S: "config FPCCR for bx EXC_RETURN to
+     * 0xFFFFFFFE clear FPCCR.LSPACT". The pending hardware lazy save is
+     * ABANDONED: S0-S15/FPSCR stay live in the registers, nothing ever
+     * commits to the user-stack FP area. The graft below keeps the
+     * ORIGINAL EXC_RETURN (extended stays extended): an extended return
+     * preserves CONTROL.FPCA = 1, which the PendSV extended-frame save
+     * depends on - a BASIC graft return clears FPCA, downgrades every
+     * later exception of this task to basic frames and breaks the
+     * 204-byte context geometry (QEMU-proven lockup, d8-d15 loaded from
+     * stack fill). */
+    ldr     r2, =OS_FPU_FPCCR
+    ldr     r3, [r2]
+    bic     r3, r3, #OS_FPU_LSPACT
+    str     r3, [r2]
 #else
     /* Extended (FPU) frames are impossible in this build (CPACR off);
      * guard so a future hard-float build fails visibly, not silently. */
@@ -129,21 +135,20 @@ OsExcSvcCall:
     and     r2, r2, #OS_FPU_CPACR_ENABLE
     cmp     r2, #OS_FPU_CPACR_ENABLE
     beq     __FpuFrameUnsupported
-    ldr     lr, [r12, #-4]
 #endif
 
-    /* r3 = kernel sp (graft area top). */
-    ldr     r3, [r1]
+    /* r0 = args pointer (frame->r0, GCC ABI). */
+    ldr     r0, [r12]
 
     /* Syscall number: imm8 at [frame->pc - 2]; frame->pc at frame+24. */
-    ldr     r0, [r12, #24]
-    ldrb    r0, [r0, #-2]
-    cmp     r0, #LOSCFG_SYSCALL_NUM
+    ldr     r3, [r12, #24]
+    ldrb    r3, [r3, #-2]
+    cmp     r3, #LOSCFG_SYSCALL_NUM
     bhs     __BadSyscall
 
     /* fn = g_syscallTable[num].fn (entry: {fn, perm}, 8 bytes). */
     ldr     r2, =g_syscallTable
-    ldr     r2, [r2, r0, lsl #3]
+    ldr     r2, [r2, r3, lsl #3]
     cmp     r2, #0
     beq     __BadSyscall
     b       3f
@@ -157,64 +162,87 @@ __BadSyscall:
     ldr     r2, =__BadSyscallImpl
 3:
 
-    /* r0 = args pointer (frame->r0, GCC ABI). */
-    ldr     r0, [r12]
+    /* r3 = kernel sp (graft area top). */
+    ldr     r3, [r1]
+
+    /*
+     * FP gap, refs L156-158: reserve 72 bytes in the graft when the
+     * incoming frame is FPU-extended (stashed EXC_RETURN bit4 = 0), and
+     * return with the ORIGINAL EXC_RETURN. With LSPACT cleared above, the
+     * extended graft return unstacks this reserved (unwritten) area into
+     * S0-S15 - the refs behavior verbatim; harmless for softfp user code
+     * (S regs are caller-saved there, no FP value lives across a call),
+     * while task switches still move S0-S31 correctly via the PendSV
+     * extended-frame save/restore.
+     */
+    movs    r12, #0                     /* gap: 0 = basic graft */
+#ifdef LOSCFG_ARCH_FPU_ENABLE
+    tst     lr, #0x10                   /* bit4: 0 = extended frame */
+    it      eq
+    moveq   r12, #72
+#endif
 
     /*
      * Graft frame on the kernel stack, deterministic geometry (refs
      * los_hw_syscalls.S shape, GCC-ABI offsets):
-     *   base   = (ksp - 48) & ~7   8-aligned by construction
+     *   gap    = 0 (basic) / 72 (FPU-extended incoming frame)
+     *   base   = (ksp - 48 - gap) & ~7   8-aligned by construction
      *   [base, base+32)            the hardware frame (bx EXC_RETURN)
-     *   [base+32, base+48)         call args 5-8 at AAPCS [SP+0..16) -
+     *   [base+32, base+32+gap)     FP area, extended form only - never
+     *                              written here; unstacked into S0-S15 on
+     *                              the graft return (refs semantics)
+     *   [base+32+gap, +48+gap)     call args 5-8 at AAPCS [SP+0..16) -
      *                              gcc-verified: a callee reads arg5 at
      *                              [sp+0]; there is no dummy slot
-     *   [base+48]                  kernel-sp anchor (pre-graft ksp), in
+     *   [base+48+gap]              kernel-sp anchor (pre-graft ksp), in
      *                              AAPCS caller territory above the args
      *                              area, which callees never write
-     * The implementation always enters at base+32: 8-aligned, SP exactly
-     * base+32. No STKALIGN bit9 is ever set, so the exception return
-     * unstacks exactly 32 bytes - no +4 adjustment, nothing dependent on
-     * the hardware stack-alignment-on-return behavior. A 4-mod-8 ksp
-     * (the common case: TaskContext is 68 bytes on an 8-aligned stack
-     * top) merely shifts the whole block 4 bytes lower; the anchor keeps
-     * the bookkeeping exact where the refs epilogue used add sp, #16.
+     * The implementation is entered at base+32+gap. No STKALIGN bit9 is
+     * ever set, so the exception return unstacks exactly 32 or 104 bytes.
      *
-     * Register economy for the wide ldm/stm pairs below: four values must
-     * stay live through the build - r0 (args pointer), r1 (frame base),
-     * EXC_RETURN (for the final bx) and fn - so the pairs only become
-     * possible after (a) fn is stored to the pc slot early, (b)
-     * EXC_RETURN is PARKED in the frame's r12 slot (AAPCS incoming
-     * scratch), and (c) the anchor is stored while r3 still holds ksp.
+     * Register economy: r0 (args pointer), r2 (fn), lr (EXC_RETURN) and
+     * r3 (ksp) stay live through the build; r1/r3 are scratch.
      */
     subs    r1, r3, #48
+    subs    r1, r1, r12                 /* - gap */
     bic     r1, r1, #7                  /* r1 = graft frame base */
-    str     r3, [r1, #48]               /* kernel-sp anchor = ksp */
-    str     lr, [r1, #16]               /* park EXC_RETURN (frame r12 slot) */
-    str     r2, [r1, #24]               /* pc = implementation */
-
-    ldmia   r0, {r2, r3, r12, lr}       /* block[0..3] = call args 1-4 -> frame r0-r3 */
-    stmia   r1, {r2, r3, r12, lr}
-
+    str     r2, [r1, #24]               /* pc = implementation (fn freed) */
+    adds    r2, r1, r12                 /* r2 = base + gap */
+    str     r3, [r2, #48]               /* kernel-sp anchor = ksp */
     ldr     r3, =OsSyscallEpilogue
     str     r3, [r1, #20]               /* lr */
     ldr     r3, =0x01000000             /* xPSR: thumb only, no bit9 */
     str     r3, [r1, #28]
 
+    /* Call args 1-4: block[0..3] -> frame r0-r3. */
+    ldr     r3, [r0, #0]
+    str     r3, [r1, #0]
+    ldr     r3, [r0, #4]
+    str     r3, [r1, #4]
+    ldr     r3, [r0, #8]
+    str     r3, [r1, #8]
+    ldr     r3, [r0, #12]
+    str     r3, [r1, #12]
+
     /*
      * Call args 5-8: the user CALLER pushed them at [SP_call, SP_call+16)
      * per AAPCS, and SP_call = argsPtr + 16 (the veneer pushed {r0-r3}
-     * below them). Copy to [base+32, base+48). r0 and r3 are both dead
-     * after this block, so the copy runs as writeback ldmia/stmia pairs.
+     * below them). Copy to [base+32+gap, +48+gap) = implementation SP.
+     * r1 is the copy temp; r2 (base + gap) stays live for the entry.
      */
     adds    r0, #16                     /* r0 = &callArg5 */
-    adds    r3, r1, #32                 /* r3 = &callArg5 destination */
-    ldmia   r0!, {r2, r12, lr}          /* call args 5-7 */
-    stmia   r3!, {r2, r12, lr}
-    ldr     r2, [r0]                    /* call arg 8 */
-    str     r2, [r3]
+    adds    r3, r2, #32                 /* r3 = implementation entry SP */
+    ldr     r1, [r0, #0]
+    str     r1, [r3, #0]
+    ldr     r1, [r0, #4]
+    str     r1, [r3, #4]
+    ldr     r1, [r0, #8]
+    str     r1, [r3, #8]
+    ldr     r1, [r0, #12]
+    str     r1, [r3, #12]
 
     /* Enter the graft: psp = frame base, "return" into the implementation. */
-    ldr     lr, [r1, #16]               /* unpark EXC_RETURN */
+    subs    r1, r2, r12                 /* r1 = graft frame base */
     msr     psp, r1
     bx      lr
     .fnend
@@ -241,8 +269,19 @@ __FpuFrameUnsupported:
  * OsSyscallEpilogue — implementation returned (r0 = retval), thread mode,
  * privileged, psp = kernel stack (implementation entry SP). Restore the
  * user context manually.
+ *
+ * Lives in .usr.text (COMMON_TEXT) exactly like refs los_hw_syscalls.S
+ * (SECTION .usr:CODE(2) / .section .usr.text): the unmask + privilege
+ * drop + return sequence runs here, so there is no kernel-flash tail
+ * after the unmask at all - an interrupt landing anywhere in it saves a
+ * COMMON_TEXT pc and resumes legally (that placement IS the refs answer
+ * to the resume-window class; no separate trampoline is involved).
  */
-    .type  OsSyscallEpilogue, %function
+    .section .usr.text, "ax"
+    .thumb
+    .global OsSyscallEpilogue
+    .type   OsSyscallEpilogue, %function
+    .thumb_func
     .fnstart
     .cantunwind
 OsSyscallEpilogue:
@@ -302,7 +341,13 @@ OsSyscallEpilogue:
     ldr     r0, [r2, #-36]              /* stashed EXC_RETURN */
     tst     r0, #0x10                   /* bit4 = 0: extended frame */
     it      eq
-    addeq   r2, #72                     /* skip the S0-S15/FPSCR area */
+    addeq   r2, #72                     /* skip the S0-S15/FPSCR area:
+                                         * the hardware RESERVED it at SVC
+                                         * entry (FPCA=1) even though
+                                         * LSPACT was cleared and nothing
+                                         * was ever written there - it
+                                         * still occupies user-stack space
+                                         * (refs: moveq r3, #104) */
 #endif
     ldr     r0, [r1, #TASK_CB_USER_SP]  /* frame->xpsr at fixed +32 */
     ldr     r0, [r0, #32]
@@ -312,23 +357,29 @@ OsSyscallEpilogue:
     addne   r2, #4
     msr     psp, r2
 
-    /* Drop privilege and resume through the COMMON_TEXT trampoline
-     * (OsBoxUsrEntry, los_dispatch.S). Doing the unmask here - in
-     * kernel flash, privileged - opens a 2-instruction window where an
-     * interrupt (with reschedule) saves a kernel-flash pc with INUSER
-     * set; the resume then refetches it unprivileged and the MPU
-     * denies kernel flash (hardware-confirmed crash class: two crashes
-     * at this exact tail, ~1h uptime each; design doc pitfall 25).
-     * The trampoline keeps the unmasked instant inside COMMON_TEXT and
-     * a window reschedule recovers fully. Protocol: r12 = PRIMASK
-     * (held since the epilogue's first mrs), r2 = CONTROL, r3 = user
-     * pc. The hardware-stacked frame PC carries no Thumb bit (T lives
-     * in xPSR bit24) - the orr below forces it, else the manual bx
-     * takes INVSTATE. Callee-saved r4-r11 ride through untouched (live
-     * user values); r0-r3 are caller-saved and the veneer's
-     * pop {r0-r3} restores them after the return. */
+    /* Drop privilege and resume the user - the refs tail, inlined (refs
+     * los_hw_syscalls.S OsSyscallEpilogue: mrs control / orr #1 /
+     * msr primask / msr control / mov pc). Safe BECAUSE this function
+     * lives in .usr.text (COMMON_TEXT): an interrupt landing anywhere
+     * in the unmask-to-branch span saves a COMMON_TEXT pc, which
+     * resumes legally under the user MPU view - the refs placement
+     * itself answers the resume-window class (pitfall 25); there is no
+     * kernel-flash tail and no trampoline. PRIMASK restores BEFORE the
+     * privilege drop (refs order; after the drop msr primask is
+     * ignored in unprivileged mode). CONTROL is read-modify-written
+     * (refs: mrs control / orr #1 keeps every bit) - it is the only
+     * carrier of this task's FPCA across the manual (non-exception)
+     * resume, and a cleared FPCA would stop the hardware from stacking
+     * this task's FP state on the next exception. The hardware-stacked
+     * frame PC carries no Thumb bit (T lives in xPSR bit24) - the orr
+     * below forces it, else the manual bx takes INVSTATE (pitfall 18d).
+     * Callee-saved r4-r11 ride through untouched (live user values);
+     * r0-r3 are caller-saved and the veneer's pop {r0-r3} restores
+     * them after the return. */
     orr     r3, r3, #1
-    movs    r2, #3                    /* CONTROL: PSP + unprivileged */
-    b       OsBoxUsrEntry             /* masked jump (r12 = saved PRIMASK):
-                                       * the unmask lands in COMMON_TEXT */
+    mrs     r2, control
+    orr     r2, r2, #1                /* CONTROL: PSP + unprivileged */
+    msr     primask, r12              /* unmask - inside COMMON_TEXT */
+    msr     control, r2               /* drop privilege */
+    bx      r3
     .fnend

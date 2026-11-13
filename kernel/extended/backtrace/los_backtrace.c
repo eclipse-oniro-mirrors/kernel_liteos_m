@@ -38,8 +38,10 @@
 #endif
 
 #ifdef LOSCFG_BOX
-#include "los_box_pri.h"   /* LosBoxCB: box user-stack bounds for backtrace */
-#include "los_offsets.h"   /* generated: OS_TASK_STATUS_INUSER */
+#include "los_box_pri.h"   /* LosBoxCB: box user-stack bounds for backtrace
+                            * OS_TASK_STATUS_INUSER comes from los_task_base.h
+                            * via the los_task_pri.h include above (the
+                            * asm-offsets header no longer re-exports it). */
 #endif
 
 #if (LOSCFG_BACKTRACE_TYPE != 0)

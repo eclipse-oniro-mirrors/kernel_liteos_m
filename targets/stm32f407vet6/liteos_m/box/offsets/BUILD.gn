@@ -10,9 +10,10 @@
 #
 # Consumers (each must keep a deps edge on this action for ordering, and a
 # --touch entry for recompilation):
-#   bsp_config: los_offsets.c, box/syscalls/los_syscall_entry.S,
-#               box/syscalls/los_svc_entry.S
-#   arch:       arch/arm/cortex_m/los_dispatch.S
+#   bsp_config: los_offsets.c
+#   arch:       los_dispatch_box.S, los_box_uspace.S and (M5G-R, moved from
+#               targets/box/syscalls) syscalls/src/los_syscall_entry.S +
+#               syscalls/src/los_svc_entry.S
 
 action("gen_box_offsets") {
   script = "gen_offsets.py"
@@ -27,9 +28,16 @@ action("gen_box_offsets") {
         root_build_dir),
     "--stamp", rebase_path("$target_gen_dir/los_offsets.h.stamp", root_build_dir),
     "--touch", rebase_path("los_offsets.c", root_build_dir),
-    "--touch", rebase_path("../syscalls/los_syscall_entry.S", root_build_dir),
-    "--touch", rebase_path("../syscalls/los_svc_entry.S", root_build_dir),
-    "--touch", rebase_path("//kernel/liteos_m/arch/arm/cortex_m/los_dispatch.S",
+    "--touch", rebase_path(
+        "//kernel/liteos_m/arch/arm/cortex_m/syscalls/src/los_syscall_entry.S",
+        root_build_dir),
+    "--touch", rebase_path(
+        "//kernel/liteos_m/arch/arm/cortex_m/syscalls/src/los_svc_entry.S",
+        root_build_dir),
+    "--touch", rebase_path(
+        "//kernel/liteos_m/arch/arm/cortex_m/los_dispatch_box.S",
+        root_build_dir),
+    "--touch", rebase_path("//kernel/liteos_m/arch/arm/cortex_m/los_box_uspace.S",
                            root_build_dir),
   ]
 

@@ -24,23 +24,22 @@ kernel_module(module_name) {
   ]
 
   if (defined(LOSCFG_BOX)) {
-    # BOX kernel world: kernel-side box sources + the syscalls.h rename
-    # root (module-local on purpose - config("public") propagates through
-    # liteos_m:public into every kernel_module, which would leak the
-    # rename header into the box usr world ahead of its stub root).
+    # BOX kernel world: target-side box sources. M5G-R: the syscall
+    # machinery (table/veneers/svc entry) moved to the arch syscalls root
+    # (arch/arm/cortex_m/syscalls/src, compiled by the arch module) - only
+    # the truly target-owned pieces stay here (offsets asserts, box
+    # address config).
     sources += [
       "../box/offsets/los_offsets.c",
-      "../box/kernel/los_box_mini.c",
-      "../box/kernel/los_box_mpu.c",
-      "../box/syscalls/los_syscall_table.c",
-      "../box/syscalls/los_syscall_entry.S",
-      "../box/syscalls/los_svc_entry.S",
       "../box/boxes_cfg/boxes_conf.c",
     ]
     configs += [ "$LITEOSTOPDIR/arch/arm/cortex_m:box_syscalls" ]
     deps = [
       # box user world (stub syscalls.h root + veneer-linked LOS_xxx)
-      "../box/usr_demo",
+      "../box/usr_demo:box_usr_demo",
+      # M5D usr shared copy of the bestfit allocator (COMMON_TEXT
+      # direct-call for alloc/free; locks via the mux veneers)
+      "../box/usr_demo:box_usr_mem",
       # asm-offsets regeneration: runs before this module compiles
       # (los_offsets.c asserts against the freshly generated header)
       "../box/offsets:gen_box_offsets",

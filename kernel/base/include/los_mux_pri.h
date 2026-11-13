@@ -85,6 +85,27 @@ VOID OsMuxCreatorSet(LosMuxCB *mux, UINTPTR creator);
 VOID OsMuxCreatorClear(LosMuxCB *mux);
 #endif
 
+#ifdef LOSCFG_BOX
+/* ---- BOX (M5C): SID-based mux module, refs los_mux_pri.h contracts ----
+ * Handles become sIds (refs los_mux.h API): kernel muxes carry the
+ * LOS_KERNEL_SID_HEAD box id, box muxes the owning box id; the module
+ * core (pend/post ops) is unchanged. Implemented across los_mux.c (the
+ * create/delete/pend/post seams) and los_mux_box.c (per-box pools). */
+#include "los_sec_pri.h"
+
+extern LOS_DL_LIST g_unusedMuxList;
+extern LOS_DL_LIST g_boxFreeMuxList[LOSCFG_BASE_BOX_MAX_LIMIT];
+extern EntityObj *g_kernelMuxEntity;
+
+/* refs los_mux_pri.h:176-185 contracts */
+extern UINT32 OsBoxMuxInit(EntityObj *entityList, LosMuxCB *muxList, UINT32 listLen, UINT16 boxId);
+extern UINT32 OsBoxMuxListInit(UINT16 boxId);
+extern VOID OsGetMuxFreeList(const LosBoxCB *boxCB, LOS_DL_LIST **freeList);
+extern UINT32 OsMuxCreate(UINT32 *sId, UINT32 attr);
+extern UINT32 OsMuxGetCBLocked(UINT32 sId, LosMuxCB **muxCreated);
+extern UINT32 LOS_MuxHeld(UINT32 sId);
+#endif
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

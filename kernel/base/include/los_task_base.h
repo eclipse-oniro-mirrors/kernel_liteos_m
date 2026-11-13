@@ -112,6 +112,18 @@ extern "C" {
  */
 #define OS_TASK_STATUS_ZOMBIE                         0x0100
 
+#ifdef LOSCFG_BOX
+/**
+ * @ingroup los_task
+ * Flag that indicates the task control block status.
+ *
+ * BOX: the task is running (or was switched out) in user mode, its live
+ * context sits on the user stack (dual-stack model). refs value, kept in
+ * sync with the generated los_offsets.h copy used by the dispatch asm.
+ */
+#define OS_TASK_STATUS_INUSER                         0x0200
+#endif
+
 #if (LOSCFG_SECURE == 1)
 /**
  * @ingroup los_task
@@ -231,6 +243,14 @@ typedef struct LosTaskCB {
     VOID                        *boxCB;                   /**< Owning box, NULL for kernel tasks */
     VOID                        *userStackPointer;        /**< User-mode stack pointer (dual-stack) */
     UINT32                       syscallNestCnt;           /**< Syscall nesting count */
+    UINT8                        curBoxId;                 /**< Running box id (refs), OS_KERNEL_BOX for kernel tasks */
+    /* refs fields (non-TASK_STACK_REUSE): user-stack bounds for the switch-time
+     * check and the delete-time recycle decision; staticStack: 1 = caller
+     * provided user stack (entry task) - never recycled, 0 = pool/dynamic. */
+    UINTPTR                      userTopOfStack;           /**< User stack base (low address, refs) */
+    UINT32                       userStackSize;            /**< User stack size in bytes */
+    UINT8                        staticStack;              /**< 1: static user stack, 0: dynamic (refs) */
+    LOS_DL_LIST                  boxTaskList;              /**< Link in LosBoxCB.taskCBList (refs) */
 #endif
 } LosTaskCB;
 

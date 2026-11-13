@@ -3,11 +3,14 @@
  * All constants come from asm/memmap_config.h (single source with the
  * linker scripts). Runs privileged; called from main (init) and from the
  * ported dispatch asm (context switch).
+ * M5A: relocated to the arch layer (refs keeps its box MPU config in the
+ * arch too; was targets/.../box/kernel/ in the phase-1 demo layer).
  */
 #include "los_typedef.h"
 #include "soc.h"                       /* core_cm4.h: MPU, SCB, __DSB/__ISB */
 #include "los_common_interrupt.h"      /* ArchGetHwiFrom */
 #include "los_box_pri.h"
+#include "asm/memmap_config.h"        /* slot geometry + RASR recipes (board) */
 
 #ifdef __cplusplus
 extern "C" {

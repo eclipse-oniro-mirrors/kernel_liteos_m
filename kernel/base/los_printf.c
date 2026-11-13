@@ -38,6 +38,7 @@
 #endif
 #include "los_debug.h"
 #include "los_memory.h"
+#include "los_task_pri.h"
 
 #ifdef LOSCFG_SHELL_DMESG
 #include "dmesg_pri.h"
@@ -49,6 +50,47 @@
 
 #include <string.h>
 #include "securec.h"
+
+/* M5G-R: this whole TU moves to the COMMON sections under BOX (compiled
+ * in the box_usr_mem module, kernel/base drops it): box user code calls
+ * PRINTK -> LOS_Printf through the same code the kernel uses - the
+ * "full PRINTK" for box code. The move required two structural changes:
+ *  1. OsLogLevelCheck (+ its STATIC g_logString) moved here from
+ *     los_debug.c - it sits on the LOS_Printf call path and would be a
+ *     kernel-segment landing point otherwise (pitfall 44: audit every UND
+ *     symbol of a COMMON-segment TU). The non-COMMON level prefix still
+ *     touches g_logString/LOS_CurTaskNameGet, which user callers never
+ *     reach (PRINTK is always LOG_COMMON_LEVEL).
+ *  2. the formatting engine: under LOS_PRINTF_COMMON_ENGINE (defined by
+ *     the box_usr_mem build) OsVprintf formats with OsVsnprintfCommon
+ *     instead of vsnprintf_s. The libsec/musl printf closure (FILE
+ *     streams, pthread locks, TLS errno, soft-double conversion) cannot
+ *     be routed to the COMMON sections - pitfall 45's "burden members
+ *     stay out" at printf scale. The KERNEL build (BOX=off) keeps the
+ *     full vsnprintf_s engine, bit-for-bit. */
+#if (LOSCFG_KERNEL_PRINTF == 1) || (LOSCFG_KERNEL_PRINTF == 2)
+STATIC const CHAR *g_logString[] = {
+    "EMG",
+    "COMMON",
+    "ERR",
+    "WARN",
+    "INFO",
+    "DEBUG",
+};
+
+INT32 OsLogLevelCheck(INT32 level)
+{
+    if (level > PRINT_LEVEL) {
+        return (INT32)LOS_NOK;
+    }
+
+    if ((level != LOG_COMMON_LEVEL) && ((level > LOG_EMG_LEVEL) && (level <= LOG_DEBUG_LEVEL))) {
+        PRINTK("[%s][%s]", g_logString[level], LOS_CurTaskNameGet());
+    }
+
+    return LOS_OK;
+}
+#endif
 
 #define SIZEBUF  256
 
@@ -67,23 +109,35 @@ WEAK VOID UartPuts(const CHAR *s, UINT32 len, BOOL isLock)
     (VOID)isLock;
 }
 
+#ifdef LOS_PRINTF_COMMON_ENGINE
+/* COMMON build: reach the kernel-segment uart driver through the
+ * UartPuts syscall (it runs privileged, so the driver's LOS_IntLock
+ * and register writes are legal there). Kernel build keeps the plain
+ * UartPuts call below. The extern restates the COMMON_TEXT veneer
+ * prototype (same shape the usr/syscalls.h def expansion declares). */
+extern VOID UartPuts(const CHAR *s, UINT32 len, BOOL isLock);
+#define OS_UART_PUTS(s, len, lock)   UartPuts((s), (len), (lock))
+#else
+#define OS_UART_PUTS(s, len, lock)   UartPuts((s), (len), (lock))
+#endif
+
 STATIC VOID ErrorMsg(VOID)
 {
     const CHAR *p = "Output illegal string! vsnprintf_s failed!\n";
-    UartPuts(p, (UINT32)strlen(p), UART_WITH_LOCK);
+    OS_UART_PUTS(p, (UINT32)strlen(p), UART_WITH_LOCK);
 }
 
 STATIC VOID UartOutput(const CHAR *str, UINT32 len, BOOL isLock)
 {
 #ifdef LOSCFG_SHELL_DMESG
     if (!OsCheckUartLock()) {
-        UartPuts(str, len, isLock);
+        OS_UART_PUTS(str, len, isLock);
     }
     if (isLock != UART_WITHOUT_LOCK) {
         (VOID)OsLogMemcpyRecord(str, len);
     }
 #else
-    UartPuts(str, len, isLock);
+    OS_UART_PUTS(str, len, isLock);
 #endif
 }
 
@@ -110,6 +164,10 @@ STATIC VOID OutputControl(const CHAR *str, UINT32 len, OutputType type)
     return;
 }
 
+#ifdef LOS_PRINTF_COMMON_ENGINE
+STATIC INT32 OsVsnprintfCommonImpl(CHAR *dst, UINT32 dstMax, const CHAR *fmt, va_list ap);
+#endif
+
 STATIC VOID OsVprintf(const CHAR *fmt, va_list ap, OutputType type)
 {
     INT32 len = 0;
@@ -118,7 +176,11 @@ STATIC VOID OsVprintf(const CHAR *fmt, va_list ap, OutputType type)
     UINT32 bufLen = SIZEBUF;
 
     bBuf = aBuf;
+#ifdef LOS_PRINTF_COMMON_ENGINE
+    len = OsVsnprintfCommonImpl(bBuf, bufLen, fmt, ap);
+#else
     len = vsnprintf_s(bBuf, bufLen, bufLen - 1, fmt, ap);
+#endif
 #ifdef LOSCFG_KERNEL_PRINTF_SIZE_EXTEND
     if ((len == -1) && (*bBuf == '\0')) {
         /* parameter is illegal or some features in fmt dont support */
@@ -225,3 +287,158 @@ VOID PrintExcInfo(const CHAR *fmt, ...)
 #endif
     va_end(ap);
 }
+
+#ifdef LOS_PRINTF_COMMON_ENGINE
+/*
+ * Lightweight formatting engine for the COMMON build of this TU (see the
+ * header comment). Supports: %s %d %i %u %x %X %p %c %%; length modifiers
+ * l/ll/z/h (accepted, ignored - 32-bit values); field width with optional
+ * leading-0 padding (%08x style); unknown specs emit verbatim. Returns the
+ * number of characters stored (excluding the terminator), or -1 when the
+ * buffer is too small - matching the vsnprintf_s error contract OsVprintf
+ * checks (SIZE_EXTEND re-format loops are compiled out in this build).
+ */
+STATIC INT32 OsVsnprintfCommonImpl(CHAR *dst, UINT32 dstMax, const CHAR *fmt, va_list ap)
+{
+    UINT32 pos = 0;
+    const CHAR *p = fmt;
+
+    if ((dst == NULL) || (dstMax == 0)) {
+        return -1;
+    }
+    while (*p != '\0') {
+        UINT32 width = 0;
+        CHAR pad = ' ';
+        CHAR spec;
+        CHAR digits[12];
+        UINT32 ndig;
+        UINT32 i;
+        UINT32 ulValue;
+        INT32 sValue;
+        BOOL negative;
+        const CHAR *s;
+
+        if (pos >= (dstMax - 1)) {
+            dst[pos] = '\0';
+            return -1;
+        }
+        if (*p != '%') {
+            dst[pos++] = *p++;
+            continue;
+        }
+        p++;
+        if (*p == '%') {
+            dst[pos++] = *p++;
+            continue;
+        }
+        if (*p == '0') {
+            pad = '0';
+            p++;
+        }
+        while ((*p >= '0') && (*p <= '9')) {      /* field width */
+            width = (width * 10U) + (UINT32)(*p - '0');
+            p++;
+        }
+        while ((*p == 'l') || (*p == 'h') || (*p == 'z')) {
+            p++;                                  /* length mods: 32-bit only */
+        }
+        spec = *p++;
+        ulValue = 0;
+        negative = FALSE;
+        ndig = 0;
+        switch (spec) {
+            case 'c':
+                dst[pos++] = (CHAR)va_arg(ap, INT32);
+                continue;
+            case 's':
+                s = va_arg(ap, const CHAR *);
+                if (s == NULL) {
+                    s = "(null)";
+                }
+                while (*s != '\0') {
+                    if (pos >= (dstMax - 1)) {
+                        dst[pos] = '\0';
+                        return -1;
+                    }
+                    dst[pos++] = *s++;
+                }
+                continue;
+            case 'd':
+            case 'i':
+                sValue = va_arg(ap, INT32);
+                negative = (sValue < 0);
+                ulValue = (negative ? (UINT32)(-sValue) : (UINT32)sValue);
+                break;
+            case 'u':
+                ulValue = va_arg(ap, UINT32);
+                break;
+            case 'p':
+                if (pos >= (dstMax - 3)) {
+                    dst[pos] = '\0';
+                    return -1;
+                }
+                dst[pos++] = '0';
+                dst[pos++] = 'x';
+                ulValue = (UINT32)(UINTPTR)va_arg(ap, VOID *);
+                width = 0;
+                pad = ' ';
+                break;
+            case 'x':
+            case 'X':
+                ulValue = va_arg(ap, UINT32);
+                break;
+            default:                               /* unknown spec: verbatim */
+                if (pos >= (dstMax - 2)) {
+                    dst[pos] = '\0';
+                    return -1;
+                }
+                dst[pos++] = '%';
+                dst[pos++] = spec;
+                continue;
+        }
+        /* emit the numeric conversion for d/i/u/x/X/p */
+        if ((spec == 'x') || (spec == 'X') || (spec == 'p')) {
+            if (ulValue == 0) {
+                digits[ndig++] = '0';
+            }
+            while (ulValue != 0) {
+                UINT32 v = ulValue & 0xFU;
+                digits[ndig++] = (CHAR)((v < 10U) ? ('0' + v) :
+                                        ((spec == 'x') ? ('a' + v - 10U) : ('A' + v - 10U)));
+                ulValue >>= 4;
+            }
+        } else {
+            if (ulValue == 0) {
+                digits[ndig++] = '0';
+            }
+            while (ulValue != 0) {
+                digits[ndig++] = (CHAR)('0' + (ulValue % 10U));
+                ulValue /= 10U;
+            }
+            if (negative) {
+                digits[ndig++] = '-';
+            }
+        }
+        if ((width != 0) && (width > ndig)) {
+            UINT32 padding = width - ndig;
+            if (pos + padding + ndig >= (dstMax - 1)) {
+                dst[pos] = '\0';
+                return -1;
+            }
+            for (i = 0; i < padding; i++) {
+                dst[pos++] = pad;
+            }
+        }
+        if (pos + ndig >= (dstMax - 1)) {
+            dst[pos] = '\0';
+            return -1;
+        }
+        while (ndig > 0) {
+            ndig--;
+            dst[pos++] = digits[ndig];
+        }
+    }
+    dst[pos] = '\0';
+    return (INT32)pos;
+}
+#endif /* LOS_PRINTF_COMMON_ENGINE */

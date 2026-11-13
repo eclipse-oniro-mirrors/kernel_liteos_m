@@ -57,7 +57,82 @@ extern "C" {
 #endif
 
 #define OS_TCB_FROM_PENDLIST(ptr)                       LOS_DL_LIST_ENTRY(ptr, LosTaskCB, pendList)
+#ifdef LOSCFG_BOX
+/* BOX taskId encoding (refs los_task_pri.h:101-104): kernel ids stay plain,
+ * box ids carry (boxId+1) in the high 16 bits; every TCB lookup routes to
+ * the owning pool. One macro definition covers all call sites. */
+#include "los_box_pri.h"    /* OS_BOX_GET_BID/GET_ID/SET_ID (no cycle: it only
+                             * pulls the public los_task.h) */
+#define OS_TASK_ID_IS_KER(taskId)                       ((((taskId) >> 16) & (UINT32)0xFFFF) == (UINT32)0)
+extern LosTaskCB *g_boxTaskCBArray[LOSCFG_BASE_BOX_MAX_LIMIT];
+extern BOOL OsBoxTaskIdCheckInvalid(UINT32 taskId);
+/* generic create path, box-aware (refs OsTaskCreateOnly carries a boxPtr);
+ * defined in los_task.c, called by the box create family in los_task_box.c */
+extern UINT32 OsTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack,
+                               BOOL useUsrStack, const VOID *boxPtr);
+/* ---- Gate/Exit pattern (refs IPC_SEC design, M5B-R refactor):
+ * los_task.c calls generic gates; BOX logic stays in los_task_box.c.
+ * Gates are STATIC INLINE when BOX=off for zero-cost baseline. ---- */
+extern VOID OsTaskBoxCBInitDefault(LosTaskCB *taskCB);
+extern UINT32 OsTaskCreateTCBGet(LosTaskCB **taskCB, const VOID *boxPtr);
+extern VOID OsTaskCreateTCBRewind(LosTaskCB *taskCB, const VOID *boxPtr);
+/* delete-path gate pair: ResRelease frees box resources while the TCB
+ * fields are still live (before the topOfStack clear + security memset);
+ * TCBRecycle links the wiped TCB back to its free list afterwards. */
+extern VOID OsTaskResRelease(LosTaskCB *taskCB, UINT32 taskId);
+extern VOID OsTaskTCBRecycle(LosTaskCB *taskCB, UINT32 taskId);
+/* M5G static-create box core (los_task_box.c): the native
+ * LOS_TaskCreateOnlyStatic entry (los_task.c) routes a box context here. */
+extern UINT32 OsTaskCreateStaticDo(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack);
+extern BOOL OsTaskBoxDelRunDefer(LosTaskCB *taskCB);
+/* task pools owned by los_task.c - the hooks route TCBs into them */
+extern LOS_DL_LIST g_losFreeTask;
+extern LOS_DL_LIST g_taskRecycleList;
+/* create-path predicate: a box create carries its own param checks */
+#define OS_TASK_IS_BOX_CREATE(boxPtr)                   ((boxPtr) != NULL)
+#define OS_TCB_FROM_TID(taskId) \
+    ((OS_TASK_ID_IS_KER(taskId)) ? (&g_osTaskCBArray[OS_TSK_GET_INDEX(taskId)]) : \
+        (g_boxTaskCBArray[OS_BOX_GET_BID(taskId)] + OS_BOX_GET_ID(taskId)))
+#else
 #define OS_TCB_FROM_TID(taskId)                         (((LosTaskCB *)g_osTaskCBArray) + (taskId))
+/* BOX-off gates: STATIC INLINE baseline, compiler optimizes to zero overhead
+ * (refs IPC_SEC los_mux.c L84-91 constraint: no print/assert, rely on inlining) */
+#define OS_TASK_IS_BOX_CREATE(boxPtr)                   (0)
+#define OsTaskBoxCBInitDefault(taskCB)                  ((void)0)
+#define OsTaskBoxDelRunDefer(taskCB)                    (0)
+
+STATIC INLINE UINT32 OsTaskCreateTCBGet(LosTaskCB **taskCB, const VOID *boxPtr)
+{
+    (VOID)boxPtr;
+    if (LOS_ListEmpty(&g_losFreeTask)) {
+        return LOS_ERRNO_TSK_TCB_UNAVAILABLE;
+    }
+    *taskCB = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&g_losFreeTask));
+    LOS_ListDelete(LOS_DL_LIST_FIRST(&g_losFreeTask));
+    return LOS_OK;
+}
+
+STATIC INLINE VOID OsTaskCreateTCBRewind(LosTaskCB *taskCB, const VOID *boxPtr)
+{
+    (VOID)boxPtr;
+    LOS_ListAdd(&g_losFreeTask, &taskCB->pendList);
+}
+
+/* BOX=off baseline: no box resources exist, so the release step is a
+ * no-op; the recycle step is the free-list link (mirrors the kernel arm
+ * of the BOX=on gate in los_task_box.c). */
+STATIC INLINE VOID OsTaskResRelease(LosTaskCB *taskCB, UINT32 taskId)
+{
+    (VOID)taskCB;
+    (VOID)taskId;
+}
+
+STATIC INLINE VOID OsTaskTCBRecycle(LosTaskCB *taskCB, UINT32 taskId)
+{
+    (VOID)taskId;
+    LOS_ListAdd(&g_losFreeTask, &taskCB->pendList);
+}
+#endif
 
 /* Task signal types */
 #define SIGNAL_NONE                 0U
@@ -162,7 +237,13 @@ extern LosTaskCB            g_mainTask[LOSCFG_KERNEL_CORE_NUM];
  * @ingroup los_task
  * @brief check task id's invalidation
  */
+#ifdef LOSCFG_BOX
+/* BOX: encoding-aware validity (refs OsTaskIdCheck semantics): kernel ids
+ * index g_osTaskCBArray, box ids decode against their per-box pool bounds. */
+#define OS_TASK_ID_CHECK_INVALID(taskId)      OsBoxTaskIdCheckInvalid(taskId)
+#else
 #define OS_TASK_ID_CHECK_INVALID(taskId)      (OS_TSK_GET_INDEX(taskId) >= g_taskMaxNum)
+#endif
 
 /**
  * @ingroup los_task

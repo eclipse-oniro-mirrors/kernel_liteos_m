@@ -52,8 +52,36 @@
  */
 _Static_assert(sizeof(struct yaffs_dev) == 3740,
                "struct yaffs_dev layout drifted from the fbb prebuilt archive");
-_Static_assert(offsetof(struct yaffs_dirent, d_name) == 11,
-               "struct yaffs_dirent.d_name drifted from the fbb prebuilt archive");
+/* The archive uses 32-bit off_t here, independently of the host libc ABI.
+ * Do not change musl off_t or use its value to interpret the returned buffer.
+ *
+ * The offsets below are the vendored archive's ABI, not this kernel's. A board
+ * linking a yaffs2 built with a different layout overrides these macros; the
+ * static asserts then fail the build instead of letting readdir/stat hand back
+ * fields read at the wrong offset. */
+#ifndef YAFFS_BINARY_DIRENT_NAME_OFFSET
+#define YAFFS_BINARY_DIRENT_NAME_OFFSET     11u
+#endif
+#ifndef YAFFS_BINARY_STAT_SIZE_OFFSET
+#define YAFFS_BINARY_STAT_SIZE_OFFSET       32u
+#endif
+#ifndef YAFFS_BINARY_STAT_CTIME_OFFSET
+#define YAFFS_BINARY_STAT_CTIME_OFFSET      56u
+#endif
+
+struct YaffsBinaryDirent {
+    int32_t ino;
+    int32_t offset;
+    uint16_t reclen;
+    uint8_t type;
+    char name[256];
+};
+_Static_assert(offsetof(struct YaffsBinaryDirent, name) == YAFFS_BINARY_DIRENT_NAME_OFFSET,
+               "yaffs dirent ABI drifted from the prebuilt archive");
+_Static_assert(offsetof(struct yaffs_stat, st_size) == YAFFS_BINARY_STAT_SIZE_OFFSET,
+               "yaffs stat size ABI drifted from the prebuilt archive");
+_Static_assert(offsetof(struct yaffs_stat, yst_ctime) == YAFFS_BINARY_STAT_CTIME_OFFSET,
+               "yaffs stat time ABI drifted from the prebuilt archive");
 
 #define YAFFS_DEFAULT_MODE 0666
 
@@ -61,7 +89,7 @@ static int YaffsErrno(void)
 {
     int err = yaffsfs_GetLastError();
 
-    return (err > 0) ? err : EIO;
+    return (err < 0) ? -err : ((err > 0) ? err : EIO);
 }
 
 static int YaffsErrFail(void)
@@ -89,6 +117,22 @@ static int YaffsCheckFileOpen(struct File *file)
 }
 
 /* ---- mount / umount -------------------------------------------------------- */
+
+/*
+ * yaffs_mount2() carries the read-only flag through to the archive so a MS_RDONLY
+ * mount cannot be written behind the VFS's back. An archive that predates mount2
+ * only offers yaffs_mount(); such a board defines YAFFS_NO_MOUNT2 and loses only
+ * the read-only enforcement.
+ */
+static int YaffsMountRo(const char *path, unsigned long mountflags)
+{
+#ifdef YAFFS_NO_MOUNT2
+    (VOID)mountflags;
+    return yaffs_mount(path);
+#else
+    return yaffs_mount2(path, (mountflags & MS_RDONLY) != 0UL);
+#endif
+}
 
 static int YaffsMount(struct MountPoint *mp, unsigned long mountflags,
                       const void *data)
@@ -118,7 +162,7 @@ static int YaffsMount(struct MountPoint *mp, unsigned long mountflags,
         errno = ENODEV;
         return (int)LOS_NOK;
     }
-    if (yaffs_mount(mp->mPath) != 0) {
+    if (YaffsMountRo(mp->mPath, mountflags) != 0) {
         int err = YaffsErrno();
 
         PRINTK("yaffs: mount %s fail errno=%d\n", mp->mPath, err);
@@ -367,7 +411,7 @@ static int YaffsOpendir(struct Dir *dir, const char *dirName)
 
 static int YaffsReaddir(struct Dir *dir, struct dirent *dent)
 {
-    struct yaffs_dirent *de;
+    const struct YaffsBinaryDirent *de;
     size_t nameLen;
 
     if ((dir == NULL) || (dent == NULL)) {
@@ -378,18 +422,18 @@ static int YaffsReaddir(struct Dir *dir, struct dirent *dent)
         errno = EBADF;
         return (int)LOS_NOK;
     }
-    de = yaffs_readdir((yaffs_DIR *)dir->dData);
+    de = (const struct YaffsBinaryDirent *)yaffs_readdir((yaffs_DIR *)dir->dData);
     if (de == NULL) {
         /* end of directory (or error, indistinguishable in yaffs direct) */
         return (int)LOS_NOK;
     }
-    nameLen = strlen(de->d_name);
+    nameLen = strnlen(de->name, sizeof(de->name));
     if (nameLen >= sizeof(dent->d_name)) {
         nameLen = sizeof(dent->d_name) - 1U;
     }
-    (void)memcpy_s(dent->d_name, sizeof(dent->d_name), de->d_name, nameLen);
+    (void)memcpy_s(dent->d_name, sizeof(dent->d_name), de->name, nameLen);
     dent->d_name[nameLen] = '\0';
-    dent->d_type = (de->d_type == (YUCHAR)DT_DIR) ? DT_DIR : DT_REG;
+    dent->d_type = (de->type == (YUCHAR)DT_DIR) ? DT_DIR : DT_REG;
     dent->d_reclen = (unsigned short)nameLen;
     return (int)LOS_OK;
 }

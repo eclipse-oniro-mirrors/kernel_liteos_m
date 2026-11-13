@@ -32,6 +32,14 @@
 
 static pthread_mutex_t g_mutex077;
 
+/* "非法 mutex" 的构造口径（2026-11-13 修正）：
+ *   零初始化（magic == 0）在 LOSCFG_POSIX_MUTEX_LAZY_INIT 下被当作"未初始化但
+ *   可惰性补齐"，lock 会直接成功（pthread_mutex.c:50-60：C++ 运行时
+ *   __cxa_guard_acquire 的守卫锁从不 init，必须放行），不再是非法对象；
+ *   适配层只对"非 0 且非 _MUX_MAGIC"的 magic 判 EINVAL（pthread_mutex.c:350-361）。
+ *   因此这里用垃圾 magic 显式构造非法对象。 */
+static pthread_mutex_t g_badMutex = { 0xBADC0DE5u };
+
 static VOID *TaskF01(void *arg)
 {
     UINT32 ret;
@@ -61,10 +69,10 @@ static UINT32 Testcase(VOID)
     ret = pthread_mutex_lock(NULL);
     ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
 
-    ret = pthread_mutex_lock(&g_mutex077);
+    ret = pthread_mutex_lock(&g_badMutex);
     ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
 
-    ret = pthread_mutex_unlock(&g_mutex077);
+    ret = pthread_mutex_unlock(&g_badMutex);
     ICUNIT_ASSERT_EQUAL(ret, EINVAL, ret);
     pthread_mutexattr_init(&mutexAttr);
 

@@ -40,7 +40,8 @@
  *     pthread_mutex_timedlock :506-510 过期超时换算路径(见下方偏离说明)
  *
  * 断言口径:
- *   - 零初始化(magic=0)的坏 mutex: timedlock == EINVAL
+ *   - 坏 magic(非 0 且非 _MUX_MAGIC)的 mutex: timedlock == EINVAL
+ *     （零初始化对象不算"坏"：惰性初始化会补齐它，见 pthread_mutex.c:50-60）
  *   - ERRORCHECK 型: 首次 timedlock(未来 ts) == 0; 二次 timedlock == EDEADLK
  *   - 已过期绝对超时 + 空锁: 按当前实现 == 0(锁被获取), unlock == 0 佐证
  *
@@ -63,7 +64,11 @@
 
 static UINT32 Testcase(VOID)
 {
-    pthread_mutex_t badMux = {0}; /* 零初始化: magic=0 ≠ _MUX_MAGIC */
+    /* 非法对象：magic 置非 0 且非 _MUX_MAGIC 的垃圾值。原写法 {0}（magic=0）在
+     * LOSCFG_POSIX_MUTEX_LAZY_INIT 下被视为"未初始化但可惰性补齐"，timedlock
+     * 会成功（pthread_mutex.c:50-60：C++ 静态守卫锁从不 init，必须放行），
+     * 只有非零垃圾 magic 仍由 OsMuxPreCheck 判 EINVAL（pthread_mutex.c:350-361）。 */
+    pthread_mutex_t badMux = { 0xBADC0DE5u };
     pthread_mutex_t mux;
     pthread_mutexattr_t attr;
     struct timespec tsFuture = {0};

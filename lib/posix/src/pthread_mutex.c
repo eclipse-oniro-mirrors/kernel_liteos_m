@@ -47,6 +47,18 @@
 #endif
 #include "map_error.h"
 
+/*
+ * LOSCFG_POSIX_MUTEX_LAZY_INIT: 允许"静态存储但没走 pthread_mutex_init"的 mutex
+ * 在首次使用时惰性初始化（magic == 0 视为未初始化，而不是非法对象）。
+ *
+ * 默认 1：POSIX 要求静态初始化（含全零 .bss）的 mutex 可直接使用，C++ 运行时
+ * （libc++abi 的 __cxa_guard_acquire）也从不初始化它的守卫锁。置 0 可退回严格
+ * 实现（magic != _MUX_MAGIC 一律 EINVAL），仅供对比验证，不要在生产配置里关。
+ */
+#ifndef LOSCFG_POSIX_MUTEX_LAZY_INIT
+#define LOSCFG_POSIX_MUTEX_LAZY_INIT    1
+#endif
+
 #define MUTEXATTR_TYPE_MASK   0x0FU
 #define OS_SYS_NS_PER_MSECOND 1000000
 #define OS_SYS_NS_PER_SECOND  1000000000
@@ -297,9 +309,53 @@ STATIC UINT32 CheckMutexAttr(const pthread_mutexattr_t *attr)
     return LOS_OK;
 }
 
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+/* 静态存储、但没走 pthread_mutex_init 的 mutex 的惰性初始化。
+ *
+ * 典型来源是 C++ 运行时：libc++abi 的 __cxa_guard_acquire 用
+ * GlobalStatic<LibcppMutex>::instance 做 guard 的保护锁，该对象是"值初始化"
+ * 的静态存储（落在 .bss，全零），不会经过 pthread_mutex_init，因此 magic 为 0。
+ * 原实现把 magic != _MUX_MAGIC 一律判 EINVAL，导致所有 C++ 函数内静态变量
+ * 首次构造时 __cxa_guard_acquire 拿锁失败并 abort_message("... failed to
+ * acquire mutex") -> abort -> LOS_Panic，整机在 system_init_array 里冻结。
+ * POSIX 语义要求静态初始化（含全零）的 mutex 可直接使用，这里补齐一次初始化。 */
+STATIC UINT32 OsMuxEnsureInit(pthread_mutex_t *mutex)
+{
+    UINT32 ret;
+    pthread_mutexattr_t useAttr;
+
+    /* 已由 pthread_mutex_init 或 PTHREAD_MUTEX_INITIALIZER 初始化，且内核 mux 已创建 */
+    if ((mutex->magic == _MUX_MAGIC) && (mutex->handle != _MUX_INVALID_HANDLE)) {
+        return 0;
+    }
+
+    /* 全零的静态对象：属性同样是全零，按 POSIX 默认值补齐（普通锁） */
+    if (mutex->magic != _MUX_MAGIC) {
+        (VOID)pthread_mutexattr_init(&useAttr);
+        mutex->stAttr = useAttr;
+        mutex->magic = _MUX_MAGIC;
+    }
+
+    /* magic 已置但 handle 还是 _MUX_INVALID_HANDLE：PTHREAD_MUTEX_INITIALIZER 场景，
+     * 属性可用，只缺内核 mux。 */
+    ret = LOS_MuxCreate(&mutex->handle);
+    if (ret != LOS_OK) {
+        return MapError(ret);
+    }
+
+    return 0;
+}
+#endif
+
 STATIC UINT32 OsMuxPreCheck(const pthread_mutex_t *mutex, const LosTaskCB *runTask)
 {
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+    /* magic == 0 视为"尚未初始化"，由 OsMuxEnsureInit 补初始化，不在这里判错；
+     * 其余非 _MUX_MAGIC 的值仍按非法对象处理。 */
+    if ((mutex == NULL) || ((mutex->magic != 0) && (mutex->magic != _MUX_MAGIC)) ||
+#else
     if ((mutex == NULL) || (mutex->magic != _MUX_MAGIC) ||
+#endif
         ((mutex->handle != _MUX_INVALID_HANDLE) && (GET_MUX_INDEX(mutex->handle) >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT))) {
         return EINVAL;
     }
@@ -478,21 +534,17 @@ int pthread_mutex_timedlock(pthread_mutex_t *mutex, const struct timespec *absTi
     if ((absTimeout == NULL) || (absTimeout->tv_nsec < 0) || (absTimeout->tv_nsec >= OS_SYS_NS_PER_SECOND)) {
         return EINVAL;
     }
-    if (mutex->handle == _MUX_INVALID_HANDLE) {
-        ret = LOS_MuxCreate(&mutex->handle);
-        if (ret != LOS_OK) {
-            return MapError(ret);
-        }
-#if (LOSCFG_MUTEX_CREATE_TRACE == 1)
-        OsSetMutexCreateInfo(GET_MUX(mutex->handle), regLR);
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+    ret = OsMuxEnsureInit(mutex);
+    if (ret != 0) {
+        return (INT32)ret;
+    }
 #endif
-    } else {
-        muxPended = GET_MUX(mutex->handle);
-        if ((mutex->stAttr.type == PTHREAD_MUTEX_ERRORCHECK) &&
-            (muxPended->muxCount != 0) &&
-            (muxPended->owner == OS_TCB_FROM_TID(LOS_CurTaskIDGet()))) {
-            return EDEADLK;
-        }
+    muxPended = GET_MUX(mutex->handle);
+    if ((mutex->stAttr.type == PTHREAD_MUTEX_ERRORCHECK) &&
+        (muxPended->muxCount != 0) &&
+        (muxPended->owner == OS_TCB_FROM_TID(LOS_CurTaskIDGet()))) {
+        return EDEADLK;
     }
     ret = clock_gettime(CLOCK_REALTIME, &curTime);
     if (ret != LOS_OK) {
@@ -525,21 +577,17 @@ int pthread_mutex_lock(pthread_mutex_t *mutex)
         return (INT32)ret;
     }
 
-    if (mutex->handle == _MUX_INVALID_HANDLE) {
-        ret = LOS_MuxCreate(&mutex->handle);
-        if (ret != LOS_OK) {
-            return MapError(ret);
-        }
-#if (LOSCFG_MUTEX_CREATE_TRACE == 1)
-        OsSetMutexCreateInfo(GET_MUX(mutex->handle), regLR);
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+    ret = OsMuxEnsureInit(mutex);
+    if (ret != 0) {
+        return (INT32)ret;
+    }
 #endif
-    } else {
-        muxPended = GET_MUX(mutex->handle);
-        if ((mutex->stAttr.type == PTHREAD_MUTEX_ERRORCHECK) &&
-            (muxPended->muxCount != 0) &&
-            (muxPended->owner == runTask)) {
-            return EDEADLK;
-        }
+    muxPended = GET_MUX(mutex->handle);
+    if ((mutex->stAttr.type == PTHREAD_MUTEX_ERRORCHECK) &&
+        (muxPended->muxCount != 0) &&
+        (muxPended->owner == runTask)) {
+        return EDEADLK;
     }
     ret = OsMuxPendForPosix(mutex, LOS_WAIT_FOREVER);
 
@@ -560,19 +608,15 @@ int pthread_mutex_trylock(pthread_mutex_t *mutex)
         return (INT32)ret;
     }
 
-    if (mutex->handle == _MUX_INVALID_HANDLE) {
-        ret = LOS_MuxCreate(&mutex->handle);
-        if (ret != LOS_OK) {
-            return MapError(ret);
-        }
-#if (LOSCFG_MUTEX_CREATE_TRACE == 1)
-        OsSetMutexCreateInfo(GET_MUX(mutex->handle), regLR);
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+    ret = OsMuxEnsureInit(mutex);
+    if (ret != 0) {
+        return (INT32)ret;
+    }
 #endif
-    } else {
-        muxPended = GET_MUX(mutex->handle);
-        if ((mutex->stAttr.type != PTHREAD_MUTEX_RECURSIVE) && (muxPended->muxCount != 0)) {
-            return EBUSY;
-        }
+    muxPended = GET_MUX(mutex->handle);
+    if ((mutex->stAttr.type != PTHREAD_MUTEX_RECURSIVE) && (muxPended->muxCount != 0)) {
+        return EBUSY;
     }
     ret = OsMuxPendForPosix(mutex, 0);
 
@@ -587,9 +631,12 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex)
         return (INT32)ret;
     }
 
-    if (mutex->handle == _MUX_INVALID_HANDLE) {
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+    /* magic 未置位说明该对象从未成功加锁（也就无所谓解锁），按未初始化处理。 */
+    if ((mutex->magic != _MUX_MAGIC) || (mutex->handle == _MUX_INVALID_HANDLE)) {
         return EINVAL;
     }
+#endif
 
     ret = OsMuxPostForPosix(mutex);
 

@@ -137,7 +137,6 @@ static inline void get_lock(void *addr, int model)
 
     maybe_release_fence (model);
     while (__atomic_test_and_set (lock_ptr, __ATOMIC_ACQUIRE) == 1) {
-        ;
     }
 }
 

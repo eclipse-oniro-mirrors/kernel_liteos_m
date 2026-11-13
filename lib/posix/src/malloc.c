@@ -34,6 +34,22 @@
 #include "los_config.h"
 #include "los_memory.h"
 
+/*
+ * libc 堆选择钩子。
+ *
+ * 弱定义返回系统堆，与上游行为完全一致；板级（或 port 层）可以提供强定义，把
+ * libc 堆指到别的内存池（例如挂在 PSRAM 上的扩展堆）。释放路径必须按同一规则反查池子，
+ * 所以钩子同时接收待释放指针。
+ */
+VOID *OsLibcHeapPool(const VOID *ptr);
+__attribute__((__weak__)) VOID *OsLibcHeapPool(const VOID *ptr)
+{
+    (VOID)ptr;
+    return OS_SYS_MEM_ADDR;
+}
+
+#define LibcPoolFor(ptr)    OsLibcHeapPool(ptr)
+
 #if (LOSCFG_LIBC_NEWLIB == 1)
 void *__wrap__calloc_r(struct _reent *reent, size_t nitems, size_t size)
 #else
@@ -51,7 +67,7 @@ void *calloc(size_t nitems, size_t size)
     }
 
     real_size = (size_t)(nitems * size);
-    ptr = LOS_MemAlloc(OS_SYS_MEM_ADDR, real_size);
+    ptr = LOS_MemAlloc(LibcPoolFor(NULL), real_size);
     if (ptr != NULL) {
         (void)memset_s(ptr, real_size, 0, real_size);
     }
@@ -71,7 +87,7 @@ void free(void *ptr)
         return;
     }
 
-    LOS_MemFree(OS_SYS_MEM_ADDR, ptr);
+    LOS_MemFree(LibcPoolFor(ptr), ptr);
 }
 
 #if (LOSCFG_LIBC_NEWLIB == 1)
@@ -96,7 +112,7 @@ void *malloc(size_t size)
         return NULL;
     }
 
-    return LOS_MemAlloc(OS_SYS_MEM_ADDR, size);
+    return LOS_MemAlloc(LibcPoolFor(NULL), size);
 }
 
 void *zalloc(size_t size)
@@ -107,7 +123,7 @@ void *zalloc(size_t size)
         return NULL;
     }
 
-    ptr = LOS_MemAlloc(OS_SYS_MEM_ADDR, size);
+    ptr = LOS_MemAlloc(LibcPoolFor(NULL), size);
     if (ptr != NULL) {
         (void)memset_s(ptr, size, 0, size);
     }
@@ -127,7 +143,7 @@ void *memalign(size_t boundary, size_t size)
         return NULL;
     }
 
-    return LOS_MemAllocAlign(OS_SYS_MEM_ADDR, size, boundary);
+    return LOS_MemAllocAlign(LibcPoolFor(NULL), size, boundary);
 }
 
 #if (LOSCFG_LIBC_NEWLIB == 1)
@@ -148,5 +164,5 @@ void *realloc(void *ptr, size_t size)
         return NULL;
     }
 
-    return LOS_MemRealloc(OS_SYS_MEM_ADDR, ptr, size);
+    return LOS_MemRealloc(LibcPoolFor(ptr), ptr, size);
 }

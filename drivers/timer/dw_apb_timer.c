@@ -74,6 +74,18 @@
 #define DW_APB_TIMER_CTRL_DISABLE  0x0u
 #define DW_APB_TIMER_CTRL_PERIODIC 0x3u
 
+/* CONTROL bit5: 请求锁存当前计数；bit6: 锁存完成 */
+#define DW_APB_TIMER_CNT_REQ        (1u << 5)
+#define DW_APB_TIMER_CNT_LOCK       (1u << 6)
+
+/* cnt_req/cnt_lock 捕获握手的轮询上限。握手只在板级声明
+ * DW_APB_TIMER_CURRENT_BROKEN 时编译；这个上限是兜底：万一某块 IP 不实现
+ * bit6，超时后退回裸读，绝不能把 getCycle 变成无限循环（CPUP 采样路径会
+ * 在任务切换里调用它）。 */
+#ifndef DW_APB_TIMER_CAPTURE_TIMEOUT
+#define DW_APB_TIMER_CAPTURE_TIMEOUT 1000u
+#endif
+
 #define DW_APB_TIMER_TICK_RELOAD   (DW_APB_TIMER_CLOCK / LOSCFG_BASE_CORE_TICK_PER_SECOND)
 
 #define DW_REG_READ(off)           (*(volatile UINT32 *)(UINTPTR)(DW_APB_TIMER_BASE + (off)))
@@ -143,23 +155,64 @@ STATIC UINT32 DwApbTickStart(HWI_PROC_FUNC handler)
     return LOS_OK;
 }
 
+/* 计数器是否已启动（只启动计数，不开中断；中断由 DwApbTickStart 负责）。
+ * HI3322 移植：LM 的 LOS_UDelay/LOS_SysCycleGet 依赖 getCycle 真实前进，
+ * 而晶振起振前的 chip_init（如 uapi_clocks_config_mode 的电压/PSRAM 校准）
+ * 早于 osKernelStart，此时 tick 中断还没起来。这里让计数尽早跑起来。 */
+#ifdef DW_APB_TIMER_EARLY_START
+STATIC volatile BOOL g_dwApbCounting = FALSE;
+
+STATIC VOID DwApbStartCounting(VOID)
+{
+    if (g_dwApbCounting) {
+        return;
+    }
+#ifdef DW_APB_TIMER_NEED_UNLOCK
+    *(volatile UINT32 *)(UINTPTR)DW_APB_TIMER_LOCK_BASE = DW_APB_TIMER_UNLOCK_VAL;
+#endif
+    DW_REG_WRITE(DW_APB_TIMER_CONTROL, DW_APB_TIMER_CTRL_DISABLE);
+    DW_REG_WRITE(DW_APB_TIMER_LOAD0, DW_APB_TIMER_TICK_RELOAD);
+    DW_REG_WRITE(DW_APB_TIMER_LOAD1, 0);
+    DW_REG_WRITE(DW_APB_TIMER_EOI, 1);
+    DW_REG_WRITE(DW_APB_TIMER_CONTROL, DW_APB_TIMER_CTRL_PERIODIC);
+    g_dwApbCounting = TRUE;
+}
+#endif /* DW_APB_TIMER_EARLY_START */
+
 STATIC UINT64 DwApbGetCycle(UINT32 *period)
 {
+    UINT32 cur;
+
     if (period != NULL) {
         *period = DW_APB_TIMER_TICK_RELOAD;
     }
-#ifdef DW_APB_TIMER_CURRENT_BROKEN
-    /* Bare CURRENT_VALUE reads return 0 on this SoC (the v150 IP needs a
-     * cnt_req/cnt_lock capture handshake first — CONTROL bits 5/6). A
-     * bogus read makes the kernel's rollover compensation advance the
-     * base by a full period (phantom ticks). The tick ISR rate is
-     * hardware-exact, so report a constant zero offset and let the base
-     * advance only from the ISR. Also a blocker for tickless (see
-     * DwApbReload). */
-    return 0;
-#else
-    return (UINT64)(DW_APB_TIMER_TICK_RELOAD - DW_REG_READ(DW_APB_TIMER_CURRENT));
+
+#ifdef DW_APB_TIMER_EARLY_START
+    DwApbStartCounting();
 #endif
+
+#ifdef DW_APB_TIMER_CURRENT_BROKEN
+    /* 裸读 CURRENT_VALUE 在本 IP 上返回 0，必须先做 cnt_req/cnt_lock 捕获握手
+     * （CONTROL bit5 请求、bit6 锁存），与 vendor tick_timer.c 的
+     * machine_timer_get_cur_count() 同一套时序。 */
+    UINT32 ctrl = DW_REG_READ(DW_APB_TIMER_CONTROL);
+    UINT32 guard = DW_APB_TIMER_CAPTURE_TIMEOUT;
+
+    DW_REG_WRITE(DW_APB_TIMER_CONTROL, ctrl | DW_APB_TIMER_CNT_REQ);
+    while (((DW_REG_READ(DW_APB_TIMER_CONTROL) & DW_APB_TIMER_CNT_LOCK) != DW_APB_TIMER_CNT_LOCK) &&
+           (--guard != 0u)) {
+    }
+    cur = DW_REG_READ(DW_APB_TIMER_CURRENT);
+    DW_REG_WRITE(DW_APB_TIMER_CONTROL, ctrl); /* 清 cnt_req，恢复计数 */
+#else
+    /* 上游路径：CURRENT_VALUE 可直接读，不做握手。 */
+    cur = DW_REG_READ(DW_APB_TIMER_CURRENT);
+#endif
+
+    if (cur > DW_APB_TIMER_TICK_RELOAD) {
+        cur = 0; /* 异常读数保护，避免 uint 下溢造成巨大周期跳变 */
+    }
+    return (UINT64)(DW_APB_TIMER_TICK_RELOAD - cur);
 }
 
 #ifdef DW_APB_TIMER_REARM_ON_FIRST_RELOAD
@@ -176,13 +229,11 @@ STATIC UINT64 DwApbReload(UINT64 nextResponseTime)
      * (see CURRENT_BROKEN) together. */
     (VOID)nextResponseTime;
 #ifdef DW_APB_TIMER_REARM_ON_FIRST_RELOAD
-    /* CLIC quirk: a pending latched while mstatus.MIE=0 never arbitrates
-     * once MIE=1 (TIMER2 probe, same config but first edge after MIE=1,
-     * delivered 20/20). The tick starts at SYS_INIT_LEVEL_ARCH, long
-     * before the first mret, so its first expiry lands in that window:
-     * raw level stuck, ip dead-latched. The FIRST reload call comes from
-     * OsSchedStart microseconds before mret — flush and restart here so
-     * the first edge lands with MIE=1. */
+    /* First-reload CLIC fix (the only reload the periodic kernel issues —
+     * OsSchedSetNextExpire is a stub under LOSCFG_KERNEL_TICK_PERIODIC):
+     * (a) dead-latched ip — flush via clearIrq so the next edge is clean;
+     * (b) HalIrqInit's blanket disable-all ran AFTER DwApbTickStart and zeroed
+     *     ie[43]+ctl[43] — re-arm priority+enable here (safe: post-mret, MIE=1). */
     if (!g_dwApbTickArmed) {
         HwiControllerOps *ops = HwiControllerOpsGet();
         g_dwApbTickArmed = TRUE;
@@ -191,8 +242,18 @@ STATIC UINT64 DwApbReload(UINT64 nextResponseTime)
 #ifdef DW_APB_TIMER_EOI_FENCE
         __asm__ __volatile__("fence" ::: "memory");
 #endif
-        if ((ops != NULL) && (ops->clearIrq != NULL)) {
-            (VOID)ops->clearIrq(DW_APB_TIMER_IRQ);  /* drop the dead latched ip */
+        if (ops != NULL) {
+            if (ops->clearIrq != NULL) {
+                (VOID)ops->clearIrq(DW_APB_TIMER_IRQ);  /* (a) drop the dead-latched ip */
+            }
+            /* (b) restore ie[43]+ctl[43] zeroed by HalIrqInit; set priority
+             * before enable (matches DwApbTickStart's HwiCreate+Enable order). */
+            if (ops->setIrqPriority != NULL) {
+                (VOID)ops->setIrqPriority(DW_APB_TIMER_IRQ, DW_APB_TIMER_IRQ_PRIO);
+            }
+            if (ops->enableIrq != NULL) {
+                (VOID)ops->enableIrq(DW_APB_TIMER_IRQ);  /* (b) re-arm ie cleared by HalIrqInit */
+            }
         }
         DW_REG_WRITE(DW_APB_TIMER_CONTROL, DW_APB_TIMER_CTRL_PERIODIC);
     }

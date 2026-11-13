@@ -2,8 +2,9 @@
 #ifndef _LOS_BOX_OFFSETS_H
 #define _LOS_BOX_OFFSETS_H
 
-#define OS_TASK_STATUS_INUSER        512
+#define BOX_CB_LAYOUT0_MEMPOOL       28
 #define TASK_CB_BOX_CB               140
+#define TASK_CB_CUR_BOX_ID           152
 #define TASK_CB_KERNEL_SP            0
 #define TASK_CB_STATUS               4
 #define TASK_CB_SYSCALL_NEST_CNT     148

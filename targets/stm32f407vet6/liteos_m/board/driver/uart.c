@@ -9,6 +9,11 @@
 #include "uart.h"
 #include "los_interrupt.h"
 #include "los_printf.h"
+/* BOX mux shape (see kernel/syscalls.h): under LOSCFG_BOX the los_base.h
+ * rename header turns this driver's UartPuts definition into SYS_UartPuts
+ * (the dispatch-table slot references it directly, no wrapper) and leaves
+ * the plain name to the COMMON_TEXT syscall veneer for the user world. */
+#include "los_base.h"
 
 #ifdef __cplusplus
 #if __cplusplus

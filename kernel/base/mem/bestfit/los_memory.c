@@ -52,6 +52,24 @@
 #define NODEDUMPSIZE  64  /* the dump size of current broken node when memcheck error */
 #define COLUMN_NUM    8   /* column num of the output info of mem node */
 
+/* ---- M5D single shared copy (M5C decision: the allocator lives in the
+ * shared COMMON sections) ----
+ * Under LOSCFG_BOX this file is compiled ONCE by the box_usr_mem module
+ * and the linker script routes the WHOLE object into COMMON_FLASH
+ * .COMMON_TEXT / COMMON_RAM .COMMON_DATA: kernel and boxes execute the
+ * SAME code. Boxes call LOS_MemAlloc/AllocAlign/Free AND LOS_MemInit
+ * DIRECTLY on their pools (no syscall round-trip, refs demo shape);
+ * only the pool locks go through syscalls (MemLock -> LOS_MuxPend
+ * veneer). LOSCFG_MEM_MUL_POOL is OFF (M5D decision): the multipool
+ * registry (g_poolHead) does not exist, OsMemMulPoolInit is the empty
+ * inline LOS_OK — a single-copy registry could not be walked from box
+ * user mode anyway (it would read the kernel heap header, kernel RAM).
+ * Kernel-internal entry points (OsMemSystemInit, the info/realloc
+ * surfaces) live in the common copy too — flash cost accepted for the
+ * one-copy invariant. Kernel-only paths PRINT through the kernel uart;
+ * an alloc-failure PRINT reached from a box would fault (documented
+ * limitation). */
+
 #define OS_CHECK_NULL_RETURN(param) do {              \
     if ((param) == NULL) {                            \
         PRINT_ERR("%s %d\n", __FUNCTION__, __LINE__); \
@@ -806,7 +824,10 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsMemExcInteractionInit(UINTPTR memStart)
     UINT32 ret;
     m_aucSysMem0 = (UINT8 *)memStart;
     g_excInteractMemSize = EXC_INTERACT_MEM_SIZE;
-    ret = LOS_MemInit(m_aucSysMem0, g_excInteractMemSize);
+    /* kernel heap: explicit INT lock attr (LOS_MemInit is pinned to the
+     * user/box MUX semantic under LOSCFG_BOX, see its port note) */
+    ret = LOS_MemPoolInit(m_aucSysMem0, g_excInteractMemSize,
+                          LOS_MEM_INIT_ATTR_LOCK_MSK | LOS_MEM_INIT_ATTR_SLAB_MSK);
     PRINT_INFO("LiteOS kernel exc interaction memory size:0x%x\n", g_excInteractMemSize);
     return ret;
 }
@@ -824,7 +845,10 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsMemSystemInit(VOID)
     m_aucSysMem1 = (UINT8 *)LOSCFG_SYS_HEAP_ADDR;
 #endif
     poolSize = LOSCFG_SYS_HEAP_SIZE;
-    ret = LOS_MemInit(m_aucSysMem1, poolSize);
+    /* kernel heap: explicit INT lock attr (LOS_MemInit is pinned to the
+     * user/box MUX semantic under LOSCFG_BOX, see its port note) */
+    ret = LOS_MemPoolInit(m_aucSysMem1, poolSize,
+                          LOS_MEM_INIT_ATTR_LOCK_MSK | LOS_MEM_INIT_ATTR_SLAB_MSK);
     PRINT_INFO("LiteOS system heap memory size:0x%x\n", poolSize);
 #ifndef LOSCFG_EXC_INTERACTION
     m_aucSysMem0 = m_aucSysMem1;
@@ -1551,8 +1575,59 @@ STATIC UINT32 OsMemInit(VOID *pool, UINT32 size)
     return LOS_OK;
 }
 
+/* refs los_memory.c:531-578 (LOS_MemPoolInit): lock-create -> lock ->
+ * multipool registry -> pool init, each failure unwinding the previous
+ * step (refs rolls MemLockDelete back on every error path). The OHOS
+ * body below stays for BOX=off (spinlock MEM_LOCK, no pool lock family).
+ * usr shared copy: gated — g_poolHead is kernel data, LOS_MemInit is a
+ * syscall (refs OTHER_BASE+3). */
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_MemPoolInit(VOID *pool, UINT32 size, UINT32 attr)
 {
+#ifdef LOSCFG_BOX
+    UINT32 intSave = 0;
+    UINT32 poolSize = size;
+    BOOL intLock = FALSE;
+
+    if ((pool == NULL) || (size < OS_MEM_MIN_POOL_SIZE) || (size > OS_MEM_MAX_POOL_SIZE) ||
+        (((UINTPTR)pool + (UINTPTR)size) < (UINTPTR)pool)) {
+        return LOS_NOK;
+    }
+    if (OsMemLockModeGet(attr, &intLock) != LOS_OK) {
+        return LOS_NOK;
+    }
+
+    if (!IS_ALIGNED(size, OS_MEM_ALIGN_SIZE) || !IS_ALIGNED(pool, OS_MEM_ALIGN_SIZE)) {
+        PRINT_WARN("pool size 0x%x should be aligned with OS_MEM_ALIGN_SIZE\n", size);
+        poolSize = (UINT32)(OS_MEM_ALIGN(size, OS_MEM_ALIGN_SIZE) - OS_MEM_ALIGN_SIZE);
+    }
+
+    if (MemLockCreate(pool, intLock) != LOS_OK) {
+        return LOS_NOK;
+    }
+    if (MemLock(pool, &intSave) != LOS_OK) {
+        (VOID)MemLockDelete(pool);
+        return LOS_NOK;
+    }
+
+    if (OsMemMulPoolInit(pool, poolSize) != LOS_OK) {
+        MemUnlock(pool, intSave);
+        (VOID)MemLockDelete(pool);
+        return LOS_NOK;
+    }
+
+    if (OsMemInit(pool, poolSize) != LOS_OK) {
+        (VOID)OsMemMulPoolDeinit(pool);
+        MemUnlock(pool, intSave);
+        (VOID)MemLockDelete(pool);
+        return LOS_NOK;
+    }
+
+    OsSlabMemProcInitFlag(pool, size, attr & LOS_MEM_INIT_ATTR_SLAB_MSK);
+    MemUnlock(pool, intSave);
+
+    LOS_TRACE(MEM_INFO_REQ, pool, size);
+    return LOS_OK;
+#else
     UINT32 intSave;
     UINT32 alignSize = size;
 
@@ -1583,11 +1658,26 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_MemPoolInit(VOID *pool, UINT32 size, UINT32 att
 
     LOS_TRACE(MEM_INFO_REQ, pool, size);
     return LOS_OK;
+#endif
 }
 
+/* refs los_memory.c:580-583 — context-driven lock-mode pick, adapted to
+ * the one-copy COMMON layout: the box entry task brings up its heap with
+ * a DIRECT call here (refs demo boxXEntry shape — LOS_MemInit is part of
+ * the shared COMMON copy, no syscall), because with
+ * LOSCFG_MEM_MUL_POOL off there is NO registry walk in the init path
+ * (OsMemMulPoolInit is the empty inline LOS_OK) — the direct call only
+ * touches the box's own pool header, box RAM, MPU-mapped. The
+ * kernel/system heap goes the explicit INT-attr LOS_MemPoolInit route
+ * in OsMemSystemInit. The MUX lock is the user-world semantic —
+ * pendable from the box allocator. */
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_MemInit(VOID *pool, UINT32 size)
 {
+#ifdef LOSCFG_BOX
+    return LOS_MemPoolInit(pool, size, OS_MEM_LOCK_TYPE_MUX | LOS_MEM_INIT_ATTR_SLAB_MSK);
+#else
     return LOS_MemPoolInit(pool, size, LOS_MEM_INIT_ATTR_SLAB_MSK);
+#endif
 }
 
 LITE_OS_SEC_TEXT VOID *LOS_MemAlloc(VOID *pool, UINT32 size)

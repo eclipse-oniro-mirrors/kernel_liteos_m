@@ -78,6 +78,15 @@ LITE_OS_SEC_TEXT VOID OsTickHandler(VOID)
     OsUpdateSysTimeBase();
 #endif
 
+#ifdef LOSCFG_BOX
+    /* M5G: publish the tick to the user world (refs g_tickCount shape).
+     * Requires KERNEL_TICK_PERIODIC (refs is a periodic-tick kernel): with
+     * TICKLESS_GLOBAL the handler runs once per batch and ++ undercounts
+     * (pitfall 47) - debug.config now pins the periodic mode. */
+    extern volatile UINT32 g_usrTickCount;
+    g_usrTickCount++;
+#endif
+
     LOS_SchedTickHandler();
 }
 

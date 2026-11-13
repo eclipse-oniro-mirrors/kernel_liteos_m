@@ -60,6 +60,9 @@
 #ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
 #include "los_hpl_pri.h"
 #endif
+#ifdef LOSCFG_BOX
+#include "los_box_pri.h"    /* BOX: OS_KERNEL_BOX for the curBoxId default */
+#endif
 
 /**
  * @ingroup los_task
@@ -119,6 +122,15 @@ STATIC VOID OsTaskStackFree(LosTaskCB *taskCB)
         LOS_SpinLock(&g_taskSpin);
     }
 #endif
+    /* Gate step 1 — resource release: must run while the TCB fields are
+     * still LIVE. OsBoxKernelStackFree recomputes the pool node from
+     * topOfStack, boxTaskList must still sit on the box taskCBList, and
+     * staticStack/userTopOfStack drive the recycle queue — so this call
+     * precedes BOTH the topOfStack clear below and the security memset
+     * (the pre-fix placement after both zeroed everything: the pool node
+     * became NULL, LOS_ListDelete hit a {NULL,NULL} node and wrote to
+     * address 0). Kernel ids: no-op inside the gate. */
+    OsTaskResRelease(taskCB, taskCB->taskId);
     taskCB->topOfStack = 0;
     UINT32 taskId = taskCB->taskId;
 #ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
@@ -133,7 +145,11 @@ STATIC VOID OsTaskStackFree(LosTaskCB *taskCB)
         OsHplPreDelete(taskCB->hpl);
     }
 #endif
-    LOS_ListAdd(&g_losFreeTask, &taskCB->pendList);
+    /* Gate step 2 — TCB recycle: pendList back to its owning free list.
+     * Must run AFTER the security memset: an earlier link would have its
+     * pendList pointers wiped by it, and the next alloc would unlist a
+     * zeroed node. */
+    OsTaskTCBRecycle(taskCB, taskId);
 }
 
 #ifdef LOSCFG_TASK_JOINABLE
@@ -1083,7 +1099,13 @@ LITE_OS_SEC_TEXT_INIT STATIC VOID OsTaskDelActionOnRun(LosTaskCB *taskCB)
 
     if (taskCB->usrStack) {
 #ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
-        LOS_ListAdd(&g_losFreeTask, &taskCB->pendList);
+        /* BOX: a running box task parks on the recycle list - freeing the
+         * pool kernel stack here would race the still-executing context
+         * (LOS_TaskResRecycle -> OsTaskStackFree routes by the encoded id);
+         * kernel static tasks keep the immediate free. */
+        if (!OsTaskBoxDelRunDefer(taskCB)) {
+            LOS_ListAdd(&g_losFreeTask, &taskCB->pendList);
+        }
 #endif
     } else {
 #ifdef LOSCFG_TASK_STACK_DYNAMIC_ALLOCATION
@@ -1296,6 +1318,10 @@ STATIC VOID OsTaskCBInit(LosTaskCB *taskCB, const TSK_INIT_PARAM_S *initParam, V
 
     taskCB->usrStack     = useUsrStack ? 1 : 0; /* 0: dynamically alloc stack space;1: user inputs stack space */
 
+    /* BOX: curBoxId kernel-task default (refs OsUsrTaskCreateOnly overrides
+     * it with the box id on the box create path); null when BOX is off. */
+    OsTaskBoxCBInitDefault(taskCB);
+
     OsTaskSignalSet(taskCB, SIGNAL_NONE);
 
 #ifdef LOSCFG_KERNEL_SMP
@@ -1326,31 +1352,32 @@ STATIC VOID OsTaskCBInit(LosTaskCB *taskCB, const TSK_INIT_PARAM_S *initParam, V
     *((UINT32 *)taskCB->topOfStack) = OS_TASK_MAGIC_WORD;
     taskCB->stackPointer = ArchTaskStackInit(taskCB->taskId, taskCB->stackSize, (VOID *)taskCB->topOfStack);
 }
+/* (the old STATIC OsTaskGetFreeTaskCB is gone: its kernel-pool logic lives
+ * in the OsTaskCreateTCBGet gate — los_task_box.c when BOX=on, the STATIC
+ * INLINE baseline in los_task_pri.h when BOX=off) */
 
-STATIC UINT32 OsTaskGetFreeTaskCB(LosTaskCB **taskCB)
-{
-    if (LOS_ListEmpty(&g_losFreeTask)) {
-        return LOS_ERRNO_TSK_TCB_UNAVAILABLE;
-    }
-
-    *taskCB = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&g_losFreeTask));
-    if (*taskCB == NULL) {
-        return LOS_ERRNO_TSK_PTR_NULL;
-    }
-    LOS_ListDelete(LOS_DL_LIST_FIRST(&g_losFreeTask));
-    return LOS_OK;
-}
-
-STATIC UINT32 OsTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack, BOOL useUsrStack)
+/* M5B: no longer STATIC - the box create family (los_task_box.c) builds the
+ * kernel part through this generic path with a box pointer (refs shape);
+ * declared in los_task_pri.h under LOSCFG_BOX. The box resource routing
+ * goes through the OsTaskBox* hooks (M5B-R). */
+UINT32 OsTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack, BOOL useUsrStack,
+                        const VOID *boxPtr)
 {
     UINT32 intSave;
     UINT32 errRet = LOS_OK;
     VOID *stackPtr = NULL;
     LosTaskCB *taskCB = NULL;
 
+    (VOID)boxPtr;
+
     if (useUsrStack) {
 #ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
-        errRet = OsTaskCreateParamCheckStatic(taskId, initParam, topStack);
+        /* BOX: the box create path carries its own param checks
+         * (los_task_box.c OsBoxEntryTaskCheck) - the pool kernel stack is
+         * 0x400 and would trip the generic minimum-stack check. */
+        if (!OS_TASK_IS_BOX_CREATE(boxPtr)) {
+            errRet = OsTaskCreateParamCheckStatic(taskId, initParam, topStack);
+        }
 #endif
     } else {
 #ifdef LOSCFG_TASK_STACK_DYNAMIC_ALLOCATION
@@ -1364,7 +1391,8 @@ STATIC UINT32 OsTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID
     LOS_TaskResRecycle();
 
     SCHEDULER_LOCK(intSave);
-    errRet = OsTaskGetFreeTaskCB(&taskCB);
+    /* Gate: get TCB from correct pool (box or kernel). */
+    errRet = OsTaskCreateTCBGet(&taskCB, boxPtr);
     if (errRet != LOS_OK) {
         goto LOS_ERREND;
     }
@@ -1411,7 +1439,8 @@ STATIC UINT32 OsTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID
 
 LOS_ERREND_REWIND_TCB:
     SCHEDULER_LOCK(intSave);
-    LOS_ListAdd(&g_losFreeTask, &taskCB->pendList);
+    /* Gate/Exit: return TCB to correct pool on create failure. */
+    OsTaskCreateTCBRewind(taskCB, boxPtr);
 LOS_ERREND:
     SCHEDULER_UNLOCK(intSave);
     return errRet;
@@ -1422,7 +1451,15 @@ UINT32 LOS_TaskCreateOnlyStatic(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOI
     if ((initParam == NULL) || (topStack == NULL)) {
         return LOS_ERRNO_TSK_PTR_NULL;
     }
-    return OsTaskCreateOnly(taskId, initParam, topStack, TRUE);
+#ifdef LOSCFG_BOX
+    /* M5G seam: a box context runs the box static-create core (validation
+     * + box-pool TCB + INUSER binding, los_task_box.c); kernel contexts
+     * keep the native path (idle task et al.). */
+    if (OsGetCurBoxCB() != NULL) {
+        return OsTaskCreateStaticDo(taskId, initParam, topStack);
+    }
+#endif
+    return OsTaskCreateOnly(taskId, initParam, topStack, TRUE, NULL);
 }
 
 UINT32 LOS_TaskCreateStatic(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack)
@@ -1445,8 +1482,8 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S
      * insert before the return below:
      *   if (initParam->stackAddr != (UINTPTR)NULL)
      *       return OsTaskCreateOnly(taskId, initParam,
-     *                               (VOID *)(UINTPTR)initParam->stackAddr, TRUE); */
-    return OsTaskCreateOnly(taskId, initParam, NULL, FALSE);
+     *                               (VOID *)(UINTPTR)initParam->stackAddr, TRUE, NULL); */
+    return OsTaskCreateOnly(taskId, initParam, NULL, FALSE, NULL);
 }
 
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskCreate(UINT32 *taskId, TSK_INIT_PARAM_S *initParam)

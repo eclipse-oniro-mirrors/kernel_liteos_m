@@ -41,17 +41,42 @@
 #include "los_trace.h"
 #include "los_exc.h"
 #include "los_hook.h"
+#ifdef LOSCFG_BOX
+#include "los_box_pri.h"        /* OsGetCurBoxCB (M5G sem entry seams) */
+#endif
 
 #if (LOSCFG_BASE_IPC_SEM == 1)
 
 LITE_OS_SEC_BSS LosSemCB *g_osAllSem = NULL;
+#ifdef LOSCFG_BOX
+/* BOX (M5G, the mux placement in los_mux.c): the kernel unused list goes
+ * non-STATIC so OsGetSemFreeList (los_sem_box.c) can route to it; the
+ * per-box free lists live over the box resource arrays. */
+LITE_OS_SEC_BSS LOS_DL_LIST g_unusedSemList;
+LITE_OS_SEC_BSS LOS_DL_LIST g_boxFreeSemList[LOSCFG_BASE_BOX_MAX_LIMIT];
+#else
 LITE_OS_SEC_BSS STATIC LOS_DL_LIST g_unusedSemList;
+#endif
 
 STATIC INLINE VOID OsSemNodeRecycle(LosSemCB *semNode)
 {
     semNode->semStat = LOS_UNUSED;
     LOS_ListTailInsert(&g_unusedSemList, &semNode->semList);
 }
+
+#ifdef LOSCFG_BOX
+/* BOX: recycle to the owning free list (OsMuxNodeRecycleBySId shape in
+ * los_mux.c; refs queue delete recycles into the box free list). */
+STATIC INLINE VOID OsSemNodeRecycleBySId(LosSemCB *semNode, UINT32 sId)
+{
+    semNode->semStat = LOS_UNUSED;
+    if (OS_SID_BID_IS_KER(sId)) {
+        LOS_ListTailInsert(&g_unusedSemList, &semNode->semList);
+    } else {
+        LOS_ListTailInsert(&g_boxFreeSemList[OS_GET_SID_BOXID(sId)], &semNode->semList);
+    }
+}
+#endif
 
 LITE_OS_SEC_TEXT_INIT UINT32 OsSemInit(VOID)
 {
@@ -122,6 +147,14 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SemCreate(UINT16 count, UINT32 *semHandle)
     if (count > LOS_SEM_COUNT_MAX) {
         return LOS_ERRNO_SEM_OVERFLOW;
     }
+#ifdef LOSCFG_BOX
+    /* M5G seam: a box context draws the CB from its own pool and gets a
+     * SID handle (refs safe_ipc OsSemCreateInternal box arm); kernel
+     * context keeps the native path (kernel-pool semId). */
+    if (!OS_INT_ACTIVE && (OsGetCurBoxCB() != NULL)) {
+        return OsSemCreateBox(count, OS_SEM_COUNTING, semHandle);
+    }
+#endif
     return OsSemCreate(count, OS_SEM_COUNTING, semHandle);
 }
 
@@ -130,6 +163,11 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_BinarySemCreate(UINT16 count, UINT32 *semHandle
     if (count > OS_SEM_BINARY_COUNT_MAX) {
         return LOS_ERRNO_SEM_OVERFLOW;
     }
+#ifdef LOSCFG_BOX
+    if (!OS_INT_ACTIVE && (OsGetCurBoxCB() != NULL)) {
+        return OsSemCreateBox(count, OS_SEM_BINARY, semHandle);
+    }
+#endif
     return OsSemCreate(count, OS_SEM_BINARY, semHandle);
 }
 
@@ -169,6 +207,20 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SemDelete(UINT32 semHandle)
     LosSemCB *semDeleted = NULL;
     UINT32 ret;
 
+#ifdef LOSCFG_BOX
+    /* M5G seam (LOS_MuxDelete shape): resolve the sId (kernel-head or
+     * box) under the lock, keep kernel-owned resources out of box
+     * hands. */
+    SCHEDULER_LOCK(intSave);
+    if (OsSemGetCBLocked(semHandle, &semDeleted) != LOS_OK) {
+        SCHEDULER_UNLOCK(intSave);
+        return LOS_ERRNO_SEM_INVALID;
+    }
+    if (OsSIdKernelResIntCheck(semHandle) != LOS_OK) {
+        SCHEDULER_UNLOCK(intSave);
+        return LOS_ERRNO_SEM_INVALID;
+    }
+#else
     if (GET_SEM_INDEX(semHandle) >= (UINT32)LOSCFG_BASE_IPC_SEM_LIMIT) {
         return LOS_ERRNO_SEM_INVALID;
     }
@@ -176,6 +228,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SemDelete(UINT32 semHandle)
     semDeleted = GET_SEM(semHandle);
 
     SCHEDULER_LOCK(intSave);
+#endif
 
     ret = OsSemStateVerify(semHandle, semDeleted);
     if (ret != LOS_OK) {
@@ -188,7 +241,14 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SemDelete(UINT32 semHandle)
     }
 
     OsSemIdUpdate(semDeleted);
+#ifdef LOSCFG_BOX
+    /* unbind the SID (stub no-op, signature kept), then recycle the CB
+     * to the owning free list */
+    (VOID)OsSIdObjDel(semHandle);
+    OsSemNodeRecycleBySId(semDeleted, semHandle);
+#else
     OsSemNodeRecycle(semDeleted);
+#endif
 
     OsSemDbgUpdateHook(semDeleted->semId, NULL, 0);
 
@@ -207,6 +267,34 @@ LITE_OS_SEC_TEXT UINT32 LOS_SemPend(UINT32 semHandle, UINT32 timeout)
     UINT32 ret;
     LosTaskCB *runTask = NULL;
 
+#ifdef LOSCFG_BOX
+    /* M5G seam (native-order preserving, LOS_MuxPend shape): the pre-lock
+     * checks keep their baseline unlocked position; the sId resolution
+     * replaces GET_SEM under the scheduler lock. */
+    if (GET_SEM_INDEX(semHandle) >= (UINT32)LOSCFG_BASE_IPC_SEM_LIMIT) {
+        return LOS_ERRNO_SEM_INVALID;
+    }
+
+    if (OS_INT_ACTIVE) {
+        return LOS_ERRNO_SEM_PEND_INTERR;
+    }
+
+    runTask = OsCurrTaskGet();
+    if (runTask->taskFlags & OS_TASK_FLAG_SYSTEM) {
+        PRINT_DEBUG("Warning: DO NOT recommend to use %s in system tasks.\n", __FUNCTION__);
+        return LOS_ERRNO_SEM_PEND_IN_SYSTEM_TASK;
+    }
+
+    if (!OsPreemptable()) {
+        return LOS_ERRNO_SEM_PEND_IN_LOCK;
+    }
+
+    SCHEDULER_LOCK(intSave);
+    if (OsSemGetCBLocked(semHandle, &semPended) != LOS_OK) {
+        SCHEDULER_UNLOCK(intSave);
+        return LOS_ERRNO_SEM_INVALID;
+    }
+#else
     if (GET_SEM_INDEX(semHandle) >= (UINT32)LOSCFG_BASE_IPC_SEM_LIMIT) {
         return LOS_ERRNO_SEM_INVALID;
     }
@@ -230,6 +318,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_SemPend(UINT32 semHandle, UINT32 timeout)
     }
 
     SCHEDULER_LOCK(intSave);
+#endif
 
     ret = OsSemStateVerify(semHandle, semPended);
     if (ret != LOS_OK) {
@@ -270,6 +359,14 @@ LITE_OS_SEC_TEXT UINT32 LOS_SemPost(UINT32 semHandle)
     UINT16 maxCount;
     UINT32 ret;
 
+#ifdef LOSCFG_BOX
+    /* M5G seam (LOS_MuxPost shape): resolve the sId under the lock. */
+    SCHEDULER_LOCK(intSave);
+    if (OsSemGetCBLocked(semHandle, &semPosted) != LOS_OK) {
+        SCHEDULER_UNLOCK(intSave);
+        return LOS_ERRNO_SEM_INVALID;
+    }
+#else
     if (GET_SEM_INDEX(semHandle) >= (UINT32)LOSCFG_BASE_IPC_SEM_LIMIT) {
         return LOS_ERRNO_SEM_INVALID;
     }
@@ -279,6 +376,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_SemPost(UINT32 semHandle)
     LOS_TRACE(SEM_POST, semHandle, semPosted->semType, semPosted->semCount);
 
     SCHEDULER_LOCK(intSave);
+#endif
 
     ret = OsSemStateVerify(semHandle, semPosted);
     if (ret != LOS_OK) {

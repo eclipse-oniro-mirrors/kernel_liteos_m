@@ -24,6 +24,35 @@
 #undef LOS_TaskDelay
 #undef LOS_PrintStr
 #undef LOS_TaskUsrExit
+#undef LOS_TaskPriGet
+#undef LOS_TaskYield
+#undef LOS_TaskLock
+#undef LOS_TaskUnlock
+#undef LOS_TaskDelete
+#undef LOS_TaskResume
+#undef LOS_TaskSuspend
+#undef LOS_TaskPriSet
+#undef OsTaskCreateOnlyDynamic
+#undef OsTaskGetRecycleStack
+#undef LOS_TaskCreateOnly
+#undef LOS_TaskCreate
+#undef LOS_TaskStackRecycle
+#undef OsMuxCreate
+#undef LOS_MuxDelete
+#undef LOS_MuxPend
+#undef LOS_MuxPost
+#undef LOS_MuxHeld
+#undef LOS_MuxCreate
+#undef LOS_TaskCreateStatic
+#undef LOS_TaskCreateOnlyStatic
+#undef LOS_CurTaskPriSet
+#undef LOS_TaskInfoGet
+#undef LOS_TaskStatusGet
+#undef LOS_SemCreate
+#undef LOS_SemDelete
+#undef LOS_SemPend
+#undef LOS_SemPost
+#undef UartPuts
 
 #ifdef __cplusplus
 extern "C" {

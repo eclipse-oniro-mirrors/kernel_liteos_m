@@ -312,7 +312,22 @@ LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, U
 }
 
 /* stack protector */
+/* M5C (refs los_usr_init.c): box user code compiled with
+ * -fstack-protector-strong (any user API taking the address of a local,
+ * e.g. LOS_MuxCreate(&sId), instruments the caller) loads the canary in
+ * unprivileged mode, so the guard must live where the user world can
+ * read it: .USER_READONLY_DATA (MPU R2, kernel-W / user-RO). refs keeps
+ * a per-box guard in usr data; this one-world build shares the kernel's
+ * guard at an R2 address instead (documented deviation - boxes can read
+ * the global canary, which only weakens their own overflow protection).
+ * __stack_chk_fail stays kernel-side: the kernel copy panic-dumps, and
+ * a corrupted user canary reaching it faults on entry (user code cannot
+ * execute kernel text) - the fault itself is the signal. */
+#ifdef LOSCFG_BOX
+WEAK UINT32 __stack_chk_guard __attribute__((section(".USER_READONLY_DATA"))) = 0xd00a0dff;
+#else
 WEAK UINT32 __stack_chk_guard = 0xd00a0dff;
+#endif
 
 WEAK VOID __stack_chk_fail(VOID)
 {

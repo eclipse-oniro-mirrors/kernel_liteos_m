@@ -33,11 +33,19 @@ module_name = "arch"
 kernel_module(module_name) {
   sources = [
     "los_context.c",
-    "los_dispatch.S",
     "los_exc.S",
     "los_interrupt.c",
     "los_mpu.c",
   ]
+
+  # Dispatch is swapped, not shared: with LOSCFG_BOX the BOX variant
+  # (dual-stack PendSV hooks + unified FP geometry) replaces the vanilla
+  # file, which stays byte-identical to the OHOS drop.
+  if (defined(LOSCFG_BOX)) {
+    sources += [ "los_dispatch_box.S" ]
+  } else {
+    sources += [ "los_dispatch.S" ]
+  }
 
   # The arch default timer is replaced by a vendor timer when
   # ARCH_TIMER_VENDOR is selected (same mechanism as riscv32).
@@ -47,11 +55,42 @@ kernel_module(module_name) {
   configs += [ "$LITEOSTOPDIR:warn_config" ]
 
   if (defined(LOSCFG_BOX)) {
-    # los_dispatch.S includes the generated box offsets header - the
-    # offsets action must run before this module compiles (ordering only;
-    # recompilation is driven by the action touching the source on real
-    # changes - no depfiles in this build, pitfall 27).
-    # Resolved per-target via the GN arg, not hardcoded to one board.
+    # BOX arch glue (M5A/M5B, moved from the target demo layer - refs keeps
+    # box_mpu_config.h, OsTskUserStackInit and uspace_entry.S in the arch):
+    #   los_box_mpu.c    static MPU layout + per-box region switch
+    #   los_box_task.c   user context crafting + the OsUserTaskEntry prelude
+    #   los_box_uspace.S first-dispatch descent into user mode (refs
+    #                    uspace_entry.S semantics, .usr.text @COMMON_TEXT)
+    sources += [
+      "los_box_mpu.c",
+      "los_box_task.c",
+      "los_box_uspace.S",
+    ]
+
+    # M5G-R: the syscall machinery lives here now (moved from
+    # targets/<board>/liteos_m/box/syscalls - one home with the def list,
+    # the numbers and the two rename roots):
+    #   syscalls/src/los_syscall_entry.S  user veneers (def-generated stubs,
+    #                                      .usr.text @COMMON_TEXT)
+    #   syscalls/src/los_svc_entry.S      svc handler + graft frame crafting
+    #   syscalls/src/los_syscall_table.c  dispatch table + kernel wrappers
+    sources += [
+      "syscalls/src/los_syscall_entry.S",
+      "syscalls/src/los_svc_entry.S",
+      "syscalls/src/los_syscall_table.c",
+    ]
+
+    # The table/wrapper TU compiles under the rename root (LOS_xxx ->
+    # SYS_LOS_xxx, arch/arm/cortex_m:box_syscalls); the two asm files take
+    # their numbers/defs from the same root.
+    configs += [ ":box_syscalls" ]
+
+    # los_dispatch_box.S, los_box_uspace.S and los_svc_entry.S include the
+    # generated box offsets header - the offsets action must run before
+    # this module compiles (ordering only; recompilation is driven by the
+    # action touching the source on real changes - no depfiles in this
+    # build, pitfall 27). Resolved per-target via the GN arg, not
+    # hardcoded to one board.
     deps = [ "//kernel/liteos_m/targets/${device_name}/liteos_m/box/offsets:gen_box_offsets" ]
   }
 }

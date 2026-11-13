@@ -35,16 +35,10 @@
 #include "los_task.h"
 #include "los_task_pri.h"
 
-#if (LOSCFG_KERNEL_PRINTF == 1) || (LOSCFG_KERNEL_PRINTF == 2)
-STATIC const CHAR *g_logString[] = {
-    "EMG",
-    "COMMON",
-    "ERR",
-    "WARN",
-    "INFO",
-    "DEBUG",
-};
-#endif
+/* M5G-R: g_logString + OsLogLevelCheck moved to los_printf.c - that TU is
+ * COMMON-section under BOX (box user code calls PRINTK -> LOS_Printf ->
+ * OsLogLevelCheck), so the level check must not land in the kernel segment
+ * (pitfall 44). This file stays kernel-only. */
 
 STATIC ExcHookFn g_excHook;
 STATIC BACK_TRACE_HOOK g_backTraceHook = NULL;
@@ -83,21 +77,6 @@ VOID OsDoExcHook(EXC_TYPE excType)
     }
     LOS_IntRestore(intSave);
 }
-
-#if (LOSCFG_KERNEL_PRINTF == 1) || (LOSCFG_KERNEL_PRINTF == 2)
-INT32 OsLogLevelCheck(INT32 level)
-{
-    if (level > PRINT_LEVEL) {
-        return (INT32)LOS_NOK;
-    }
-
-    if ((level != LOG_COMMON_LEVEL) && ((level > LOG_EMG_LEVEL) && (level <= LOG_DEBUG_LEVEL))) {
-        PRINTK("[%s][%s]", g_logString[level], LOS_CurTaskNameGet());
-    }
-
-    return LOS_OK;
-}
-#endif
 
 #if (LOSCFG_KERNEL_PRINTF > 1)
 WEAK VOID HalConsoleOutput(LogModuleType type, INT32 level, const CHAR *fmt, ...)

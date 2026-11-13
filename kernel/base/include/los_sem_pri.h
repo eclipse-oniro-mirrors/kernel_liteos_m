@@ -75,6 +75,21 @@ extern LosSemCB *g_osAllSem;
 
 extern UINT32 OsSemInit(VOID);
 
+#ifdef LOSCFG_BOX
+/* ---- M5G: sem box-face contracts (los_sem_box.c) ----
+ * The box free list lives in los_sem.c (next to the kernel unused list,
+ * the mux placement); the pool init / SID-seam helpers live in
+ * los_sem_box.c. g_unusedSemList is non-STATIC under BOX so
+ * OsGetSemFreeList (los_sem_box.c) can route to it. */
+#include "los_sec_pri.h"        /* EntityObj / OsSIdGenObj contracts */
+extern LOS_DL_LIST g_unusedSemList;
+extern LOS_DL_LIST g_boxFreeSemList[LOSCFG_BASE_BOX_MAX_LIMIT];
+extern UINT32 OsBoxSemInit(EntityObj *entityList, LosSemCB *semList, UINT32 listLen, UINT16 boxId);
+extern UINT32 OsBoxSemListInit(UINT16 boxId);
+extern UINT32 OsSemGetCBLocked(UINT32 sId, LosSemCB **semCreated);
+extern UINT32 OsSemCreateBox(UINT16 count, UINT8 type, UINT32 *semHandle);
+#endif
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

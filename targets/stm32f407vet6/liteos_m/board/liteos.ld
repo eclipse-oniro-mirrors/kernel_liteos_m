@@ -82,9 +82,18 @@ SECTIONS
      * NOTE: a single pattern list must not mix a literal name with
      * wildcards - this binutils then skips the EXCLUDE_FILE check for
      * wildcard matches (box .text.boxAEntry leaked into the kernel).
-     * Keep literals and wildcards in separate statements. */
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .text.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .text)
+     * Keep literals and wildcards in separate statements.
+     * libc mem/str primitives are EXCLUDED from the wildcard so their
+     * .text.* sections fall through to the .COMMON_TEXT rules: the box
+     * world shares the libc primitive surface (memcpy/memset/strlen/...)
+     * and a kernel-flash landing is a user-mode MemManage fault; kernel
+     * callers cross-call the COMMON copy (R0 is kernel-executable).
+     * mem family + libsec mem{set,cpy}_s: wildcard (all members are pure
+     * helpers); str family: 16 explicit members (strdup/strtok/strtol/
+     * strerror/strftime/strcase* stay kernel-only - rodata tables,
+     * malloc or locale deps). */
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o) .text.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o) .text)
     /* board/include/los_builddef_target.h routes kernel code via
      * LITE_OS_SEC_TEXT* to .kernel.text; ITCM variant falls back to
      * normal flash (STM32F407 has no ITCM). */
@@ -92,9 +101,9 @@ SECTIONS
     *(.itcm.kernel.text)
     . = ALIGN(0x4);
     _etext = .;
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .rodata.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .gnu.linkonce.r.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .rodata)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .rodata.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .gnu.linkonce.r.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .rodata)
     *(.rodata1)
     . = ALIGN(0x4);
     __kernel_text_end = .;
@@ -109,9 +118,9 @@ SECTIONS
 
   .data : ALIGN(0x4) {
     __data_start = .;
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .data.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .gnu.linkonce.d.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .data)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .data.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .gnu.linkonce.d.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .data)
     *(.kernel.data .kernel.data.*)
 
     __init_array_start = .;
@@ -151,9 +160,9 @@ SECTIONS
   .bss : ALIGN(0x4) {
    __bss_start = .;
    *(.dynbss)
-   *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .bss.*)
-   *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .gnu.linkonce.b.*)
-   *(EXCLUDE_FILE(*boxA*.o *boxB*.o) .bss)
+   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .bss.*)
+   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .gnu.linkonce.b.*)
+   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .bss)
    *(.kernel.bss .kernel.bss.*)
    *(COMMON)
    . = ALIGN(0x4);
@@ -191,6 +200,31 @@ SECTIONS
      * veneer = zeros in flash). */
     KEEP(*(.usr.text .usr.text.*))
     KEEP(*(.usrtcm.text))
+    /* M5D single shared copy of the bestfit allocator (usr_demo:
+     * box_usr_mem): route the WHOLE objects by file-name pattern —
+     * explicit LITE_OS_SEC_* sections AND the plain .text.* / .rodata.*
+     * of static/inline helpers, so no fragment of the shared allocator
+     * (or its dlink-table / multipool helpers) stays behind in
+     * kernel-only flash (executing there from a box would
+     * MemManage-fault). KEEP: box calls it, --gc would keep it, but the
+     * convention above is KEEP for shared code. */
+    KEEP(*box_usr_mem.*(.text .text.* .rodata .rodata.*))
+    /* libc mem/str primitives shared with the box world (M5E): the pure
+     * helpers — mem family (musl mem*.o + libsec mem{set,cpy}_s) and 16
+     * plain str members — carry no globals/rodata tables. The two
+     * bare-.text members (memcpy_le.o, strlen-armv6t2.o: whole file is
+     * one function; -ffunction-sections did not apply) need explicit
+     * file rules; the rest arrive by function-section name. Members
+     * left in kernel flash ON PURPOSE: strerror/strtol/strtod/strdup/
+     * strtok/strftime/strptime (rodata tables, malloc or static state)
+     * and the strcase* family (locale __ctype deps) — box code must not
+     * reach them. */
+    *libmusl-c.memcpy_le.o(.text)
+    *libmusl-c.strlen-armv6t2.o(.text)
+    *(.text.mem*)
+    *(.text.strcat .text.strchr .text.__strchrnul .text.strcmp .text.strcpy
+      .text.strcspn .text.strncat .text.strncmp .text.strncpy .text.strnlen
+      .text.strrchr .text.strspn .text.strstr .text.twoway_strstr)
     __common_rodata_start = .;
     KEEP(*(.COMMON_RODATA .COMMON_RODATA.*))
     KEEP(*(.usr.ro.data))
@@ -203,6 +237,15 @@ SECTIONS
   .COMMON_DATA : ALIGN(0x4) {
     __common_data_start = .;
     *(.COMMON_DATA .COMMON_DATA.*)
+    /* M5D shared allocator INITIALIZED data would land here (explicit
+     * .COMMON_DATA sections). NOTE: zero-initialized objects must NOT be
+     * listed here — a NOBITS input section inside this PROGBITS/AT output
+     * section shares its LMA slot with other NOBITS sections (ld does not
+     * advance the AT cursor), so the startup copy loop would read
+     * whatever real flash data occupies that address (caught by a
+     * watchpoint: g_MALLOC_HOOK was seeded with string bytes). Zero
+     * objects go to .COMMON_BSS below, zeroed by startup. */
+    *box_usr_mem.*(.data .data.*)
     . = ALIGN(0x4);
     __common_data_end = .;
   } > COMMON_RAM AT> KERNEL_FLASH
@@ -211,6 +254,10 @@ SECTIONS
   .COMMON_BSS (NOLOAD) : ALIGN(0x4) {
     __common_bss_start = .;
     *(.COMMON_BSS .COMMON_BSS.*)
+    /* M5D shared allocator zero-initialized data: g_MALLOC_HOOK /
+     * m_aucSysMem* / g_poolHead — zeroed by the startup common_bss loop
+     * (COMMON_RAM is outside the __bss range). */
+    *box_usr_mem.*(.bss .bss.* COMMON)
     . = ALIGN(0x4);
     __common_bss_end = .;
   } > COMMON_RAM

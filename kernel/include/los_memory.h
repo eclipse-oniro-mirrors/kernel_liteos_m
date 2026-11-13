@@ -69,6 +69,8 @@ extern MALLOC_HOOK g_MALLOC_HOOK;
 #ifndef LOS_MEM_INIT_ATTR_SLAB_MSK
 #define LOS_MEM_INIT_ATTR_SLAB_MSK       0x1U
 #endif
+/* refs los_memory.h:51 — lock-type bit for LOS_MemPoolInit attr. */
+#define LOS_MEM_INIT_ATTR_LOCK_MSK       0x2U
 
 /**
  * @ingroup los_memory
@@ -564,6 +566,12 @@ struct OsMemPoolInfo {
     VOID *pool;
     UINT32 totalSize;
     UINT32 attr;
+#ifdef LOSCFG_BOX
+    /* box heap lock (refs LosMemPoolInfo.memMux): OS_INVALID -> int lock,
+     * else a mux handle created by MemLockCreate. Scaffold: stays
+     * OS_INVALID until the mux-lock path is wired (M5C). */
+    UINT32 memMux;
+#endif
 #if (LOSCFG_MEM_WATERLINE == 1)
     UINT32 waterLine;   /* Maximum usage size in a memory pool */
     UINT32 curUsedSize; /* Current usage size in a memory pool */

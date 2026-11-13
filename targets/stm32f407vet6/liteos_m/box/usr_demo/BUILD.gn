@@ -8,17 +8,81 @@
 
 import("//kernel/liteos_m/liteos.gni")
 
+# M5D single shared copy of the bestfit allocator (M5C decision: the
+# allocator lives in the COMMON sections). Under BOX this is the ONLY
+# compilation of los_memory.c: the kernel/base module drops the source
+# (see kernel/base/BUILD.gn) and the linker script routes the whole
+# object into .COMMON_TEXT/.COMMON_DATA — kernel and boxes execute the
+# same code; boxes call alloc/free/init directly, only the pool locks go
+# through the LOS_MuxPend/Post veneers. LOSCFG_MEM_MUL_POOL is OFF:
+# los_multipool.c is not compiled in either world (the registry does not
+# exist; kernel/base/BUILD.gn drops it too). No builddef force-include
+# and no rename: plain sections (.text.* / .bss.*) are caught by the
+# lds file-name rules.
+kernel_module("box_usr_mem") {
+  # aggregated by board:bsp_config (final image link), outside the
+  # usr_demo directory chain the liteos.gni template defaults to
+  visibility += [ "//kernel/liteos_m/targets/stm32f407vet6/liteos_m/board:*" ]
+
+  cflags = [
+    "-mfpu=fpv4-sp-d16",
+    "-mfloat-abi=softfp",
+  ]
+
+  sources = [
+    "//kernel/liteos_m/kernel/base/mem/bestfit/los_memory.c",
+    "//kernel/liteos_m/kernel/base/mem/bestfit/los_multipledlinkhead.c",
+    # LOS_HighBitGet (every dlink alloc/free path) must live in the COMMON
+    # copy with the allocator — a kernel-flash landing is a user-mode
+    # MemManage fault; kernel callers cross-call the COMMON copy (R0).
+    "//kernel/liteos_m/kernel/base/los_bitmap.c",
+    # M5G-R: the full PRINTK for box user code (PRINTK -> LOS_Printf ->
+    # OsLogLevelCheck + UartOutput chain). Same file-name lds routing as
+    # the others. LOS_PRINTF_COMMON_ENGINE selects the lightweight
+    # in-file formatter and routes the output through the UartPuts
+    # syscall (the uart driver + its LOS_IntLock stay in the kernel
+    # segment); the BOX=off kernel build keeps the full vsnprintf_s
+    # engine with the direct UartPuts call.
+    "//kernel/liteos_m/kernel/base/los_printf.c",
+  ]
+
+  defines = [ "LOS_PRINTF_COMMON_ENGINE=1" ]
+
+  include_dirs = [
+    # los_memory_internal.h (bestfit-private header)
+    "//kernel/liteos_m/kernel/base/mem/bestfit",
+    # los_trace.h / los_exc_pri.h chains pulled by los_memory.c
+    "//kernel/liteos_m/kernel/extended/trace",
+    "//kernel/liteos_m/kernel/extended/trace/cnv",
+    "//kernel/liteos_m/kernel/extended/backtrace",
+  ]
+}
+
 kernel_module("box_usr_demo") {
+  # aggregated by board:bsp_config (final image link)
+  visibility += [ "//kernel/liteos_m/targets/stm32f407vet6/liteos_m/board:*" ]
+
   # Same section-routing force-include as bsp_config (LITE_OS_SEC_* ->
   # .box.res / .boxA.bss / .boxB.bss ...).
   cflags = [
     "-include",
     rebase_path("../../board/include/los_builddef_target.h"),
+    # VFPv4 codegen for the user world. The ABI tag must match the rest
+    # of the image (the linker refuses to merge VFP-register-argument
+    # objects into a soft-float image), so this stays softfp: real VFP
+    # instructions, core-register calling convention.
+    "-mfpu=fpv4-sp-d16",
+    "-mfloat-abi=softfp",
   ]
 
   sources = [
     "tboxA/boxA_main.c",
     "tboxB/boxB_main.c",
+    # refs kernel_s/usr/los_usr_api.c equivalent (single-copy COMMON_TEXT):
+    # LOS_MuxCreate wrapper; no boxA/boxB in the file name, so the box
+    # section selectors leave it in the default routing — the explicit
+    # .usr.text function attribute lands it in COMMON_FLASH.
+    "usr_api/los_usr_api.c",
   ]
 }
 

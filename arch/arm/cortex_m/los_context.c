@@ -79,7 +79,18 @@ LITE_OS_SEC_TEXT_MINOR VOID ArchTaskExit(VOID)
  **************************************************************************** */
 LITE_OS_SEC_TEXT_INIT VOID *ArchTaskStackInit(UINT32 taskId, UINT32 stackSize, VOID *topStack)
 {
-    TaskContext *context = (TaskContext *)((UINTPTR)topStack + stackSize - sizeof(TaskContext));
+    /* Every task context is laid out exactly like a PendSV save so that a
+     * task whose first dispatch comes from PendSV (not from ArchStartToRun)
+     * restores correctly:
+     *   [sp+0   ] d8-d15        64B  (gap / S16-S31)
+     *   [sp+64  ] r4-r12        36B
+     *   [sp+100 ] HW frame      32B  (r0-r3, r12, lr, pc, xpsr)
+     *   [sp+132 ] FP area       72B  (S0-S15 + FPSCR + pad)
+     * The 72-byte FP area must live inside the stack: an FP-extended
+     * exception return pops the frame *and* that area, so a context that
+     * stops at the HW frame would pop 72 bytes above the stack top. */
+    TaskContext *context = (TaskContext *)((UINTPTR)topStack + stackSize -
+                                          sizeof(TaskContext) - 72 /* FP area */);
 
 #if ((defined(__FPU_PRESENT) && (__FPU_PRESENT == 1U)) && \
      (defined(__FPU_USED) && (__FPU_USED == 1U)))
@@ -137,7 +148,20 @@ LITE_OS_SEC_TEXT_INIT VOID *ArchTaskStackInit(UINT32 taskId, UINT32 stackSize, V
     context->uwPC = (UINT32)(UINTPTR)OsTaskEntry;
     context->uwxPSR = 0x01000000L;
 
+#ifdef LOSCFG_BOX
+    /* BOX builds enable CPACR in main() before any task creation, and
+     * PendSV's runtime CPACR check always takes the FPU path. The
+     * stackPointer must point 64 bytes below the TaskContext (the
+     * d8-d15 gap) so PendSV restore reads the correct layout:
+     *   [stackPointer] -> [d8-d15 (64B)] [r4-r12 (36B)] [HW frame]
+     * Without the gap, PendSV consumes TaskContext words as d8-d15,
+     * PSP overshoots, and the exception return pops garbage (PC=0). */
+    (VOID)memset_s((UINT8 *)context + sizeof(TaskContext), sizeof(UINT32) * 18, 0,
+                   sizeof(UINT32) * 18);       /* S0-S15, FPSCR, pad */
+    return (VOID *)((UINT8 *)context - 64 /* d8-d15 gap */);
+#else
     return (VOID *)context;
+#endif
 }
 
 VOID *ArchSignalContextInit(VOID *stackPointer, VOID *stackTop, UINTPTR sigHandler, UINT32 param)

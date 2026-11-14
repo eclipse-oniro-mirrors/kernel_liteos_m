@@ -527,8 +527,8 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
 
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
     UINT8 originalMode = mode;
-    mode &= ~LOS_SWTMR_ALIGN_FLAG;
 #endif
+    mode &= ~LOS_SWTMR_ALIGN_FLAG;
 
     if (interval == 0) {
         return LOS_ERRNO_SWTMR_INTERVAL_NOT_SUITED;

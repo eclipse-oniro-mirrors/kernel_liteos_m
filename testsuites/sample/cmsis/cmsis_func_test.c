@@ -50,11 +50,13 @@ static VOID CmsisStackFunc01(void)
  */
 
 static volatile UINT32 g_cmsisLowFreqTimerRan;
+#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
 static void CmsisLowFreqTimerCb(void *argument)
 {
     (void)argument;
     g_cmsisLowFreqTimerRan++;
 }
+#endif
 
 static UINT32 TestCmsis001(VOID)
 {

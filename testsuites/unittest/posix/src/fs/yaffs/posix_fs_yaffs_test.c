@@ -590,7 +590,6 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsStatNoent, Function | MediumTes
     (void)remove(YAFFS_FILE0);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(YAFFS_FILE0, &st), -1, errno);
-    /* 板测 2026-11-13：失败路径闭源库已置 -ENOENT（同 TC-YFF-003 注） */
     ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
 
     errno = 0;
@@ -663,7 +662,6 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsMkdirNoParent, Function | Mediu
     (void)rmdir(YAFFS_DIR1);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(mkdir(YAFFS_DIR0"/missing/yaffs_api_x", YAFFS_MODE), -1, errno);
-    /* 板测 2026-11-13：失败路径闭源库已置 -ENOENT（同 TC-YFF-003 注） */
     ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
     return 0;
 }
@@ -864,7 +862,6 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsRenameFile, Function | MediumTe
     ICUNIT_ASSERT_EQUAL(rename(YAFFS_FILE_REN_SRC, YAFFS_FILE_REN_DST), 0, errno);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(YAFFS_FILE_REN_SRC, &st), -1, errno);
-    /* 板测 2026-11-13：失败路径闭源库已置 -ENOENT（同 TC-YFF-003 注） */
     ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
 
     fd = open(YAFFS_FILE_REN_DST, O_RDONLY, YAFFS_MODE);
@@ -943,7 +940,6 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsUnlinkFile, Function | MediumTe
     ICUNIT_ASSERT_EQUAL(unlink(YAFFS_FILE0), 0, errno);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(YAFFS_FILE0, &st), -1, errno);
-    /* 板测 2026-11-13：失败路径闭源库已置 -ENOENT（同 TC-YFF-003 注） */
     ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
     return 0;
 }

@@ -79,7 +79,7 @@
 #define DW_APB_TIMER_CNT_LOCK       (1u << 6)
 
 /* 
- *Poll limit for the cnt_req/cnt_lock capture handshake. The handshake is only
+ * Poll limit for the cnt_req/cnt_lock capture handshake. The handshake is only
  * compiled when the board declares DW_APB_TIMER_CURRENT_BROKEN; this limit is a
  * backstop: should some IP not implement bit6, fall back to a bare read on
  * timeout — getCycle must never become an infinite loop (the CPUP sampling path

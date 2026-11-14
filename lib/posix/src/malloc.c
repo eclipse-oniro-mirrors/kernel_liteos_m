@@ -35,11 +35,13 @@
 #include "los_memory.h"
 
 /*
- * libc 堆选择钩子。
+ * libc heap selection hook.
  *
- * 弱定义返回系统堆，与上游行为完全一致；板级（或 port 层）可以提供强定义，把
- * libc 堆指到别的内存池（例如挂在 PSRAM 上的扩展堆）。释放路径必须按同一规则反查池子，
- * 所以钩子同时接收待释放指针。
+ * The weak definition returns the system heap, matching upstream behaviour exactly;
+ * a board (or the port layer) may provide a strong definition pointing the libc heap
+ * at another pool (e.g. the extend heap living in PSRAM). The free path must map a
+ * pointer back to its pool by the same rule, so the hook also receives the pointer
+ * being freed.
  */
 VOID *OsLibcHeapPool(const VOID *ptr);
 __attribute__((__weak__)) VOID *OsLibcHeapPool(const VOID *ptr)

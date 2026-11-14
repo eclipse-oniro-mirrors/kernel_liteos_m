@@ -48,12 +48,15 @@
 #include "map_error.h"
 
 /*
- * LOSCFG_POSIX_MUTEX_LAZY_INIT: 允许"静态存储但没走 pthread_mutex_init"的 mutex
- * 在首次使用时惰性初始化（magic == 0 视为未初始化，而不是非法对象）。
+ * LOSCFG_POSIX_MUTEX_LAZY_INIT: let a mutex that lives in static storage but never
+ * went through pthread_mutex_init initialize lazily on first use (magic == 0 counts
+ * as uninitialized rather than as an invalid object).
  *
- * 默认 1：POSIX 要求静态初始化（含全零 .bss）的 mutex 可直接使用，C++ 运行时
- * （libc++abi 的 __cxa_guard_acquire）也从不初始化它的守卫锁。置 0 可退回严格
- * 实现（magic != _MUX_MAGIC 一律 EINVAL），仅供对比验证，不要在生产配置里关。
+ * Default 1: POSIX requires a statically initialized mutex (including the all-zero
+ * .bss form) to be directly usable, and the C++ runtime (libc++abi's
+ * __cxa_guard_acquire) never initializes its guard lock either. Set to 0 to return
+ * to the strict implementation (any magic != _MUX_MAGIC is EINVAL); that is for
+ * comparison only, do not turn it off in a production config.
  */
 #ifndef LOSCFG_POSIX_MUTEX_LAZY_INIT
 #define LOSCFG_POSIX_MUTEX_LAZY_INIT    1
@@ -310,34 +313,47 @@ STATIC UINT32 CheckMutexAttr(const pthread_mutexattr_t *attr)
 }
 
 #if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
-/* 静态存储、但没走 pthread_mutex_init 的 mutex 的惰性初始化。
+/* Lazy initialization of a mutex that lives in static storage but never went
+ * through pthread_mutex_init.
  *
- * 典型来源是 C++ 运行时：libc++abi 的 __cxa_guard_acquire 用
- * GlobalStatic<LibcppMutex>::instance 做 guard 的保护锁，该对象是"值初始化"
- * 的静态存储（落在 .bss，全零），不会经过 pthread_mutex_init，因此 magic 为 0。
- * 原实现把 magic != _MUX_MAGIC 一律判 EINVAL，导致所有 C++ 函数内静态变量
- * 首次构造时 __cxa_guard_acquire 拿锁失败并 abort_message("... failed to
- * acquire mutex") -> abort -> LOS_Panic，整机在 system_init_array 里冻结。
- * POSIX 语义要求静态初始化（含全零）的 mutex 可直接使用，这里补齐一次初始化。 */
+ * The typical source is the C++ runtime: libc++abi's __cxa_guard_acquire uses
+ * GlobalStatic<LibcppMutex>::instance as the guard's protect lock, and that object
+ * is value-initialized static storage (lands in .bss, all zero) that never passes
+ * through pthread_mutex_init, so magic stays 0. The previous implementation judged
+ * any magic != _MUX_MAGIC as EINVAL, so the first construction of every C++
+ * function-local static failed to take the lock inside __cxa_guard_acquire and hit
+ * abort_message("... failed to acquire mutex") -> abort -> LOS_Panic, freezing the
+ * whole system in system_init_array. POSIX semantics require a statically
+ * initialized (including all-zero) mutex to be directly usable; complete the
+ * initialization once here.
+ */
 STATIC UINT32 OsMuxEnsureInit(pthread_mutex_t *mutex)
 {
     UINT32 ret;
     pthread_mutexattr_t useAttr;
 
-    /* 已由 pthread_mutex_init 或 PTHREAD_MUTEX_INITIALIZER 初始化，且内核 mux 已创建 */
+    /*
+     * Already initialized by pthread_mutex_init or PTHREAD_MUTEX_INITIALIZER, and the
+     * kernel mux exists
+     */
     if ((mutex->magic == _MUX_MAGIC) && (mutex->handle != _MUX_INVALID_HANDLE)) {
         return 0;
     }
 
-    /* 全零的静态对象：属性同样是全零，按 POSIX 默认值补齐（普通锁） */
+    /* 
+     * All-zero static object: the attributes are all zero too, fill in the POSIX
+     * defaults (a normal lock)
+     */
     if (mutex->magic != _MUX_MAGIC) {
         (VOID)pthread_mutexattr_init(&useAttr);
         mutex->stAttr = useAttr;
         mutex->magic = _MUX_MAGIC;
     }
 
-    /* magic 已置但 handle 还是 _MUX_INVALID_HANDLE：PTHREAD_MUTEX_INITIALIZER 场景，
-     * 属性可用，只缺内核 mux。 */
+    /* 
+     * magic is set but handle is still _MUX_INVALID_HANDLE: the
+     * PTHREAD_MUTEX_INITIALIZER case, the attributes are usable and only the kernel
+     * mux is missing. */
     ret = LOS_MuxCreate(&mutex->handle);
     if (ret != LOS_OK) {
         return MapError(ret);
@@ -350,8 +366,11 @@ STATIC UINT32 OsMuxEnsureInit(pthread_mutex_t *mutex)
 STATIC UINT32 OsMuxPreCheck(const pthread_mutex_t *mutex, const LosTaskCB *runTask)
 {
 #if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
-    /* magic == 0 视为"尚未初始化"，由 OsMuxEnsureInit 补初始化，不在这里判错；
-     * 其余非 _MUX_MAGIC 的值仍按非法对象处理。 */
+    /* 
+     * magic == 0 means "not initialized yet" and OsMuxEnsureInit completes it, so it
+     * is not rejected here; any other value besides _MUX_MAGIC is still treated as an
+     * invalid object.
+     */
     if ((mutex == NULL) || ((mutex->magic != 0) && (mutex->magic != _MUX_MAGIC)) ||
 #else
     if ((mutex == NULL) || (mutex->magic != _MUX_MAGIC) ||
@@ -632,7 +651,10 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex)
     }
 
 #if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
-    /* magic 未置位说明该对象从未成功加锁（也就无所谓解锁），按未初始化处理。 */
+    /* 
+     * magic unset means the object never locked successfully (so there is nothing to
+     * unlock); treat it as uninitialized.
+     */
     if ((mutex->magic != _MUX_MAGIC) || (mutex->handle == _MUX_INVALID_HANDLE)) {
         return EINVAL;
     }

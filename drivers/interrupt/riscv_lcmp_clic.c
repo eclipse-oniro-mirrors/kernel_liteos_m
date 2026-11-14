@@ -48,7 +48,7 @@
  *   - default: edge (bit1=1) — required so a software write to clicintip latches
  *     (LOS_HwiTrigger / the hwi testsuites depend on it, see clic.h), and it is
  *     the upstream behaviour;
- *   - a board needing level-triggered delivery (HI3322) defines
+ *   - a board needing level-triggered delivery defines
  *     CLIC_DEFAULT_TRIG_MODE = 0 in its target_config.h instead of patching this
  *     driver, and re-selects edge per-vector where a software trigger is needed. */
 #ifndef CLIC_DEFAULT_TRIG_MODE

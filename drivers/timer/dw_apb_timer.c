@@ -74,14 +74,17 @@
 #define DW_APB_TIMER_CTRL_DISABLE  0x0u
 #define DW_APB_TIMER_CTRL_PERIODIC 0x3u
 
-/* CONTROL bit5: 请求锁存当前计数；bit6: 锁存完成 */
+/* CONTROL bit5: request a latch of the current count; bit6: latch complete */
 #define DW_APB_TIMER_CNT_REQ        (1u << 5)
 #define DW_APB_TIMER_CNT_LOCK       (1u << 6)
 
-/* cnt_req/cnt_lock 捕获握手的轮询上限。握手只在板级声明
- * DW_APB_TIMER_CURRENT_BROKEN 时编译；这个上限是兜底：万一某块 IP 不实现
- * bit6，超时后退回裸读，绝不能把 getCycle 变成无限循环（CPUP 采样路径会
- * 在任务切换里调用它）。 */
+/* 
+ *Poll limit for the cnt_req/cnt_lock capture handshake. The handshake is only
+ * compiled when the board declares DW_APB_TIMER_CURRENT_BROKEN; this limit is a
+ * backstop: should some IP not implement bit6, fall back to a bare read on
+ * timeout — getCycle must never become an infinite loop (the CPUP sampling path
+ * calls it on every task switch).
+ */
 #ifndef DW_APB_TIMER_CAPTURE_TIMEOUT
 #define DW_APB_TIMER_CAPTURE_TIMEOUT 1000u
 #endif
@@ -155,10 +158,14 @@ STATIC UINT32 DwApbTickStart(HWI_PROC_FUNC handler)
     return LOS_OK;
 }
 
-/* 计数器是否已启动（只启动计数，不开中断；中断由 DwApbTickStart 负责）。
- * HI3322 移植：LM 的 LOS_UDelay/LOS_SysCycleGet 依赖 getCycle 真实前进，
- * 而晶振起振前的 chip_init（如 uapi_clocks_config_mode 的电压/PSRAM 校准）
- * 早于 osKernelStart，此时 tick 中断还没起来。这里让计数尽早跑起来。 */
+/* 
+ * Whether the counter has been started (counter only, no interrupt; the interrupt
+ * belongs to DwApbTickStart). LOS_UDelay/LOS_SysCycleGet
+ * rely on getCycle really advancing, while chip_init before the crystal settles
+ * (e.g. uapi_clocks_config_mode's voltage/PSRAM calibration) runs before
+ * osKernelStart, when the tick interrupt is not up yet. Start counting as early as
+ * possible here.
+ */
 #ifdef DW_APB_TIMER_EARLY_START
 STATIC volatile BOOL g_dwApbCounting = FALSE;
 
@@ -192,9 +199,11 @@ STATIC UINT64 DwApbGetCycle(UINT32 *period)
 #endif
 
 #ifdef DW_APB_TIMER_CURRENT_BROKEN
-    /* 裸读 CURRENT_VALUE 在本 IP 上返回 0，必须先做 cnt_req/cnt_lock 捕获握手
-     * （CONTROL bit5 请求、bit6 锁存），与 vendor tick_timer.c 的
-     * machine_timer_get_cur_count() 同一套时序。 */
+    /*
+     * A bare CURRENT_VALUE read returns 0 on this IP, so the cnt_req/cnt_lock
+     * capture handshake must run first (CONTROL bit5 requests, bit6 latches) —
+     * the same sequence as vendor tick_timer.c's machine_timer_get_cur_count().
+     */
     UINT32 ctrl = DW_REG_READ(DW_APB_TIMER_CONTROL);
     UINT32 guard = DW_APB_TIMER_CAPTURE_TIMEOUT;
 
@@ -203,14 +212,14 @@ STATIC UINT64 DwApbGetCycle(UINT32 *period)
            (--guard != 0u)) {
     }
     cur = DW_REG_READ(DW_APB_TIMER_CURRENT);
-    DW_REG_WRITE(DW_APB_TIMER_CONTROL, ctrl); /* 清 cnt_req，恢复计数 */
+    DW_REG_WRITE(DW_APB_TIMER_CONTROL, ctrl); /* clear cnt_req, resume counting */
 #else
-    /* 上游路径：CURRENT_VALUE 可直接读，不做握手。 */
+    /* Upstream path: CURRENT_VALUE is directly readable, no handshake. */
     cur = DW_REG_READ(DW_APB_TIMER_CURRENT);
 #endif
 
     if (cur > DW_APB_TIMER_TICK_RELOAD) {
-        cur = 0; /* 异常读数保护，避免 uint 下溢造成巨大周期跳变 */
+        cur = 0; /* bad-read guard: avoid a huge period jump from unsigned underflow */
     }
     return (UINT64)(DW_APB_TIMER_TICK_RELOAD - cur);
 }

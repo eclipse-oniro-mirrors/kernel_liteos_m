@@ -174,9 +174,6 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsOpenRdonlyNoent, Function | Med
     errno = 0;
     fd = open(YAFFS_FILE0, O_RDONLY, YAFFS_MODE);
     ICUNIT_ASSERT_EQUAL(fd, -1, fd);
-    /* 板测 2026-11-13：闭源 fbb 库失败路径已置 -ENOENT，适配层 YaffsErrno()
-     * 走 -err 分支（vfs_yaffs2.c:88-93），EIO 兜底不再触发，POSIX 语义可达。
-     * 2026-10-12 记录的"回退 EIO 故 ENOENT 不可达"口径作废。 */
     ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
     return 0;
 }

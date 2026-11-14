@@ -43,11 +43,18 @@
 #include "soc.h"
 #include "clic.h"
 
-/* clicintattr: non-vectored (bit0=0), edge-triggered (bit1=1), M-mode ([7:6]=3).
- * Edge-triggered is required so that software can set clicintip[i] by writing 1
- * (per CLIC spec, level-triggered mode ignores software writes when the hardware
- * source is not asserting). This enables TestHwiTrigger / LOS_HwiTrigger. */
-#define CLIC_ATTR_MMODE      (CLIC_ATTR_MODE_M | CLIC_ATTR_EDGE_TRIG)
+/* clicintattr: non-vectored (bit0=0), M-mode ([7:6]=3). Trigger mode is a board
+ * property, so it stays overridable:
+ *   - default: edge (bit1=1) — required so a software write to clicintip latches
+ *     (LOS_HwiTrigger / the hwi testsuites depend on it, see clic.h), and it is
+ *     the upstream behaviour;
+ *   - a board needing level-triggered delivery defines
+ *     CLIC_DEFAULT_TRIG_MODE = 0 in its target_config.h instead of patching this
+ *     driver, and re-selects edge per-vector where a software trigger is needed. */
+#ifndef CLIC_DEFAULT_TRIG_MODE
+#define CLIC_DEFAULT_TRIG_MODE  CLIC_ATTR_EDGE_TRIG
+#endif
+#define CLIC_ATTR_MMODE      (CLIC_ATTR_MODE_M | CLIC_DEFAULT_TRIG_MODE)
 
 /* cliccfg: nlbits=4, bit0=0 (non-vector global) */
 #define CLIC_CFG_VALUE       (4u << 1)

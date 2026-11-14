@@ -174,9 +174,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsOpenRdonlyNoent, Function | Med
     errno = 0;
     fd = open(YAFFS_FILE0, O_RDONLY, YAFFS_MODE);
     ICUNIT_ASSERT_EQUAL(fd, -1, fd);
-    /* 板测 2026-10-12：fbb 库失败路径 yaffsfs_GetLastError()=0 → 适配层
-     * 回退 EIO（vfs_yaffs2.c:60-65 设计行为），POSIX 的 ENOENT 不可达 */
-    ICUNIT_ASSERT_EQUAL(errno, EIO, errno);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
     return 0;
 }
 
@@ -592,8 +590,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsStatNoent, Function | MediumTes
     (void)remove(YAFFS_FILE0);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(YAFFS_FILE0, &st), -1, errno);
-    /* 板测 2026-10-12：失败路径适配层回退 EIO（同 TC-YFF-003 注） */
-    ICUNIT_ASSERT_EQUAL(errno, EIO, errno);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
 
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(NULL, &st), -1, errno);
@@ -665,8 +662,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsMkdirNoParent, Function | Mediu
     (void)rmdir(YAFFS_DIR1);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(mkdir(YAFFS_DIR0"/missing/yaffs_api_x", YAFFS_MODE), -1, errno);
-    /* 板测 2026-10-12：失败路径适配层回退 EIO（同 TC-YFF-003 注） */
-    ICUNIT_ASSERT_EQUAL(errno, EIO, errno);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
     return 0;
 }
 
@@ -866,8 +862,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsRenameFile, Function | MediumTe
     ICUNIT_ASSERT_EQUAL(rename(YAFFS_FILE_REN_SRC, YAFFS_FILE_REN_DST), 0, errno);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(YAFFS_FILE_REN_SRC, &st), -1, errno);
-    /* 板测 2026-10-12：失败路径适配层回退 EIO（同 TC-YFF-003 注） */
-    ICUNIT_ASSERT_EQUAL(errno, EIO, errno);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
 
     fd = open(YAFFS_FILE_REN_DST, O_RDONLY, YAFFS_MODE);
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
@@ -945,8 +940,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsUnlinkFile, Function | MediumTe
     ICUNIT_ASSERT_EQUAL(unlink(YAFFS_FILE0), 0, errno);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(YAFFS_FILE0, &st), -1, errno);
-    /* 板测 2026-10-12：失败路径适配层回退 EIO（同 TC-YFF-003 注） */
-    ICUNIT_ASSERT_EQUAL(errno, EIO, errno);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
     return 0;
 }
 
@@ -985,7 +979,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsRemoveBoth, Function | MediumTe
 
     (void)rmdir(YAFFS_DIR0);
     ICUNIT_ASSERT_EQUAL(mkdir(YAFFS_DIR0, YAFFS_MODE), 0, errno);
-    /* 板测 2026-10-12：remove(空目录) 失败（-1+EIO）——VFS remove 的
+    /* 板测 2026-10-12：remove(空目录) 失败（-1，errno 见 printf 行）——VFS remove 的
      * "-EISDIR → rmdir" 转发在 liteos_m 上失效（unlink 已 POSIX 化为 -1，
      * vfs_fs.c:1258-1266 比较永假，littlefs 同受影响，存量缺陷），删目录
      * 应直接用 rmdir。行为记录，不作为 yaffs 缺陷 */

@@ -74,6 +74,21 @@
 #define DW_APB_TIMER_CTRL_DISABLE  0x0u
 #define DW_APB_TIMER_CTRL_PERIODIC 0x3u
 
+/* CONTROL bit5: request a latch of the current count; bit6: latch complete */
+#define DW_APB_TIMER_CNT_REQ        (1u << 5)
+#define DW_APB_TIMER_CNT_LOCK       (1u << 6)
+
+/* 
+ * Poll limit for the cnt_req/cnt_lock capture handshake. The handshake is only
+ * compiled when the board declares DW_APB_TIMER_CURRENT_BROKEN; this limit is a
+ * backstop: should some IP not implement bit6, fall back to a bare read on
+ * timeout — getCycle must never become an infinite loop (the CPUP sampling path
+ * calls it on every task switch).
+ */
+#ifndef DW_APB_TIMER_CAPTURE_TIMEOUT
+#define DW_APB_TIMER_CAPTURE_TIMEOUT 1000u
+#endif
+
 #define DW_APB_TIMER_TICK_RELOAD   (DW_APB_TIMER_CLOCK / LOSCFG_BASE_CORE_TICK_PER_SECOND)
 
 #define DW_REG_READ(off)           (*(volatile UINT32 *)(UINTPTR)(DW_APB_TIMER_BASE + (off)))
@@ -143,23 +158,70 @@ STATIC UINT32 DwApbTickStart(HWI_PROC_FUNC handler)
     return LOS_OK;
 }
 
+/* 
+ * Whether the counter has been started (counter only, no interrupt; the interrupt
+ * belongs to DwApbTickStart). LOS_UDelay/LOS_SysCycleGet
+ * rely on getCycle really advancing, while chip_init before the crystal settles
+ * (e.g. uapi_clocks_config_mode's voltage/PSRAM calibration) runs before
+ * osKernelStart, when the tick interrupt is not up yet. Start counting as early as
+ * possible here.
+ */
+#ifdef DW_APB_TIMER_EARLY_START
+STATIC volatile BOOL g_dwApbCounting = FALSE;
+
+STATIC VOID DwApbStartCounting(VOID)
+{
+    if (g_dwApbCounting) {
+        return;
+    }
+#ifdef DW_APB_TIMER_NEED_UNLOCK
+    *(volatile UINT32 *)(UINTPTR)DW_APB_TIMER_LOCK_BASE = DW_APB_TIMER_UNLOCK_VAL;
+#endif
+    DW_REG_WRITE(DW_APB_TIMER_CONTROL, DW_APB_TIMER_CTRL_DISABLE);
+    DW_REG_WRITE(DW_APB_TIMER_LOAD0, DW_APB_TIMER_TICK_RELOAD);
+    DW_REG_WRITE(DW_APB_TIMER_LOAD1, 0);
+    DW_REG_WRITE(DW_APB_TIMER_EOI, 1);
+    DW_REG_WRITE(DW_APB_TIMER_CONTROL, DW_APB_TIMER_CTRL_PERIODIC);
+    g_dwApbCounting = TRUE;
+}
+#endif /* DW_APB_TIMER_EARLY_START */
+
 STATIC UINT64 DwApbGetCycle(UINT32 *period)
 {
+    UINT32 cur;
+
     if (period != NULL) {
         *period = DW_APB_TIMER_TICK_RELOAD;
     }
-#ifdef DW_APB_TIMER_CURRENT_BROKEN
-    /* Bare CURRENT_VALUE reads return 0 on this SoC (the v150 IP needs a
-     * cnt_req/cnt_lock capture handshake first — CONTROL bits 5/6). A
-     * bogus read makes the kernel's rollover compensation advance the
-     * base by a full period (phantom ticks). The tick ISR rate is
-     * hardware-exact, so report a constant zero offset and let the base
-     * advance only from the ISR. Also a blocker for tickless (see
-     * DwApbReload). */
-    return 0;
-#else
-    return (UINT64)(DW_APB_TIMER_TICK_RELOAD - DW_REG_READ(DW_APB_TIMER_CURRENT));
+
+#ifdef DW_APB_TIMER_EARLY_START
+    DwApbStartCounting();
 #endif
+
+#ifdef DW_APB_TIMER_CURRENT_BROKEN
+    /*
+     * A bare CURRENT_VALUE read returns 0 on this IP, so the cnt_req/cnt_lock
+     * capture handshake must run first (CONTROL bit5 requests, bit6 latches) —
+     * the same sequence as vendor tick_timer.c's machine_timer_get_cur_count().
+     */
+    UINT32 ctrl = DW_REG_READ(DW_APB_TIMER_CONTROL);
+    UINT32 guard = DW_APB_TIMER_CAPTURE_TIMEOUT;
+
+    DW_REG_WRITE(DW_APB_TIMER_CONTROL, ctrl | DW_APB_TIMER_CNT_REQ);
+    while (((DW_REG_READ(DW_APB_TIMER_CONTROL) & DW_APB_TIMER_CNT_LOCK) != DW_APB_TIMER_CNT_LOCK) &&
+           (--guard != 0u)) {
+    }
+    cur = DW_REG_READ(DW_APB_TIMER_CURRENT);
+    DW_REG_WRITE(DW_APB_TIMER_CONTROL, ctrl); /* clear cnt_req, resume counting */
+#else
+    /* Upstream path: CURRENT_VALUE is directly readable, no handshake. */
+    cur = DW_REG_READ(DW_APB_TIMER_CURRENT);
+#endif
+
+    if (cur > DW_APB_TIMER_TICK_RELOAD) {
+        cur = 0; /* bad-read guard: avoid a huge period jump from unsigned underflow */
+    }
+    return (UINT64)(DW_APB_TIMER_TICK_RELOAD - cur);
 }
 
 #ifdef DW_APB_TIMER_REARM_ON_FIRST_RELOAD
@@ -176,13 +238,11 @@ STATIC UINT64 DwApbReload(UINT64 nextResponseTime)
      * (see CURRENT_BROKEN) together. */
     (VOID)nextResponseTime;
 #ifdef DW_APB_TIMER_REARM_ON_FIRST_RELOAD
-    /* CLIC quirk: a pending latched while mstatus.MIE=0 never arbitrates
-     * once MIE=1 (TIMER2 probe, same config but first edge after MIE=1,
-     * delivered 20/20). The tick starts at SYS_INIT_LEVEL_ARCH, long
-     * before the first mret, so its first expiry lands in that window:
-     * raw level stuck, ip dead-latched. The FIRST reload call comes from
-     * OsSchedStart microseconds before mret — flush and restart here so
-     * the first edge lands with MIE=1. */
+    /* First-reload CLIC fix (the only reload the periodic kernel issues —
+     * OsSchedSetNextExpire is a stub under LOSCFG_KERNEL_TICK_PERIODIC):
+     * (a) dead-latched ip — flush via clearIrq so the next edge is clean;
+     * (b) HalIrqInit's blanket disable-all ran AFTER DwApbTickStart and zeroed
+     *     ie[43]+ctl[43] — re-arm priority+enable here (safe: post-mret, MIE=1). */
     if (!g_dwApbTickArmed) {
         HwiControllerOps *ops = HwiControllerOpsGet();
         g_dwApbTickArmed = TRUE;
@@ -191,8 +251,18 @@ STATIC UINT64 DwApbReload(UINT64 nextResponseTime)
 #ifdef DW_APB_TIMER_EOI_FENCE
         __asm__ __volatile__("fence" ::: "memory");
 #endif
-        if ((ops != NULL) && (ops->clearIrq != NULL)) {
-            (VOID)ops->clearIrq(DW_APB_TIMER_IRQ);  /* drop the dead latched ip */
+        if (ops != NULL) {
+            if (ops->clearIrq != NULL) {
+                (VOID)ops->clearIrq(DW_APB_TIMER_IRQ);  /* (a) drop the dead-latched ip */
+            }
+            /* (b) restore ie[43]+ctl[43] zeroed by HalIrqInit; set priority
+             * before enable (matches DwApbTickStart's HwiCreate+Enable order). */
+            if (ops->setIrqPriority != NULL) {
+                (VOID)ops->setIrqPriority(DW_APB_TIMER_IRQ, DW_APB_TIMER_IRQ_PRIO);
+            }
+            if (ops->enableIrq != NULL) {
+                (VOID)ops->enableIrq(DW_APB_TIMER_IRQ);  /* (b) re-arm ie cleared by HalIrqInit */
+            }
         }
         DW_REG_WRITE(DW_APB_TIMER_CONTROL, DW_APB_TIMER_CTRL_PERIODIC);
     }

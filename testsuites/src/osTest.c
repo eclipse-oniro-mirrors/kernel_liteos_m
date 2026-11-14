@@ -37,6 +37,11 @@
 #include "los_swtmr_pri.h"
 #include "los_resleak_test.h"
 #include "icunit_filter.h"
+#ifdef LOSCFG_BOX
+/* UTS: shared iCunit phase handshake (COMMON_RAM) + box bring-up */
+#include "uts_phase.h"
+#include "los_box_pri.h"
+#endif
 #if (LITEOS_CMSIS_TEST == 1)
 #include "cmsis_os.h"
 #endif
@@ -80,8 +85,15 @@ UINT32 g_testQueueID03;
 UINT16 g_index;
 UINT32 g_loopCycle = 0xFFFFF;
 
+#ifdef LOSCFG_BOX
+/* UTS: the counters live with the shared iCunit copy (COMMON_RAM) so the
+ * kernel phase and the usr phase accumulate into ONE pair. */
+extern UINT32 g_passResult;
+extern UINT32 g_failResult;
+#else
 UINT32 g_passResult = 0;
 UINT32 g_failResult = 0;
+#endif
 UINT32 g_testTskHandle;
 
 UINT32 g_leavingTaskNum;
@@ -256,6 +268,10 @@ void TestKernel(void)
 #if (LOS_KERNEL_TCB_VERIFY_TEST == 1)
     ItSuiteLosTcbVerify();
 #endif
+
+#if (LOS_KERNEL_BOX_TEST == 1)
+    ItSuiteLosBox();
+#endif
 }
 #endif /* LOSCFG_TEST_ICUNIT_KERNEL */
 
@@ -289,6 +305,25 @@ void TestCmsis2(void)
 
 VOID TestTaskEntry(VOID)
 {
+#if defined(LOSCFG_BOX) && (LOS_KERNEL_BOX_USR_TEST == 1)
+    /* UTS usr phase bring-up: initialize the boxes (boxA runs the test
+     * entry usr_demo/tboxA/boxA_test_main.c, boxB stays down - entry
+     * override in boxes_auto.cfg). Per the refs convention OsBoxInit runs
+     * AFTER the scheduler started: IT_TST_INI is that first kernel task.
+     * The box entry task (prio 0) preempts immediately, parks on
+     * g_utsPhase (COMMON_RAM) and yields back before the kernel phase. */
+    UINT32 utsBoxUp = 0;
+    {
+        extern LosBoxCB g_userBoxCBArr[];
+        extern SysMemLayout g_sysMemLayoutArr[];
+        UINT32 boxRet = OsBoxInit(g_userBoxCBArr, g_sysMemLayoutArr);
+        if (boxRet != LOS_OK) {
+            dprintf("UTS: OsBoxInit failed, err 0x%x - usr phase skipped\n", boxRet);
+        } else {
+            utsBoxUp = 1;
+        }
+    }
+#endif
 #ifdef LOSCFG_TEST_KERNEL_COVERAGE
     /* Run .init_array constructors so every instrumented translation unit
      * registers its gcov_info with the standalone runtime before the first
@@ -322,6 +357,13 @@ VOID TestTaskEntry(VOID)
     TestKernel();
 #endif
 
+#if (LOS_KERNEL_BOX_TEST == 1) && !defined(LOSCFG_TEST_ICUNIT_KERNEL)
+    /* BOX bookkeeping suite standalone hook: boards whose kernel flash is
+     * too small for the sample/kernel set (TEST_ICUNIT_KERNEL off) still
+     * run the box suite; boards with the full set run it inside TestKernel. */
+    ItSuiteLosBox();
+#endif
+
 #if (LOS_POSIX_TEST == 1) && defined(LOSCFG_TEST_ICUNIT_POSIX)
     ItSuitePosixSample();
 #endif
@@ -353,6 +395,26 @@ VOID TestTaskEntry(VOID)
     extern VOID PosixFsYaffsTest(VOID);
     PosixFsYaffsTest();
 #endif
+#endif
+
+#if defined(LOSCFG_BOX) && (LOS_KERNEL_BOX_USR_TEST == 1)
+    /* UTS usr phase: release the box entry (it parks on g_utsPhase in
+     * COMMON_RAM) and wait - bounded - for the usr suites to finish. The
+     * usr cases run through the SAME shared iCunit copy and accumulate
+     * into the SAME g_passResult/g_failResult, so the report below is the
+     * UNIFIED one (kernel + usr). A hung usr phase reports HUNG and the
+     * run completes with the kernel results only. */
+    if (utsBoxUp != 0) {
+        UINT32 utsPoll;
+        g_utsPhase = UTS_PHASE_GO;
+        for (utsPoll = 0; (g_utsPhase != UTS_PHASE_DONE) &&
+                          (utsPoll < UTS_USR_TIMEOUT_POLLS); utsPoll++) {
+            LOS_TaskDelay(UTS_USR_POLL_TICKS);
+        }
+        if (g_utsPhase != UTS_PHASE_DONE) {
+            dprintf("[UTS] usr phase HUNG (timeout), kernel results only\n");
+        }
+    }
 #endif
 
     /* The log is used for testing entrance guard, please do not make any changes. */

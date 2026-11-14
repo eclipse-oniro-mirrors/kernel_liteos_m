@@ -5,12 +5,12 @@
  *
  * Slot geometry (matches liteos.ld MEMORY and include/asm/memmap_config.h):
  *   box A: code 0x08040000 / 64K (64K-aligned) -> one MPU region (R3)
- *          data 0x20010000 / 32K (32K-aligned) -> one MPU region (R4)
+ *          data 0x20018000 / 16K (16K-aligned) -> one MPU region (R4)
  *   box B: code 0x08050000 / 64K
- *          data 0x20018000 / 32K
+ *          data 0x2001C000 / 16K
  *
  * The RAM slot holds .BOX_x_DATA + .BOX_x_BSS + .BOX_x_HEAP and always ends
- * at the slot boundary, so one 32K MPU region covers the whole slot whatever
+ * at the slot boundary, so one 16K MPU region covers the whole slot whatever
  * the content mix; the heap claims whatever is left after data+bss.
  *
  * Selectors match every object whose file name contains "boxA"/"boxB"

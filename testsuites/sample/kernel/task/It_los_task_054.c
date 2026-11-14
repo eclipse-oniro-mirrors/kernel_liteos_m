@@ -33,7 +33,10 @@
 #include "It_los_task.h"
 
 static VOID HwiF01(VOID);
-#if defined(__aarch64__)
+#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+/* WITH_ARG boards (aarch64, cortex-m with HWI_PRE_POST_PROCESS): the irq
+ * handler receives the caller's parameter pointer - HwiF01(VOID) alone
+ * mismatches HWI_PROC_FUNC, add the shim. */
 static VOID HwiF01_WithArg(VOID *arg)
 {
     (VOID)arg;
@@ -76,11 +79,12 @@ static VOID TaskF01(VOID)
     ret = LOS_TaskCreate(&g_testTaskID02, &task1);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
-#if defined(__aarch64__)
-    /* AArch64 fix (2026-10-21): (1) OsHwiCreate derefs irqParam->pDevId - the
-     * old "(HwiIrqParam *)1" wild pointer faulted at 0x9 and powered the
-     * slave off via PSCI CPU_OFF; (2) HWI_PROC_FUNC on WITH_ARG boards takes
-     * a void* - HwiF01(VOID) mismatches, add the param. */
+#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+    /* WITH_ARG fix (aarch64 2026-10-21, extended to every WITH_ARG board):
+     * (1) OsHwiCreate derefs irqParam->pDevId - the old "(HwiIrqParam *)1"
+     * wild pointer faulted at 0x9 and powered the slave off via PSCI CPU_OFF;
+     * (2) HWI_PROC_FUNC on WITH_ARG boards takes a void* - HwiF01(VOID)
+     * mismatches, add the param. */
     {
         HwiIrqParam irqParam054 = {0};
         irqParam054.pDevId = (VOID *)1;

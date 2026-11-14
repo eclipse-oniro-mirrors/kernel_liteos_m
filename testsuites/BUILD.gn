@@ -76,6 +76,18 @@ config("include") {
   # testsuites kernel_module pulls this config in.
   configs = [ ":no_test_coverage" ]
 
+  # BOX syscall rename root (kernel world): with LOSCFG_BOX the plain
+  # LOS_TaskCreate / LOS_MuxCreate / ... names in test TUs would bind at
+  # link time to the COMMON_TEXT usr wrappers (los_usr_api.c - user-stack
+  # alloc from the box heap g_boxLocalPool[0]); with no box initialized
+  # that pool is NULL and los_TestInit fails 0x3000200. Routing test TUs
+  # through the rename (LOS_xxx -> SYS_LOS_xxx, same treatment as
+  # kernel/base) binds every syscall-exposed call to the kernel
+  # implementation - iCunit cases always run in kernel context.
+  if (defined(LOSCFG_BOX)) {
+    configs += [ "$LITEOSTOPDIR/arch/arm/cortex_m:box_syscalls" ]
+  }
+
   defines = []
   include_dirs = [ "include" ]
 
@@ -124,6 +136,18 @@ kernel_module("test_init") {
     "src/los_resleak_test.c",
   ]
 
+  if (defined(LOSCFG_BOX)) {
+    # UTS single-copy runner: under BOX iCunit.c / icunit_filter.c compile
+    # ONCE in the usr_demo box_usr_test module (COMMON sections, lds
+    # file-name routing - kernel and usr worlds share the same runner
+    # state). Keeping the test_init copies too would duplicate every
+    # runner symbol at link time.
+    sources -= [
+      "src/iCunit.c",
+      "src/icunit_filter.c",
+    ]
+  }
+
   include_dirs = [
     "unittest/posix/src",
     "unittest/xts",
@@ -160,6 +184,18 @@ group("testsuites") {
         "sample/kernel/atomic:test_atomic",
         "sample/kernel/uart:test_uart",
       ]
+    }
+    # BOX bookkeeping suite: gated by the BOX feature itself, NOT by
+    # TEST_ICUNIT_KERNEL - boards with a small kernel flash (stm32f407vet6:
+    # 128K, too small for the full sample/kernel set) run it standalone
+    # through the TestTaskEntry hook in osTest.c.
+    if (defined(LOSCFG_BOX)) {
+      deps += [ "sample/kernel/box:test_box" ]
+
+      # UTS usr-world suite (source_set: boxA file-name section routing;
+      # runs through the shared iCunit copy in the box test entry). Test
+      # builds only - the whole block sits under LOSCFG_KERNEL_TEST.
+      deps += [ "sample/usr/box:test_box_usr" ]
     }
     # exc suite: osTest.h enables LOS_KERNEL_EXC_TEST when
     # SHELL_EXCINFO_DUMP or BACKTRACE_TYPE!=0 - align the BUILD dep with

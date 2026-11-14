@@ -1,0 +1,71 @@
+# Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
+# Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of
+#    conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+#    conditions and the following disclaimer in the documentation and/or other materials
+#    provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its contributors may be used
+#    to endorse or promote products derived from this software without specific prior written
+#    permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import("//kernel/liteos_m/liteos.gni")
+
+# UTS usr-world BOX test suite (testsuites/sample/usr/box): the cases run
+# in boxA USER mode through the shared iCunit copy, invoked by the box test
+# entry (usr_demo/tboxA/boxA_test_main.c).
+#
+# source_set on purpose (NOT static_library): the box section selectors
+# (boxes.ld) match objects by FILE NAME on the link line - archive members
+# pulled on symbol demand would miss the *boxA*.o routing rules (the
+# boxes.ld header documents this). Hence every source file here must carry
+# "boxA" in its name.
+source_set("test_box_usr") {
+  sources = [
+    "It_los_boxA_usr.c",
+    "It_los_boxA_usr_001.c",
+    "It_los_boxA_usr_002.c",
+  ]
+
+  # Raw include dir, NOT the testsuites ":include" config: that config
+  # chains the kernel rename root (box_syscalls - LOS_xxx -> SYS_LOS_xxx).
+  # usr test TUs must call the PLAIN names so they link the COMMON_TEXT
+  # usr wrappers / syscall veneers; the rename would bind kernel-flash
+  # SYS_ code instead (user-mode entry faults). The compile-time self
+  # check in the case files (#error on the LOS_TaskCreate macro) guards
+  # this route.
+  include_dirs = [ "$LITEOSTOPDIR/testsuites/include" ]
+
+  # usr-world include root: "syscalls.h" resolves to the usr prototypes
+  # (plain LOS_xxx + the #undef guard), and boxes_conf.h/boxes_res_conf.h
+  # reach the case files through osTest.h if ever needed.
+  configs += [ "//kernel/liteos_m/targets/stm32f407vet6/liteos_m/box/usr_demo:public" ]
+
+  # Same section-routing force-include and ABI flags as box_usr_demo: any
+  # LITE_OS_SEC_* object sneaking in must land in the box sections, and the
+  # VFPv4/softfp codegen tag must match the rest of the image.
+  cflags = [
+    "-include",
+    rebase_path("//kernel/liteos_m/targets/stm32f407vet6/liteos_m/board/include/los_builddef_target.h"),
+    "-mfpu=fpv4-sp-d16",
+    "-mfloat-abi=softfp",
+  ]
+}

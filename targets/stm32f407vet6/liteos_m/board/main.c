@@ -12,6 +12,13 @@
 #include "boxes_conf.h"
 #endif
 
+#ifdef LOSCFG_KERNEL_TEST
+/* Test build: LosAppInit is provided by testsuites/src/osTest.c (creates the
+ * IT_TST_INI task that runs the ICunit suites). The HelloworldTask demo -
+ * including the OsBoxInit call - is compiled out; the box suites assert the
+ * kernel-context bookkeeping that holds with or without boxes initialized. */
+extern UINT32 LosAppInit(VOID);
+#else /* !LOSCFG_KERNEL_TEST */
 static UINT32 g_helloworldTaskId;
 
 static UINT32 HelloworldTask(UINT32 arg)
@@ -100,6 +107,7 @@ UINT32 LosAppInit(VOID)
     ret = LOS_TaskCreate(&g_helloworldTaskId, &taskInitParam);
     return ret;
 }
+#endif /* !LOSCFG_KERNEL_TEST */
 
 LITE_OS_SEC_TEXT_INIT int main(void)
 {

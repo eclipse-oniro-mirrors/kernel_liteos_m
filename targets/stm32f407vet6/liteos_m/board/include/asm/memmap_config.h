@@ -36,16 +36,16 @@ extern "C" {
 #define BOX_B_CODE_SLOT_SIZE        0x00010000UL
 
 /* SRAM 128KB @0x20000000 */
-#define KERNEL_RAM_BASE             0x20000000UL   /* 32K,  no MPU region */
-#define KERNEL_RAM_SIZE             0x00008000UL
-#define COMMON_RAM_BASE             0x20008000UL   /* 16K,  MPU R1 */
+#define KERNEL_RAM_BASE             0x20000000UL   /* 64K,  no MPU region */
+#define KERNEL_RAM_SIZE             0x00010000UL
+#define COMMON_RAM_BASE             0x20010000UL   /* 16K,  MPU R1 */
 #define COMMON_RAM_SIZE             0x00004000UL
-#define USER_READONLY_RAM_BASE      0x2000C000UL   /* 16K,  MPU R2 */
+#define USER_READONLY_RAM_BASE      0x20014000UL   /* 16K,  MPU R2 */
 #define USER_READONLY_RAM_SIZE      0x00004000UL
-#define BOX_A_DATA_SLOT_BASE        0x20010000UL   /* 32K,  MPU R4 (dynamic) */
-#define BOX_A_DATA_SLOT_SIZE        0x00008000UL
-#define BOX_B_DATA_SLOT_BASE        0x20018000UL
-#define BOX_B_DATA_SLOT_SIZE        0x00008000UL
+#define BOX_A_DATA_SLOT_BASE        0x20018000UL   /* 16K,  MPU R4 (dynamic) */
+#define BOX_A_DATA_SLOT_SIZE        0x00004000UL
+#define BOX_B_DATA_SLOT_BASE        0x2001C000UL
+#define BOX_B_DATA_SLOT_SIZE        0x00004000UL
 
 /* CCM 64KB @0x10000000, kernel only, DMA cannot reach it */
 #define CCM_RAM_BASE                0x10000000UL
@@ -179,7 +179,7 @@ extern CHAR __boxB_heap_end;
 #define MPU_RASR_COMMON_DATA        0x1303001BUL   /* 16K  AP=011 RW/RW, XN, WBWA */
 #define MPU_RASR_USER_READONLY      0x1203001BUL   /* 16K  AP=010 kernel RW / user RO, XN */
 #define MPU_RASR_BOX_CODE           0x0302001FUL   /* 64K  AP=011 RO/RO, executable, WT */
-#define MPU_RASR_BOX_DATA           0x1303001DUL   /* 32K  AP=011 RW/RW, XN, WBWA */
+#define MPU_RASR_BOX_DATA           0x1303001BUL   /* 16K  AP=011 RW/RW, XN, WBWA */
 
 #define MPU_CTRL_ENABLE_PRIVDEF     0x5UL          /* ENABLE | PRIVDEFENA */
 

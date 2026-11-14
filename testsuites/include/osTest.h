@@ -137,6 +137,18 @@ extern "C" {
 #define LOS_KERNEL_MISC_TEST 1
 #define LOS_KERNEL_TCB_VERIFY_TEST 1
 
+#ifndef LOS_KERNEL_BOX_TEST
+/* BOX kernel-side bookkeeping suite (sample/kernel/box): only meaningful
+ * when the BOX feature is compiled in (LOSCFG_BOX) - the suite asserts the
+ * kernel-context classification (OsGetCurBoxCB/g_curBoxId) that the BOX
+ * dispatch maintains. Board may predefine to override. */
+#if (LOSCFG_BOX == 1)
+#define LOS_KERNEL_BOX_TEST 1
+#else
+#define LOS_KERNEL_BOX_TEST 0
+#endif
+#endif
+
 #if defined(LOSCFG_ARCH_CACHE)
 #define LOS_KERNEL_CACHE_TEST 1
 #else
@@ -523,6 +535,21 @@ extern VOID ItSuiteLosCache(void);
 extern VOID ItSuiteLosExc(void);
 extern VOID ItSuiteLosShell(void);
 extern VOID ItSuiteLosTcbVerify(void);
+extern VOID ItSuiteLosBox(void);
+
+#ifndef LOS_KERNEL_BOX_USR_TEST
+/* BOX usr-world suite (sample/usr/box): the unified runner's usr phase,
+ * executed by the boxA test entry (usr_demo/tboxA/boxA_test_main.c) via
+ * the SAME shared iCunit copy (COMMON sections) as the kernel phase.
+ * Requires the BOX feature AND the board's box framework link hooks
+ * (usr_demo box_usr_test module + boxes_cfg entry override). */
+#if (LOSCFG_BOX == 1) && defined(LOSCFG_KERNEL_TEST)
+#define LOS_KERNEL_BOX_USR_TEST 1
+#else
+#define LOS_KERNEL_BOX_USR_TEST 0
+#endif
+#endif
+extern VOID ItSuiteLosBoxUsr(void);
 
 extern int PthreadFuncTestSuite(void);
 

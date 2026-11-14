@@ -84,6 +84,56 @@ kernel_module("box_usr_demo") {
     # .usr.text function attribute lands it in COMMON_FLASH.
     "usr_api/los_usr_api.c",
   ]
+
+  if (defined(LOSCFG_KERNEL_TEST)) {
+    # UTS: the test-build boxA entry (parks on the shared phase flag,
+    # runs the usr suites through the shared iCunit, publishes DONE).
+    # The demo boxAEntry stays compiled (its resource tables g_boxaStack/
+    # g_boxaTaskCB/... are referenced by boxes_auto.cfg) - unreferenced
+    # code is gc'd except what boxes.ld KEEP retains.
+    sources += [ "tboxA/boxA_test_main.c" ]
+
+    # uts_phase.h (testsuites/include). Raw include dir only - NOT the
+    # testsuites ":include" config (it chains the kernel rename root,
+    # which must never reach box user TUs).
+    include_dirs = [ "//kernel/liteos_m/testsuites/include" ]
+  }
+}
+
+# UTS single-copy test runner (same M5D pattern as box_usr_mem above):
+# under LOSCFG_KERNEL_TEST the testsuites test_init module DROPS its
+# iCunit.c/icunit_filter.c copies and this module compiles them ONCE -
+# liteos.ld routes the whole objects (file-name rules, *box_usr_test.*.o)
+# into .COMMON_TEXT / .COMMON_DATA / .COMMON_BSS, so the kernel phase
+# (IT_TST_INI) and the usr phase (boxA test entry) execute the SAME runner
+# code and share the SAME state: case slot, module stats, fail logs and
+# the g_passResult/g_failResult counters (defined in the shared iCunit.c
+# under LOSCFG_BOX - one unified report). uts_phase.c carries the
+# two-phase handshake variable g_utsPhase (COMMON_RAM, RW both worlds).
+# The module is linked only from board BUILD.gn under LOSCFG_KERNEL_TEST;
+# demo builds never reference it (nothing routes it in).
+kernel_module("box_usr_test") {
+  visibility += [ "//kernel/liteos_m/targets/stm32f407vet6/liteos_m/board:*" ]
+
+  cflags = [
+    "-mfpu=fpv4-sp-d16",
+    "-mfloat-abi=softfp",
+  ]
+
+  sources = [
+    "//kernel/liteos_m/testsuites/src/iCunit.c",
+    "//kernel/liteos_m/testsuites/src/icunit_filter.c",
+    "//kernel/liteos_m/testsuites/src/uts_phase.c",
+  ]
+
+  include_dirs = [
+    # iCunit.h / osTest.h / iCunit_config.h / icunit_* headers. Raw
+    # include dir on purpose: NO rename root (usr/syscalls.h), NO kernel
+    # rename (box_syscalls) - the runner's own LOS_ surface is empty under
+    # LOSCFG_BOX (time stats compiled out, resleak stubbed), and osTest.h's
+    # dprintf resolves to the COMMON PRINTK copy, callable from both worlds.
+    "//kernel/liteos_m/testsuites/include",
+  ]
 }
 
 config("public") {

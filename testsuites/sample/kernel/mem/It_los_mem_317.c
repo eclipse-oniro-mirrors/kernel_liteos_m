@@ -119,7 +119,9 @@ static UINT32 TestCase(VOID)
     (VOID)LOS_MemCheckLevelSet(oldLevel);
 #endif
 
-    /* ---- 3: LOS_MemMrealloc 分支 ---- */
+    /* ---- 3: LOS_MemMrealloc 分支 (prototype gated by LOSCFG_MEM_MUL_MODULE
+     * in los_memory.h - keep the test buildable on MUL_MODULE-off boards) ---- */
+#if (LOSCFG_MEM_MUL_MODULE == 1)
     ptrRe = LOS_MemMrealloc(g_memPoolTC317, NULL, 0x80, MEM_TC317_MOD_A);
     ICUNIT_GOTO_NOT_EQUAL(ptrRe, NULL, 0, EXIT);
 
@@ -142,6 +144,7 @@ static UINT32 TestCase(VOID)
 
     ret = LOS_MemMfree(g_memPoolTC317, (VOID *)((UINTPTR)g_memPoolTC317 + 0x11), MEM_TC317_MOD_A);
     ICUNIT_GOTO_NOT_EQUAL(ret, LOS_OK, ret, EXIT);
+#endif /* LOSCFG_MEM_MUL_MODULE */
 
     /* ---- 5: LOS_MemInfoGet / LOS_MemRealloc ---- */
     ptr = LOS_MemAlloc(g_memPoolTC317, 0x80);

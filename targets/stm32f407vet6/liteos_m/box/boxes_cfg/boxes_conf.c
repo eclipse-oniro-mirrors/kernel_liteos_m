@@ -6,6 +6,13 @@
  * config file now includes the board memmap directly. */
 #include "asm/memmap_config.h"
 
+#ifdef LOSCFG_KERNEL_TEST
+/* UTS test-build box entry (usr_demo/tboxA/boxA_test_main.c): boxA runs
+ * the usr test phase through the shared iCunit copy; boxB stays down
+ * (NULL entry, OsBoxInit skips it - see the override in boxes_auto.cfg). */
+extern VOID boxTestEntry(VOID);
+#endif
+
 SysMemLayout g_sysMemLayoutArr[OS_BOX_MEM_LAYOUT_NUM] = {
     {
         .sysUsrTextStartAddr = SYS_USR_TEXT_START,

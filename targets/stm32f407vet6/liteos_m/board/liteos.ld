@@ -11,17 +11,17 @@
  *    0x08050000  box B code slot (R3)          64K  -> MemManage fault
  *    0x08060000  spare                        640K
  *  SRAM 128KB @0x20000000:
- *    0x20000000  kernel RAM                    32K  no MPU region
- *    0x20008000  common data (R1)              16K  AP=001 RW/RW
- *    0x2000C000  user read-only (R2)           16K  AP=010 kernel RW/user RO
- *    0x20010000  box A data slot (R4)          32K  fixed slot, one region
- *    0x20018000  box B data slot (R4)          32K  fixed slot, one region
+ *    0x20000000  kernel RAM                    64K  no MPU region
+ *    0x20010000  common data (R1)              16K  AP=001 RW/RW
+ *    0x20014000  user read-only (R2)           16K  AP=010 kernel RW/user RO
+ *    0x20018000  box A data slot (R4)          16K  fixed slot, one region
+ *    0x2001C000  box B data slot (R4)          16K  fixed slot, one region
  *  CCM 64KB @0x10000000: kernel only (core coupled, DMA cannot reach it).
  *
  * Adapted from arm_mps2_an386/liteos_m/board/liteos.ld:
  * - code/rodata stay in flash, .data keeps its LMA in flash (startup.s copy)
  * - .init_array/.fini_array/.sysinitcall are merged into .data
- * - kernel heap is bounded by the kernel RAM region (0x20008000)
+ * - kernel heap is bounded by the kernel RAM region (0x20010000)
  * - box sections come from box/boxes_cfg/boxes.ld (INCLUDE below)
  */
 
@@ -37,11 +37,11 @@ MEMORY
    COMMON_FLASH (rx)      : ORIGIN = 0x08020000, LENGTH = 128K
    BOX_A_FLASH (rx)       : ORIGIN = 0x08040000, LENGTH = 64K
    BOX_B_FLASH (rx)       : ORIGIN = 0x08050000, LENGTH = 64K
-   KERNEL_RAM (rwx)       : ORIGIN = 0x20000000, LENGTH = 32K
-   COMMON_RAM (rw)        : ORIGIN = 0x20008000, LENGTH = 16K
-   USER_READONLY_RAM (rw) : ORIGIN = 0x2000C000, LENGTH = 16K
-   BOX_A_RAM (rw)         : ORIGIN = 0x20010000, LENGTH = 32K
-   BOX_B_RAM (rw)         : ORIGIN = 0x20018000, LENGTH = 32K
+   KERNEL_RAM (rwx)       : ORIGIN = 0x20000000, LENGTH = 64K
+   COMMON_RAM (rw)        : ORIGIN = 0x20010000, LENGTH = 16K
+   USER_READONLY_RAM (rw) : ORIGIN = 0x20014000, LENGTH = 16K
+   BOX_A_RAM (rw)         : ORIGIN = 0x20018000, LENGTH = 16K
+   BOX_B_RAM (rw)         : ORIGIN = 0x2001C000, LENGTH = 16K
    CCM (rw)               : ORIGIN = 0x10000000, LENGTH = 64K
 }
 
@@ -92,8 +92,8 @@ SECTIONS
      * helpers); str family: 16 explicit members (strdup/strtok/strtol/
      * strerror/strftime/strcase* stay kernel-only - rodata tables,
      * malloc or locale deps). */
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o) .text.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o) .text)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o) .text.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o) .text)
     /* board/include/los_builddef_target.h routes kernel code via
      * LITE_OS_SEC_TEXT* to .kernel.text; ITCM variant falls back to
      * normal flash (STM32F407 has no ITCM). */
@@ -101,9 +101,9 @@ SECTIONS
     *(.itcm.kernel.text)
     . = ALIGN(0x4);
     _etext = .;
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .rodata.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .gnu.linkonce.r.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .rodata)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .rodata.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .gnu.linkonce.r.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .rodata)
     *(.rodata1)
     . = ALIGN(0x4);
     __kernel_text_end = .;
@@ -118,9 +118,9 @@ SECTIONS
 
   .data : ALIGN(0x4) {
     __data_start = .;
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .data.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .gnu.linkonce.d.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .data)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .data.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .gnu.linkonce.d.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .data)
     *(.kernel.data .kernel.data.*)
 
     __init_array_start = .;
@@ -160,9 +160,9 @@ SECTIONS
   .bss : ALIGN(0x4) {
    __bss_start = .;
    *(.dynbss)
-   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .bss.*)
-   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .gnu.linkonce.b.*)
-   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o) .bss)
+   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .bss.*)
+   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .gnu.linkonce.b.*)
+   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .bss)
    *(.kernel.bss .kernel.bss.*)
    *(COMMON)
    . = ALIGN(0x4);
@@ -209,6 +209,14 @@ SECTIONS
      * MemManage-fault). KEEP: box calls it, --gc would keep it, but the
      * convention above is KEEP for shared code. */
     KEEP(*box_usr_mem.*(.text .text.* .rodata .rodata.*))
+    /* UTS single-copy test runner (usr_demo: box_usr_test): same
+     * whole-object routing as the allocator above - the shared iCunit
+     * (case table, module stats, fail logs, pass/fail counters) must be
+     * executable AND data-accessible from BOTH the kernel test task and
+     * the boxA test entry; any fragment left in kernel-only flash is a
+     * user-mode fault. KEEP: referenced by both worlds, but the
+     * convention for shared code is KEEP. */
+    KEEP(*box_usr_test.*(.text .text.* .rodata .rodata.*))
     /* libc mem/str primitives shared with the box world (M5E): the pure
      * helpers — mem family (musl mem*.o + libsec mem{set,cpy}_s) and 16
      * plain str members — carry no globals/rodata tables. The two
@@ -246,6 +254,10 @@ SECTIONS
      * watchpoint: g_MALLOC_HOOK was seeded with string bytes). Zero
      * objects go to .COMMON_BSS below, zeroed by startup. */
     *box_usr_mem.*(.data .data.*)
+    /* UTS runner initialized data (normally empty - all runner state is
+     * zero-initialized and must land in .COMMON_BSS below per the NOBITS
+     * note above). */
+    *box_usr_test.*(.data .data.*)
     . = ALIGN(0x4);
     __common_data_end = .;
   } > COMMON_RAM AT> KERNEL_FLASH
@@ -258,6 +270,11 @@ SECTIONS
      * m_aucSysMem* / g_poolHead — zeroed by the startup common_bss loop
      * (COMMON_RAM is outside the __bss range). */
     *box_usr_mem.*(.bss .bss.* COMMON)
+    /* UTS runner zero-initialized state: iCunit case/suit arrays, module
+     * stats, fail logs, the shared g_passResult/g_failResult counters and
+     * the two-phase flag g_utsPhase - zeroed by the startup common_bss
+     * loop (COMMON_RAM is outside the __bss range). */
+    *box_usr_test.*(.bss .bss.* COMMON)
     . = ALIGN(0x4);
     __common_bss_end = .;
   } > COMMON_RAM

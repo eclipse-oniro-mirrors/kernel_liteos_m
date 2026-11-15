@@ -44,6 +44,12 @@ kernel_module(module_name) {
       # (los_offsets.c asserts against the freshly generated header)
       "../box/offsets:gen_box_offsets",
     ]
+
+    if (defined(LOSCFG_KERNEL_TEST)) {
+      # UTS single-copy test runner (iCunit + phase flag in the COMMON
+      # sections): test builds only - demo builds never link it in.
+      deps += [ "../box/usr_demo:box_usr_test" ]
+    }
   }
 }
 

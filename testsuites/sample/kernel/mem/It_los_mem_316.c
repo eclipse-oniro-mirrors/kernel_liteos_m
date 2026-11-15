@@ -162,7 +162,9 @@ static UINT32 TestCase(VOID)
     LOS_MemFreeNodeShow(g_memPoolTC316);
 
     /* F-Pos: LOS_MemPoolList 冒烟(bestfit OsPoolInfoGet 聚合路径) */
+#if (LOSCFG_MEM_MUL_POOL == 1)
     (VOID)LOS_MemPoolList();
+#endif
 
     ret = LOS_MemDeInit(g_memPoolTC316);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);

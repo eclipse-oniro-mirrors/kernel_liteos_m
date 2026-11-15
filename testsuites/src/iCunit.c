@@ -30,6 +30,17 @@
  */
 
 #include "iCunit.h"
+#ifdef LOSCFG_BOX
+/* UTS single-copy runner (the box_usr_test module compiles this file ONCE,
+ * liteos.ld routes the whole object into the COMMON sections - kernel and
+ * usr worlds execute the same code): disable the per-case time statistics
+ * BEFORE iCunit.inc materializes its state - LOS_SysCycleGet reads the
+ * SysTick PPB registers (privileged, kernel flash) and would fault from
+ * the usr world. Non-BOX builds are unchanged. */
+#include "iCunit_config.h"
+#undef ICUNIT_CASE_TIME_STAT
+#define ICUNIT_CASE_TIME_STAT 0
+#endif
 #include "iCunit.inc"
 #include "string.h"
 #include "osTest.h"
@@ -40,8 +51,24 @@
 #include <stdio.h>
 #include "securec.h"
 
+#ifdef LOSCFG_BOX
+/* UTS single-copy runner continuation:
+ *  - OsResLeakCheckBegin/End walk kernel-internal TCB/pool arrays
+ *    (los_resleak_test.c stays in the kernel-world test_init module) - the
+ *    shared runner must not reach them from usr mode; macro stubs replace
+ *    the calls (the kernel phase loses the per-case resleak bracket).
+ *  - g_passResult/g_failResult are DEFINED here so they live in COMMON_RAM
+ *    with the runner: one shared pair of counters accumulates BOTH the
+ *    kernel phase (IT_TST_INI) and the usr phase (box entry). osTest.c
+ *    keeps extern-only declarations under BOX. */
+#define OsResLeakCheckBegin()       do {} while (0)
+#define OsResLeakCheckEnd(caseName) (VOID)(caseName)
+UINT32 g_failResult = 0;
+UINT32 g_passResult = 0;
+#else
 extern UINT32 g_failResult;
 extern UINT32 g_passResult;
+#endif
 
 const char *ICunitLayerToStr(iUINT16 l)
 {

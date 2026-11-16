@@ -42,6 +42,12 @@ extern "C" {
 #define LOSCFG_BASE_CORE_TSK_MONITOR                        1
 
 /*=============================================================================
+                    Software timer module configuration
+=============================================================================*/
+#define LOSCFG_BASE_CORE_SWTMR                              1
+#define LOSCFG_BASE_CORE_SWTMR_ALIGN                        1
+
+/*=============================================================================
                     Memory module configuration
 =============================================================================*/
 extern UINTPTR g_intheap_begin;
@@ -63,6 +69,10 @@ extern UINTPTR g_intheap_size;
 =============================================================================*/
 #ifndef LOSCFG_USE_SHELL
 #define LOSCFG_USE_SHELL                                    0
+#endif
+
+#ifndef LOSCFG_PLATFORM_HWI_WITH_ARG
+#define LOSCFG_PLATFORM_HWI_WITH_ARG                        1
 #endif
 
 #ifdef __cplusplus

@@ -3,6 +3,9 @@
  * Description: HI3322 liteos_m entry point
  */
 
+#ifdef LOSCFG_KERNEL_CPPSUPPORT
+#include "los_cppsupport.h"
+#endif
 #include "los_compiler.h"
 #include "los_config.h"
 #include "los_task.h"
@@ -246,6 +249,15 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
     } else {
         /* Unlink the private pool from the global multipool list. */
         (VOID)LOS_MemDeInit((VOID *)HI3322_DYNLOAD_POOL_BASE);
+    }
+#endif
+
+#ifdef LOSCFG_KERNEL_CPPSUPPORT
+    {
+        extern char __init_array_start;
+        extern char __init_array_end;
+        ret = LOS_CppSystemInit((UINTPTR)&__init_array_start,
+                                (UINTPTR)&__init_array_end, NO_SCATTER);
     }
 #endif
 

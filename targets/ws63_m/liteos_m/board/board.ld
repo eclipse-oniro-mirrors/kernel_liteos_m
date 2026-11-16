@@ -54,6 +54,11 @@ SECTIONS
         *(.interrupt.text)
         *(.interrupt.HalTrapVector.text)
         *(.interrupt.*)
+        /* cppsupport fast-region function (before .text = lower address) */
+        KEEP(*(.nor.itcm.text))
+        KEEP(*(.nor.itcm.text.*))
+        . = ALIGN(4);
+        __fast_end = .;
         *(.text)
         *(.text.*)
         *(.itcm.text)

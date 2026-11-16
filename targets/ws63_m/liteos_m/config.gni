@@ -64,6 +64,7 @@ board_cflags = [
   "-D__RISC_V__",
 ]
 board_cxx_flags = board_cflags
+board_cxx_flags -= [ "-std=c99" ]
 
 board_asmflags = [
   "-mabi=ilp32f",

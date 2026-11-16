@@ -116,6 +116,11 @@ extern "C" {
 #else
 #define LOS_KERNEL_HPL_TEST 0
 #endif
+#ifdef LOSCFG_KERNEL_CPPSUPPORT
+#define LOS_KERNEL_CPPSUPPORT_TEST 1
+#else
+#define LOS_KERNEL_CPPSUPPORT_TEST 0
+#endif
 #ifdef LOSCFG_KERNEL_LMS
 #define LOS_KERNEL_LMS_TEST 1
 #else
@@ -510,6 +515,7 @@ extern VOID ItSuiteLosTrace(void);
 extern VOID ItSuiteLosCpup(void);
 extern VOID ItSuiteLosDynlink(void);
 extern VOID ItSuiteLosHpl(void);
+extern VOID ItSuiteLosCppsupport(void);
 #if (LOSCFG_KERNEL_DYNLOAD == 1)
 extern VOID ItSuiteLosDynload(void);
 #endif

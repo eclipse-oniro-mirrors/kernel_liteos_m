@@ -1,0 +1,11 @@
+#
+# Copyright (c) 2026 Huawei Device Co., Ltd. All rights reserved.
+# Description: liteos_libc component build
+#
+
+import("//kernel/liteos_m/liteos.gni")
+
+kernel_module("liteos_libc") {
+  sources = [ "misc/stub.c" ]
+  configs += [ "$LITEOSTOPDIR:warn_config" ]
+}

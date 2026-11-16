@@ -362,12 +362,18 @@ VOID TestTaskEntry(VOID)
     XtsTestSuite();
 #endif
 
-#if defined(LOSCFG_MCS)
-    /* MCS AMP interface suites (testsuites/sample/mcs): board drivers
-     * (can/net) + mica rpc/tty/umt services + np_* socket proxy. Runs
-     * after the standard suites; see It_mcs.c for the ready-wait. */
-    extern VOID ItSuiteMcs(VOID);
-    ItSuiteMcs();
+#if defined(LOSCFG_TEST_MCS_DRV_SUITE)
+    /* Concession drivers (testsuites/sample/drivers): self-contained hardware
+     * verification (can/ge/uart/timer). Runs BEFORE TestKernel: Hwi057 (the
+     * sequence-terminal fault-injection case, MUST be last of the whole batch)
+     * self-traps at the tail of TestKernel and powers the slave off.
+     * 2026-11-13 语义：驱动批（形态 A=随 KERNEL 批 / 纯 drivers 形态）随
+     * boot 自跑；调度形态（TEST_MCS_SUITE=y）不跑——从核起服务等 host 命令，
+     * drivers 批的 Test End 会污染调度模式的完成判定。 */
+    extern VOID ItDriverSuite(VOID);
+    dprintf("[drv-suite] enter drivers batch\n");
+    ItDriverSuite();
+    dprintf("[drv-suite] drivers batch done\n");
 #endif
 
 #if (LOSCFG_FS_YAFFS == 1) && (LOS_POSIX_TEST == 1) && defined(LOSCFG_TEST_UNI_POSIX)
@@ -402,9 +408,12 @@ VOID TestTaskEntry(VOID)
 #endif
     dprintf("--- Test End ---\n");
 
-#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
+#if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS) && defined(LOSCFG_TEST_ICUNIT_KERNEL)
     /* Sequence-terminal fault injection (ItLosHwi057 contract: 必须为测试
      * 序列最后一个用例): lock the GICD MMU window and read GICD_CTLR ->
+     * [2026-11-14] 增补 ICUNIT_KERNEL 门控：调度形态（kernel 批不编）下
+     * 无序列可终结——原双门控下 boot 批缺席仍自陷下电，把 host 调度会话
+     * 整个带走（链接层也炸：057.c 未编时 undefined symbol）。
      * Translation Fault -> "GICD access blocked" classifier message ->
      * exception dump -> AMP slave self-powers-off (ExcSlavePoweroff ->
      * CPU_OFF). Runs AFTER the summary print so the counted suite result

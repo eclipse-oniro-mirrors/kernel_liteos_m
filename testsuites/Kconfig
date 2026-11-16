@@ -91,6 +91,32 @@ config TEST_ICUNIT_CMSIS
     default y
     depends on KAL_CMSIS
 
+config TEST_MCS_SUITE
+    bool "testsuites/sample/mcs (mcs framework cases, host-scheduled)"
+    # Default n: the mcs cases exercise the hybrid-deployment channel and
+    # expect a matching master-side server (host/ framework + server) to
+    # answer RPC/np/pfs requests - without it the suites would just fail.
+    # Answer y only on the AMP bench products that ship the master side.
+    default n
+    depends on PLATFORM_RK3568_M
+    depends on MCS
+    help
+      MCS framework test suites (mica rpc/tty/umt services, np_/pfs
+      proxy, system service lifecycle, combo concurrency). The slave
+      registers the rpmsg-mcs-test service and waits for host commands
+      (mcs_cmd run <module> <case|all>); cases do NOT run at boot.
+
+config TEST_MCS_DRV_SUITE
+    bool "testsuites/sample/drivers (concession-driver cases)"
+    default n
+    depends on PLATFORM_RK3568_M
+    help
+      Concession-driver test suites (can/ge/uart/timer): self-contained
+      slave-side hardware verification, runs as an iCunit batch at boot
+      (ItDriverSuite before TestKernel; Hwi057 stays sequence-terminal).
+      Depends only on the board driver macros (LOSCFG_MCS_CAN/NET/TIMER,
+      LOSCFG_RK3568_UART) - not on the mica service framework.
+
 config TEST_ICUNIT_POSIX
     bool "testsuites/sample/posix"
     default y

@@ -1,0 +1,137 @@
+# Copyright (c) 2026 Huawei Device Co., Ltd.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# 让渡驱动用例库（与 mcs 框架用例解耦，2026-11-09 目录重组）：
+#   can/   board CAN driver（控制器内自回环，无需外接线）
+#   ge/    board NIC driver（GMAC1 网段，Net010 需 host ping 从核 IP）
+#   uart/  让渡 uart driver（uart_drv.h 直调）
+#   timer/ 让渡 timer（tick/swtmr/ENABLE 边沿）
+# 依赖：mcs_km/mcs_net/mcs_can ko 的硬件让渡；不依赖 mica 服务框架
+
+import("//kernel/liteos_m/liteos.gni")
+
+kernel_module("test_mcs_drv") {
+  sources = [
+    # 总聚合 + 域聚合（整套件含入口都在本目标内，随 TEST_MCS_DRV_SUITE dep 门控）
+    "it_driver.c",
+    "can/it_driver_can.c",
+    "ge/it_driver_net.c",
+    "uart/it_driver_uart.c",
+    "timer/it_driver_timer.c",
+  ]
+
+  if (defined(LOSCFG_MCS_CAN)) {
+    sources += [
+      "can/it_driver_can_201.c",
+      "can/it_driver_can_202.c",
+      "can/it_driver_can_203.c",
+      "can/it_driver_can_204.c",
+      "can/it_driver_can_205.c",
+      "can/it_driver_can_206.c",
+      "can/it_driver_can_207.c",
+      "can/it_driver_can_208.c",
+      "can/it_driver_can_209.c",
+      "can/it_driver_can_210.c",
+      "can/it_driver_can_211.c",
+      "can/it_driver_can_212.c",
+      "can/it_driver_can_213.c",
+      "can/it_driver_can_214.c",
+      "can/it_driver_can_215.c",
+      "can/it_driver_can_216.c",
+      "can/it_driver_can_001.c",
+      "can/it_driver_can_005.c",
+      "can/it_driver_can_004.c",
+      "can/it_driver_can_003.c",
+      "can/it_driver_can_002.c",
+      "can/it_driver_can_217.c",
+      "can/it_driver_can_218.c",
+      "can/it_driver_can_219.c",
+      "can/it_driver_can_220.c",
+      "can/it_driver_can_221.c",
+      "can/it_driver_can_301.c",
+      "can/it_driver_can_302.c",
+      "can/it_driver_can_303.c",
+      "can/it_driver_can_304.c",
+    ]
+  }
+
+  if (defined(LOSCFG_MCS_NET)) {
+    sources += [
+      "ge/it_driver_net_201.c",
+      "ge/it_driver_net_202.c",
+      "ge/it_driver_net_203.c",
+      "ge/it_driver_net_204.c",
+      "ge/it_driver_net_205.c",
+      "ge/it_driver_net_206.c",
+      "ge/it_driver_net_207.c",
+      "ge/it_driver_net_208.c",
+      "ge/it_driver_net_209.c",
+      "ge/it_driver_net_210.c",
+      "ge/it_driver_net_001.c",
+      "ge/it_driver_net_005.c",
+      "ge/it_driver_net_004.c",
+      "ge/it_driver_net_003.c",
+      "ge/it_driver_net_002.c",
+      "ge/it_driver_net_211.c",
+      "ge/it_driver_net_212.c",
+      "ge/it_driver_net_213.c",
+      "ge/it_driver_net_214.c",
+      "ge/it_driver_net_301.c",
+      "ge/it_driver_net_302.c",
+      "ge/it_driver_net_303.c",
+    ]
+  }
+
+  if (defined(LOSCFG_RK3568_UART)) {
+    sources += [
+      "uart/it_driver_uart_001.c",
+      "uart/it_driver_uart_002.c",
+      "uart/it_driver_uart_005.c",
+      "uart/it_driver_uart_006.c",
+      "uart/it_driver_uart_003.c",
+      "uart/it_driver_uart_004.c",
+      "uart/it_driver_uart_201.c",
+      "uart/it_driver_uart_202.c",
+      "uart/it_driver_uart_203.c",
+      "uart/it_driver_uart_204.c",
+      "uart/it_driver_uart_301.c",
+      "uart/it_driver_uart_302.c",
+    ]
+  }
+
+  if (defined(LOSCFG_MCS_TIMER)) {
+    sources += [
+      "timer/it_driver_timer_201.c",
+      "timer/it_driver_timer_202.c",
+      "timer/it_driver_timer_203.c",
+      "timer/it_driver_timer_204.c",
+      "timer/it_driver_timer_205.c",
+      "timer/it_driver_timer_206.c",
+      "timer/it_driver_timer_207.c",
+      "timer/it_driver_timer_208.c",
+      "timer/it_driver_timer_209.c",
+      "timer/it_driver_timer_210.c",
+      "timer/it_driver_timer_211.c",
+    ]
+  }
+
+  include_dirs = [
+    # board driver contracts (can.h / net.h / timer.h)
+    "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/can",
+    "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/net",
+    "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/timer",
+    "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/include",
+  ]
+
+  configs += [ "$LITEOSTOPDIR/testsuites:include" ]
+}

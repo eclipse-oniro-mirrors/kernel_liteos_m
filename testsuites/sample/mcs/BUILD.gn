@@ -11,112 +11,144 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# MCS AMP interface test suites:
-#   - It_McsCan_*  board CAN driver (targets/rk3568_m .../board/can/can.h),
-#                  fully self-contained: internal controller loopback, no
-#                  bus wiring needed
-#   - It_McsNet_*  board NIC driver (.../board/net/net.h); Net010 needs a
-#                  host pinging the slave IP on the GMAC1 segment
-#   - It_McsRpc_* / It_McsNp_* / It_McsSvc_*  mica service framework
-#                  (compat/mcs/mica) and np_* socket proxy: need the master
-#                  netproxy worker running; Np006/007 additionally need the
-#                  PC echo server (UDP 9000 / TCP 9001, see It_mcs.h)
+# mcs 框架用例库（2026-11-09 目录重组，从核侧）：
+#   mica/     init(预留) framework(预留) tty umt rpc
+#   service/  np pfs system(Svc/ApiSys/StressSvc)
+#   rpmsg/    预留（协议本身用例）
+#   combo/    跨服务组合
+# 依赖：mica 服务框架（rpc/np/svc 域需主核被动服务配合）
 
 import("//kernel/liteos_m/liteos.gni")
 
-static_library("test_mcs") {
+kernel_module("test_mcs") {
   sources = [
-    "It_mcs.c",
-    "It_mcs_can.c",
-    "It_mcs_net.c",
-    "It_mcs_np.c",
-    "It_mcs_rpc.c",
-    "It_mcs_svc.c",
-    "It_mcs_timer.c",
+    # 总入口 + stress 聚合（阶段 A 保留串行链；阶段 B 由模块数组调度接管）
+    # 域聚合
+    # 模块注册（阶段 B 调度器的二级数组表）
+    # 测试调度服务（独立 rpmsg-mcs-test 端点，host 命令驱动）
+    "mcs_test_service.c",
+    # 模块注册文件（各域目录手工维护：加用例=extern+数组行各一行）
+    "mica/tty/it_mcs_tty.c",
+    "mica/umt/it_mcs_umt.c",
+    "mica/rpc/it_mcs_rpc.c",
+    "service/np/it_mcs_np.c",
+    "service/pfs/it_mcs_pfs.c",
+    "service/system/it_mcs_system.c",
+    "combo/it_mcs_combo.c",
   ]
-
-  if (defined(LOSCFG_MCS_CAN)) {
-    sources += [
-    "It_McsCan_001.c",
-    "It_McsCan_002.c",
-    "It_McsCan_003.c",
-    "It_McsCan_004.c",
-    "It_McsCan_005.c",
-    "It_McsCan_006.c",
-    "It_McsCan_007.c",
-    "It_McsCan_008.c",
-    "It_McsCan_009.c",
-    "It_McsCan_010.c",
-    "It_McsCan_011.c",
-    "It_McsCan_012.c",
-    "It_McsCan_013.c",
-    "It_McsCan_014.c",
-    "It_McsCan_015.c",
-    "It_McsCan_016.c",
-    ]
-  }
-
-  if (defined(LOSCFG_MCS_NET)) {
-    sources += [
-    "It_McsNet_001.c",
-    "It_McsNet_002.c",
-    "It_McsNet_003.c",
-    "It_McsNet_004.c",
-    "It_McsNet_005.c",
-    "It_McsNet_006.c",
-    "It_McsNet_007.c",
-    "It_McsNet_008.c",
-    "It_McsNet_009.c",
-    "It_McsNet_010.c",
-    ]
-  }
 
   if (defined(LOSCFG_MCS_RPC)) {
     sources += [
-    "It_McsRpc_001.c",
-    "It_McsRpc_002.c",
-    "It_McsRpc_003.c",
-    "It_McsRpc_004.c",
-    "It_McsRpc_005.c",
-    "It_McsRpc_006.c",
-    "It_McsRpc_007.c",
-    "It_McsNp_001.c",
-    "It_McsNp_002.c",
-    "It_McsNp_003.c",
-    "It_McsNp_004.c",
-    "It_McsNp_005.c",
-    "It_McsNp_006.c",
-    "It_McsNp_007.c",
-    "It_McsNp_008.c",
-    "It_McsSvc_001.c",
-    "It_McsSvc_003.c",
-    "It_McsSvc_004.c",
-    "It_McsSvc_005.c",
-    "It_McsSvc_006.c",
-    "It_McsSvc_007.c",
-    ]
-  }
-
-  if (defined(LOSCFG_MCS_TIMER)) {
-    sources += [
-    "It_McsTimer_001.c",
-    "It_McsTimer_002.c",
-    "It_McsTimer_003.c",
-    "It_McsTimer_004.c",
-    "It_McsTimer_005.c",
-    "It_McsTimer_006.c",
+      # mica/rpc 域
+      "mica/rpc/it_mcs_rpc_201.c",
+      "mica/rpc/it_mcs_rpc_202.c",
+      "mica/rpc/it_mcs_rpc_203.c",
+      "mica/rpc/it_mcs_rpc_204.c",
+      "mica/rpc/it_mcs_rpc_205.c",
+      "mica/rpc/it_mcs_rpc_206.c",
+      "mica/rpc/it_mcs_rpc_207.c",
+      "mica/rpc/it_mcs_rpc_208.c",
+      "mica/rpc/it_mcs_rpc_209.c",
+      "mica/rpc/it_mcs_rpc_210.c",
+      "mica/rpc/it_mcs_rpc_211.c",
+      "mica/rpc/it_mcs_rpc_001.c",
+      "mica/rpc/it_mcs_rpc_002.c",
+      "mica/rpc/it_mcs_rpc_003.c",
+      "mica/rpc/it_mcs_rpc_005.c",
+      "mica/rpc/it_mcs_rpc_004.c",
+      "mica/rpc/it_mcs_rpc_301.c",
+      "mica/rpc/it_mcs_rpc_302.c",
+      "mica/rpc/it_mcs_rpc_303.c",
+      # mica/tty 域
+      "mica/tty/it_mcs_tty_001.c",
+      "mica/tty/it_mcs_tty_301.c",
+      # mica/umt 域
+      "mica/umt/it_mcs_umt_001.c",
+      "mica/umt/it_mcs_umt_201.c",
+      "mica/umt/it_mcs_umt_202.c",
+      "mica/umt/it_mcs_umt_203.c",
+      "mica/umt/it_mcs_umt_204.c",
+      "mica/umt/it_mcs_umt_205.c",
+      "mica/umt/it_mcs_umt_301.c",
+      # service/np 域
+      "service/np/it_mcs_np_203.c",
+      "service/np/it_mcs_np_204.c",
+      "service/np/it_mcs_np_205.c",
+      "service/np/it_mcs_np_206.c",
+      "service/np/it_mcs_np_207.c",
+      "service/np/it_mcs_np_208.c",
+      "service/np/it_mcs_np_209.c",
+      "service/np/it_mcs_np_210.c",
+      "service/np/it_mcs_np_211.c",
+      "service/np/it_mcs_np_212.c",
+      "service/np/it_mcs_np_201.c",
+      "service/np/it_mcs_np_202.c",
+      "service/np/it_mcs_np_009.c",
+      "service/np/it_mcs_np_002.c",
+      "service/np/it_mcs_np_006.c",
+      "service/np/it_mcs_np_004.c",
+      "service/np/it_mcs_np_001.c",
+      "service/np/it_mcs_np_008.c",
+      "service/np/it_mcs_np_003.c",
+      "service/np/it_mcs_np_007.c",
+      "service/np/it_mcs_np_005.c",
+      "service/np/it_mcs_np_301.c",
+      # service/pfs 域
+      "service/pfs/it_mcs_pfs_201.c",
+      "service/pfs/it_mcs_pfs_202.c",
+      "service/pfs/it_mcs_pfs_203.c",
+      "service/pfs/it_mcs_pfs_204.c",
+      "service/pfs/it_mcs_pfs_001.c",
+      "service/pfs/it_mcs_pfs_002.c",
+      # service/system 域（Svc/ApiSys/StressSvc）
+      "service/system/it_mcs_system_201.c",
+      "service/system/it_mcs_system_202.c",
+      "service/system/it_mcs_system_203.c",
+      "service/system/it_mcs_system_204.c",
+      "service/system/it_mcs_system_205.c",
+      "service/system/it_mcs_system_206.c",
+      "service/system/it_mcs_system_207.c",
+      "service/system/it_mcs_system_208.c",
+      "service/system/it_mcs_system_209.c",
+      "service/system/it_mcs_system_210.c",
+      "service/system/it_mcs_system_211.c",
+      "service/system/it_mcs_system_212.c",
+      "service/system/it_mcs_system_001.c",
+      "service/system/it_mcs_system_002.c",
+      "service/system/it_mcs_system_301.c",
+      # combo 域
+      "combo/it_mcs_combo_401.c",
+      "combo/it_mcs_combo_402.c",
+      "combo/it_mcs_combo_403.c",
+      "combo/it_mcs_combo_404.c",
+      "combo/it_mcs_combo_405.c",
+      "combo/it_mcs_combo_406.c",
+      "combo/it_mcs_combo_407.c",
+      "combo/it_mcs_combo_408.c",
+      "combo/it_mcs_combo_409.c",
+      "combo/it_mcs_combo_410.c",
+      "combo/it_mcs_combo_411.c",
+      "combo/it_mcs_combo_412.c",
+      "combo/it_mcs_combo_413.c",
+      "combo/it_mcs_combo_414.c",
     ]
   }
 
   include_dirs = [
-    # board driver contracts (can.h / net.h are self-contained)
+    # 公共测试头（本目录）
+    "//kernel/liteos_m/testsuites/sample/mcs",
+    # board driver contracts（timer.h——Timer 域用例在 drivers，此处留作 combo/stress 引用）
+    "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/timer",
+    "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/include",
+    # board driver contracts（it_mcs.h 公共头 include can.h/net.h）
     "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/can",
     "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/net",
-    # timer driver contract (timer.h)
-    "//kernel/liteos_m/targets/rk3568_m/liteos_m/board/timer",
-    # mica service framework headers (mica/service.h, mica/rpc*.h)
+    # mica service framework headers
     "//kernel/liteos_m/compat/mcs/mica/libmica/src/include",
+    # mica platform 头（mica/platform/log.h 等，根=compat/mcs）
+    "//kernel/liteos_m/compat/mcs",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]
+
 }

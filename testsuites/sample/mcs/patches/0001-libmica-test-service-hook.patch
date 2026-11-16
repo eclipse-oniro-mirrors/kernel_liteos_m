@@ -1,0 +1,60 @@
+diff --git a/compat/mcs/mica/libmica/src/include/mica/mica.h b/compat/mcs/mica/libmica/src/include/mica/mica.h
+index 76a13ea0..c2815cba 100644
+--- a/compat/mcs/mica/libmica/src/include/mica/mica.h
++++ b/compat/mcs/mica/libmica/src/include/mica/mica.h
+@@ -68,4 +68,10 @@ void mica_remove(void);
+ }
+ #endif
+ 
++
++/* rpmsg device accessor (pedestal sets it after init; service
++ * implementations use it to create endpoints). */
++struct rpmsg_device;
++struct rpmsg_device *mica_get_rpdev(void);
++
+ #endif /* __MICA_H__ */
+diff --git a/compat/mcs/mica/libmica/src/include/mica/service.h b/compat/mcs/mica/libmica/src/include/mica/service.h
+index 95940fc5..39608fc6 100644
+--- a/compat/mcs/mica/libmica/src/include/mica/service.h
++++ b/compat/mcs/mica/libmica/src/include/mica/service.h
+@@ -19,6 +19,9 @@ enum mica_service_type {
+     MICA_SERVICE_RPC = 0,
+     MICA_SERVICE_TTY,
+     MICA_SERVICE_UMT,
++#ifdef LOSCFG_TEST_MCS_SUITE
++    MICA_SERVICE_TEST, /* 测试调度服务（rpmsg-mcs-test，testsuites 侧实现） */
++#endif
+     MICA_SERVICE_MAX
+ };
+ 
+diff --git a/compat/mcs/mica/libmica/src/mica_service.c b/compat/mcs/mica/libmica/src/mica_service.c
+index 6da13695..a6585329 100644
+--- a/compat/mcs/mica/libmica/src/mica_service.c
++++ b/compat/mcs/mica/libmica/src/mica_service.c
+@@ -74,6 +74,11 @@ int mica_service_is_ready(enum mica_service_type type)
+     case MICA_SERVICE_UMT:
+         return mica_umt_is_ready();
+ 
++#ifdef LOSCFG_TEST_MCS_SUITE
++    case MICA_SERVICE_TEST:
++        return mcs_test_service_is_ready();
++#endif
++
+     default:
+         mica_log("Invalid mica service type.");
+         return 0;
+@@ -183,6 +188,14 @@ int mica_create_all_services(void)
+     if (ret_rpc != 0)
+         mica_log("WARN: RPC service init failed: %d\n", ret_rpc);
+ 
++#ifdef LOSCFG_TEST_MCS_SUITE
++    /* 测试调度服务（2026-11-09 新架构：rpmsg-mcs-test 端点，host 命令驱动从核用例） */
++    mica_log("Creating MCS test service thread...\n");
++    ret = mcs_test_init_service();
++    if (ret != 0)
++        mica_log("WARN: MCS test service init failed: %d\n", ret);
++#endif
++
+     pthread_attr_destroy(&attr);
+ 
+     /* check all succeeded */

@@ -1,0 +1,26 @@
+diff --git a/compat/mcs/compat/pthread.h b/compat/mcs/compat/pthread.h
+index e23c74f1..b40c729b 100644
+--- a/compat/mcs/compat/pthread.h
++++ b/compat/mcs/compat/pthread.h
+@@ -78,7 +78,11 @@ static inline int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
+      * Above the idle task (31) so the polling receiver keeps running
+      * whenever nothing else is ready. */
+     taskParam.usTaskPrio = 27;
+-    taskParam.uwStackSize = 0x2000;
++    /* 2026-11-14: 0x2000(8KB) 写死 → 16KB 默认 + attr 接线。mica 接收线程在
++     * np 压测（100 轮 rpc 响应分片重组）下 8KB 栈溢出——溢出踩内存后从核
++     * Data Abort（ItMcsNp301 实测：崩前两条 mica_thread stack overflow 告警，
++     * 与 KV-Verify 检出的 mica_thread 契约违例同源）。attr 未设时取 16KB。 */
++    taskParam.uwStackSize = (attr != NULL && attr->stacksize >= 0x1000) ? attr->stacksize : 0x4000;
+     taskParam.pcName = "mica_thread";
+     if (LOS_TaskCreate(thread, &taskParam) != LOS_OK) {
+         (VOID)LOS_MemFree((VOID *)LOSCFG_SYS_HEAP_ADDR, desc);
+@@ -101,7 +105,7 @@ static inline int pthread_attr_init(pthread_attr_t *attr)
+     if (attr == NULL) {
+         return -1;
+     }
+-    attr->stacksize = 0x2000;
++    attr->stacksize = 0x4000;   /* 默认 16KB（原 8KB：np 压测实测接收线程溢出） */
+     return 0;
+ }
+ 

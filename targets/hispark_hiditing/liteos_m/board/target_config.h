@@ -41,15 +41,8 @@ extern "C" {
 
 /*=============================================================================
                     Hardware interrupt configuration
-=============================================================================*/
-/* Hi3322 CLIC supports RISCV_PLIC_VECTOR_CNT (96) external interrupts
-   plus the RISC-V system interrupts (RISCV_SYS_MAX_IRQ+1 = 12), giving
-   OS_HWI_MAX_NUM = 108 in total (see los_arch_interrupt.h). The platform
-   HWI limit must be >= NUM_HAL_INTERRUPT_TIMER (43, see soc.h), otherwise
-   LOS_HwiCreate(TICK_IRQN) fails with LOS_ERRNO_HWI_NUM_INVALID. */
-#ifndef LOSCFG_PLATFORM_HWI_LIMIT
-#define LOSCFG_PLATFORM_HWI_LIMIT                          106
-#endif
+==============================================================================*/
+
 
 /*=============================================================================
                     Task module configuration
@@ -74,15 +67,6 @@ extern "C" {
 #define LOSCFG_BASE_CORE_TSK_MONITOR                         1
 #endif
 
-/*=============================================================================
-                    Software timer module configuration
-=============================================================================*/
-#ifndef LOSCFG_BASE_CORE_SWTMR
-#define LOSCFG_BASE_CORE_SWTMR                              1
-#endif
-#ifndef LOSCFG_BASE_CORE_SWTMR_ALIGN
-#define LOSCFG_BASE_CORE_SWTMR_ALIGN                        1
-#endif
 /* XIP flash executes timer callbacks slower than RAM; raise the
  * threshold so periodic callbacks don't flood UART with warnings
  * and starve the test task (swtmr is priority 0). */

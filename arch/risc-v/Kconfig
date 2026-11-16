@@ -106,10 +106,15 @@ config USING_BOARD_RESET_VECTOR
       excluded to avoid duplication. Clear for a bare board.
 
 # ---------------------------------------------------------------------------
-# System stack sizes (used by los_stack.S when USING_BOARD_RESET_VECTOR is off)
+# System stack sizes (arch-specific; preset defaults for TINY/SMALL/STANDARD).
+# Consumed by los_stack.S (when USING_BOARD_RESET_VECTOR is off) and by
+# config.gni -defsym injection into board.ld (WS63).
 # ---------------------------------------------------------------------------
 config IRQ_STACK_SIZE
     int "IRQ stack size in bytes"
+    default 512 if KERNEL_RAM_PRESET_TINY
+    default 512 if KERNEL_RAM_PRESET_SMALL
+    default 1024 if KERNEL_RAM_PRESET_STANDARD
     default 2048
 
 config STARTUP_STACK_SIZE
@@ -118,10 +123,16 @@ config STARTUP_STACK_SIZE
 
 config EXC_STACK_SIZE
     int "Exception stack size in bytes (0 = reuse startup stack)"
+    default 0 if KERNEL_RAM_PRESET_TINY
+    default 0 if KERNEL_RAM_PRESET_SMALL
+    default 512 if KERNEL_RAM_PRESET_STANDARD
     default 1024
 
 config NMI_STACK_SIZE
     int "NMI stack size in bytes (0 = reuse exc stack)"
+    default 0 if KERNEL_RAM_PRESET_TINY
+    default 0 if KERNEL_RAM_PRESET_SMALL
+    default 0 if KERNEL_RAM_PRESET_STANDARD
     default 1024
 
 # LinxCore170 configuration variants

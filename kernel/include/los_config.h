@@ -199,6 +199,22 @@ extern "C" {
 #define LOSCFG_PLATFORM_HWI_LIMIT                           32
 #endif
 
+#ifndef LOSCFG_HWI_STACK_SIZE
+#define LOSCFG_HWI_STACK_SIZE                              1024
+#endif
+
+#ifndef LOSCFG_EXC_STACK_SIZE
+#define LOSCFG_EXC_STACK_SIZE                              1024
+#endif
+
+#ifndef LOSCFG_NMI_STACK_SIZE
+#define LOSCFG_NMI_STACK_SIZE                              1024
+#endif
+
+#ifndef LOSCFG_IRQ_STACK_SIZE
+#define LOSCFG_IRQ_STACK_SIZE                              2048
+#endif
+
 /* =============================================================================
                                        Task module configuration
 ============================================================================= */

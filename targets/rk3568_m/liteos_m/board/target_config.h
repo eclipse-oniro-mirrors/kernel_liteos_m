@@ -27,8 +27,6 @@
 =============================================================================*/
 #define LOSCFG_PLATFORM_HWI 1
 #define LOSCFG_USE_SYSTEM_DEFINED_INTERRUPT 1
-/* GICv3 on RK3568: 32 SGI/PPI + 256 SPI */
-#define LOSCFG_PLATFORM_HWI_LIMIT 288
 
 /*=============================================================================
                                 Task module configuration
@@ -36,12 +34,6 @@
 /* AArch64: SP must stay 16-byte aligned (SPAlign check). */
 #define LOSCFG_STACK_POINT_ALIGN_SIZE 16
 #define LOSCFG_BASE_CORE_EXC_TSK_SWITCH 1
-
-/*=============================================================================
-                                Software timer module configuration
-=============================================================================*/
-#define LOSCFG_BASE_CORE_SWTMR 1
-#define LOSCFG_BASE_CORE_SWTMR_ALIGN 1
 
 /*=============================================================================
                                 Memory module configuration

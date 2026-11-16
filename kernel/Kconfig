@@ -163,7 +163,7 @@ config KERNEL_CPUP
 
 config CPUP_INCLUDE_IRQ
     bool "Enable Cpup include irq"
-    default y
+    default n
     depends on KERNEL_CPUP
     help
       If you wish to include irq usage for cpup.
@@ -286,7 +286,9 @@ config KERNEL_PM_DEBUG
 
 config PLATFORM_EXC
     bool "Enable Platform Exc Hook"
-    default y if KERNEL_RAM_PRESET_STANDARD
+    default n if KERNEL_RAM_PRESET_TINY
+    default n if KERNEL_RAM_PRESET_SMALL
+    default n if KERNEL_RAM_PRESET_STANDARD
     default n
     depends on KERNEL_EXTKERNEL
 
@@ -448,6 +450,27 @@ config HWI_PRIO_LIMIT
 
 endif # ARCH_INTERRUPT_TAKEOVER
 
+config PLATFORM_HWI_LIMIT
+    int "Max hardware interrupt number"
+    default 24 if KERNEL_RAM_PRESET_TINY
+    default 48 if KERNEL_RAM_PRESET_SMALL
+    default 72 if KERNEL_RAM_PRESET_STANDARD
+    help
+      Maximum number of hardware interrupts the system can register.
+      On Cortex-M the hardware vector table size is fixed by the chip;
+      this limits the software registration table only.
+
+config HWI_STACK_SIZE
+    int "Interrupt stack size (bytes)"
+    default 512 if KERNEL_RAM_PRESET_TINY
+    default 512 if KERNEL_RAM_PRESET_SMALL
+    default 1024 if KERNEL_RAM_PRESET_STANDARD
+    default 1024
+    help
+      Stack size for the interrupt context. Boards with a fixed-size
+      interrupt stack in the linker script ignore this value unless
+      the script honors __HWI_STACK_SIZE via -defsym.
+
 endmenu
 
 ######################### config options of task #########################
@@ -531,7 +554,7 @@ config BASE_CORE_TSK_IDLE_STACK_SIZE
     int "Idle Task Stack Size"
     default 128   if KERNEL_RAM_PRESET_TINY
     default 512   if KERNEL_RAM_PRESET_SMALL
-    default 1024  if KERNEL_RAM_PRESET_STANDARD
+    default 512   if KERNEL_RAM_PRESET_STANDARD
     default 384
     help
       This represents the idle task stack size.
@@ -569,10 +592,10 @@ config BASE_CORE_TSK_DEFAULT_STACK_SIZE
 
 config BASE_CORE_TSK_SWTMR_STACK_SIZE
     int "Swtmr Task Stack Size"
-    default BASE_CORE_TSK_DEFAULT_STACK_SIZE
     default 0     if KERNEL_RAM_PRESET_TINY
     default 512   if KERNEL_RAM_PRESET_SMALL
-    default 1024  if KERNEL_RAM_PRESET_STANDARD
+    default 512   if KERNEL_RAM_PRESET_STANDARD
+    default BASE_CORE_TSK_DEFAULT_STACK_SIZE
     help
       This represents the swtmr task stack size. Defaults to the task
       default stack size if not overridden. Not used when swtmr runs in
@@ -641,6 +664,14 @@ config BASE_CORE_SWTMR_IN_ISR
     help
       When enabled, timeout handlers execute inline in the tick interrupt
       context. No swtmr task/stack needed. Callbacks must not block.
+
+config BASE_CORE_SWTMR_ALIGN
+    bool "Software timer alignment"
+    default n
+    help
+      Align periodic swtmr expirations to reduce wakeups. When off,
+      LOS_SwtmrCreate rejects LOS_SWTMR_ALIGN_FLAG with MODE_INVALID.
+      Invisible (undefined) when the software timer module is off.
 
 endif # BASE_CORE_SWTMR
 
@@ -732,6 +763,7 @@ if BASE_IPC_QUEUE
 
 config BASE_IPC_QUEUE_LIMIT
     int "Max Queue Number"
+    default 16  if KERNEL_RAM_PRESET_STANDARD
     default 6
     help
       This represents the maximum number of queues.

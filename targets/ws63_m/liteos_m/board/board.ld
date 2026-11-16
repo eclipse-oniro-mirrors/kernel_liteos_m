@@ -27,7 +27,17 @@ MEMORY
     PROGRAM_STARTUP : ORIGIN = 0x230300,   LENGTH = 0x1FF000
 }
 
-__STACK_SIZE = 0x2000;
+/*
+ * Interrupt system stack size. Overridable via -defsym=__HWI_STACK_SIZE
+ * injected from Kconfig (LOSCFG_HWI_STACK_SIZE); see config.gni.
+ */
+__STACK_SIZE = __HWI_STACK_SIZE;
+
+/* Same defsym injection constraints as __HWI_STACK_SIZE. */
+__EXC_STACK_SIZE = __EXC_STACK_SIZE_DEF;
+
+/* Same defsym injection constraints as __HWI_STACK_SIZE. */
+__NMI_STACK_SIZE = __NMI_STACK_SIZE_DEF;
 
 /* PMP entry 5 边界符号：覆盖 OHOS 实际使用的 SRAM 范围
  * 见 device/board/hihope/ws63_m/liteos_m/board/pmp_init.c
@@ -105,7 +115,7 @@ SECTIONS
     } > SRAM
 
     .stack (NOLOAD) : ALIGN(8) {
-        . = . + 0x400;
+        . = . + __EXC_STACK_SIZE;
         __exc_stack_top = .;
         __except_stack_top = .;
         . = . + __STACK_SIZE;
@@ -114,15 +124,8 @@ SECTIONS
     } > SRAM
 
     .nmi_stack (NOLOAD) : ALIGN(8) {
-        . = . + 0x400;
+        . = . + __NMI_STACK_SIZE;
         __nmi_stack_top = .;
-    } > SRAM
-
-    .irq_stack (NOLOAD) : ALIGN(8) {
-        __int_stack_start = .;
-        . = . + 0x800;
-        __int_stack_end = .;
-        __irq_stack_top = .;
     } > SRAM
 
     .heap (NOLOAD) : ALIGN(8) {

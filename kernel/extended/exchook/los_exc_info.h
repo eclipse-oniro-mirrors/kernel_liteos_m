@@ -48,10 +48,12 @@ extern "C" {
 /* RISC-V: ARM 用 ExcInfo/EXC_CONTEXT_S，RISC-V 用 LosExcInfo/LosExcContext；无 NVIC */
 #define EXC_INFO_TYPE           LosExcInfo
 #define EXC_CONTEXT_TYPE        LosExcContext
-#define MAX_INT_INFO_SIZE       (0)
 #else
 #define EXC_INFO_TYPE           ExcInfo
 #define EXC_CONTEXT_TYPE        EXC_CONTEXT_S
+#endif
+#ifndef MAX_INT_INFO_SIZE
+#define MAX_INT_INFO_SIZE       (0)
 #endif
 
 #define MAX_SCENE_INFO_SIZE     (INFO_TYPE_AND_SIZE + sizeof(EXC_INFO_TYPE) + sizeof(EXC_CONTEXT_TYPE))
@@ -120,6 +122,7 @@ typedef struct {
 } ExcInfoArray;
 
 VOID OsExcMsgDumpInit(VOID);
+VOID OsExcRegister(ExcInfoType type, EXC_INFO_SAVE_CALLBACK func, VOID *arg);
 extern UINT8 g_excMsgArray[MAX_EXC_MEM_SIZE];
 #endif
 

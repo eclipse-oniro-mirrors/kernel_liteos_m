@@ -33,9 +33,9 @@
 
 uint32_t htonl(uint32_t n)
 {
-    union {
-        int i;
-        char c;
-    } u = { 1 };
-    return u.c ? bswap_32(n) : n;
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    return bswap_32(n);
+#else
+    return n;
+#endif
 }

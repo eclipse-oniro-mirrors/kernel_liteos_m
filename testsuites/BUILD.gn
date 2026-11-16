@@ -193,11 +193,16 @@ group("testsuites") {
     ]
   }
 
-  # MCS AMP interface suites (sample/mcs): board drivers (can/net),
+  # MCS AMP interface suites (sample/mcs/remote): board drivers (can/net),
   # mica service framework and np_* socket proxy. Only when the MCS
   # pedestal is compiled in (targets/rk3568_m board).
-  if (defined(LOSCFG_KERNEL_TEST) && defined(LOSCFG_MCS)) {
+  if (defined(LOSCFG_MCS) && defined(LOSCFG_TEST_MCS_SUITE)) {
+    # mcs 框架用例（host 调度形态）：从核注册 rpmsg-mcs-test 服务等命令
     deps += [ "sample/mcs:test_mcs" ]
+  }
+  if (defined(LOSCFG_TEST_MCS_DRV_SUITE)) {
+    # 让渡驱动用例（boot 批跑形态）：ItDriverSuite 挂 TestKernel 前
+    deps += [ "sample/drivers:test_mcs_drv" ]
   }
 
   # Conditional so that a coverage-off build keeps the exact same dep-graph

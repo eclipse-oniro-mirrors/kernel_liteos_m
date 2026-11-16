@@ -1,0 +1,19 @@
+diff --git a/compat/mcs/mica/libmica/src/services/tty_service.c b/compat/mcs/mica/libmica/src/services/tty_service.c
+index 23cecc84..a3daec08 100644
+--- a/compat/mcs/mica/libmica/src/services/tty_service.c
++++ b/compat/mcs/mica/libmica/src/services/tty_service.c
+@@ -54,6 +54,14 @@ static int rx_tty_callback(struct rpmsg_endpoint *ept, void *data,
+     struct tty_service_priv *tty_priv = (struct tty_service_priv *)priv;
+     int ret;
+ 
++    /* 2026-11-14: 释放上一条未消费的 held buffer——tty_rx_callback 每条消息
++     * hold 一个 vring buffer，无人调 mica_tty_receive 时永久泄漏（master TX
++     * 池耗尽→send_resp_frag 全败，sched all 后段 combo 实测）。同一时刻最多
++     * 持 1 个 buffer：新消息到达即释放旧的。 */
++    if (tty_priv->rx_msg.data != NULL) {
++        rpmsg_release_rx_buffer(ept, tty_priv->rx_msg.data);
++        tty_priv->rx_msg.data = NULL;
++    }
+     rpmsg_hold_rx_buffer(ept, data);
+ 
+     tty_priv->rx_msg.data = data;

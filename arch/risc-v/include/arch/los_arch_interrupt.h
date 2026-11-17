@@ -78,15 +78,18 @@ extern UINT32 ArchSetExcHook(EXC_PROC_FUNC excHook);
 
 /**
  * @ingroup los_arch_interrupt
- * Highest priority of a hardware interrupt.
+ * Highest priority of a hardware interrupt. A smaller value means a higher
+ * priority; PLIC/ECLIC count upwards, so setIrqPriority handlers must invert
+ * the value before writing registers.
  */
-#define OS_HWI_PRIO_HIGHEST        7
+#define OS_HWI_PRIO_HIGHEST        0
 
 /**
  * @ingroup los_arch_interrupt
- * Lowest priority of a hardware interrupt.
+ * Lowest priority of a hardware interrupt. Hardware level 0 never triggers,
+ * so the 7-level PLIC/ECLIC range [1, 7] maps to the logical domain [0, 6].
  */
-#define OS_HWI_PRIO_LOWEST         1
+#define OS_HWI_PRIO_LOWEST         6
 
 /**
  * @ingroup los_arch_interrupt

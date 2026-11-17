@@ -412,7 +412,7 @@ config DEBUG_HPL_EMULATION
     bool "Enable HPL On-Board Decompression Emulation"
     default n
     depends on KERNEL_HPL
-    select BASE_IPC_RINGBUF
+    select KERNEL_RINGBUF
     help
       Decompress the compressed log on board and print readable log
       directly (uses the generic ringbuf component). Debug-only feature:
@@ -829,7 +829,7 @@ config BASE_IPC_RWSEM_LIMIT
 
 endif # BASE_IPC_RWSEM
 
-config BASE_IPC_RINGBUF
+config KERNEL_RINGBUF
     bool "Enable Ringbuf"
     default n
     help

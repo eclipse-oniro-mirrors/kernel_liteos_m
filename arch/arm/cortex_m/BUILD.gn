@@ -40,9 +40,9 @@ kernel_module(module_name) {
 
   # Dispatch is swapped, not shared: with LOSCFG_BOX the BOX variant
   # (dual-stack PendSV hooks + unified FP geometry) replaces the vanilla
-  # file, which stays byte-identical to the OHOS drop.
+  # file, which is left untouched for the BOX=off build.
   if (defined(LOSCFG_BOX)) {
-    sources += [ "los_dispatch_box.S" ]
+    sources += [ "box/los_dispatch_box.S" ]
   } else {
     sources += [ "los_dispatch.S" ]
   }
@@ -55,58 +55,61 @@ kernel_module(module_name) {
   configs += [ "$LITEOSTOPDIR:warn_config" ]
 
   if (defined(LOSCFG_BOX)) {
-    # BOX arch glue (M5A/M5B, moved from the target demo layer - refs keeps
-    # box_mpu_config.h, OsTskUserStackInit and uspace_entry.S in the arch):
-    #   los_box_mpu.c    static MPU layout + per-box region switch
-    #   los_box_task.c   user context crafting + the OsUserTaskEntry prelude
-    #   los_box_uspace.S first-dispatch descent into user mode (refs
-    #                    uspace_entry.S semantics, .usr.text @COMMON_TEXT)
+    # Architecture-side BOX machinery, all under box/:
+    #   los_box_mpu.c     static MPU layout + the per-box region switch
+    #   los_box_task.c    initial user-context crafting on the box stack
+    #   los_box_uspace.S  first-dispatch descent into user mode
+    #                     (.usr.text, lands in COMMON_TEXT)
     sources += [
-      "los_box_mpu.c",
-      "los_box_task.c",
-      "los_box_uspace.S",
+      "box/los_box_mpu.c",
+      "box/los_box_task.c",
+      "box/los_box_uspace.S",
     ]
 
-    # M5G-R: the syscall machinery lives here now (moved from
-    # targets/<board>/liteos_m/box/syscalls - one home with the def list,
-    # the numbers and the two rename roots):
-    #   syscalls/src/los_syscall_entry.S  user veneers (def-generated stubs,
-    #                                      .usr.text @COMMON_TEXT)
-    #   syscalls/src/los_svc_entry.S      svc handler + graft frame crafting
-    #   syscalls/src/los_syscall_table.c  dispatch table + kernel wrappers
+    # The syscall machinery lives beside it - one home for the def list, the
+    # numbers and the two rename roots (box/include):
+    #   box/los_syscall_entry.S  user veneers (def-generated stubs,
+    #                             .usr.text @COMMON_TEXT)
+    #   box/los_svc_entry.S      svc handler + graft frame crafting
+    #   box/los_syscall_table.c  dispatch table + kernel-side wrappers
     sources += [
-      "syscalls/src/los_syscall_entry.S",
-      "syscalls/src/los_svc_entry.S",
-      "syscalls/src/los_syscall_table.c",
+      "box/los_syscall_entry.S",
+      "box/los_svc_entry.S",
+      "box/los_syscall_table.c",
     ]
 
-    # The table/wrapper TU compiles under the rename root (LOS_xxx ->
-    # SYS_LOS_xxx, arch/arm/cortex_m:box_syscalls); the two asm files take
-    # their numbers/defs from the same root.
+    # The table/wrapper TU compiles under the kernel rename root
+    # (LOS_xxx -> SYS_LOS_xxx, see :box_syscalls below); the two asm files
+    # take their numbers and defs from the same root.
     configs += [ ":box_syscalls" ]
 
     # los_dispatch_box.S, los_box_uspace.S and los_svc_entry.S include the
     # generated box offsets header - the offsets action must run before
     # this module compiles (ordering only; recompilation is driven by the
     # action touching the source on real changes - no depfiles in this
-    # build, pitfall 27). Resolved per-target via the GN arg, not
-    # hardcoded to one board.
+    # build). Resolved per-target via the GN arg, not hardcoded to one board.
     deps = [ "//kernel/liteos_m/targets/${device_name}/liteos_m/box/offsets:gen_box_offsets" ]
   }
 }
 
 config("public") {
-  include_dirs = [ "." ]
+  # "box" carries los_box_dispatch.h, which the BOX asm files include by
+  # bare name. It does NOT expose the syscall headers: those sit in
+  # box/include and are handed out only by :box_syscalls below.
+  include_dirs = [
+    ".",
+    "box",
+  ]
 }
 
 # BOX syscall interface root (kernel world). The rename header and the
-# syscall def list live here - refs layout arch_s/arm/cortex_m/syscalls/
-# include/. Applied explicitly (and conditionally on LOSCFG_BOX) by the
-# modules whose TUs must see the rename: kernel/base (renames the
-# LOS_TaskDelay definition) and the target's box module (table, veneers,
-# kernel sources). Never merge this into config("public") above: the
-# top-level kernel config aggregates arch:public into every
-# kernel_module, including the box usr world (design doc pitfall 28).
+# syscall def list live here. Applied explicitly - and conditionally on
+# LOSCFG_BOX - by the modules whose TUs must see the rename: kernel/base and
+# kernel/box (which define the renamed bodies) plus the target's box module
+# (table, veneers, kernel sources). Never merge this into config("public")
+# above: the top-level kernel config aggregates arch:public into every
+# kernel_module, including the box USER world, which must resolve
+# "syscalls.h" to the usr root instead.
 config("box_syscalls") {
-  include_dirs = [ "syscalls/include" ]
+  include_dirs = [ "box/include" ]
 }

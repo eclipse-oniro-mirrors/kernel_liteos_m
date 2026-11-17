@@ -1224,7 +1224,7 @@ extern UINT32 OsQueueInit(VOID);
  * <li>None.</li>
  * </ul>
  *
- * @param queueID        [IN]       Queue id.
+ * @param queueCB        [IN]       Queue control block.
  * @param operateType    [IN]       Operate type
  * @param bufferAddr     [IN]       Buffer address.
  * @param bufferSize     [IN]       Buffer size.
@@ -1235,7 +1235,7 @@ extern UINT32 OsQueueInit(VOID);
  * <ul><li>los_queue.h: the header file that contains the API declaration.</li></ul>
  * @see None.
  */
-extern UINT32 OsQueueOperate(UINT32 queueID, UINT32 operateType, VOID *bufferAddr, UINT32 *bufferSize,
+extern UINT32 OsQueueOperate(LosQueueCB *queueCB, UINT32 operateType, VOID *bufferAddr, UINT32 *bufferSize,
                              UINT32 timeOut);
 
 #ifdef __cplusplus

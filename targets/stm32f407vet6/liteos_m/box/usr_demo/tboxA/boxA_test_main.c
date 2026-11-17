@@ -28,12 +28,15 @@ extern VOID ItSuiteLosBoxUsr(VOID);
 
 VOID boxTestEntry(VOID)
 {
-    /* Re-initialize the box heap from USER context (demo boxAEntry shape):
-     * OsBoxEnvBuild's kernel-side LOS_MemInit created the pool lock mux in
-     * the KERNEL pool context - a later LOS_MuxPend(memMux) from this box
-     * task would resolve the SID against boxA's pool and fault. The usr
-     * re-init re-homes the lock (MemLockCreate -> LOS_MuxCreate under
-     * g_curBoxId == boxA). Skipping this was the PC=0x414 crash. */
+    /* Re-initialize the box heap from USER context (demo boxAEntry shape).
+     * The pool lock mux has to be created HERE, not kernel-side: under BOX the
+     * allocator is compiled once in the usr world, so MemLockCreate's
+     * LOS_MuxCreate is the usr wrapper -> OsMuxCreate, which draws the CB from
+     * boxA's own mux pool and the sId from boxA's SID pool. A lock created
+     * kernel-side instead would carry a kernel-head sId over a kernel-table CB
+     * that boxA's later LOS_MuxPend would have to resolve cross-domain.
+     * OsBoxEnvBuild therefore leaves the box heap alone entirely. Skipping this
+     * re-init was the PC=0x414 crash. */
     UINT32 memRet = LOS_MemInit((VOID *)OS_BOXA_POOL_ADDR, (UINT32)BOXA_HEAP_SIZE);
     if (memRet != LOS_OK) {
         LOS_PrintStr("UTS: boxA heap LOS_MemInit failed!\n");

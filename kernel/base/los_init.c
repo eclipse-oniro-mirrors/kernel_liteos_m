@@ -41,6 +41,15 @@
 #include "los_sem_pri.h"
 #include "los_rwsem_pri.h"
 #include "los_init.h"
+#ifdef LOSCFG_BOX
+#include "los_sec_pri.h"        /* OsSIdListInit: kernel SID pool, see OsIpcInit */
+#if (LOSCFG_BASE_IPC_EVENT == 1)
+#include "los_event_sid.h"      /* OsEventInit: kernel SID event table */
+#endif
+#ifdef LOSCFG_BASE_IPC_CONDVAR
+#include "los_condvar_pri.h"    /* OsCondInit: kernel SID condvar table */
+#endif
+#endif
 #include "los_printf_pri.h"
 #include "los_sched.h"
 #include "securec.h"
@@ -207,6 +216,17 @@ LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsIpcInit(VOID)
 {
     UINT32 ret = LOS_OK;
 
+#ifdef LOSCFG_BOX
+    /* SID kernel pool/list init - the shared handle base of the BOX IPC
+     * world (mux/sem/queue/event all resolve through the SID module at run
+     * time). This used to run inside OsMuxInit, which only worked because
+     * mux happens to be initialized: with mux disabled the kernel SID free
+     * list would never be built and every later OsSIdObjGet would walk a
+     * NULL pool. Here it precedes every module's SID registration and any
+     * possible run-time use, and no single IPC module owns it. */
+    OsSIdListInit();
+#endif
+
 #if (LOSCFG_BASE_IPC_SEM == 1)
     ret = OsSemInit();
     if (ret != LOS_OK) {
@@ -227,6 +247,31 @@ LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsIpcInit(VOID)
         PRINT_ERR("OsQueueInit error\n");
         return ret;
     }
+#endif
+
+#ifdef LOSCFG_BOX
+#if (LOSCFG_BASE_IPC_EVENT == 1)
+    /* The id-addressed event family needs a kernel table as the other bound
+     * of its two-bound resolve, so a kernel-created event can be handed to a
+     * box as an sId. The pointer-addressed family (LOS_EventInit/Read/Write
+     * over a caller-owned EVENT_CB_S) needs no pool and is unaffected. */
+    ret = OsEventInit();
+    if (ret != LOS_OK) {
+        PRINT_ERR("OsEventInit error\n");
+        return ret;
+    }
+#endif
+#ifdef LOSCFG_BASE_IPC_CONDVAR
+    /* Condvar is the fifth SID module and needs a kernel table for the same
+     * reason event does: a kernel-created condvar must be handable to a box as
+     * an sId. Ordered after the event init because a condvar node embeds an
+     * EVENT_CB_S and follows the same two-bound pool discipline. */
+    ret = OsCondInit();
+    if (ret != LOS_OK) {
+        PRINT_ERR("OsCondInit error\n");
+        return ret;
+    }
+#endif
 #endif
 
 #if (LOSCFG_BASE_IPC_RWSEM == 1)

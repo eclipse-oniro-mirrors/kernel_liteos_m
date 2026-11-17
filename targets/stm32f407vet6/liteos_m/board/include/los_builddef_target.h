@@ -45,10 +45,6 @@ extern "C" {
 #define LITE_OS_SEC_BSS_INIT                    __attribute__((section(".kernel.bss")))
 #endif
 
-#ifndef LITE_OS_SEC_TEXT_USRSPACE
-#define LITE_OS_SEC_TEXT_USRSPACE               __attribute__((section(".usr.text")))
-#endif
-
 #ifndef LITE_OS_SEC_TEXT_USRROM
 #define LITE_OS_SEC_TEXT_USRROM                 __attribute__((section(".usrtcm.text")))
 #endif

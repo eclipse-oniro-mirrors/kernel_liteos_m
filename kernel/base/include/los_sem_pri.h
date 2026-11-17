@@ -76,7 +76,7 @@ extern LosSemCB *g_osAllSem;
 extern UINT32 OsSemInit(VOID);
 
 #ifdef LOSCFG_BOX
-/* ---- M5G: sem box-face contracts (los_sem_box.c) ----
+/* ---- Sem box-face contracts (los_sem_box.c) ----
  * The box free list lives in los_sem.c (next to the kernel unused list,
  * the mux placement); the pool init / SID-seam helpers live in
  * los_sem_box.c. g_unusedSemList is non-STATIC under BOX so
@@ -86,8 +86,12 @@ extern LOS_DL_LIST g_unusedSemList;
 extern LOS_DL_LIST g_boxFreeSemList[LOSCFG_BASE_BOX_MAX_LIMIT];
 extern UINT32 OsBoxSemInit(EntityObj *entityList, LosSemCB *semList, UINT32 listLen, UINT16 boxId);
 extern UINT32 OsBoxSemListInit(UINT16 boxId);
-extern UINT32 OsSemGetCBLocked(UINT32 sId, LosSemCB **semCreated);
-extern UINT32 OsSemCreateBox(UINT16 count, UINT8 type, UINT32 *semHandle);
+extern UINT32 OsSemGetCB(UINT32 sId, LosSemCB **semCreated);
+/* The ONE sem create core, for every context (refs OsSemCreateInternal): the
+ * pool is chosen inside it by OsGetSemFreeList(OsGetCurBoxCB()), so the CB's
+ * pool and the SID slot's owner cannot disagree. isBinary is OS_SEM_COUNTING
+ * or OS_SEM_BINARY. */
+extern UINT32 OsSemCreateInternal(UINT16 count, UINT32 *semHandle, UINT8 isBinary);
 #endif
 
 #ifdef __cplusplus

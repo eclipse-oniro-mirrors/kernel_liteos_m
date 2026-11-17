@@ -459,4 +459,29 @@ extern VOID OsSwtmrResponseTimeReset(VOID);
 #endif /* __cplusplus */
 #endif /* __cplusplus */
 
+/* ---------------------------------------------------------------------
+ * BOX swtmr extension: types and constants shared by the kernel mechanisms
+ * (los_swtmr_usr.c), the syscall def-expansion prototypes and the box
+ * world (the deferred-callback consumer task). POD only - no private
+ * header dependencies, so the usr/syscalls.h expansion stays clean.
+ * ------------------------------------------------------------------ */
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+
+/* Owning-box id recorded in LosSwtmrCB.owner */
+#define SWTMR_OWNER_KERNEL      (0x0000FFFFU)
+#define SWTMR_OWNER_INVALID     (0xFFFFFFFFU)
+/* Owner assumed when running without a box context (e.g. in interrupts) */
+#define SWTMR_OWNER_DEFAULT     SWTMR_OWNER_KERNEL
+
+/* Deferred callback item, produced as a value copy by the kernel scanner
+ * and consumed by the owning box's swtmr task. */
+typedef struct {
+    SWTMR_PROC_FUNC handler;
+    UINTPTR arg;
+} SwtmrHandlerItem;
+
+/* Event bit used to wake the (kernel or box) swtmr task */
+#define LOS_SWTMR_EVENT_MASK    0x80000000U
+#endif /* LOSCFG_BOX && LOSCFG_BASE_CORE_SWTMR */
+
 #endif /* _LOS_SWTMR_H */

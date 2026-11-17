@@ -278,6 +278,41 @@ extern VOID HalPendSV(VOID);
 #define OS_NVIC_INT_PEND_SIZE               OS_NVIC_INT_ACT_SIZE
 #define OS_NVIC_INT_ACT_SIZE                OS_NVIC_INT_ENABLE_SIZE
 
+/* Whether the hardware can push an EXTENDED (FP) exception frame - decides
+ * the S16-S31 / S0-S15+FPSCR prefixes of EXC_CONTEXT_S below.
+ *
+ * los_exc.S picks the frame geometry at RUNTIME from EXC_RETURN
+ * (lr == 0xFFFFFFED -> extended, 0xFFFFFFFD -> basic) while this struct is
+ * fixed at COMPILE time, so both sides must follow one rule. Upstream's
+ * proxy is __FPU_USED, i.e. "this build issues FP instructions" (CMSIS
+ * derives it from __VFP_FP__ && !__SOFTFP__).
+ *
+ * BOX breaks that proxy. The kernel TUs of this target are soft-float
+ * (-mcpu=cortex-m4 with no -mfpu, so __SOFTFP__ is defined and __FPU_USED
+ * comes out 0), but the box user modules are built with
+ * -mfpu=fpv4-sp-d16 -mfloat-abi=softfp and really do execute VFP
+ * instructions, which sets CONTROL.FPCA. From then on every exception taken
+ * out of that task pushes the extended frame: the asm builds the long
+ * layout while a short struct reads it 64 bytes low. HalExcHandleEntry's
+ * FLAG_NO_FLOAT compensation (excBufAddr - LOS_OFF_SET_OF(EXC_CONTEXT_S,
+ * uwR4)) only bridges the two geometries when uwR4 really sits at 64, so
+ * with the short struct the no-float paths happened to stay correct and
+ * only the FP path broke. Symptom: an exception dump with every register
+ * zero and PC showing the saved R4 instead of the faulting PC.
+ *
+ * LOSCFG_BOX reaches every TU through -imacros config.h, so the layout is
+ * uniform across all of them; with BOX off this reduces to exactly the
+ * plain __FPU_USED condition and the struct is unchanged. EXC_CONTEXT_S is
+ * only ever used through a pointer (never allocated), so the wider layout
+ * costs nothing.
+ *
+ * The condition is written out at each of the two FP blocks below rather than
+ * funnelled through a helper macro, matching how this struct has always
+ * spelled it. Anything that needs to reason about the geometry (the
+ * static_assert in los_interrupt.c, the crafted first-dispatch context in
+ * box/los_box_task.c) must repeat the same expression - and the assert does,
+ * so a drift breaks the build instead of mis-reading every register by 64. */
+
 /**
  * @ingroup los_exc
  * the struct of register files
@@ -287,8 +322,9 @@ extern VOID HalPendSV(VOID);
  * notes:the following register with prefix 'uw'  correspond to the registers in the cpu  data sheet.
  */
 typedef struct TagExcContext {
-#if ((defined (__FPU_PRESENT) && (__FPU_PRESENT == 1U)) && \
-     (defined (__FPU_USED   ) && (__FPU_USED    == 1U))     )
+#if ((defined(LOSCFG_BOX) && defined (__FPU_PRESENT) && (__FPU_PRESENT == 1U)) || \
+     ((defined (__FPU_PRESENT) && (__FPU_PRESENT == 1U)) && \
+      (defined (__FPU_USED   ) && (__FPU_USED    == 1U))     ))
     UINT32 S16;
     UINT32 S17;
     UINT32 S18;
@@ -325,8 +361,9 @@ typedef struct TagExcContext {
     UINT32 uwLR;
     UINT32 uwPC;
     UINT32 uwxPSR;
-#if ((defined (__FPU_PRESENT) && (__FPU_PRESENT == 1U)) && \
-     (defined (__FPU_USED) && (__FPU_USED== 1U)))
+#if ((defined(LOSCFG_BOX) && defined (__FPU_PRESENT) && (__FPU_PRESENT == 1U)) || \
+     ((defined (__FPU_PRESENT) && (__FPU_PRESENT == 1U)) && \
+      (defined (__FPU_USED   ) && (__FPU_USED    == 1U))     ))
     UINT32 S0;
     UINT32 S1;
     UINT32 S2;

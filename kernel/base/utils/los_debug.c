@@ -35,10 +35,10 @@
 #include "los_task.h"
 #include "los_task_pri.h"
 
-/* M5G-R: g_logString + OsLogLevelCheck moved to los_printf.c - that TU is
+/* g_logString + OsLogLevelCheck live in los_printf.c, not here: that TU is
  * COMMON-section under BOX (box user code calls PRINTK -> LOS_Printf ->
- * OsLogLevelCheck), so the level check must not land in the kernel segment
- * (pitfall 44). This file stays kernel-only. */
+ * OsLogLevelCheck), so the level check must not land in the kernel segment.
+ * This file stays kernel-only. */
 
 STATIC ExcHookFn g_excHook;
 STATIC BACK_TRACE_HOOK g_backTraceHook = NULL;

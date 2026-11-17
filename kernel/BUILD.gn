@@ -34,6 +34,9 @@ module_group(module_name) {
   modules = [
     "base",
     "extended",
+    # BOX core; module_switch in box/BUILD.gn collapses it to an empty
+    # group when LOSCFG_BOX is off.
+    "box",
   ]
   configs = [ ":public_include" ]
 }
@@ -42,5 +45,6 @@ config("public_include") {
   include_dirs = [
     "include",
     "base/include",
+    "box/include",
   ]
 }

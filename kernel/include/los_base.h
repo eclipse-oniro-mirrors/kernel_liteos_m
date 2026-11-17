@@ -49,13 +49,13 @@
 
 #ifdef LOSCFG_BOX
 /*
- * BOX syscall rename, two worlds split by include path (refs layout:
- * arch/arm/cortex_m/syscalls/include/{kernel,usr}):
+ * BOX syscall rename, two worlds split by include path
+ * (arch/arm/cortex_m/box/include/{kernel,usr}):
  *   kernel TUs: "kernel/syscalls.h" resolves to the rename header
  *               -> LOS_xxx becomes SYS_LOS_xxx, renaming both the
  *               kernel definitions and every internal call site into
  *               direct references to the SYS_ implementations.
- *   user TUs:   the usr root (syscalls/include/usr) carries no kernel/
+ *   user TUs:   the usr root (box/include/usr) carries no kernel/
  *               subdir -> __has_include is FALSE, no rename: LOS_xxx
  *               links the COMMON_TEXT veneer of the plain name.
  * Modules carrying neither root skip it entirely: their LOS_xxx calls

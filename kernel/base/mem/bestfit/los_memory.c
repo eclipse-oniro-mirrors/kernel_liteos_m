@@ -52,15 +52,15 @@
 #define NODEDUMPSIZE  64  /* the dump size of current broken node when memcheck error */
 #define COLUMN_NUM    8   /* column num of the output info of mem node */
 
-/* ---- M5D single shared copy (M5C decision: the allocator lives in the
- * shared COMMON sections) ----
+/* ---- Single shared copy: the allocator lives in the shared COMMON
+ * sections ----
  * Under LOSCFG_BOX this file is compiled ONCE by the box_usr_mem module
  * and the linker script routes the WHOLE object into COMMON_FLASH
  * .COMMON_TEXT / COMMON_RAM .COMMON_DATA: kernel and boxes execute the
  * SAME code. Boxes call LOS_MemAlloc/AllocAlign/Free AND LOS_MemInit
- * DIRECTLY on their pools (no syscall round-trip, refs demo shape);
+ * DIRECTLY on their pools (no syscall round-trip);
  * only the pool locks go through syscalls (MemLock -> LOS_MuxPend
- * veneer). LOSCFG_MEM_MUL_POOL is OFF (M5D decision): the multipool
+ * veneer). LOSCFG_MEM_MUL_POOL is OFF: the multipool
  * registry (g_poolHead) does not exist, OsMemMulPoolInit is the empty
  * inline LOS_OK — a single-copy registry could not be walked from box
  * user mode anyway (it would read the kernel heap header, kernel RAM).
@@ -1575,12 +1575,11 @@ STATIC UINT32 OsMemInit(VOID *pool, UINT32 size)
     return LOS_OK;
 }
 
-/* refs los_memory.c:531-578 (LOS_MemPoolInit): lock-create -> lock ->
- * multipool registry -> pool init, each failure unwinding the previous
- * step (refs rolls MemLockDelete back on every error path). The OHOS
- * body below stays for BOX=off (spinlock MEM_LOCK, no pool lock family).
- * usr shared copy: gated — g_poolHead is kernel data, LOS_MemInit is a
- * syscall (refs OTHER_BASE+3). */
+/* BOX variant of LOS_MemPoolInit: lock-create -> lock -> multipool registry
+ * -> pool init, each failure unwinding the previous step (MemLockDelete is
+ * rolled back on every error path). The plain body below stays for BOX=off
+ * (spinlock MEM_LOCK, no pool lock family). Not part of the usr shared copy:
+ * g_poolHead is kernel data and LOS_MemInit is a syscall (OTHER_BASE+3). */
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_MemPoolInit(VOID *pool, UINT32 size, UINT32 attr)
 {
 #ifdef LOSCFG_BOX
@@ -1661,10 +1660,9 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_MemPoolInit(VOID *pool, UINT32 size, UINT32 att
 #endif
 }
 
-/* refs los_memory.c:580-583 — context-driven lock-mode pick, adapted to
- * the one-copy COMMON layout: the box entry task brings up its heap with
- * a DIRECT call here (refs demo boxXEntry shape — LOS_MemInit is part of
- * the shared COMMON copy, no syscall), because with
+/* Context-driven lock-mode pick, adapted to the one-copy COMMON layout: the
+ * box entry task brings up its heap with a DIRECT call here (LOS_MemInit is
+ * part of the shared COMMON copy, so no syscall), because with
  * LOSCFG_MEM_MUL_POOL off there is NO registry walk in the init path
  * (OsMemMulPoolInit is the empty inline LOS_OK) — the direct call only
  * touches the box's own pool header, box RAM, MPU-mapped. The

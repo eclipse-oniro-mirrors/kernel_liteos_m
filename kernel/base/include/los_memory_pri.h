@@ -50,10 +50,11 @@ typedef struct {
     VOID        *pool;      /* Starting address of a memory pool */
     UINT32      poolSize;   /* Memory pool size */
 #ifdef LOSCFG_BOX
-    /* refs bestfit LosMemPoolInfo: memMux sits flat right after poolSize
-     * (refs los_memory_pri.h:31-44). Gated: BOX=off keeps the OHOS layout
-     * byte-identical; all offset macros (OS_MEM_HEAD_ADDR /
-     * OS_MEM_FIRST_NODE ...) are sizeof-driven and follow along. */
+    /* memMux sits flat right after poolSize: the box heap lock family below
+     * reaches it through the pool-head macros and expects it there. Gated -
+     * BOX=off keeps the layout byte-identical; all offset macros
+     * (OS_MEM_HEAD_ADDR / OS_MEM_FIRST_NODE ...) are sizeof-driven and
+     * follow along. */
     UINT32      memMux;     /* pool lock handle: OS_INVALID == int lock */
 #endif
 
@@ -125,12 +126,12 @@ extern SPIN_LOCK_S g_memSpin;
 } while (0);
 #endif
 
-/* ---- box heap lock family (refs los_memory_pri.h:67-142) ----
+/* ---- box heap lock family ----
  * Selects between a mux lock and an int lock per pool via the memMux field
- * (OS_INVALID == int lock). M5D: the family follows the refs bestfit FLAT
- * memMux field (refs los_memory_pri.h:31-44); bestfit is the ported
- * algorithm of record (refs mem/bestfit) — TLSF is not adapted, and a
- * BOX+TLSF build fails here on the missing flat field (by design). */
+ * (OS_INVALID == int lock). The family depends on the FLAT memMux field of
+ * the bestfit LosMemPoolInfo above, and bestfit is the only adapted
+ * allocator: TLSF is not, and a BOX+TLSF build fails here on the missing
+ * flat field (by design). */
 #ifdef LOSCFG_BOX
 #include "los_mux.h"
 
@@ -203,7 +204,7 @@ STATIC_INLINE UINT32 OsMemLockModeGet(UINT32 attr, BOOL *intLock)
         } \
     }
 
-/* Instantiate for the bestfit pool head (flat memMux, refs shape). */
+/* Instantiate for the bestfit pool head (flat memMux). */
 MEMLOCKCREATE_FUNCTION(LosMemPoolInfo)
 MEMLOCKDELETE_FUNCTION(LosMemPoolInfo)
 MEMLOCK_FUNCTION(LosMemPoolInfo)
@@ -213,29 +214,27 @@ MEMUNLOCK_FUNCTION(LosMemPoolInfo)
 #define MemLock(pool, intSave)         MEMLOCK_CALL(LosMemPoolInfo, (pool), (intSave))
 #define MemUnlock(pool, intSave)       MEMUNLOCK_CALL(LosMemPoolInfo, (pool), (intSave))
 
-/* M5C/M5D: swap the bestfit alloc/free critical sections to the per-pool
- * lock (refs bestfit los_memory.c uses MemLock/MemUnlock at every
- * alloc-path site). The bestfit call sites keep the (intSave, pool)
- * argument order of the BOX=off spinlock macros above, so the
- * redefinition below preserves that order while routing into the pool
- * lock. refs checks each MemLock return at every call site; the macro
- * expansion cannot early-return, so a MemLock failure — structurally
- * impossible here (WAIT_FOREVER pend on a mux created at pool init,
- * before the pool is visible to any caller) — is swallowed; annotated
- * deviation. */
+/* Swap the bestfit alloc/free critical sections to the per-pool lock: every
+ * alloc-path site in los_memory.c goes through MEM_LOCK/MEM_UNLOCK. The
+ * bestfit call sites keep the (intSave, pool) argument order of the BOX=off
+ * spinlock macros above, so the redefinition below preserves that order
+ * while routing into the pool lock. The macro expansion cannot early-return,
+ * so a MemLock failure is swallowed - structurally impossible here anyway
+ * (WAIT_FOREVER pend on a mux created at pool init, before the pool is
+ * visible to any caller). */
 #undef MEM_LOCK
 #undef MEM_UNLOCK
 #define MEM_LOCK(intSave, pool)       do { (VOID)MemLock((pool), &(intSave)); } while (0);
 #define MEM_UNLOCK(intSave, pool)     do { MemUnlock((pool), (intSave)); } while (0);
 
-/* refs los_memory_pri.h:186-208 — context-driven lock-mode pick for
- * LOS_MemInit pools. LOSCFG_USR_MEM_ALLOC is on in this OHOS base, so a
- * LOS_MemInit pool picks the mux lock outside kernel context. The
- * current-mode global + macro mirror los_box_pri.h verbatim (identical
- * replacement lists re-define benignly; the local extern avoids the
- * los_box_pri.h <-> los_memory_pri.h include cycle). */
+/* Context-driven lock-mode pick for LOS_MemInit pools. LOSCFG_USR_MEM_ALLOC
+ * is on in this base, so a LOS_MemInit pool picks the mux lock outside
+ * kernel context. The current-mode global and macro are identical to the
+ * ones in los_box_pri.h (identical replacement lists re-define benignly; the
+ * local extern avoids the los_box_pri.h <-> los_memory_pri.h include
+ * cycle). */
 extern UINT32 g_sysMode;
-#define LOS_IN_KERNEL                   (g_sysMode == 0)   /* refs los_base.h */
+#define LOS_IN_KERNEL                   (g_sysMode == 0)
 
 STATIC_INLINE BOOL OsMemIntLockCheck(const VOID *pool, UINT32 size)
 {
@@ -283,8 +282,8 @@ extern UINT32 OsMemMulPoolInit(VOID *pool, UINT32 size);
 extern UINT32 OsMemMulPoolDeinit(const VOID *pool);
 extern VOID *OsMemMulPoolHeadGet(VOID);
 #ifdef LOSCFG_BOX
-/* refs los_memory_pri.h:170 — unlinks the box pools from the global
- * multi-pool list (OsBoxDestroy); implemented in los_multipool.c. */
+/* Unlinks the box pools from the global multi-pool list (OsBoxDestroy);
+ * implemented in los_multipool.c. */
 extern VOID OsBoxMulPoolHeadClear(UINT32 boxId);
 #endif
 #else /* LOSCFG_MEM_MUL_POOL */

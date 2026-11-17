@@ -30,6 +30,10 @@
  */
 
 #include "los_swtmr_pri.h"
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+#include "los_swtmr_usr_pri.h"
+#include "los_box_pri.h"        /* OS_BOX_SET_ID, OsSwtmrFromIdUsr wiring */
+#endif
 #include "los_init.h"
 #include "securec.h"
 #include "los_interrupt.h"
@@ -189,14 +193,26 @@ LITE_OS_SEC_TEXT VOID OsSwtmrStart(LosSwtmrCB *swtmr)
 STATIC INLINE VOID OsSwtmrDelete(LosSwtmrCB *swtmr)
 {
 #ifdef LOSCFG_BASE_CORE_SYS_RES_CHECK
+    /* box pool timers keep their in-pool id (the encoded user id derives
+     * from owner + timerId at create time); their else-branch %= is a
+     * no-op on in-pool indices (< pool len <= SWTMR_LIMIT) */
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    if ((swtmr->owner == SWTMR_OWNER_KERNEL) &&
+        (swtmr->timerId < (OS_SWTMR_MAX_TIMERID - LOSCFG_BASE_CORE_SWTMR_LIMIT))) {
+#else
     if (swtmr->timerId < (OS_SWTMR_MAX_TIMERID - LOSCFG_BASE_CORE_SWTMR_LIMIT)) {
+#endif
         swtmr->timerId += LOSCFG_BASE_CORE_SWTMR_LIMIT;
     } else {
         swtmr->timerId %= LOSCFG_BASE_CORE_SWTMR_LIMIT;
     }
 #endif
     /* insert to free list */
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    OsSwtmrFreeListInsertUsr(swtmr);
+#else
     LOS_ListTailInsert(&g_swtmrFreeList, &swtmr->sortList.sortLinkNode);
+#endif
     swtmr->state = OS_SWTMR_STATUS_UNUSED;
 
 #ifdef LOSCFG_DEBUG_RESOURCE_INFO
@@ -253,6 +269,11 @@ LITE_OS_SEC_TEXT VOID OsSwtmrTask(VOID)
             swtmr = (LosSwtmrCB *)OsPercpuGet()->expiryList.buf[OsPercpuGet()->expiryList.head];
             LOS_IntRestore(intSave);
 
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+            if (OsSwtmrScanDeferUsr(swtmr) == LOS_OK) {
+                /* consumed by the owning box's swtmr task */
+            } else
+#endif
             if (swtmr->handler != NULL) {
                 swtmr->handler(swtmr->arg);
             }
@@ -333,6 +354,9 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsSwtmrInit(VOID)
         LOS_ListInit(&g_swtmrFreeList);
         for (index = 0; index < LOSCFG_BASE_CORE_SWTMR_LIMIT; index++, swtmr++) {
             swtmr->timerId = index;
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+            swtmr->owner = SWTMR_OWNER_KERNEL;
+#endif
             LOS_ListTailInsert(&g_swtmrFreeList, &swtmr->sortList.sortLinkNode);
         }
     }
@@ -367,6 +391,13 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsSwtmrInit(VOID)
             return LOS_NOK;
         }
     }
+
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    ret = OsSwtmrUsrInit();
+    if (ret != LOS_OK) {
+        return LOS_NOK;
+    }
+#endif
 
     return LOS_OK;
 }
@@ -404,8 +435,12 @@ LITE_OS_SEC_TEXT BOOL OsSwtmrScan(VOID)
 #ifdef LOSCFG_BASE_CORE_SWTMR_IN_ISR
         SWTMR_PROC_FUNC handler = swtmr->handler;
         UINTPTR arg = swtmr->arg;
+        BOOL deferred = FALSE;
         OsSwtmrUpdate(swtmr);
-        if (handler != NULL) {
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+        deferred = (OsSwtmrScanDeferUsr(swtmr) == LOS_OK);
+#endif
+        if ((deferred == FALSE) && (handler != NULL)) {
             swtmr->inProcess++;
             LOS_SpinUnlock(&g_swtmrSpin);
 
@@ -545,7 +580,26 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
         return LOS_ERRNO_SWTMR_RET_PTR_NULL;
     }
 
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    /* user box callers may only pass their own domain pointers */
+    if (OsSwtmrCreateCheckUsr(handler, swtmrId) != LOS_OK) {
+        return LOS_ERRNO_SWTMR_PTR_ILLEGAL_ADDR;
+    }
+#endif
+
     SWTMR_LOCK(intSave);
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    {
+        UINT32 owner = SWTMR_OWNER_INVALID;
+        (VOID)sortList; /* the owner-aware fetch does not use the baseline entry walk */
+        swtmr = OsSwtmrFreeListGetUsr(&owner);
+        if (swtmr == NULL) {
+            SWTMR_UNLOCK(intSave);
+            return (owner == SWTMR_OWNER_INVALID) ? LOS_ERRNO_SWTMR_UNINIT :
+                   LOS_ERRNO_SWTMR_MAXSIZE;
+        }
+    }
+#else
     if (LOS_ListEmpty(&g_swtmrFreeList)) {
         SWTMR_UNLOCK(intSave);
         return LOS_ERRNO_SWTMR_MAXSIZE;
@@ -554,6 +608,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
     sortList = LOS_DL_LIST_ENTRY(g_swtmrFreeList.pstNext, SortLinkList, sortLinkNode);
     swtmr = LOS_DL_LIST_ENTRY(sortList, LosSwtmrCB, sortList);
     LOS_ListDelete(LOS_DL_LIST_FIRST(&g_swtmrFreeList));
+#endif
     SWTMR_UNLOCK(intSave);
 
     swtmr->handler  = handler;
@@ -573,7 +628,15 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
     }
     swtmr->isAligned = FALSE;
 #endif
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    /* Box pool timers return an OS_BOX_SET_ID-encoded id: the raw in-pool
+     * index would collide with the kernel id space - see
+     * OsSwtmrFromIdUsr. */
+    *swtmrId = (swtmr->owner == SWTMR_OWNER_KERNEL) ?
+               swtmr->timerId : OS_BOX_SET_ID(swtmr->owner, swtmr->timerId);
+#else
     *swtmrId = swtmr->timerId;
+#endif
 
 #ifdef LOSCFG_DEBUG_RESOURCE_INFO
     SWTMR_LOCK(intSave);
@@ -592,7 +655,13 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
 #ifdef LOSCFG_BASE_CORE_SYS_RES_CHECK
 LosSwtmrCB *OsSwtmrIdVerify(UINT32 swtmrId)
 {
-    LosSwtmrCB *swtmr = OS_SWT_FROM_SWTID(swtmrId);
+    LosSwtmrCB *swtmr = NULL;
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    if (swtmrId >= LOSCFG_BASE_CORE_SWTMR_LIMIT) {
+        return OsSwtmrFromIdUsr(swtmrId);
+    }
+#endif
+    swtmr = OS_SWT_FROM_SWTID(swtmrId);
     if (swtmr->timerId != swtmrId) {
         return NULL;
     }
@@ -603,6 +672,11 @@ LosSwtmrCB *OsSwtmrIdVerify(UINT32 swtmrId)
 
 LosSwtmrCB *OsSwtmrIdVerify(UINT32 swtmrId)
 {
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    if (swtmrId >= LOSCFG_BASE_CORE_SWTMR_LIMIT) {
+        return OsSwtmrFromIdUsr(swtmrId);
+    }
+#endif
     if (swtmrId >= LOSCFG_BASE_CORE_SWTMR_LIMIT) {
         return NULL;
     }

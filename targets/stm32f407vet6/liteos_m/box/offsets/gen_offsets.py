@@ -12,7 +12,8 @@ input changes. The write is compare-and-swap - identical content leaves the
 header (and its mtime) untouched, so an unchanged struct costs nothing.
 Because this build has no depfiles, the --touch list (the consumer sources)
 is mtime-bumped only on real changes: that bump is what drives their
-recompilation (design doc pitfall 27).
+recompilation, and a header change on its own would leave the stale objects
+in place.
 
 Usage (manual form, equivalent to the action):
   gen_offsets.py --kernel-dir <kernel/liteos_m> --out-dir <hb product out>
@@ -27,11 +28,16 @@ import sys
 
 MARKER = re.compile(r'^@@BOX_OFFSET@@\s+(\S+)\s+[$#]?(\S+)\s*$')
 
-# Include set mirrored from the kernel compile command. Refresh via:
+# Include set mirrored from the kernel compile command - a hand-maintained
+# copy, because this script runs its own gcc -S pass outside gn and so sees
+# none of the module include_dirs. Any header directory the kernel gains has
+# to be added here too, or los_offsets.c fails to resolve its includes.
+# Refresh via:
 #   ninja -t commands obj/kernel/liteos_m/kernel/base/base.los_task.o | head -1
 KERNEL_REL_INCS = [
     "kernel/base/include",
     "kernel/include",
+    "kernel/box/include",
     "kernel/extended/include",
     "arch/arm/common",
     "arch/arm/cortex_m",
@@ -123,7 +129,7 @@ def main():
         print("gen_offsets: *** same-build recompile is NOT reliable: this")
         print("gen_offsets: *** build system has no depfiles, and ninja's")
         print("gen_offsets: *** initial mtime scan happens before this")
-        print("gen_offsets: *** action runs (design doc pitfall 27).")
+        print("gen_offsets: *** action runs.")
     else:
         print("gen_offsets: header unchanged (stamp first run)")
     if a.stamp:

@@ -2,10 +2,8 @@
  * los_syscall_table.c — syscall dispatch table + kernel-side wrappers.
  * Generated from syscalls_def.h (single source with the veneer asm and
  * the user prototypes). Table lives in kernel space, invisible to user.
- * M5G-R: moved from targets/<board>/liteos_m/box/syscalls into the arch
- * syscalls root (one home for the whole syscall machinery); the uart
- * driver prototypes stay extern — arch code must not include board
- * headers (pitfall 31).
+ * The uart driver prototypes below stay extern: arch code must not include
+ * board headers.
  */
 #include "los_typedef.h"
 #include "los_task.h"        /* LOS_TaskDelay decl; the los_base.h rename
@@ -13,10 +11,16 @@
 #include "los_task_pri.h"    /* OsCurrTaskGet, LosTaskCB (wrappers) */
 #include "los_error.h"
 #include "los_box_pri.h"
-#include "los_mux.h"         /* M5C: LOS_MuxDelete/Pend/Post (-> SYS_*) */
-#include "los_mux_pri.h"     /* M5C: OsMuxCreate / LOS_MuxHeld contracts */
-#include "los_memory.h"      /* M5C: LOS_MemAlloc/AllocAlign/Free (-> SYS_*) */
-#include "los_sem.h"         /* M5G: LOS_SemCreate/Delete/Pend/Post (-> SYS_*) */
+#include "los_mux.h"         /* LOS_MuxDelete/Pend/Post (-> SYS_*) */
+#include "los_mux_pri.h"     /* OsMuxCreate / LOS_MuxHeld contracts */
+#include "los_memory.h"      /* LOS_MemAlloc/AllocAlign/Free (-> SYS_*) */
+#include "los_sem.h"         /* LOS_SemCreate/Delete/Pend/Post (-> SYS_*) */
+#include "los_event_sid.h"   /* LOS_TaskEventRead/Write, event pool family */
+#include "los_queue.h"        /* LOS_QueueCreate/Delete/Read+WriteCopy (-> SYS_*) */
+#include "los_swtmr.h"        /* LOS_SwtmrCreate/... + BOX section types */
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+#include "los_swtmr_usr_pri.h" /* OsSwtmrHandlerItemGet/UsrTaskInit prototypes */
+#endif
 #include "syscalls_num.h"
 
 /* Board uart driver (targets/<board>/liteos_m/board/driver/uart.c):
@@ -32,18 +36,18 @@ extern "C" {
 #endif /* __cplusplus */
 
 /* Table-slot placeholder type ONLY - the dispatch chain never calls
- * through it (pitfall 32): the svc graft writes fn into the graft frame's
+ * through it: the svc graft writes fn into the graft frame's
  * pc slot and bx EXC_RETURNs, so the implementation starts executing as a
  * thread entry and receives args per its own C prototype: 1-4 from the
  * hardware frame r0-r3 slots, 5-8 from the AAPCS stack staging. Eight
- * UINTPTR params match that graft capacity; >8-arg APIs use a
- * struct-passing protocol instead (D3 design note). */
+ * UINTPTR params match that graft capacity; an API taking more than eight
+ * arguments would need a struct-passing protocol instead. */
 typedef UINTPTR (*SYSCALL_FUNC)(UINTPTR, UINTPTR, UINTPTR, UINTPTR,
                                 UINTPTR, UINTPTR, UINTPTR, UINTPTR);
 
 typedef struct {
     SYSCALL_FUNC fn;
-    UINT32 perm;             /* per-box permission bitmask (M5) */
+    UINT32 perm;             /* per-box permission bitmask */
 } SyscallEntry;
 
 #define SYSCALL_PERM_ALL 0xFFU
@@ -62,8 +66,9 @@ const SyscallEntry g_syscallTable[LOSCFG_SYSCALL_NUM] = {
 #include "syscalls_def.h"
 };
 
-/* Kernel-side wrapper: user string printing with a bounded copy (phase-1: direct
- * dereference is the accepted ABI cost, boundary check below). */
+/* Kernel-side wrapper: user string printing with a bounded copy. Reading the
+ * user pointer directly is the accepted ABI cost; the loop below caps the
+ * length. */
 UINT32 LOS_PrintStr(const CHAR *str)
 {
     UINT32 n;
@@ -90,12 +95,11 @@ UINT32 LOS_OffsetTest(UINT32 a1, UINT32 a2, UINT32 a3, UINT32 a4,
     return 0xDEAD0000U | ((a5 & 0xFFU) << 8) | (a8 & 0xFFU);
 }
 
-/* Kernel-side wrapper: user task termination (refs TASK_BASE+36). Reached through the
+/* Kernel-side wrapper: user task termination. Reached through the
  * OsUsrTaskExit trampoline when a box entry function returns. Deletes the
  * current task; the recycle path (OsTaskStackFree) routes the TCB, the pool
  * kernel stack and - for dynamic stacks - the user stack back to the box by
- * the encoded task id, so no manual bookkeeping clearing is needed here
- * (the phase-1 clearing was a workaround for the global-pool recycle).
+ * the encoded task id, so no manual bookkeeping clearing is needed here.
  * Never returns. */
 UINT32 LOS_TaskUsrExit(UINT32 ret)
 {

@@ -1,11 +1,10 @@
 /*
- * usr/syscalls.h - user-side syscall prototypes (refs location:
- * arch_s/arm/cortex_m/syscalls/include/usr/syscalls.h, which is empty
- * there; ours carries the DEF-generated prototypes).
+ * usr/syscalls.h - user-side syscall prototypes, generated from the same
+ * syscalls_def.h list as the kernel side and the veneer asm.
  *
  * Include from box user code as
  *   #include "syscalls.h"
- * with syscalls/include/usr on the include path. The symbols are the
+ * with box/include/usr on the include path. The symbols are the
  * PLAIN LOS_xxx names, linked to the COMMON_TEXT veneers.
  */
 #ifndef _USR_SYSCALLS_H
@@ -53,10 +52,37 @@
 #undef LOS_SemPend
 #undef LOS_SemPost
 #undef UartPuts
+#undef LOS_TaskEventRead
+#undef LOS_TaskEventWrite
+#undef LOS_SwtmrCreate
+#undef LOS_SwtmrStart
+#undef LOS_SwtmrStop
+#undef LOS_SwtmrDelete
+#undef OsSwtmrHandlerItemGet
+#undef OsSwtmrUsrTaskInit
+#undef LOS_EventCreate
+#undef LOS_EventDelete
+#undef LOS_EventReadWithSId
+#undef LOS_EventWriteWithSId
+#undef LOS_EventPollWithSId
+#undef LOS_EventClearWithSId
+#undef LOS_EventWriteOnceWithSId
+#undef LOS_QueueCreate
+#undef LOS_QueueDelete
+#undef LOS_QueueWriteCopy
+#undef LOS_QueueReadCopy
+#ifdef LOSCFG_BASE_IPC_CONDVAR
+#undef OsCondVarCreate
+#undef OsCondVarDelete
+#undef OsCondVarSignal
+#undef OsCondVarWait
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+#include "los_swtmr.h"   /* SWTMR_PROC_FUNC/SwtmrHandlerItem (BOX section) */
 
 #define LITEOS_SYSCALL_DEF(num, ret, name, ...)  ret name(__VA_ARGS__);
 #include "../syscalls_def.h"

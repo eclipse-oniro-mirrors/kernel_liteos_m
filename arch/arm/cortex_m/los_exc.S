@@ -105,7 +105,7 @@ HalExcHardFault:
 #ifdef LOSCFG_BOX
     /* BOX: svc executed with PRIMASK=1 escalates to HardFault;
      * recognize the 0xDF opcode byte below the stacked pc and
-     * reroute to the syscall entry (refs exception.S rescue).
+     * reroute to the syscall entry.
      * Hardened against misrouting a genuine fault: the frame must be
      * on psp (thread context - reading a garbage psp below could double
      * fault into lockup), PRIMASK must still be set (the mask survives

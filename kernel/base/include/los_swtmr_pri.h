@@ -63,6 +63,15 @@ enum SwtmrState {
  * @ingroup los_swtmr
  * Software timer control structure
  */
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+/* Error codes 0x11/0x12 are unused by the baseline; the box create path
+ * returns them for cross-domain pointers / uninit pools.
+ * The owner constants, SwtmrHandlerItem and LOS_SWTMR_EVENT_MASK live in
+ * the public header's BOX section (usr def-expansion visibility). */
+#define LOS_ERRNO_SWTMR_PTR_ILLEGAL_ADDR  LOS_ERRNO_OS_ERROR(LOS_MOD_SWTMR, 0x11)
+#define LOS_ERRNO_SWTMR_UNINIT            LOS_ERRNO_OS_ERROR(LOS_MOD_SWTMR, 0x12)
+#endif /* LOSCFG_BOX && LOSCFG_BASE_CORE_SWTMR */
+
 typedef struct tagSwtmrCB {
     SortLinkList        sortList;
     UINT8               state;          /* Software timer state                                  */
@@ -82,11 +91,32 @@ typedef struct tagSwtmrCB {
     UINTPTR             arg;            /* Parameter passed in when the callback function
                                            that handles software timer timeout is called         */
     SWTMR_PROC_FUNC     handler;        /* Callback function that handles software timer timeout */
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    UINT16              owner;          /* Owning box id (SWTMR_OWNER_KERNEL for the kernel pool) */
+#endif
 } LosSwtmrCB, SWTMR_CTRL_S;
 
 extern SWTMR_CTRL_S *g_osSwtmrCBArray;
 extern LOS_DL_LIST g_swtmrFreeList;
 extern SPIN_LOCK_S g_swtmrSpin;
+
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+/* implemented in box/los_swtmr_usr.c */
+extern UINT32 OsSwtmrGetOwnerUsr(VOID);
+extern LosSwtmrCB *OsSwtmrFreeListGetUsr(UINT32 *owner);
+extern VOID OsSwtmrFreeListInsertUsr(LosSwtmrCB *swtmr);
+extern UINT32 OsSwtmrScanDeferUsr(LosSwtmrCB *swtmr);
+extern UINT32 OsSwtmrCreateCheckUsr(SWTMR_PROC_FUNC handler, UINT32 *swtmrId);
+extern UINT32 OsSwtmrHandlerItemGet(SwtmrHandlerItem *item);
+extern UINT32 OsSwtmrUsrInit(VOID);
+extern UINT32 OsSwtmrUsrTaskInit(UINT16 boxId, UINT32 stackSize);
+extern VOID OsSwtmrDestroyUsr(VOID *boxCB);
+
+/* kernel usr domain (the common-copy swtmr task) */
+extern const CHAR g_usrSwtmrTaskName[];
+extern VOID BoxSwtmrTask(VOID);
+extern UINT32 BoxSwtmrInit(UINT16 boxId, UINT32 stackSize);
+#endif /* LOSCFG_BOX && LOSCFG_BASE_CORE_SWTMR */
 
 #define SWTMR_LOCK(state)       LOS_SpinLockSave(&g_swtmrSpin, &(state))
 #define SWTMR_UNLOCK(state)     LOS_SpinUnlockRestore(&g_swtmrSpin, (state))

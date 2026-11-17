@@ -1,27 +1,26 @@
 /*
- * los_task_box.c — BOX task-module mechanisms (M5B).
+ * los_task_box.c - the box-specific half of the task module.
  *
- * refs keeps this family woven through kernel_s/base/los_task.c (~750 lines);
- * per the phase-2 principle (large divergence -> new file) they live here,
- * refs-shaped and refs-named, while the generic task module only carries
- * small gated hooks (TCB/stack routing, the encoded-id macros in
- * los_task_pri.h).
+ * Everything that differs between a kernel task and a box user task lives
+ * here, so the generic task module only carries small gated hooks (TCB/stack
+ * routing and the encoded-id macros in los_task_pri.h).
  *
- * Contents (refs los_task.c line refs):
- *   - per-box TCB / kernel-stack pools + OsBoxTaskInit (L38-152)
- *   - OsBoxTaskIdCheckInvalid: refs OsTaskIdCheck semantics (L1309 call sites)
- *   - free-list routing OsBoxTaskGet/FreeUsedTaskCB (L807-826)
- *   - kernel stack pool alloc/free (L77-118; the pool node embeds the stack,
- *     so topOfStack == node->stack and the node is recovered by cast)
- *   - user-stack recycle queue on delete (OsTaskDelAction box part, L684-705)
- *   - the generic-path hook surface OsTaskBox* (M5B-R): los_task.c calls
- *     these instead of inline BOX branches (CBInit default, create TCB
- *     routing/rewind, OsTaskStackFree box part + free-list routing, the
+ * Contents:
+ *   - per-box TCB / kernel-stack pools + OsBoxTaskInit
+ *   - OsBoxTaskIdCheckInvalid: encoded-id validity against the owning pool
+ *   - free-list routing OsBoxTaskGet/FreeUsedTaskCB
+ *   - kernel stack pool alloc/free (the pool node embeds the stack, so
+ *     topOfStack == node->stack and the node is recovered by cast)
+ *   - user-stack recycle queue on delete
+ *   - the generic-path hook surface OsTaskBox*: los_task.c calls these
+ *     instead of inlining BOX branches (CBInit default, create TCB
+ *     routing/rewind, the OsTaskStackFree box part + free-list routing, the
  *     delete-on-run defer)
- *   - the user-task create family: param-check subset (L555-647, the full
- *     check-valid family is M5D), OsUsrTaskCreateOnly (L945-983),
- *     OsFirstBoxTaskCreate (L1058-1087)
- * Trimmed of LOSCFG_TASK_STACK_REUSE / DRVBOX / dynload branches (all OFF).
+ *   - the user-task create family: entry/runtime param checks,
+ *     OsUsrTaskCreateOnly, OsFirstBoxTaskCreate
+ *
+ * The LOSCFG_TASK_STACK_REUSE / DRVBOX / dynload task branches are all OFF on
+ * this target, so they are not carried here.
  */
 #include "los_typedef.h"
 #include "los_task_pri.h"
@@ -36,17 +35,16 @@
 extern "C" {
 #endif /* __cplusplus */
 
-/* Per-box pools (refs los_task.c:38-41). The pool memory itself lives in
- * box resource sections (.box.res, R2: kernel RW / box RO) and is wired by
- * boxes_cfg; only the pointers/lists live in kernel bss. g_boxFreeTask is
- * shared with los_task.c's recycle path (OsTaskStackFree routes by id). */
+/* Per-box pools. The pool memory itself lives in box resource sections
+ * (.box.res: kernel RW / box RO) and is wired by boxes_cfg; only the
+ * pointers/lists live in kernel bss. g_boxFreeTask is shared with
+ * los_task.c's recycle path (OsTaskStackFree routes by id). */
 LosTaskCB *g_boxTaskCBArray[LOSCFG_BASE_BOX_MAX_LIMIT];
 LOS_DL_LIST g_boxFreeTask[LOSCFG_BASE_BOX_MAX_LIMIT];
 STATIC LOS_DL_LIST g_boxFreeKerStackList[LOSCFG_BASE_BOX_MAX_LIMIT];
 
-/* refs OsBoxTaskInit (los_task.c:121-152): preset the encoded task ids —
- * OHOS also presets ids at pool init (g_osTaskCBArray[index].taskId), so the
- * shapes match. */
+/* Preset the encoded task ids here, the same way the kernel pool presets
+ * g_osTaskCBArray[index].taskId at init. */
 UINT32 OsBoxTaskInit(UINT16 boxId, LosTaskCB *taskList, LosTaskStack *stackList, UINT32 taskNum)
 {
     UINT32 idx;
@@ -70,8 +68,8 @@ UINT32 OsBoxTaskInit(UINT16 boxId, LosTaskCB *taskList, LosTaskStack *stackList,
     return LOS_OK;
 }
 
-/* refs OsTaskIdCheck semantics: kernel ids index the kernel pool, box ids
- * decode against their per-box pool bounds. */
+/* Kernel ids index the kernel pool; box ids decode against their per-box
+ * pool bounds. */
 BOOL OsBoxTaskIdCheckInvalid(UINT32 taskId)
 {
     LosBoxCB *boxCB = NULL;
@@ -94,7 +92,7 @@ BOOL OsBoxTaskIdCheckInvalid(UINT32 taskId)
     return (OS_BOX_GET_ID(taskId) >= boxCB->boxResTaskNum) ? TRUE : FALSE;
 }
 
-/* refs OsTaskGetFreeTaskCB / OsTaskFreeUsedTaskCB (los_task.c:807-826). */
+/* Box TCB free-list routing. */
 UINT32 OsBoxTaskGetFreeTaskCB(LosTaskCB **taskCB, const LosBoxCB *boxCB)
 {
     LOS_DL_LIST *freeTask = &g_boxFreeTask[boxCB->boxId];
@@ -115,8 +113,7 @@ VOID OsBoxTaskFreeUsedTaskCB(LosTaskCB *taskCB, const LosBoxCB *boxCB)
 /*
  * Kernel stacks: the pool node EMBEDS the 512B stack (los_sec_pri.h
  * LosTaskStack), so the "allocation" returns node->stack and the node is
- * recovered later as (LosTaskStack *)topOfStack — no extra TCB field needed.
- * refs los_task.c:77-91.
+ * recovered later as (LosTaskStack *)topOfStack - no extra TCB field needed.
  */
 VOID *OsBoxKernelStackAlloc(const LosBoxCB *boxCB, UINT32 stackSize)
 {
@@ -147,9 +144,9 @@ VOID OsBoxKernelStackFreeNode(VOID *stackBase, const LosBoxCB *boxCB)
     LOS_ListAdd(&g_boxFreeKerStackList[boxCB->boxId], &stack->pendList);
 }
 
-/* refs OsTaskDelAction box part (los_task.c:684-705): a deleted dynamic user
- * stack is queued for the box to free from its own pool (usr-side
- * LOS_TaskResRecycle, M5D). Static entry-task stacks are never recycled. */
+/* A deleted dynamic user stack is queued for the box to free from its own
+ * pool (usr-side LOS_TaskResRecycle). Static entry-task stacks are never
+ * recycled. */
 VOID OsBoxUserStackRecycle(LosTaskCB *taskCB)
 {
     LosBoxCB *boxCB = &g_boxCBArr[OS_BOX_GET_BID(taskCB->taskId)];
@@ -166,12 +163,12 @@ VOID OsBoxUserStackRecycle(LosTaskCB *taskCB)
     boxCB->boxResRecycleStackNum++;
 }
 
-/* ---- Gate/Exit pattern (M5B-R refactor, refs IPC_SEC design) ----
- * los_task.c calls generic gates; BOX logic stays here. Declarations +
- * BOX-off STATIC INLINE baseline live in los_task_pri.h. */
+/* ---- Gate/Exit pattern ----
+ * los_task.c calls generic gates; the BOX logic stays here. Declarations and
+ * the BOX-off STATIC INLINE baseline live in los_task_pri.h. */
 
 /* OsTaskCBInit: kernel-task default for curBoxId; the box create family
- * overrides it right after (refs OsUsrTaskCreateOnly does the same). */
+ * overrides it right after. */
 VOID OsTaskBoxCBInitDefault(LosTaskCB *taskCB)
 {
     taskCB->curBoxId = (UINT8)OS_KERNEL_BOX;
@@ -205,9 +202,8 @@ VOID OsTaskCreateTCBRewind(LosTaskCB *taskCB, const VOID *boxPtr)
     LOS_ListAdd(&g_losFreeTask, &taskCB->pendList);
 }
 
-/* Delete gate step 1 — resource release (refs OsTaskDelAction +
- * OsTaskStackFree box parts): unlink boxTaskList, return the pool kernel
- * stack (recomputed from topOfStack), queue the dynamic user stack,
+/* Delete gate step 1 - resource release: unlink boxTaskList, return the pool
+ * kernel stack (recomputed from topOfStack), queue the dynamic user stack,
  * clear the box fields. MUST run while the TCB fields are still live —
  * i.e. BEFORE OsTaskStackFree's topOfStack clear and the security memset.
  * Kernel ids: no box resources (their stack is freed by the generic
@@ -217,7 +213,7 @@ VOID OsTaskResRelease(LosTaskCB *taskCB, UINT32 taskId)
     if (OS_TASK_ID_IS_KER(taskId)) {
         return;
     }
-    LOS_ListDelete(&taskCB->boxTaskList);       /* refs OsDelTaskCBFromTaskList */
+    LOS_ListDelete(&taskCB->boxTaskList);       /* off the box's taskCBList */
     OsBoxKernelStackFree(taskCB);
     if (taskCB->staticStack == 0) {
         OsBoxUserStackRecycle(taskCB);
@@ -228,11 +224,11 @@ VOID OsTaskResRelease(LosTaskCB *taskCB, UINT32 taskId)
     taskCB->boxCB = NULL;
 }
 
-/* Delete gate step 2 — TCB recycle: pendList back to its owning free list
- * (refs OsTaskStackFree freeTask routing by encoded id). MUST run AFTER
- * the security memset in OsTaskStackFree: an earlier link would have its
- * pendList pointers wiped by it, and the next alloc would LOS_ListDelete
- * a {NULL,NULL} node (write to address 0 — the pre-fix fault). */
+/* Delete gate step 2 - TCB recycle: pendList back to its owning free list,
+ * routed by encoded id. MUST run AFTER the security memset in
+ * OsTaskStackFree: an earlier link would have its pendList pointers wiped by
+ * it, and the next alloc would LOS_ListDelete a {NULL,NULL} node - a write
+ * to address 0. */
 VOID OsTaskTCBRecycle(LosTaskCB *taskCB, UINT32 taskId)
 {
     if (!OS_TASK_ID_IS_KER(taskId)) {
@@ -244,8 +240,8 @@ VOID OsTaskTCBRecycle(LosTaskCB *taskCB, UINT32 taskId)
 
 /* OsTaskDelActionOnRun static arm: a running box task parks on the recycle
  * list - freeing its pool kernel stack here would race the still-executing
- * context (refs routes every delete-on-run through the recycle list);
- * kernel static tasks keep the immediate free. */
+ * context, so every delete-on-run goes through the recycle list; kernel
+ * static tasks keep the immediate free. */
 BOOL OsTaskBoxDelRunDefer(LosTaskCB *taskCB)
 {
     if (OS_TASK_ID_IS_KER(taskCB->taskId)) {
@@ -255,9 +251,11 @@ BOOL OsTaskBoxDelRunDefer(LosTaskCB *taskCB)
     return TRUE;
 }
 
-/* refs OsUsrTaskInitParamCheck subset for the box ENTRY task (los_task.c:
- * 555-647): entry must live in the box text window. The full check-valid
- * family (OsCheckValidTextWithBox etc.) lands with M5D. */
+/* Param check for the box ENTRY task: the entry must live in the box text
+ * window. It reads boxCB->layout[0] directly instead of going through the
+ * OsCheckValid*Addr family in los_box.c, because that family resolves the
+ * box from the running context - and the entry task is created before any
+ * box task has ever run. */
 STATIC UINT32 OsBoxEntryTaskCheck(const LosBoxCB *boxCB, const TSK_INIT_PARAM_S *initParam)
 {
     const BoxMemLayout *layout = &boxCB->layout[0];
@@ -275,28 +273,31 @@ STATIC UINT32 OsBoxEntryTaskCheck(const LosBoxCB *boxCB, const TSK_INIT_PARAM_S 
     return LOS_OK;
 }
 
-/* refs task-stack type discriminator (los_task.c STACK_TYPE_STATIC /
- * STACK_TYPE_DYNAMIC): entry tasks use box-static user memory (never
- * recycled); runtime-created tasks allocate the user stack from the box
- * heap and it is queued for the box to free on task deletion. */
-#define STACK_TYPE_STATIC    0
-#define STACK_TYPE_DYNAMIC   1
+/* Task-stack type discriminator. STACK_TYPE_STATIC / STACK_TYPE_DYNAMIC live
+ * in los_box_pri.h rather than here because the box swtmr task bring-up in
+ * los_swtmr_usr.c is an external OsUsrTaskCreateOnly consumer.
+ * Entry tasks use box-static user memory (never recycled); runtime-created
+ * tasks allocate the user stack from the box heap and it is queued for the
+ * box to free on task deletion. */
 
 /*
- * refs OsUsrTaskCreateOnly (los_task.c:945-983) + OsUsrTaskKernelPartInit
- * (L915-931): the kernel part (TCB from the box pool, kernel stack from the
- * box stack pool) goes through the generic OsTaskCreateOnly with a box
- * pointer; the generic path consumes uwStackSize as the KERNEL stack size,
- * so it is swapped to the pool stack size here and restored after (refs
- * does the same swap). The user context is crafted by the arch side
+ * The user-task create core. The kernel part (TCB from the box pool, kernel
+ * stack from the box stack pool) goes through the generic OsTaskCreateOnly
+ * with a box pointer; the generic path consumes uwStackSize as the KERNEL
+ * stack size, so it is swapped to the pool stack size here and restored
+ * after. The user context is crafted by the arch side
  * (OsBoxTskUserStackInit: kernel-ctx PC patched to the OsUserTaskEntry
  * prelude, user frame left with PC=NULL for the prelude to fill).
  *
  * taskStackType selects whether the user stack is box-static (entry task)
  * or heap-allocated (runtime task) - the latter is recycled on delete via
- * OsBoxUserStackRecycle. */
-STATIC UINT32 OsUsrTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *usrTopStack,
-                                  LosBoxCB *boxCB, BOOL taskStackType)
+ * OsBoxUserStackRecycle.
+ *
+ * Not STATIC: the box swtmr task bring-up in los_swtmr_usr.c is an external
+ * consumer and needs the same full binding (box pool TCB + kernel stack pool
+ * + boxCB/curBoxId/INUSER). */
+UINT32 OsUsrTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *usrTopStack,
+                           LosBoxCB *boxCB, BOOL taskStackType)
 {
     UINT32 ret;
     UINT32 intSave;
@@ -321,17 +322,16 @@ STATIC UINT32 OsUsrTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, V
     taskCB = OS_TCB_FROM_TID(*taskId);
     usrStackSP = OsBoxTskUserStackInit(taskCB, usrTopStack, userStackSize);
 
-    SCHEDULER_LOCK(intSave);     /* keeps the refs lock scope over the binding */
+    SCHEDULER_LOCK(intSave);     /* the whole binding is one atomic step */
     taskCB->userStackPointer = usrStackSP;
     taskCB->userTopOfStack = (UINTPTR)usrTopStack;
     taskCB->userStackSize = userStackSize;
     taskCB->staticStack = (taskStackType == STACK_TYPE_STATIC) ? 1 : 0;
     taskCB->boxCB = (VOID *)boxCB;
     taskCB->curBoxId = (UINT8)boxCB->boxId;
-    /* born-INUSER (pitfall 41): the task starts "as if switched out in user
-     * mode" - the first PendSV dispatch lands in the entry function
-     * unprivileged. The refs kernel-prelude descent is parked in
-     * arch/los_box_uspace.S. */
+    /* born-INUSER: the task starts "as if switched out in user mode" - the
+     * first PendSV dispatch lands in the entry function unprivileged. The
+     * kernel-prelude descent lives in box/los_box_uspace.S. */
     taskCB->taskStatus |= OS_TASK_STATUS_INUSER;
     LOS_ListInit(&taskCB->boxTaskList);
     LOS_ListAdd(&boxCB->taskCBList, &taskCB->boxTaskList);
@@ -339,7 +339,7 @@ STATIC UINT32 OsUsrTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, V
     return LOS_OK;
 }
 
-/* refs OsFirstBoxTaskCreate (los_task.c:1058-1087). */
+/* Creates the box entry task and resumes it. */
 UINT32 OsFirstBoxTaskCreate(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack, LosBoxCB *boxCB)
 {
     UINT32 ret;
@@ -361,13 +361,12 @@ UINT32 OsFirstBoxTaskCreate(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *t
     return LOS_TaskResume(*taskId);
 }
 
-/* refs OsUsrTaskCreateParamCheck subset (los_task.c:653-664): the entry must
- * live in the box text window, the user stack pointer must be aligned and
- * fall inside the box, and the priority must be in the user range. The full
- * OsCheckValid* family (M5D) hardens this; here we reuse the box text-window
- * check from OsBoxEntryTaskCheck and add the stack alignment + size floors.
- * checkStack is FALSE when the user stack was allocated by the kernel
- * (OsTaskInterCreate / STACK_REUSE) - no caller-provided pointer to verify. */
+/* Create-param check for runtime user tasks: the entry must live in the box
+ * text window, the user stack pointer must be aligned and fall inside the box
+ * data window, and the priority must be in range.
+ * checkStack gates the caller-pointer verification; both current callers
+ * (OsTaskCreateOnlyDynamicDo / OsTaskCreateStaticDo) pass TRUE, since the
+ * user stack always comes in from the caller. */
 STATIC UINT32 OsUsrTaskCreateParamCheck(const TSK_INIT_PARAM_S *initParam, const VOID *usrTopStack,
                                         const LosBoxCB *boxCB, BOOL checkStack)
 {
@@ -402,9 +401,8 @@ STATIC UINT32 OsUsrTaskCreateParamCheck(const TSK_INIT_PARAM_S *initParam, const
     return LOS_OK;
 }
 
-/* refs OsTaskCreateOnlyDynamicDo (los_task.c:1106-1114): the user-context
- * dynamic create core. The user stack was allocated by the caller (usr-side
- * LOS_TaskCreateOnly from g_boxLocalPool) and passed in. */
+/* The user-context dynamic create core. The user stack was allocated by the
+ * caller (usr-side LOS_TaskCreateOnly from g_boxLocalPool) and passed in. */
 STATIC UINT32 OsTaskCreateOnlyDynamicDo(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *usrTopStack)
 {
     UINT32 ret;
@@ -420,14 +418,13 @@ STATIC UINT32 OsTaskCreateOnlyDynamicDo(UINT32 *taskId, TSK_INIT_PARAM_S *initPa
     return OsUsrTaskCreateOnly(taskId, initParam, usrTopStack, boxCB, STACK_TYPE_DYNAMIC);
 }
 
-/* M5G: refs TASK_BASE+1/+15 static-stack creates. OHOS natives with the
- * SAME names and signatures already exist (los_task.c
- * LOS_TaskCreateStatic/OnlyStatic, gated LOSCFG_TASK_STACK_STATIC_
- * ALLOCATION — the idle task uses them), so unlike the mux face there is
- * no separate shim: the native CreateOnlyStatic entry carries the BOX
- * seam (los_task.c) and routes a box context into this Do (box
- * validation + box-pool creation + INUSER binding); kernel contexts keep
- * the native path. */
+/* Static-stack creates (syscall TASK_BASE+1/+15). The kernel already has
+ * LOS_TaskCreateStatic / LOS_TaskCreateOnlyStatic with the same names and
+ * signatures (gated by LOSCFG_TASK_STACK_STATIC_ALLOCATION - the idle task
+ * uses them), so there is no separate shim here: the native CreateOnlyStatic
+ * entry carries the BOX seam in los_task.c and routes a box context into this
+ * Do (box validation + box-pool creation + INUSER binding); kernel contexts
+ * keep the native path. */
 UINT32 OsTaskCreateStaticDo(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *usrTopStack)
 {
     UINT32 ret;
@@ -443,19 +440,17 @@ UINT32 OsTaskCreateStaticDo(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *u
     return OsUsrTaskCreateOnly(taskId, initParam, usrTopStack, boxCB, STACK_TYPE_STATIC);
 }
 
-/* refs OsTaskKernelCreateDynamicDo (los_task.c:1188-1196): kernel-context
- * dynamic create (the kernel allocates no user stack here - the caller
- * provides it). Used when kernel code spawns a box runtime task. */
+/* Kernel-context dynamic create: no user stack is allocated here, the caller
+ * provides it. Used when kernel code spawns a box runtime task. */
 UINT32 OsTaskKernelCreateDynamicDo(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack)
 {
     return OsTaskCreateOnlyDynamicDo(taskId, initParam, topStack);
 }
 
-/* refs OsTaskCreateOnlyDynamic (los_task.c:1116-1139) - syscall TASK_BASE+38.
- * User context: copy initParam from the user, run the dynamic create core.
- * The kernel-context branch (refs OS_IN_KER_STATE) delegates to
- * OsTaskKernelCreateDynamicDo; here kernel code should call that directly,
- * so this entry always takes the user path (it is only reached via svc). */
+/* Syscall TASK_BASE+38. User context: copy initParam from the user, then run
+ * the dynamic create core. Kernel code in the OS_IN_KER_STATE case calls
+ * OsTaskKernelCreateDynamicDo directly, so this entry always takes the user
+ * path (it is only reached via svc). */
 UINT32 OsTaskCreateOnlyDynamic(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *usrTopStack)
 {
     UINT32 ret;
@@ -465,9 +460,8 @@ UINT32 OsTaskCreateOnlyDynamic(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID
     if ((taskId == NULL) || (initParam == NULL) || (usrTopStack == NULL)) {
         return LOS_ERRNO_TSK_PTR_NULL;
     }
-    /* OsTaskCopyParamFromUsr (refs los_task.c:629-646): the initParam struct
-     * lives in the calling box's memory (same address space, kernel can
-     * read it). The full OsCheckValidDataAddr hardening lands with M5D. */
+    /* The initParam struct lives in the calling box's memory - same address
+     * space, so the kernel can read it straight off the user pointer. */
     localParam = *initParam;
     ret = OsTaskCreateOnlyDynamicDo(&newTaskId, &localParam, usrTopStack);
     if (ret != LOS_OK) {
@@ -477,9 +471,7 @@ UINT32 OsTaskCreateOnlyDynamic(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID
     return LOS_OK;
 }
 
-/* refs OsTaskGetRecycleStack (los_task.c:1367-1391, named UsTaskGetRecycleStack
- * in refs - the typo is preserved in the refs symbol; we use the clean name)
- * - syscall TASK_BASE+39. Pops one user-stack base address off the calling
+/* Syscall TASK_BASE+39. Pops one user-stack base address off the calling
  * box's recycle list; returns NULL when the list is empty. The usr-side
  * LOS_TaskStackRecycle loops this and frees each via LOS_MemFree. */
 VOID *OsTaskGetRecycleStack(VOID)
@@ -508,12 +500,11 @@ VOID *OsTaskGetRecycleStack(VOID)
     return ret;
 }
 
-/* refs los_task.c:1866 (OsTasksDestroy). Iterates the box's taskCBList and
- * deletes every task; OsTaskDelete removes each TCB from the list via
- * OsTaskBoxResFree, so the loop terminates naturally. Called from
- * OsBoxDestroy with the box already non-current (HelloworldTask context).
- * If the caller were inside the box, refs requeues the current task first;
- * we assert the non-current invariant and keep the path simple. */
+/* Iterates the box's taskCBList and deletes every task; OsTaskDelete unlinks
+ * each TCB from that list (via OsTaskStackFree -> OsTaskResRelease), so the
+ * loop terminates naturally. Called from OsBoxDestroy with the box already
+ * non-current (HelloworldTask context) - deleting the currently running task
+ * would need it requeued first, which this path does not do. */
 VOID OsTaskDestroy(LosBoxCB *boxCB)
 {
     LosTaskCB *delTask;

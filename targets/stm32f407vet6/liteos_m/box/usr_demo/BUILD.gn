@@ -1,16 +1,14 @@
 # Box user-demo module - the USER world of the two-world syscall split.
 # Compiled with the usr-side include root only: los_base.h resolves
-# "kernel/syscalls.h" to the EMPTY stub (syscalls/include_usr), so the
+# "kernel/syscalls.h" to the EMPTY stub (box/include/usr), so the
 # LOS_xxx -> SYS_LOS_xxx rename never exists here and box code links the
-# COMMON_TEXT veneers of the plain names. (In refs the user world is a
-# separate build without the kernel config; this module is the one-world
-# equivalent.)
+# COMMON_TEXT veneers of the plain names.
 
 import("//kernel/liteos_m/liteos.gni")
 
-# M5D single shared copy of the bestfit allocator (M5C decision: the
-# allocator lives in the COMMON sections). Under BOX this is the ONLY
-# compilation of los_memory.c: the kernel/base module drops the source
+# Single shared copy of the bestfit allocator: the allocator lives in the
+# COMMON sections. Under BOX this is the ONLY compilation of los_memory.c:
+# the kernel/base module drops the source
 # (see kernel/base/BUILD.gn) and the linker script routes the whole
 # object into .COMMON_TEXT/.COMMON_DATA — kernel and boxes execute the
 # same code; boxes call alloc/free/init directly, only the pool locks go
@@ -36,7 +34,7 @@ kernel_module("box_usr_mem") {
     # copy with the allocator — a kernel-flash landing is a user-mode
     # MemManage fault; kernel callers cross-call the COMMON copy (R0).
     "//kernel/liteos_m/kernel/base/los_bitmap.c",
-    # M5G-R: the full PRINTK for box user code (PRINTK -> LOS_Printf ->
+    # The full PRINTK for box user code (PRINTK -> LOS_Printf ->
     # OsLogLevelCheck + UartOutput chain). Same file-name lds routing as
     # the others. LOS_PRINTF_COMMON_ENGINE selects the lightweight
     # in-file formatter and routes the output through the UartPuts
@@ -45,6 +43,18 @@ kernel_module("box_usr_mem") {
     # engine with the direct UartPuts call.
     "//kernel/liteos_m/kernel/base/los_printf.c",
   ]
+
+  # The multipool registry shares the allocator's fate: under BOX it compiles
+  # ONCE here (kernel/base/BUILD.gn drops it in the BOX branch) so that the
+  # per-box dispatch AND the g_usrBoxPoolHead registry land in the COMMON
+  # sections. Both halves have to be user-reachable - a box walks its own list
+  # with this code, and OsMemMulPoolInit writes the list head, so the registry
+  # must sit in COMMON_BSS (R1, RW for kernel and boxes), not kernel .bss.
+  if (defined(LOSCFG_MEM_MUL_POOL)) {
+    sources += [
+      "//kernel/liteos_m/kernel/base/mem/common/multipool/los_multipool.c",
+    ]
+  }
 
   defines = [ "LOS_PRINTF_COMMON_ENGINE=1" ]
 
@@ -78,11 +88,10 @@ kernel_module("box_usr_demo") {
   sources = [
     "tboxA/boxA_main.c",
     "tboxB/boxB_main.c",
-    # refs kernel_s/usr/los_usr_api.c equivalent (single-copy COMMON_TEXT):
-    # LOS_MuxCreate wrapper; no boxA/boxB in the file name, so the box
-    # section selectors leave it in the default routing — the explicit
-    # .usr.text function attribute lands it in COMMON_FLASH.
-    "usr_api/los_usr_api.c",
+    # The user-world API wrappers (los_usr_api.c) moved to kernel/box: they
+    # are refs kernel_s/usr mechanism, not demo code, and live beside
+    # los_usr_init.c now. Built by kernel/box:box_usr, which compiles them
+    # without the rename root - the same requirement this module satisfies.
   ]
 
   if (defined(LOSCFG_KERNEL_TEST)) {
@@ -142,7 +151,7 @@ config("public") {
     # prototypes header. The root carries no kernel/ subdir, so
     # los_base.h's __has_include("kernel/syscalls.h") stays FALSE in
     # user TUs - the rename header is unreachable from the user world.
-    rebase_path("//kernel/liteos_m/arch/arm/cortex_m/syscalls/include/usr"),
+    rebase_path("//kernel/liteos_m/arch/arm/cortex_m/box/include/usr"),
     # boxes_conf.h / boxes_res_conf.h / boxes_res_auto.cfg
     "../boxes_cfg",
   ]

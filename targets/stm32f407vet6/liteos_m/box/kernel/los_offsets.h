@@ -3,6 +3,8 @@
 #define _LOS_BOX_OFFSETS_H
 
 #define BOX_CB_LAYOUT0_MEMPOOL       28
+#define EXC_CTX_FP_GAP               64
+#define EXC_CTX_FP_TAIL              72
 #define TASK_CB_BOX_CB               140
 #define TASK_CB_CUR_BOX_ID           152
 #define TASK_CB_KERNEL_SP            0

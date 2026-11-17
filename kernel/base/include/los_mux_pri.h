@@ -86,24 +86,41 @@ VOID OsMuxCreatorClear(LosMuxCB *mux);
 #endif
 
 #ifdef LOSCFG_BOX
-/* ---- BOX (M5C): SID-based mux module, refs los_mux_pri.h contracts ----
- * Handles become sIds (refs los_mux.h API): kernel muxes carry the
- * LOS_KERNEL_SID_HEAD box id, box muxes the owning box id; the module
- * core (pend/post ops) is unchanged. Implemented across los_mux.c (the
- * create/delete/pend/post seams) and los_mux_box.c (per-box pools). */
+/* ---- BOX: SID-based mux module ----
+ * Handles become sIds without changing the public los_mux.h API: kernel
+ * muxes carry the LOS_KERNEL_SID_HEAD box id, box muxes the owning box id;
+ * the module core (pend/post ops) is unchanged. Implemented across
+ * los_mux.c (the create/delete/pend/post seams) and los_mux_box.c (per-box
+ * pools). */
 #include "los_sec_pri.h"
 
 extern LOS_DL_LIST g_unusedMuxList;
 extern LOS_DL_LIST g_boxFreeMuxList[LOSCFG_BASE_BOX_MAX_LIMIT];
 extern EntityObj *g_kernelMuxEntity;
 
-/* refs los_mux_pri.h:176-185 contracts */
+/* implemented in los_mux_box.c */
 extern UINT32 OsBoxMuxInit(EntityObj *entityList, LosMuxCB *muxList, UINT32 listLen, UINT16 boxId);
 extern UINT32 OsBoxMuxListInit(UINT16 boxId);
 extern VOID OsGetMuxFreeList(const LosBoxCB *boxCB, LOS_DL_LIST **freeList);
 extern UINT32 OsMuxCreate(UINT32 *sId, UINT32 attr);
+extern UINT32 OsMuxGetCB(UINT32 sId, LosMuxCB **muxCreated);
+/* refs' self-locking wrapper (the caller-locked OsMuxGetCB is the other
+ * spelling). The condvar needs this one: OsCondVarWait resolves the mutex
+ * outside its own lock hold. */
 extern UINT32 OsMuxGetCBLocked(UINT32 sId, LosMuxCB **muxCreated);
 extern UINT32 LOS_MuxHeld(UINT32 sId);
+
+/* refs los_mux_pri.h has two spellings of this: the real one reads
+ * muxCB->muxAttr.type under LOSCFG_COMPAT_POSIX, the fallback returns FALSE.
+ * This tree has no muxAttr at all (OsMuxCreate ignores its attr argument -
+ * the core is recursive + priority-inherit by construction), so the fallback
+ * is the only possible form. Consequence, same as refs in this configuration:
+ * OsCondVarWait's "caller must own the mutex" test short-circuits to off. */
+LITE_OS_SEC_TEXT STATIC INLINE BOOL OsMuxErrorCheckFlag(const LosMuxCB *muxCB)
+{
+    (VOID)muxCB;
+    return FALSE;
+}
 #endif
 
 #ifdef __cplusplus

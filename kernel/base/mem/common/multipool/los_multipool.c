@@ -40,10 +40,68 @@
 
 STATIC VOID *g_poolHead = NULL;
 
+#ifdef LOSCFG_BOX
+/* Per-box pool registries (refs kernel_s multipool shape): one list head per
+ * box, over the pools that box created. This is what makes the feature usable
+ * under BOX at all - the overlap check below dereferences every registered
+ * pool (LOS_MemPoolSizeGet reads the pool header), so a box walking the
+ * KERNEL registry would read kernel-heap memory it has no mapping for and
+ * take a BusFault. With per-box heads a box only ever walks its own list.
+ *
+ * Both dispatch inputs are user-readable: g_sysMode (behind LOS_IN_KERNEL,
+ * declared in los_memory_pri.h) and g_curBoxId live in the R2 section
+ * (los_usr_init.c). g_curBoxId is declared locally rather than pulled from
+ * los_box_pri.h because that header and los_memory_pri.h form an include
+ * cycle - the same reason los_memory_pri.h declares g_sysMode locally. */
+VOID *g_usrBoxPoolHead[LOSCFG_BASE_BOX_MAX_LIMIT] = {0};
+
+extern volatile UINT32 g_curBoxId;
+
+/* refs ANDs OS_SCHEDULER_ACTIVE into this predicate. Dropped here on purpose:
+ * it expands to a read of g_taskScheduled (kernel RAM), so evaluating it from
+ * user mode faults - and because it is the SECOND operand of an && whose
+ * first operand is true exactly in user mode, it would always be evaluated
+ * on the side that cannot read it. It is also redundant: g_sysMode only
+ * leaves its kernel default once the scheduler has switched a box task in, so
+ * !LOS_IN_KERNEL already implies an active scheduler. The bound check is the
+ * safety net against a stale OS_KERNEL_BOX (0xFF) reaching the array. */
+STATIC INLINE VOID **OsMemMulPoolHead(VOID)
+{
+    if (!LOS_IN_KERNEL && (g_curBoxId < LOSCFG_BASE_BOX_MAX_LIMIT)) {
+        return &g_usrBoxPoolHead[g_curBoxId];
+    }
+    return &g_poolHead;
+}
+
+/* OsBoxDestroy callee: drop the destroyed box's registry so a restarted box
+ * begins with an empty list (its entry task re-runs LOS_MemInit, which would
+ * otherwise fail the overlap check against its own stale registration). */
+VOID OsBoxMulPoolHeadClear(UINT32 boxId)
+{
+    if (boxId >= LOSCFG_BASE_BOX_MAX_LIMIT) {
+        return;
+    }
+    g_usrBoxPoolHead[boxId] = NULL;
+}
+#else
+/* Baseline arm: one registry, nothing to dispatch on. Spelled as a second
+ * definition rather than an #ifdef at each caller so the two call sites below
+ * stay unconditional. Returning the address of a file-scope static from a
+ * STATIC INLINE folds away completely - the BOX=off object is byte-identical
+ * to the upstream single-registry code. */
+STATIC INLINE VOID **OsMemMulPoolHead(VOID)
+{
+    return &g_poolHead;
+}
+#endif /* LOSCFG_BOX */
+
 UINT32 OsMemMulPoolInit(VOID *pool, UINT32 size)
 {
-    VOID *nextPool = g_poolHead;
-    VOID *curPool = g_poolHead;
+    /* Which registry this context registers into: the running box's under
+     * BOX, the single kernel one otherwise. */
+    VOID **head = OsMemMulPoolHead();
+    VOID *nextPool = *head;
+    VOID *curPool = *head;
     UINTPTR poolEnd;
 
     while (nextPool != NULL) {
@@ -57,8 +115,8 @@ UINT32 OsMemMulPoolInit(VOID *pool, UINT32 size)
         nextPool = ((LosMemPoolInfo *)nextPool)->nextPool;
     }
 
-    if (g_poolHead == NULL) {
-        g_poolHead = pool;
+    if (*head == NULL) {
+        *head = pool;
     } else {
         ((LosMemPoolInfo *)curPool)->nextPool = pool;
     }
@@ -72,20 +130,21 @@ UINT32 OsMemMulPoolDeinit(const VOID *pool)
     UINT32 ret = LOS_NOK;
     VOID *nextPool = NULL;
     VOID *curPool = NULL;
+    VOID **head = OsMemMulPoolHead();
 
     do {
         if (pool == NULL) {
             break;
         }
 
-        if (pool == g_poolHead) {
-            g_poolHead = ((LosMemPoolInfo *)g_poolHead)->nextPool;
+        if (pool == *head) {
+            *head = ((LosMemPoolInfo *)(*head))->nextPool;
             ret = LOS_OK;
             break;
         }
 
-        curPool = g_poolHead;
-        nextPool = g_poolHead;
+        curPool = *head;
+        nextPool = *head;
         while (nextPool != NULL) {
             if (pool == nextPool) {
                 ((LosMemPoolInfo *)curPool)->nextPool = ((LosMemPoolInfo *)nextPool)->nextPool;
@@ -100,6 +159,10 @@ UINT32 OsMemMulPoolDeinit(const VOID *pool)
     return ret;
 }
 
+/* Kernel-side reader: returns the KERNEL registry head, and stays that way.
+ * Its only caller is OsMemExcInfoGet (los_exc.c), which runs in kernel
+ * exception context and wants the kernel pools. A box must never call this -
+ * walking the returned list would dereference kernel pool headers. */
 VOID *OsMemMulPoolHeadGet(VOID)
 {
     return g_poolHead;
@@ -135,6 +198,9 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_MemDeInit(VOID *pool)
     return ret;
 }
 
+/* Kernel-side listing, like OsMemMulPoolHeadGet above: it walks the kernel
+ * registry and calls OsMemInfoPrint on each pool, so it is not box-callable.
+ * Left on the kernel head deliberately (refs does the same). */
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_MemPoolList(VOID)
 {
     VOID *nextPool = g_poolHead;

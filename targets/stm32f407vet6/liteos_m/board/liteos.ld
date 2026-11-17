@@ -91,9 +91,13 @@ SECTIONS
      * mem family + libsec mem{set,cpy}_s: wildcard (all members are pure
      * helpers); str family: 16 explicit members (strdup/strtok/strtol/
      * strerror/strftime/strcase* stay kernel-only - rodata tables,
-     * malloc or locale deps). */
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o) .text.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o) .text)
+     * malloc or locale deps).
+     * libgcc float / 64-bit arithmetic members + musl frexp are excluded
+     * too so they fall through to .COMMON_TEXT - see the comment there for
+     * the member-by-member audit and for why the three unwinder members
+     * are NOT in the list. */
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o *_arm_addsubdf3.o *_arm_addsubsf3.o *_arm_cmpdf2.o *_arm_fixdfsi.o *_arm_fixunsdfsi.o *_arm_muldf3.o *_arm_muldivdf3.o *_arm_mulsf3.o *_arm_truncdfsf2.o *_aeabi_ldivmod.o *_aeabi_uldivmod.o *_dvmd_tls.o *_fixunsdfdi.o *_popcountsi2.o *_udivmoddi4.o *libmusl-m.frexp.o *libmusl-m.frexpl.o) .text.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o *_arm_addsubdf3.o *_arm_addsubsf3.o *_arm_cmpdf2.o *_arm_fixdfsi.o *_arm_fixunsdfsi.o *_arm_muldf3.o *_arm_muldivdf3.o *_arm_mulsf3.o *_arm_truncdfsf2.o *_aeabi_ldivmod.o *_aeabi_uldivmod.o *_dvmd_tls.o *_fixunsdfdi.o *_popcountsi2.o *_udivmoddi4.o *libmusl-m.frexp.o *libmusl-m.frexpl.o) .text)
     /* board/include/los_builddef_target.h routes kernel code via
      * LITE_OS_SEC_TEXT* to .kernel.text; ITCM variant falls back to
      * normal flash (STM32F407 has no ITCM). */
@@ -101,9 +105,9 @@ SECTIONS
     *(.itcm.kernel.text)
     . = ALIGN(0x4);
     _etext = .;
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .rodata.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .gnu.linkonce.r.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .rodata)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o) .rodata.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o) .gnu.linkonce.r.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o) .rodata)
     *(.rodata1)
     . = ALIGN(0x4);
     __kernel_text_end = .;
@@ -118,9 +122,9 @@ SECTIONS
 
   .data : ALIGN(0x4) {
     __data_start = .;
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .data.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .gnu.linkonce.d.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .data)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o) .data.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o) .gnu.linkonce.d.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o) .data)
     *(.kernel.data .kernel.data.*)
 
     __init_array_start = .;
@@ -160,9 +164,9 @@ SECTIONS
   .bss : ALIGN(0x4) {
    __bss_start = .;
    *(.dynbss)
-   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .bss.*)
-   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .gnu.linkonce.b.*)
-   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o) .bss)
+   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o) .bss.*)
+   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o) .gnu.linkonce.b.*)
+   *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o) .bss)
    *(.kernel.bss .kernel.bss.*)
    *(COMMON)
    . = ALIGN(0x4);
@@ -200,7 +204,7 @@ SECTIONS
      * veneer = zeros in flash). */
     KEEP(*(.usr.text .usr.text.*))
     KEEP(*(.usrtcm.text))
-    /* M5D single shared copy of the bestfit allocator (usr_demo:
+    /* The single shared copy of the bestfit allocator (usr_demo:
      * box_usr_mem): route the WHOLE objects by file-name pattern —
      * explicit LITE_OS_SEC_* sections AND the plain .text.* / .rodata.*
      * of static/inline helpers, so no fragment of the shared allocator
@@ -217,7 +221,24 @@ SECTIONS
      * user-mode fault. KEEP: referenced by both worlds, but the
      * convention for shared code is KEEP. */
     KEEP(*box_usr_test.*(.text .text.* .rodata .rodata.*))
-    /* libc mem/str primitives shared with the box world (M5E): the pure
+    /* los_usr_swtmr_task.o (kernel/box:box_usr, refs
+     * kernel_s/usr/los_usr_swtmr_task.c): BoxSwtmrTask runs UNPRIVILEGED
+     * inside the owning box and reads its own rodata (the task name and
+     * the handler-too-slow format string), so the whole object belongs
+     * in COMMON. It carries no section attributes of its own, hence the
+     * file-name rule - the same shape as box_usr_mem above. Matched by
+     * FILE name, not module name, so moving it between modules does not
+     * silently drop it back into kernel flash. */
+    KEEP(*los_usr_swtmr_task*.o(.text .text.* .rodata .rodata.*))
+    /* los_usr_init.o (kernel/box module): __stack_chk_fail runs in USER
+     * mode out of .usrtcm.text above, and its rodata (the format string)
+     * is read by that mode - user code can neither execute nor READ
+     * kernel flash, so the string must sit in COMMON. Collected by file
+     * name for the same reason as box_usr_mem: the object is the unit
+     * (only the rodata needs it here; the function itself rides the
+     * .usrtcm.text attribute, the globals ride .USER_READONLY_DATA). */
+    KEEP(*los_usr_init*.o(.rodata .rodata.*))
+    /* libc mem/str primitives shared with the box world: the pure
      * helpers — mem family (musl mem*.o + libsec mem{set,cpy}_s) and 16
      * plain str members — carry no globals/rodata tables. The two
      * bare-.text members (memcpy_le.o, strlen-armv6t2.o: whole file is
@@ -233,6 +254,54 @@ SECTIONS
     *(.text.strcat .text.strchr .text.__strchrnul .text.strcmp .text.strcpy
       .text.strcspn .text.strncat .text.strncmp .text.strncpy .text.strnlen
       .text.strrchr .text.strspn .text.strstr .text.twoway_strstr)
+    /* Float / 64-bit arithmetic compiler support shared with the box world.
+     *
+     * Why: the soft-double helpers (__aeabi_d*) and frexp are the only
+     * members of the printf closure that are pure math. musl's vfprintf
+     * itself stays in kernel flash on purpose - it needs __lockfile ->
+     * pthread_mutex_lock -> the posix scheduler surface (ArchIntLock,
+     * LOS_Schedule, OsSchedPrioModify, ...) plus __errno_location, strerror
+     * and wctomb/locale, none of which have a meaningful unprivileged form.
+     * Routing the arithmetic first means a COMMON-side formatter can do
+     * double math without dragging any of that in.
+     *
+     * Audited member by member (objdump -h + nm -u): all 15 are bare .text
+     * with ZERO .rodata/.data/.bss, and their only undefined references are
+     * inside this same set (__aeabi_ldiv0, __udivmoddi4, __aeabi_d2uiz,
+     * __aeabi_dmul, __aeabi_dsub, __aeabi_ui2d) - closed and burden-free.
+     * __aeabi_ldiv0 is a "bx lr; nop" stub in _dvmd_tls.o, so even the
+     * divide-by-zero path pulls nothing in. frexp/frexpl need only
+     * __aeabi_dcmpeq/__aeabi_dmul from the set above.
+     *
+     * DELIBERATELY NOT ROUTED - the three unwinder members (libunwind.o,
+     * pr-support.o, unwind-arm.o): unwind-arm.o reads __exidx_start /
+     * __exidx_end (the .ARM.exidx table lives in kernel flash) and
+     * pr-support.o calls abort(). Nothing in the box world unwinds
+     * (LOSCFG_BACKTRACE_TYPE 1 is a stack scan, -fno-exceptions), so they
+     * stay kernel-only: a COMMON member must not drag in anything that
+     * lives outside COMMON.
+     *
+     * These are prebuilt libgcc members: no -ffunction-sections, so the code
+     * sits in bare .text and needs explicit FILE rules (same reason as
+     * memcpy_le.o / strlen-armv6t2.o above). MAINTAIN THIS LIST: a libgcc
+     * helper that COMMON code calls but that was not routed here is a silent
+     * user-mode IACCVIOL at run time, not a link error. */
+    *(.text.frexp .text.frexpl)
+    *_arm_addsubdf3.o(.text)
+    *_arm_addsubsf3.o(.text)
+    *_arm_cmpdf2.o(.text)
+    *_arm_fixdfsi.o(.text)
+    *_arm_fixunsdfsi.o(.text)
+    *_arm_muldf3.o(.text)
+    *_arm_muldivdf3.o(.text)
+    *_arm_mulsf3.o(.text)
+    *_arm_truncdfsf2.o(.text)
+    *_aeabi_ldivmod.o(.text)
+    *_aeabi_uldivmod.o(.text)
+    *_dvmd_tls.o(.text)
+    *_fixunsdfdi.o(.text)
+    *_popcountsi2.o(.text)
+    *_udivmoddi4.o(.text)
     __common_rodata_start = .;
     KEEP(*(.COMMON_RODATA .COMMON_RODATA.*))
     KEEP(*(.usr.ro.data))
@@ -245,7 +314,7 @@ SECTIONS
   .COMMON_DATA : ALIGN(0x4) {
     __common_data_start = .;
     *(.COMMON_DATA .COMMON_DATA.*)
-    /* M5D shared allocator INITIALIZED data would land here (explicit
+    /* Shared-allocator INITIALIZED data would land here (explicit
      * .COMMON_DATA sections). NOTE: zero-initialized objects must NOT be
      * listed here — a NOBITS input section inside this PROGBITS/AT output
      * section shares its LMA slot with other NOBITS sections (ld does not
@@ -258,6 +327,7 @@ SECTIONS
      * zero-initialized and must land in .COMMON_BSS below per the NOBITS
      * note above). */
     *box_usr_test.*(.data .data.*)
+    *los_usr_swtmr_task*.o(.data .data.*)
     . = ALIGN(0x4);
     __common_data_end = .;
   } > COMMON_RAM AT> KERNEL_FLASH
@@ -266,7 +336,7 @@ SECTIONS
   .COMMON_BSS (NOLOAD) : ALIGN(0x4) {
     __common_bss_start = .;
     *(.COMMON_BSS .COMMON_BSS.*)
-    /* M5D shared allocator zero-initialized data: g_MALLOC_HOOK /
+    /* Shared-allocator zero-initialized data: g_MALLOC_HOOK /
      * m_aucSysMem* / g_poolHead — zeroed by the startup common_bss loop
      * (COMMON_RAM is outside the __bss range). */
     *box_usr_mem.*(.bss .bss.* COMMON)
@@ -275,6 +345,7 @@ SECTIONS
      * the two-phase flag g_utsPhase - zeroed by the startup common_bss
      * loop (COMMON_RAM is outside the __bss range). */
     *box_usr_test.*(.bss .bss.* COMMON)
+    *los_usr_swtmr_task*.o(.bss .bss.* COMMON)
     . = ALIGN(0x4);
     __common_bss_end = .;
   } > COMMON_RAM

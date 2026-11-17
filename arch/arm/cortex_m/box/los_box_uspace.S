@@ -1,22 +1,20 @@
 /*
- * los_box_uspace.S — refs first-dispatch descent (uspace_entry.S semantics,
- * adapted to the M4H 204B context geometry).
+ * los_box_uspace.S — first-dispatch descent into user mode, matching the
+ * unified 204B context geometry.
  *
- * *** PARKED (pitfall 41, M5B): compiled but unreferenced. The descent
- * crashed on the first BLOCKING syscall (QEMU: UNDEFINSTR at a garbage PC,
- * CFSR=0x40000; the user task entered with r4-r11 loaded from the kernel
- * stack filler) — interaction with the phase-1 graft/epilogue machinery not
- * root-caused. Box tasks enter user mode the born-INUSER way instead
- * (OsBoxTskUserStackInit + INUSER at create). This stub stays for the
- * dedicated descent-debugging milestone. ***
+ * *** PARKED: compiled but unreferenced. The descent crashed on the first
+ * BLOCKING syscall (QEMU: UNDEFINSTR at a garbage PC, CFSR=0x40000; the
+ * user task entered with r4-r11 loaded from the kernel stack filler) —
+ * interaction with the graft/epilogue machinery not root-caused. Box tasks
+ * enter user mode the born-INUSER way instead (OsBoxTskUserStackInit +
+ * INUSER at create). This stub stays for dedicated descent debugging. ***
  *
  * OsUserTaskEntry (kernel-mode prelude) calls OsUserspaceEnter as the very
  * last action; the stub drops the task into its crafted user context:
  *   - mark the running task INUSER (subsequent PendSV switches take the
  *     user-context path),
  *   - park MSP just above the (now consumed) crafted kernel context so
- *     later syscall/exception stacking starts from a clean base (refs
- *     achieves the same by unwinding the prelude frames with add sp),
+ *     later syscall/exception stacking starts from a clean base,
  *   - publish g_sysMode=1 for the veneers, switch CONTROL to PSP +
  *     unprivileged, then enter the user hardware frame directly (no
  *     exception return: r0..r3/r12/lr from the frame, PC via bx with its

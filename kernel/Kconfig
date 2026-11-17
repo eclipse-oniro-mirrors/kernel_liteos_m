@@ -877,6 +877,15 @@ menu "Debug"
         help
           Answer Y to enable queue leak detection and creator tracking.
 
+    config DEBUG_SWTMR
+        bool "Enable Swtmr Debugging"
+        default n
+        depends on DEBUG_KERNEL
+        depends on BASE_CORE_SWTMR
+        help
+          Answer Y to enable software timer debugging: the swtmr shell command
+          prints timer id/state/mode/interval/arg/handler for all created timers.
+
     config DEBUG_SCHED_STATISTICS
         bool "Enable Schedule Statistics"
         default n

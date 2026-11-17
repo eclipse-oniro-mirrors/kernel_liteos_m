@@ -67,11 +67,12 @@ STATIC UINT32 HwiSetPriority(HWI_HANDLE_T hwiNum, HWI_PRIOR_T priority)
         return OS_ERRNO_HWI_NUM_INVALID;
     }
 
-    if (priority > OS_HWI_PRIO_HIGHEST || priority < OS_HWI_PRIO_LOWEST) {
+    if (priority > OS_HWI_PRIO_LOWEST || priority < OS_HWI_PRIO_HIGHEST) {
         return OS_ERRNO_HWI_PRIO_INVALID;
     }
 
-    ECLIC_SetPriorityIRQ(hwiNum, (hwiPrio & 0xffff));
+    /* smaller value = higher priority; ECLIC level 0 never fires, so invert */
+    ECLIC_SetPriorityIRQ(hwiNum, (uint8_t)(OS_HWI_PRIO_LOWEST - priority + 1));
 
     return LOS_OK;
 }

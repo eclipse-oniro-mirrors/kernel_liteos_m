@@ -76,7 +76,7 @@ kernel_module(module_name) {
     sources += [ "los_rwsem.c" ]
   }
 
-  if (defined(LOSCFG_BASE_IPC_RINGBUF)) {
+  if (defined(LOSCFG_KERNEL_RINGBUF)) {
     sources += [ "los_ringbuf.c" ]
   }
   if (defined(LOSCFG_DEBUG_SWTMR)) {

@@ -34,4 +34,15 @@ config KAL_CMSIS
     help
       Answer Y to enable LiteOS Kernel Abstraction Layer support CMSIS API.
 
-
+config CMSIS_THREAD_DEFAULT_OFFSET
+    int "Priority Shift"
+    default 0
+    range 0 7
+    depends on KAL_CMSIS
+    help
+      Anchor shift N for the CMSIS <-> LOS priority mapping: the CMSIS
+      value (osPriorityNormal + N) maps to the default LOS priority
+      (LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO). Larger N makes the whole
+      scale more urgent but shrinks the valid low-end CMSIS domain;
+      the upper bound keeps osPriorityHigh mapped to the highest
+      usable LOS priority.

@@ -238,6 +238,9 @@ group("testsuites") {
   if (defined(LOSCFG_KERNEL_HPL) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/hpl:test_hpl" ]
   }
+  if (defined(LOSCFG_KERNEL_CPPSUPPORT) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
+    deps += [ "sample/kernel/cpp:test_cppsupport" ]
+  }
   if (defined(LOSCFG_KERNEL_TRACE) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/trace:test_trace" ]
   }

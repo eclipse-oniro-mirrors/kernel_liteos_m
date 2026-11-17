@@ -242,6 +242,9 @@ void TestKernel(void)
 #if (LOS_KERNEL_HPL_TEST == 1)
     ItSuiteLosHpl();
 #endif
+#if (LOS_KERNEL_CPPSUPPORT_TEST == 1)
+    ItSuiteLosCppsupport();
+#endif
 
 #if (LOS_KERNEL_LMS_TEST == 1)
     ItSuiteLosLms();

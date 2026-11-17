@@ -79,6 +79,7 @@ board_cflags = [
   "-DTARGET_CHIP_3322=1",
 ]
 board_cxx_flags = board_cflags
+board_cxx_flags -= [ "-std=gnu99" ]
 
 board_asmflags = [
   "--target=riscv32",

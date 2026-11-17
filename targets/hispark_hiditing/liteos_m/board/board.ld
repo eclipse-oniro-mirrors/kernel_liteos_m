@@ -34,6 +34,8 @@ __STACK_SIZE = 0x2000;
 __sram_start__ = ORIGIN(DTCM);
 __sram_end__   = ORIGIN(DTCM) + LENGTH(DTCM);
 
+__fast_end = ORIGIN(ITCM) + LENGTH(ITCM);
+
 SECTIONS
 {
     /*

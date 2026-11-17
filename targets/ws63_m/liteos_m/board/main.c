@@ -8,6 +8,9 @@
  *   - los_typedef/los_printf/los_task_pri -> los_config/los_task/los_debug
  */
 
+#ifdef LOSCFG_KERNEL_CPPSUPPORT
+#include "los_cppsupport.h"
+#endif
 #include "los_compiler.h"
 #include "los_config.h"
 #include "los_task.h"
@@ -88,6 +91,15 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
         PRINT_ERR("LOS_KernelInit failed: 0x%x\n", ret);
         while (1) {}
     }
+
+#ifdef LOSCFG_KERNEL_CPPSUPPORT
+    {
+        extern char __init_array_start;
+        extern char __init_array_end;
+        ret = LOS_CppSystemInit((UINTPTR)&__init_array_start,
+                                (UINTPTR)&__init_array_end, NO_SCATTER);
+    }
+#endif
 
     HalPlicInit();
 

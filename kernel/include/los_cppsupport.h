@@ -4,18 +4,14 @@
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
- *
  * 1. Redistributions of source code must retain the above copyright notice, this list of
- *    conditions and the following disclaimer.
- *
+ * conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice, this list
- *    of conditions and the following disclaimer in the documentation and/or other materials
- *    provided with the distribution.
- *
+ * of conditions and the following disclaimer in the documentation and/or other materials
+ * provided with the distribution.
  * 3. Neither the name of the copyright holder nor the names of its contributors may be used
- *    to endorse or promote products derived from this software without specific prior written
- *    permission.
- *
+ * to endorse or promote products derived from this software without specific prior written
+ * permission.
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -30,48 +26,68 @@
  */
 
 /**
- * @defgroup los_cppsupport c++
+ * @defgroup los_cppsupport C++
  * @ingroup kernel
  */
 
 #ifndef _LOS_CPPSUPPORT_H
 #define _LOS_CPPSUPPORT_H
 
-#include "los_compiler.h"
+#include "los_typedef.h"
 
 #ifdef __cplusplus
-#if __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-#endif /* __cplusplus */
+
+/**
+ * @ingroup los_cppsupport
+ * If LOS_CppSystemInit() is called in the first stage of scatter load,
+ * this flag should be passed as the third parameter.
+ */
+#define BEFORE_SCATTER 0
+
+/**
+ * @ingroup los_cppsupport
+ * If LOS_CppSystemInit() is called in the second stage of scatter load,
+ * this flag should be passed as the third parameter.
+ */
+#define AFTER_SCATTER 1
+
+/**
+ * @ingroup los_cppsupport
+ * If scatter load is disabled, this flag should be passed as the third
+ * parameter when LOS_CppSystemInit() is called.
+ */
+#define NO_SCATTER 2
 
 /**
  * @ingroup los_cppsupport
  * @brief System cppsupport initialization.
  *
  * @par Description:
- * This API is used to initialize the cppsupport .
+ * This API is used to initialize the cppsupport.
  * @attention
  * <ul>
  * <li>initArrayStart is the start address of .init_array section,
  * initArrayEnd is the end address of .init_array section.</li>
- * <li>initArrayStart must be smaller than initArrayEnd,
- * initArrayStart and initArrayEnd should be 4(32 bits platform) or 8(64 bits platform) bytes alignment.</li>
+ * <li>initArrayStart must be smaller than initArrayEnd, initArrayStart
+ * and initArrayEnd should be 4(32 bits platform) or 8(64 bits platform) bytes alignment.</li>
  * </ul>
  *
+ * @param  initArrayStart  [IN] Start address of init_array section.
+ * @param  initArrayEnd    [IN] End address of init_array section.
+ * @param  flag            [IN] The flag indicating when LOS_CppSystemInit() is called,
+ *                              #BEFORE_SCATTER, #AFTER_SCATTER or #NO_SCATTER.
  *
- * @retval 0 always return 0.
+ * @retval #LOS_OK         Initialization succeeded.
+ * @retval #LOS_NOK        The entered parameter is incorrect, initialization failed.
  * @par Dependency:
  * <ul><li>los_cppsupport.h: the header file that contains the API declaration.</li></ul>
- * @see None.
  */
-extern INT32 LOS_CppSystemInit(UINTPTR initArrayStart, UINTPTR initArrayEnd);
-
+extern INT32 LOS_CppSystemInit(UINTPTR initArrayStart, UINTPTR initArrayEnd, INT32 flag);
 
 #ifdef __cplusplus
-#if __cplusplus
 }
-#endif /* __cplusplus */
 #endif /* __cplusplus */
 
 #endif /* _LOS_CPPSUPPORT_H */

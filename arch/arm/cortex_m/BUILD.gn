@@ -44,6 +44,12 @@ kernel_module(module_name) {
   if (!defined(LOSCFG_ARCH_TIMER_VENDOR)) {
     sources += [ "los_timer.c" ]
   }
+
+  # SR context save/restore for PM (runstop/deepsleep).
+  if (defined(LOSCFG_KERNEL_RUNSTOP) || defined(LOSCFG_KERNEL_DEEPSLEEP_RETENTION)) {
+    sources += [ "runstop.S" ]
+  }
+
   configs += [ "$LITEOSTOPDIR:warn_config" ]
 }
 

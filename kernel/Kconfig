@@ -277,12 +277,35 @@ config KERNEL_PM_IDLE
       Configuration item for low power frame tailoring.
       If you wish to build LiteOS with support for power management idle.
 
+config KERNEL_PM_FORCED_SLEEP_NO_TIMER
+    bool "Forced Sleep Without Tick Timer"
+    default n
+    depends on KERNEL_PM
+    help
+      Enter the configured sleep mode without a timer to reduce power and overhead. 
+      Use only when timekeeping is not required: the tick count stops during sleep, 
+      so tick-based counting and delays do not work across sleep.
+
 config KERNEL_PM_DEBUG
     bool "Power Management Debug"
     default n
     depends on KERNEL_PM
     help
       Configuration item for low power frame debug tailoring.
+
+config KERNEL_RUNSTOP
+    bool "Enable Runstop (flash snapshot hibernate)"
+    default n
+    depends on KERNEL_PM
+    help
+      If you wish to build LiteOS with support for run-stop.
+
+config KERNEL_DEEPSLEEP_RETENTION
+    bool "Enable layered DeepSleep implementation"
+    default n
+    depends on KERNEL_PM
+    help
+      If you wish to build LiteOS with support for deepsleep retention.
 
 config PLATFORM_EXC
     bool "Enable Platform Exc Hook"

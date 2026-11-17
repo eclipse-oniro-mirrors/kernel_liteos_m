@@ -35,11 +35,6 @@
 =============================================================================*/
 #define LOSCFG_PLATFORM_HWI 1
 #define LOSCFG_USE_SYSTEM_DEFINED_INTERRUPT 1
-/* GICv3 (GIC-600) on RK3588: single 64KB GICD frame at 0xFE600000, full
- * INTID range. Claimed-from-Linux SPIs live high: GMAC1 = 266,
- * CAN1 = 374, CAN2 = 375 - the limit must cover them (288, copied from
- * the RK3568 target, rejected CAN with ArchHwiCreate(374) error). */
-#define LOSCFG_PLATFORM_HWI_LIMIT 1020
 
 /*=============================================================================
                                 Task module configuration

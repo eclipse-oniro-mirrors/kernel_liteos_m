@@ -86,7 +86,9 @@ VOID ItSuiteLosHwi()
     ItLosHwi039();
     ItLosHwi040();
 #endif
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
     ItLosHwi041();
+#endif
 #if (LOSCFG_HWI_BOTTOM_HALF == 1)
     ItLosHwi042();
     ItLosHwi048();
@@ -94,7 +96,7 @@ VOID ItSuiteLosHwi()
 #if (LOSCFG_HWI_PRE_POST_PROCESS == 1)
     ItLosHwi044();
 #endif
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 #ifndef LOSCFG_PLATFORM_WS63_M  /* 045: WITH_ARG handler path crashes on ws63 when ISR runs (port incomplete). Skip. */
     ItLosHwi045();
 #endif

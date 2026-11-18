@@ -8,6 +8,26 @@ config ARCH_RISCV_RV32IMC
     help
       32-bit RISCV RV32IMC base ISA.
 
+config ARCH_RISCV_ISA_A
+    bool
+    help
+      "A" Standard Extension for Atomic Instructions (lr.w/sc.w/amo*).
+      Kernel atomics use these only when ARCH_RISCV_HW_ATOMIC is set.
+
+config ARCH_RISCV_ISA_B0p92
+    bool
+    help
+      "B" Standard Extension at version 0.92 for Bit Manipulation (draft).
+      Consumed by the arch-level -march composition (arch/risc-v/src/BUILD.gn).
+      Spelled "b0p92", never a bare "b": clang 15+ "b" means ratified B 1.0.
+
+config ARCH_RISCV_ISA_B1p0
+    bool
+    help
+      "B" Standard Extension 1.0 (ratified bit manipulation: andn/orn/xnor,
+      clz/ctz/cpop, min/max, rol/ror, sha3add, rev8, orc.*). No in-tree
+      core selects it; clang 15+ spells it as a bare "b" in -march.
+
 config ARCH_RISCV_ISA_F
     bool
     help
@@ -60,6 +80,7 @@ config ARCH_LINX_M
 config ARCH_QEMU_RISCV32_VIRT
     bool
     select ARCH_RISCV_RV32IMC
+    select ARCH_RISCV_ISA_A
     select ARCH_RISCV32
     help
       QEMU virt platform RISC-V 32-bit (rv32imac). Uses the standard
@@ -68,15 +89,21 @@ config ARCH_QEMU_RISCV32_VIRT
 config ARCH_LINXCORE_131
     bool
     select ARCH_RISCV_RV32IMC
+    select ARCH_RISCV_ISA_F
     select ARCH_RISCV32
     select RISCV_HIMIDEERV200_PLIC if !ARCH_INTERRUPT_VENDOR
     help
-      HiSilicon LinxCore131 (ws63). Does not belong to LinxCore m-profile,
-      so does not select ARCH_LINX_M.
+      HiSilicon LinxCore131 (ws63). Single-precision FPU (rv32imfc).
+      Does not belong to LinxCore m-profile, so does not select ARCH_LINX_M.
 
 config ARCH_LINXCORE_170
     bool
     select ARCH_LINX_M
+    select ARCH_RISCV_ISA_F
+    select ARCH_RISCV_ISA_D
+    help
+      HiSilicon LinxCore170 (hi3322/diting). Double-precision FPU
+      (rv32imfdc).
 
 config ARCH_RISCV_EPMP
     bool
@@ -139,6 +166,7 @@ config NMI_STACK_SIZE
 config ARCH_LINXCORE_170_CONFIG61
     bool
     select ARCH_LINX_M
+    select ARCH_RISCV_ISA_B0p92
     select ARCH_RISCV_ISA_D
     select LCMP_CUSTOM_INST16_EXTENSIONS
     select LCMP_CUSTOM_INST32_EXTENSIONS
@@ -147,6 +175,7 @@ config ARCH_LINXCORE_170_CONFIG61
 config ARCH_LINXCORE_170_CONFIG41
     bool
     select ARCH_LINX_M
+    select ARCH_RISCV_ISA_B0p92
     select ARCH_RISCV_ISA_D
     select LCMP_CUSTOM_INST16_EXTENSIONS
     select LCMP_CUSTOM_INST32_EXTENSIONS
@@ -154,6 +183,7 @@ config ARCH_LINXCORE_170_CONFIG41
 config ARCH_LINXCORE_170_CONFIG32
     bool
     select ARCH_LINX_M
+    select ARCH_RISCV_ISA_B0p92
     select ARCH_RISCV_ISA_F
     select LCMP_CUSTOM_INST16_EXTENSIONS
     select LCMP_CUSTOM_INST32_EXTENSIONS
@@ -161,6 +191,7 @@ config ARCH_LINXCORE_170_CONFIG32
 config ARCH_LINXCORE_170_CONFIG60
     bool
     select ARCH_LINX_M
+    select ARCH_RISCV_ISA_B0p92
     select ARCH_RISCV_ISA_D
     select LCMP_CUSTOM_INST16_EXTENSIONS
     select LCMP_CUSTOM_INST32_EXTENSIONS

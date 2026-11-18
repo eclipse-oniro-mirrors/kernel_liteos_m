@@ -93,7 +93,7 @@ STATIC VOID PTimerTickUnlock(VOID);
 STATIC UINT64 g_tickFirstArmCntpt;
 STATIC volatile UINT64 g_tickIsrCount;
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 STATIC VOID HalTickEntry(VOID *parm);
 #else
 STATIC VOID HalTickEntry(VOID);
@@ -126,7 +126,7 @@ STATIC UINT32 PTimerTickStart(HWI_PROC_FUNC handler)
     }
 
     tick->tickHandler = handler;
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
     OsSetVector((UINT32)tick->irqNum, HalTickEntry, NULL);
 #else
     OsSetVector((UINT32)tick->irqNum, HalTickEntry);
@@ -218,7 +218,7 @@ STATIC UINT64 PTimerTickReload(UINT64 nextResponseTime)
     return nextResponseTime;
 }
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 STATIC VOID HalTickEntry(VOID *parm)
 #else
 STATIC VOID HalTickEntry(VOID)

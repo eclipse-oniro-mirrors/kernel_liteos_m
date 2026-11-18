@@ -443,10 +443,17 @@ config ARCH_INTERRUPT_PREEMPTION
 config HWI_PRE_POST_PROCESS
     bool "Enable Interrupt pre/post-processing"
 
-config PLATFORM_HWI_WITH_ARG
+config HWI_WITH_ARG
     bool "Enable Interrupt Create With Args"
     depends on KERNEL_MEM_ALLOC
     default y
+
+config IRQ_RESP_COUNT
+    bool "Enable resp count"
+    default y
+    help
+      Count interrupt dispatches per IRQ line (read via LOS_HwiRespCntGet).
+      Turn off to save 4 bytes per IRQ form entry and one increment per dispatch.
 
 menuconfig HWI_BOTTOM_HALF
     bool "Enable Interrupt Bottom Half"

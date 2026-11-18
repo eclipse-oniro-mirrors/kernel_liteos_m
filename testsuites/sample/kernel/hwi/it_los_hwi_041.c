@@ -31,6 +31,8 @@
 #include "osTest.h"
 #include "it_los_hwi.h"
 
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
+
 static UINT32 g_hwiRespCntBefore;
 static UINT32 g_hwiRespCntAfter;
 
@@ -90,3 +92,4 @@ VOID ItLosHwi041(VOID) // IT_Layer_ModuleORFeature_No
 {
     TEST_ADD_CASE("ItLosHwi041", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL3, TEST_PRESSURE);
 }
+#endif

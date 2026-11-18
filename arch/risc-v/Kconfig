@@ -39,6 +39,14 @@ config ARCH_RISCV_ISA_D
     help
       "D" Standard Extension for Double-Precision Floating-Point.
 
+config ARCH_RISCV_ISA_V
+    bool
+    help
+      "V" Standard Extension for Vector Operations (LinxCore170 V-variant).
+      Capability marker only: not composed into the kernel -march, the kernel
+      does not use vector codegen (the vendor gates march "v" behind a
+      separate VECTOR_ENABLE knob, absent here).
+
 config LCMP_CUSTOM_INST16_EXTENSIONS
     bool
     help
@@ -193,6 +201,7 @@ config ARCH_LINXCORE_170_CONFIG60
     select ARCH_LINX_M
     select ARCH_RISCV_ISA_B0p92
     select ARCH_RISCV_ISA_D
+    select ARCH_RISCV_ISA_V
     select LCMP_CUSTOM_INST16_EXTENSIONS
     select LCMP_CUSTOM_INST32_EXTENSIONS
     select ARCH_RISCV_EPMP

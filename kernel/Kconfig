@@ -412,7 +412,7 @@ config DEBUG_HPL_EMULATION
     bool "Enable HPL On-Board Decompression Emulation"
     default n
     depends on KERNEL_HPL
-    select BASE_IPC_RINGBUF
+    select KERNEL_RINGBUF
     help
       Decompress the compressed log on board and print readable log
       directly (uses the generic ringbuf component). Debug-only feature:
@@ -829,7 +829,7 @@ config BASE_IPC_RWSEM_LIMIT
 
 endif # BASE_IPC_RWSEM
 
-config BASE_IPC_RINGBUF
+config KERNEL_RINGBUF
     bool "Enable Ringbuf"
     default n
     help
@@ -876,6 +876,15 @@ menu "Debug"
         depends on BASE_IPC_QUEUE
         help
           Answer Y to enable queue leak detection and creator tracking.
+
+    config DEBUG_SWTMR
+        bool "Enable Swtmr Debugging"
+        default n
+        depends on DEBUG_KERNEL
+        depends on BASE_CORE_SWTMR
+        help
+          Answer Y to enable software timer debugging: the swtmr shell command
+          prints timer id/state/mode/interval/arg/handler for all created timers.
 
     config DEBUG_SCHED_STATISTICS
         bool "Enable Schedule Statistics"

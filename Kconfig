@@ -156,6 +156,7 @@ config PLATFORM_NRF52832
 config PLATFORM_HI3322
     bool "hi3322"
     select ARCH_LINXCORE_170
+    select ARCH_RISCV_ISA_B0p92
     help
         HiSilicon HI3322 wearable SoC (RISC-V LinxCore170).
 

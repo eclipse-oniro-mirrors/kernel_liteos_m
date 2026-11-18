@@ -39,8 +39,8 @@ extern "C" {
 #endif /* __cplusplus */
 #endif /* __cplusplus */
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 0)
-#error "LOSCFG_PLATFORM_HWI_WITH_ARG must be set to 1 !!!"
+#if (LOSCFG_HWI_WITH_ARG == 0)
+#error "LOSCFG_HWI_WITH_ARG must be set to 1 !!!"
 #endif
 
 /**

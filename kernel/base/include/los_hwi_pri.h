@@ -61,7 +61,8 @@ extern "C" {
  * <li>registerInfo: handler arg (pDevId / HWI_IRQ_PARAM_S*); 0 if none.
  *     Absorbs the old WITH_ARG g_hwiHandlerForm[].pParm.</li>
  * <li>respCount: number of times this IRQ has been dispatched
- *     (read via LOS_HwiRespCntGet, cleared on create).</li>
+ *     (read via LOS_HwiRespCntGet, cleared on create; only present when
+ *     LOSCFG_IRQ_RESP_COUNT is 1).</li>
  * <li>shareMode: reserved (currently always 0).</li>
  * <li>next: reserved (currently always NULL).</li>
  * </ul>
@@ -73,7 +74,9 @@ typedef struct HwiHandleInfo {
         HWI_ARG_T registerInfo;
     };
     struct HwiHandleInfo *next;
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
     UINT32 respCount;
+#endif
 } HwiHandleInfo;
 
 /**

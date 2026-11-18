@@ -63,7 +63,7 @@ STATIC UINT32 HwiNumValid(UINT32 num)
     return ((num) >= OS_USER_HWI_MIN) && ((num) <= OS_USER_HWI_MAX);
 }
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 
 /* *
  * @ingroup los_hwi

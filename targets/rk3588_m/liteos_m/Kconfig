@@ -30,7 +30,7 @@ config RK3588_UART
     bool "Enable the RK3588 UART driver (Modbus-RTU oriented, uart_drv.h API)"
     default n
     depends on PLATFORM_RK3588_M
-    depends on PLATFORM_HWI_WITH_ARG
+    depends on HWI_WITH_ARG
     help
       Interrupt-driven DW 8250 UART driver for UART1~UART9 (board/uart.c,
       API in include/uart_drv.h): per-port RX/TX ring buffers + semaphore

@@ -18,7 +18,7 @@
 与 console 驱动（`uart_porting.c`，UART2 共享主核 ttyFIQ0）**相互独立**：协议层
 传 port id（1..9）即得一个初始化好的串口；UART2 为共享口，调用方自担风险。
 
-Kconfig 开关：`RK3588_UART`（依赖 `PLATFORM_RK3588_M` + `PLATFORM_HWI_WITH_ARG`），
+Kconfig 开关：`RK3588_UART`（依赖 `PLATFORM_RK3588_M` + `HWI_WITH_ARG`），
 产品配置 `LOSCFG_RK3588_UART=y` 已在 vendor 两份 config 中打开。
 
 ## 2. 硬件事实（BQ3588HM）

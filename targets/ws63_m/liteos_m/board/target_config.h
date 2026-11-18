@@ -71,8 +71,11 @@ extern UINTPTR g_intheap_size;
 #define LOSCFG_USE_SHELL                                    0
 #endif
 
-#ifndef LOSCFG_PLATFORM_HWI_WITH_ARG
-#define LOSCFG_PLATFORM_HWI_WITH_ARG                        1
+#ifndef LOSCFG_HWI_WITH_ARG
+#define LOSCFG_HWI_WITH_ARG                        1
+#endif
+#ifndef LOSCFG_IRQ_RESP_COUNT
+#define LOSCFG_IRQ_RESP_COUNT                      1
 #endif
 
 #ifdef __cplusplus

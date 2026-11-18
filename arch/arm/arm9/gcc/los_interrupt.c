@@ -297,7 +297,7 @@ LITE_OS_SEC_TEXT_INIT VOID HalHwiInit(VOID)
     HWI_PROC_FUNC *hwiForm = (HWI_PROC_FUNC *)ArchGetHwiFrom();
 
     for (val = OS_SYS_VECTOR_CNT; val < OS_VECTOR_CNT; val++) {
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
         hwiForm[val].pfnHook = HalHwiDefaultHandler;
         hwiForm[val].uwParam = 0;
 #else

@@ -60,7 +60,7 @@ STATIC UINT32 SysTickStart(HWI_PROC_FUNC handler)
     tick->freq = OS_SYS_CLOCK;
 
 #if (LOSCFG_USE_SYSTEM_DEFINED_INTERRUPT == 1)
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
     OsSetVector(tick->irqNum, handler, NULL);
 #else
     OsSetVector(tick->irqNum, handler);

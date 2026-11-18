@@ -96,7 +96,7 @@ VOID HalClockInit(VOID)
 {
     /* LOS_HwiCreate would shift SysTick_IRQn into the external-IRQ space. */
 #if (LOSCFG_USE_SYSTEM_DEFINED_INTERRUPT == 1)
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
     OsSetVector(SysTick_IRQn, (HWI_PROC_FUNC)OsTickHandler, NULL);
 #else
     OsSetVector(SysTick_IRQn, (HWI_PROC_FUNC)OsTickHandler);

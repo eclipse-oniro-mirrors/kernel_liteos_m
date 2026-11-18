@@ -67,7 +67,7 @@ typedef VOID (**HWI_VECTOR_FUNC)(VOID);
 #define OS_HWI_MAX_NUM                        LOSCFG_PLATFORM_HWI_LIMIT
 #endif
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 typedef struct {
     HWI_PROC_FUNC pfnHandler;
     VOID *pParm;

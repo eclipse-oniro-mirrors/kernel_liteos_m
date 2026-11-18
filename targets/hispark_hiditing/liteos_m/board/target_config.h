@@ -102,8 +102,11 @@ extern UINTPTR g_intheap_size;
 /*=============================================================================
                     Exception module configuration
 =============================================================================*/
-#ifndef LOSCFG_PLATFORM_HWI_WITH_ARG
-#define LOSCFG_PLATFORM_HWI_WITH_ARG                        1
+#ifndef LOSCFG_HWI_WITH_ARG
+#define LOSCFG_HWI_WITH_ARG                        1
+#endif
+#ifndef LOSCFG_IRQ_RESP_COUNT
+#define LOSCFG_IRQ_RESP_COUNT                      1
 #endif
 #ifndef LOSCFG_KERNEL_PRINTF
 #define LOSCFG_KERNEL_PRINTF                                3

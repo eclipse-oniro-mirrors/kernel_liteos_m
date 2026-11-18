@@ -82,8 +82,11 @@ extern "C" {
 ============================================================================*/
 /* arch/risc-v/include/arch/los_arch_interrupt.h:43 对 0 值（含未定义，#if
  * 语义按 0）直接 #error —— 所有 riscv 板必须显式定义为 1。 */
-#ifndef LOSCFG_PLATFORM_HWI_WITH_ARG
-#define LOSCFG_PLATFORM_HWI_WITH_ARG        1
+#ifndef LOSCFG_HWI_WITH_ARG
+#define LOSCFG_HWI_WITH_ARG        1
+#endif
+#ifndef LOSCFG_IRQ_RESP_COUNT
+#define LOSCFG_IRQ_RESP_COUNT      1
 #endif
 
 /*=============================================================================

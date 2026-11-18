@@ -1,23 +1,22 @@
 /*
  * los_sem_box.c — BOX (user-mode isolation) semaphore infrastructure.
  *
- * M5G, the mux-face shape (kernel/base/los_mux_box.c) applied to the sem:
+ * Same shape as the mux face (los_mux_box.c), applied to the semaphore:
  *  - per-box sem CB free lists over the box resource arrays
  *    (g_boxFreeSemList[boxId], defined in los_sem.c next to the kernel
  *    unused list — same placement as the mux free lists)
  *  - OsBoxSemInit / OsBoxSemListInit: OsBoxResSemInit callees
  *    (los_box.c; SID module registration + free-list build)
- *  - OsSemGetCBLocked: sId -> CB resolution for the los_sem.c entry seams
+ *  - OsSemGetCB: sId -> CB resolution for the los_sem.c entry seams
  *    (kernel-head and box sIds, owner-checked)
- *  - OsSemCreateBox: the box-context create core (refs safe_ipc/los_sem.c
- *    OsSemCreateInternal shape) — CB from the owning box pool, flat SID
- *    from OsSIdGenObj (M5F stub, two-bound), semId stamped with the sId
- *    (OsSemStateVerify compatibility under RES_CHECK)
+ *  - OsSemCreateInternal: the ONE create core for EVERY context (refs shape).
+ *    The pool is picked inside it from OsGetCurBoxCB(), so a kernel caller
+ *    draws the kernel table and a box caller its own pool - the CB's pool and
+ *    the SID slot's owner therefore cannot disagree. semId is stamped with the
+ *    sId (so OsSemStateVerify still works under RES_CHECK)
  *
- * The pend/post core stays in los_sem.c (OHOS OsSchedWait / list wakeups —
- * semantically the refs core). refs syscalls_def.h carries NO sem defs
- * (its IPC sem service is kernel/driver-box only), so the M5G block takes
- * free refs IPC-segment slots 80..83 (see syscalls_num.h).
+ * The pend/post core stays in los_sem.c (OsSchedWait / list wakeups). The
+ * sem syscalls take free IPC-segment slots 80..83 (see syscalls_num.h).
  */
 #include "los_sem_pri.h"
 #include "los_sem_debug_pri.h"
@@ -30,8 +29,7 @@
 
 #if (LOSCFG_BASE_IPC_SEM == 1) && defined(LOSCFG_BOX)
 
-/* add the box CB array to the box free list (OsMuxInitInternal shape;
- * refs OsSemInitInternal analog). */
+/* Add the box CB array to the box free list (same shape as the mux init). */
 STATIC VOID OsSemInitInternal(LOS_DL_LIST *freeList, LosSemCB *semList, UINT32 listLen)
 {
     UINT32 index;
@@ -43,12 +41,17 @@ STATIC VOID OsSemInitInternal(LOS_DL_LIST *freeList, LosSemCB *semList, UINT32 l
         semNode->semCount = 0;
         semNode->semType = OS_SEM_COUNTING;
         LOS_ListInit(&semNode->semList);
-        semNode->semId = 0;   /* replaced by the bound sId at create time */
+        /* refs OsSemInitInternal shape: semId carries the POOL INDEX until a
+         * create overwrites it with the bound sId. OsSemCreateInternal reads
+         * it as the dataCBIdx for OsSIdBind, which is why it must be the index
+         * and not 0. Matches what los_sem.c's OsSemInit does for the kernel
+         * table. */
+        semNode->semId = index;
         LOS_ListTailInsert(freeList, &semNode->semList);
     }
 }
 
-/* refs safe_ipc/los_sem.c OsBoxSemInit (OsBoxMuxInit shape): register the
+/* OsBoxSemInit (same shape as OsBoxMuxInit): register the
  * box entity array with the SID module, then build the box free list over
  * the CB array. */
 LITE_OS_SEC_TEXT_INIT UINT32 OsBoxSemInit(EntityObj *entityList, LosSemCB *semList,
@@ -67,7 +70,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsBoxSemInit(EntityObj *entityList, LosSemCB *semLi
     return LOS_OK;
 }
 
-/* refs los_box.c OsBoxResSemInit callee: init the box free list head. */
+/* OsBoxResSemInit callee (los_box.c): init the box free list head. */
 LITE_OS_SEC_TEXT UINT32 OsBoxSemListInit(UINT16 boxId)
 {
     if (boxId >= (UINT16)LOSCFG_BASE_BOX_MAX_LIMIT) {
@@ -77,17 +80,21 @@ LITE_OS_SEC_TEXT UINT32 OsBoxSemListInit(UINT16 boxId)
     return LOS_OK;
 }
 
-/* refs OsGetSemFreeList (safe_ipc/los_sem.c; OsGetMuxFreeList shape):
- * interrupt / kernel context uses the kernel list, a box context its own. */
+/* OsGetMuxFreeList shape: interrupt / kernel context uses the kernel
+ * list, a box context its own. */
 LITE_OS_SEC_TEXT VOID OsGetSemFreeList(const LosBoxCB *boxCB, LOS_DL_LIST **freeList)
 {
     *freeList = ((OS_INT_ACTIVE || (boxCB == NULL)) ? &g_unusedSemList :
                  &g_boxFreeSemList[boxCB->boxId]);
 }
 
-/* OsSemGetCBLocked (OsMuxGetCBLocked shape): sId -> CB through the SID
- * stub (M5F two-bound flat). Callers hold the scheduler lock. */
-LITE_OS_SEC_TEXT UINT32 OsSemGetCBLocked(UINT32 sId, LosSemCB **semCreated)
+/* sId -> CB through the SID module (slot -> entity -> moduleData). Lock-free,
+ * and the caller holds the scheduler lock - the refs name for this shape.
+ * (refs also has OsSemGetCBLocked, a SELF-LOCKING wrapper; we have no caller
+ * needing it, so it does not exist here.) Unlike the refs one-liner this also
+ * rejects an unused CB: the SID layer only guarantees the slot is bound, not
+ * that the CB behind it has not been recycled to LOS_UNUSED. */
+LITE_OS_SEC_TEXT UINT32 OsSemGetCB(UINT32 sId, LosSemCB **semCreated)
 {
     UINT32 ret;
     LosSemCB *semCB = NULL;
@@ -103,32 +110,43 @@ LITE_OS_SEC_TEXT UINT32 OsSemGetCBLocked(UINT32 sId, LosSemCB **semCreated)
     return LOS_OK;
 }
 
-/* The box-context create core (refs safe_ipc/los_sem.c OsSemCreateInternal
- * box arm; OsMuxCreate shape). The caller (los_sem.c LOS_SemCreate seam)
- * has already range-checked count and validated the handle pointer. */
-LITE_OS_SEC_TEXT_INIT UINT32 OsSemCreateBox(UINT16 count, UINT8 type, UINT32 *semHandle)
+/* The ONE sem create core, for every context (refs OsSemCreateInternal shape).
+ *
+ * Why the pool selection lives HERE and not at the public entries: it used to
+ * be split - los_sem.c's OsSemCreate hardcoded g_unusedSemList for the
+ * "kernel arm", this file had a near-copy OsSemCreateBox for the box arm, and
+ * LOS_SemCreate / LOS_BinarySemCreate each repeated the routing condition
+ * (!OS_INT_ACTIVE && OsGetCurBoxCB() != NULL). Every entry had to get that
+ * condition right, and a miss would draw a kernel-table CB in box context -
+ * which, now that the SID middle layer is live, makes OsSIdBind index the BOX
+ * entity array with a KERNEL index (boxA SEM_LIMIT=2 vs kernel SEM_LIMIT=8)
+ * and reject. Selecting the pool once, inside the core, from the same
+ * OsGetCurBoxCB() that OsSIdCreate uses for the slot owner, makes the two
+ * unable to disagree. This is also exactly how queue (OsQueueCreateOut) and
+ * event (LOS_EventCreate) already work. */
+LITE_OS_SEC_TEXT_INIT UINT32 OsSemCreateInternal(UINT16 count, UINT32 *semHandle, UINT8 isBinary)
 {
     UINT32 intSave;
     UINT32 ret;
     UINT32 newSId;
     LOS_DL_LIST *freeList = NULL;
     LosSemCB *semCreated = NULL;
-    const LosBoxCB *boxCB = OsGetCurBoxCB();
 
     if (semHandle == NULL) {
         return LOS_ERRNO_SEM_PTR_NULL;
     }
     /* the sId is written back to the caller: validate the pointer against
-     * the current context first (refs OsCheckValidDataAddr position) */
+     * the current context first, hence the OsCheckValidDataAddr call here */
     if (OsCheckValidDataAddr((UINTPTR)semHandle, sizeof(UINT32)) != LOS_OK) {
         return LOS_ERRNO_SEM_PTR_NULL;
     }
-    if (OS_INT_ACTIVE) {
-        return LOS_ERRNO_SEM_PEND_INTERR;
+    if (count > ((isBinary == OS_SEM_BINARY) ? OS_SEM_BINARY_COUNT_MAX : LOS_SEM_COUNT_MAX)) {
+        return LOS_ERRNO_SEM_OVERFLOW;
     }
 
     SCHEDULER_LOCK(intSave);
-    OsGetSemFreeList(boxCB, &freeList);
+
+    OsGetSemFreeList(OsGetCurBoxCB(), &freeList);
     if (LOS_ListEmpty(freeList)) {
         SCHEDULER_UNLOCK(intSave);
         OsSemInfoGetFullDataHook();
@@ -141,13 +159,16 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsSemCreateBox(UINT16 count, UINT8 type, UINT32 *se
         semCreated = GET_SEM_LIST(unusedSem);
     }
     semCreated->semStat = LOS_USED;
-    semCreated->semType = type;
+    semCreated->semType = isBinary;
     semCreated->semCount = count;
     LOS_ListInit(&semCreated->semList);
 
-    /* entity array is parallel to the CB array (refs OsBoxSemInit) */
-    ret = OsSIdGenObj(LOS_SID_TYPE_SEM, (UINT32)(semCreated - (LosSemCB *)boxCB->boxResSemList),
-                      (VOID *)semCreated, &newSId);
+    /* semId still carries the POOL INDEX stamped at init (refs shape), which
+     * is exactly the dataCBIdx OsSIdBind needs - the entity array is parallel
+     * to the CB array in both bounds (see OsBoxSemInit / OsSemInit). It is
+     * overwritten with the sId immediately after, and LOS_SemDelete restores
+     * it on the way back to the free list. */
+    ret = OsSIdGenObj(LOS_SID_TYPE_SEM, semCreated->semId, (VOID *)semCreated, &newSId);
     if (ret != LOS_OK) {
         semCreated->semStat = LOS_UNUSED;
         LOS_ListTailInsert(freeList, &semCreated->semList);

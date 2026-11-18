@@ -29,10 +29,10 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Cortex-M task dispatch and context switch — BOX (user-mode isolation)
- * variant, compiled instead of los_dispatch.S when LOSCFG_BOX is set; the
- * vanilla file stays byte-identical to the OHOS drop. Delta vs vanilla:
- * dual-stack PendSV hooks (BOX_PENDSV_SAVE / BOX_PENDSV_RESTORE from
- * los_box_dispatch.h) and the unified FP context geometry (in-body notes).
+ * variant, compiled instead of los_dispatch.S when LOSCFG_BOX is set.
+ * Delta vs the vanilla dispatcher: dual-stack PendSV hooks
+ * (BOX_PENDSV_SAVE / BOX_PENDSV_RESTORE from los_box_dispatch.h) and the
+ * unified FP context geometry (in-body notes).
  *
  * M0+ (ARMv6-M, Thumb-1): no FPU, no IT blocks, movs only, push/pop R0-R7.
  * M4 (ARMv7-M, Thumb-2): optional FPU, Secure support.
@@ -132,10 +132,10 @@ ArchStartToRun:
     cpsie   i
     bx      r6
 #else
-    /* BOX note (no branch needed, refs OsStartToRun shape): the first
-     * task ever dispatched here is always a KERNEL task — box init runs
-     * from HelloworldTask after the scheduler started, so user tasks
-     * only ever enter through the PendSV INUSER path. */
+    /* BOX note (no branch needed): the first task ever dispatched here is
+     * always a KERNEL task — box init runs from HelloworldTask after the
+     * scheduler started, so user tasks only ever enter through the PendSV
+     * INUSER path. */
     ldr     r12, [r0]
 
     ldr.w   r1, =OS_FPU_CPACR
@@ -143,13 +143,18 @@ ArchStartToRun:
     and     r1, r1, #OS_FPU_CPACR_ENABLE
     cmp     r1, #OS_FPU_CPACR_ENABLE
     bne     __DisabledFPU
-    add     r12, r12, #100
+    /* Initial context: [d8-d15 FP_GAP][r4-r12+priMask TASK_CTX_R0][HW frame
+     * 32B][FP area FP_TAIL]. Skip the d8-d15 slot and the saved r4-r12 block
+     * to reach the hardware frame. Both operands come from the generated
+     * los_offsets.h (via los_box_dispatch.h) - they used to be literal 100
+     * and 72 here, which silently misplaced the frame if EXC_CONTEXT_S or
+     * TaskContext ever changed shape. */
+    add     r12, r12, #(EXC_CTX_FP_GAP + TASK_CTX_R0)
 
     ldmfd   r12!, {r0-r7}
-    /* Initial context: [d8-d15 64B][r4-r12 36B][HW frame 32B][FP area 72B].
-     * r12 is now at the end of the HW frame; skip the 72-byte FP area so
-     * PSP starts at the stack top exactly like a PendSV save does. */
-    add     r12, r12, #72
+    /* r12 is now at the end of the HW frame; skip the FP area so PSP starts
+     * at the stack top exactly like a PendSV save does. */
+    add     r12, r12, #EXC_CTX_FP_TAIL
     msr     psp, r12
     vpush   {s0}
     vpop    {s0}
@@ -158,7 +163,9 @@ ArchStartToRun:
     bx      r6
 
 __DisabledFPU:
-    add     r12, r12, #36
+    /* No d8-d15 slot in this layout, so only the r4-r12+priMask block is
+     * skipped (TASK_CTX_R0, previously the literal 36). */
+    add     r12, r12, #TASK_CTX_R0
 
     ldmfd   r12!, {r0-r7}
     msr     psp, r12

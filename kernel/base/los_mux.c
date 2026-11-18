@@ -49,22 +49,25 @@
 
 LITE_OS_SEC_BSS LosMuxCB *g_osAllMux = NULL;
 #ifdef LOSCFG_BOX
-/* M5C: the unused list + the per-box free lists are shared with
- * los_mux_box.c (refs g_freeQueueList / g_boxFreeQueueList pattern). */
+/* The unused list and the per-box free lists are shared with los_mux_box.c
+ * (same shape as the queue lists). */
 LOS_DL_LIST g_unusedMuxList;
 LITE_OS_SEC_BSS LOS_DL_LIST g_boxFreeMuxList[LOSCFG_BASE_BOX_MAX_LIMIT];
-/* kernel mux entity array registered with the SID module (refs
- * g_kernelMuxEntity, registered under LOS_KERNEL_SID_HEAD). */
+/* Kernel mux entity array registered with the SID module under
+ * LOS_KERNEL_SID_HEAD. */
 LITE_OS_SEC_BSS STATIC EntityObj g_kernelMuxEntityArr[LOSCFG_BASE_IPC_MUX_LIMIT];
 EntityObj *g_kernelMuxEntity = g_kernelMuxEntityArr;
 #else
 LITE_OS_SEC_BSS STATIC LOS_DL_LIST g_unusedMuxList;
 #endif
 
-STATIC INLINE VOID OsMuxNodeRecycle(LosMuxCB *muxNode)
+/* refs OsMuxNodeRecycle: the pool is a PARAMETER, so one helper serves the
+ * kernel table and every box pool alike. (refs spells it const;
+ * LOS_ListTailInsert writes through it, so it is not const here.) */
+STATIC INLINE VOID OsMuxNodeRecycle(LosMuxCB *muxNode, LOS_DL_LIST *freeList)
 {
     muxNode->muxStat = LOS_UNUSED;
-    LOS_ListTailInsert(&g_unusedMuxList, &muxNode->muxList);
+    LOS_ListTailInsert(freeList, &muxNode->muxList);
 }
 
 LITE_OS_SEC_TEXT UINT32 OsMuxInit(VOID)
@@ -84,11 +87,12 @@ LITE_OS_SEC_TEXT UINT32 OsMuxInit(VOID)
     LOS_ListInit(&g_unusedMuxList);
 
 #ifdef LOSCFG_BOX
-    /* M5C (refs OsQueueInit pattern, refs los_mux.c OsMuxInit): register
-     * the kernel mux entity array with the SID module under the kernel
-     * SID head so kernel mux handles become sIds. Kernel mux creation
-     * then consumes kernel SID pool slots 1:1. */
-    OsSIdListInit();
+    /* Register the kernel mux entity array with the SID module under the
+     * kernel SID head so kernel mux handles become sIds (same pattern as
+     * OsQueueInit). OsSIdGenObj draws a slot from the kernel SID pool and
+     * binds g_kernelMuxEntityArr[index] to the CB. The SID module's own
+     * kernel pool init runs earlier, in OsIpcInit (los_init.c): it is shared
+     * by every IPC module, not owned by mux. */
     if (OsSIdModuleInit(LOS_SID_TYPE_MUX, 0, g_kernelMuxEntity, LOSCFG_BASE_IPC_MUX_LIMIT,
                         LOS_KERNEL_SID_HEAD) != LOS_OK) {
         return LOS_ERRNO_MUX_NO_MEMORY;
@@ -98,7 +102,7 @@ LITE_OS_SEC_TEXT UINT32 OsMuxInit(VOID)
     for (index = 0; index < LOSCFG_BASE_IPC_MUX_LIMIT; index++) {
         muxNode = g_osAllMux + index;
         muxNode->muxId = index;
-        OsMuxNodeRecycle(muxNode);
+        OsMuxNodeRecycle(muxNode, &g_unusedMuxList);
     }
 
     if (OsMuxDbgInitHook() != LOS_OK) {
@@ -109,6 +113,16 @@ LITE_OS_SEC_TEXT UINT32 OsMuxInit(VOID)
 
 LITE_OS_SEC_TEXT UINT32 LOS_MuxCreate(UINT32 *muxHandle)
 {
+#ifdef LOSCFG_BOX
+    /* Single create core for every context (refs shape): OsMuxCreate picks the
+     * pool from OsGetCurBoxCB() itself, so the kernel table serves kernel
+     * callers and each box its own pool, and the CB's pool always matches the
+     * SID slot owner. attr 0 - the core is recursive + priority-inherit by
+     * construction, the same value the usr-world wrapper (los_usr_api.c)
+     * passes. LOSCFG_BASE_IPC_MUX_CREATOR is off in this build and refs'
+     * OsMuxCreate does not carry it either. */
+    return OsMuxCreate(muxHandle, 0);
+#else
     UINT32 intSave;
     LosMuxCB *muxCreated = NULL;
     LOS_DL_LIST *unusedMux = NULL;
@@ -135,24 +149,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_MuxCreate(UINT32 *muxHandle)
     muxCreated->owner = NULL;
     muxCreated->priority = 0;
     LOS_ListInit(&muxCreated->muxList);
-#ifdef LOSCFG_BOX
-    /* M5C: bind a kernel-head sId to the CB (refs OsMuxCreate binds the
-     * SID after taking the CB from the free list); muxId carries the sId
-     * so OsMuxStateVerify's handle comparison keeps working. */
-    {
-        UINT32 newSId;
-        UINT32 index = (UINT32)(muxCreated - g_osAllMux);
-        if (OsSIdGenObj(LOS_SID_TYPE_MUX, index, (VOID *)muxCreated, &newSId) != LOS_OK) {
-            LOS_ListTailInsert(&g_unusedMuxList, unusedMux);
-            SCHEDULER_UNLOCK(intSave);
-            return LOS_ERRNO_MUX_ALL_BUSY;
-        }
-        muxCreated->muxId = newSId;
-        *muxHandle = newSId;
-    }
-#else
     *muxHandle = muxCreated->muxId;
-#endif
 
     OsMuxDbgUpdateHook(muxCreated->muxId, OsCurrTaskGet()->taskEntry);
 #ifdef LOSCFG_BASE_IPC_MUX_CREATOR
@@ -164,6 +161,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_MuxCreate(UINT32 *muxHandle)
     LOS_TRACE(MUX_CREATE, muxCreated->muxId);
     OsHookCall(LOS_HOOK_TYPE_MUX_CREATE, muxCreated);
     return LOS_OK;
+#endif
 }
 
 #ifdef LOSCFG_BASE_CORE_SYS_RES_CHECK
@@ -178,10 +176,10 @@ STATIC INLINE UINT32 OsMuxStateVerify(const LosMuxCB *muxCB, UINT32 muxHandle)
 
 STATIC INLINE VOID OsMuxIdUpdate(LosMuxCB *muxDeleted)
 {
-    /* BOX (refs-lacks note): with sId handles, muxId carries the sId, and
-     * SET_MUX_ID would rebuild garbage out of it. Stale-handle detection
-     * moves to the SID module: OsSIdObjDel unbinds and zeroes the SIdObj,
-     * so a recycled sId fails the OsSIdObjGet sId comparison. */
+    /* BOX: with sId handles, muxId carries the sId, and SET_MUX_ID would
+     * rebuild garbage out of it. Stale-handle detection moves to the SID
+     * module: OsSIdObjDel unbinds and zeroes the SIdObj, so a recycled sId
+     * fails the OsSIdObjGet sId comparison. */
 #ifdef LOSCFG_BOX
     (VOID)muxDeleted;
 #else
@@ -206,39 +204,54 @@ STATIC INLINE VOID OsMuxIdUpdate(LosMuxCB *muxDeleted)
 }
 #endif
 
-#ifdef LOSCFG_BOX
-/* BOX: recycle to the owning free list (refs queue delete recycles into
- * the box free list, not the kernel one). */
-STATIC INLINE VOID OsMuxNodeRecycleBySId(LosMuxCB *muxNode, UINT32 sId)
-{
-    muxNode->muxStat = LOS_UNUSED;
-    if (OS_SID_BID_IS_KER(sId)) {
-        LOS_ListTailInsert(&g_unusedMuxList, &muxNode->muxList);
-    } else {
-        LOS_ListTailInsert(&g_boxFreeMuxList[OS_GET_SID_BOXID(sId)], &muxNode->muxList);
-    }
-}
-#endif
+/* BOX entry shape (refs safe_ipc): the sId -> CB resolver is a plain,
+ * lock-free OsMuxGetCB (los_mux_box.c) and the scheduler lock belongs to the
+ * CALLING entry - each entry takes the lock itself, resolves inside it, and a
+ * failed resolve releases it right there. Mux keeps two CB pools (kernel plus
+ * per-box), so a handle cannot be reduced to a kernel index the way a
+ * single-pool module could; resolution goes through the SID module instead.
+ *
+ * The #ifdef pair lives per entry, not in a shared helper, because the two
+ * worlds differ in lock POSITION and not only in the resolver: the baseline
+ * keeps the upstream prologue verbatim (bound check and GET_MUX outside the
+ * lock, LOS_TRACE ahead of the lock), whereas a box context must already hold
+ * the lock before it can resolve. Folding both into one helper forces the
+ * baseline arm through the helper's return-value contract - which grows the
+ * BOX=off image - and handing the lock to the helper makes the pairing
+ * asymmetric (locked inside, unlocked outside).
+ *
+ * Pend and post share the same prologue shape but stay separate blocks: the
+ * two entries resolve into different locals and trace different fields. */
 
 LITE_OS_SEC_TEXT UINT32 LOS_MuxDelete(UINT32 muxHandle)
 {
     UINT32 intSave;
     LosMuxCB *muxDeleted = NULL;
     UINT32 ret;
+#ifdef LOSCFG_BOX
+    UINT32 ownerBoxId;
+    LOS_DL_LIST *freeList = NULL;
+    LosMuxCB *muxBase = NULL;
+#endif
 
 #ifdef LOSCFG_BOX
+    /* Box seam: this entry owns the lock. A failed resolve returns here
+     * rather than via OUT - OUT would run the delete hook with a NULL CB,
+     * which the baseline never does for an invalid handle. */
     SCHEDULER_LOCK(intSave);
-    /* resolve the sId (kernel-head or box) under the lock */
-    if (OsMuxGetCBLocked(muxHandle, &muxDeleted) != LOS_OK) {
+    if (OsMuxGetCB(muxHandle, &muxDeleted) != LOS_OK) {
         SCHEDULER_UNLOCK(intSave);
         return LOS_ERRNO_MUX_INVALID;
     }
-    /* kernel-owned resources must not be destroyed by boxes (box heap
-     * lock mux defense; refs OsSIdKernelResIntCheck position) */
-    if (OsSIdKernelResIntCheck(muxHandle) != LOS_OK) {
+    /* kernel-owned resources must not be destroyed by boxes (box heap lock
+     * mux defense) - same lock hold, right after the resolve */
+    if (OsSIdKernelResClaimCheck(muxHandle) != LOS_OK) {
         SCHEDULER_UNLOCK(intSave);
         return LOS_ERRNO_MUX_INVALID;
     }
+
+    LOS_TRACE(MUX_DELETE, muxHandle, muxDeleted->muxStat, muxDeleted->muxCount,
+        ((muxDeleted->owner == NULL) ? 0xFFFFFFFF : muxDeleted->owner->taskId));
 #else
     if (GET_MUX_INDEX(muxHandle) >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT) {
         return LOS_ERRNO_MUX_INVALID;
@@ -246,11 +259,11 @@ LITE_OS_SEC_TEXT UINT32 LOS_MuxDelete(UINT32 muxHandle)
 
     muxDeleted = GET_MUX(muxHandle);
 
-    SCHEDULER_LOCK(intSave);
-#endif
-
     LOS_TRACE(MUX_DELETE, muxHandle, muxDeleted->muxStat, muxDeleted->muxCount,
         ((muxDeleted->owner == NULL) ? 0xFFFFFFFF : muxDeleted->owner->taskId));
+
+    SCHEDULER_LOCK(intSave);
+#endif
 
     ret = OsMuxStateVerify(muxDeleted, muxHandle);
     if (ret != LOS_OK) {
@@ -261,20 +274,44 @@ LITE_OS_SEC_TEXT UINT32 LOS_MuxDelete(UINT32 muxHandle)
         ret = LOS_ERRNO_MUX_PENDED;
         goto OUT;
     }
-    OsMuxIdUpdate(muxDeleted);
 #ifdef LOSCFG_BOX
-    /* unbind the SID (frees the SIdObj back to its pool), then recycle
-     * the CB to the owning free list */
+    /* refs LOS_MuxDelete tail. The pool the CB returns to is chosen by the
+     * ENTITY's owner, not by re-reading the sId's box field: the entity is the
+     * authoritative record of which pool the CB was drawn from, and recycling
+     * to the wrong one corrupts both pools. Must run BEFORE OsSIdObjDel, which
+     * clears the entity. (OsMuxIdUpdate is a no-op under BOX - stale-handle
+     * detection belongs to the SID module.) */
+    ownerBoxId = OsEntityOwnerGetBySid(muxHandle);
+    if (ownerBoxId == (UINT32)LOS_KERNEL_SID_HEAD) {
+        freeList = &g_unusedMuxList;
+        muxBase = g_osAllMux;
+    } else if (ownerBoxId < (UINT32)LOSCFG_BASE_BOX_MAX_LIMIT) {
+        freeList = &g_boxFreeMuxList[ownerBoxId];
+        muxBase = (LosMuxCB *)g_boxCBArr[ownerBoxId].boxResMuxList;
+    } else {
+        ret = LOS_ERRNO_MUX_INVALID;
+        goto OUT;
+    }
     (VOID)OsSIdObjDel(muxHandle);
-    OsMuxNodeRecycleBySId(muxDeleted, muxHandle);
+    OsMuxNodeRecycle(muxDeleted, freeList);
 #else
-    OsMuxNodeRecycle(muxDeleted);
+    OsMuxIdUpdate(muxDeleted);
+    OsMuxNodeRecycle(muxDeleted, &g_unusedMuxList);
 #endif
 
 #ifdef LOSCFG_BASE_IPC_MUX_CREATOR
     OsMuxCreatorClear(muxDeleted);
 #endif
     OsMuxDbgUpdateHook(muxDeleted->muxId, NULL);
+
+#ifdef LOSCFG_BOX
+    /* Restore muxId to the POOL INDEX (refs does the equivalent with
+     * OS_BOX_GET_ID): OsMuxCreate reads it as the dataCBIdx for OsSIdBind, so a
+     * CB left carrying a stale sId would bind at a bogus index. Safe after the
+     * recycle and after the dbg hook - nothing reads muxId until the next
+     * create takes this CB off the free list. */
+    muxDeleted->muxId = (UINT32)(muxDeleted - muxBase);
+#endif
 
  OUT:
     SCHEDULER_UNLOCK(intSave);
@@ -405,23 +442,27 @@ LITE_OS_SEC_TEXT UINT32 LOS_MuxPend(UINT32 muxHandle, UINT32 timeout)
     LosTaskCB *runTask = NULL;
 
 #ifdef LOSCFG_BOX
+    /* Box seam: this entry owns the lock; a failed resolve returns here. */
     SCHEDULER_LOCK(intSave);
-    /* resolve the sId under the lock (kernel-head or box sId) */
-    if (OsMuxGetCBLocked(muxHandle, &muxPended) != LOS_OK) {
+    if (OsMuxGetCB(muxHandle, &muxPended) != LOS_OK) {
         SCHEDULER_UNLOCK(intSave);
         return LOS_ERRNO_MUX_INVALID;
     }
+
+    LOS_TRACE(MUX_PEND, muxHandle, muxPended->muxCount,
+        ((muxPended->owner == NULL) ? 0xFFFFFFFF : GET_MUX_OWNER(muxPended)->taskId), timeout);
 #else
     if (GET_MUX_INDEX(muxHandle) >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT) {
         return LOS_ERRNO_MUX_INVALID;
     }
 
     muxPended = GET_MUX(muxHandle);
-    SCHEDULER_LOCK(intSave);
-#endif
 
     LOS_TRACE(MUX_PEND, muxHandle, muxPended->muxCount,
         ((muxPended->owner == NULL) ? 0xFFFFFFFF : GET_MUX_OWNER(muxPended)->taskId), timeout);
+
+    SCHEDULER_LOCK(intSave);
+#endif
 
     ret = OsMuxParaCheck(muxPended, muxHandle);
     if (ret != LOS_OK) {
@@ -530,23 +571,27 @@ LITE_OS_SEC_TEXT UINT32 LOS_MuxPost(UINT32 muxHandle)
     UINT32 intSave;
 
 #ifdef LOSCFG_BOX
+    /* Box seam: this entry owns the lock; a failed resolve returns here. */
     SCHEDULER_LOCK(intSave);
-    /* resolve the sId under the lock (kernel-head or box sId) */
-    if (OsMuxGetCBLocked(muxHandle, &muxPosted) != LOS_OK) {
+    if (OsMuxGetCB(muxHandle, &muxPosted) != LOS_OK) {
         SCHEDULER_UNLOCK(intSave);
         return LOS_ERRNO_MUX_INVALID;
     }
+
+    LOS_TRACE(MUX_POST, muxHandle, muxPosted->muxCount,
+        ((muxPosted->owner == NULL) ? 0xFFFFFFFF : muxPosted->owner->taskId));
 #else
     if (GET_MUX_INDEX(muxHandle) >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT) {
         return LOS_ERRNO_MUX_INVALID;
     }
 
     muxPosted = GET_MUX(muxHandle);
-    SCHEDULER_LOCK(intSave);
-#endif
 
     LOS_TRACE(MUX_POST, muxHandle, muxPosted->muxCount,
         ((muxPosted->owner == NULL) ? 0xFFFFFFFF : muxPosted->owner->taskId));
+
+    SCHEDULER_LOCK(intSave);
+#endif
 
     ret = OsMuxParaCheck(muxPosted, muxHandle);
     if (ret != LOS_OK) {

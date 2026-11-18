@@ -1,9 +1,16 @@
 #include "boxes_conf.h"
+#if defined(LOSCFG_BOX) && (LOSCFG_BASE_IPC_EVENT == 1)
+#include "los_event_sid.h"       /* LosEventCB (resource-pool externs, first) */
+#endif
 #include "boxes_res_conf.h"
 #include "los_box_pri.h"
-/* SYS_USR_* layout symbols: was pulled transitively through los_box_pri.h
- * in the demo layer; the header moved to kernel/base (M5A) so the target
- * config file now includes the board memmap directly. */
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+#include "los_swtmr.h"           /* LosSwtmrCB types via the public header */
+#include "los_swtmr_usr_pri.h"
+#endif
+/* SYS_USR_* user-world layout symbols: the board memmap owns them, so the
+ * target config file includes it directly rather than relying on a kernel
+ * header to pull it in transitively. */
 #include "asm/memmap_config.h"
 
 #ifdef LOSCFG_KERNEL_TEST

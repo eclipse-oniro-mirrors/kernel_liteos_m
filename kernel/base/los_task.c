@@ -1318,8 +1318,8 @@ STATIC VOID OsTaskCBInit(LosTaskCB *taskCB, const TSK_INIT_PARAM_S *initParam, V
 
     taskCB->usrStack     = useUsrStack ? 1 : 0; /* 0: dynamically alloc stack space;1: user inputs stack space */
 
-    /* BOX: curBoxId kernel-task default (refs OsUsrTaskCreateOnly overrides
-     * it with the box id on the box create path); null when BOX is off. */
+    /* BOX: curBoxId kernel-task default (OsUsrTaskCreateOnly overrides it
+     * with the box id on the box create path); null when BOX is off. */
     OsTaskBoxCBInitDefault(taskCB);
 
     OsTaskSignalSet(taskCB, SIGNAL_NONE);
@@ -1352,14 +1352,14 @@ STATIC VOID OsTaskCBInit(LosTaskCB *taskCB, const TSK_INIT_PARAM_S *initParam, V
     *((UINT32 *)taskCB->topOfStack) = OS_TASK_MAGIC_WORD;
     taskCB->stackPointer = ArchTaskStackInit(taskCB->taskId, taskCB->stackSize, (VOID *)taskCB->topOfStack);
 }
-/* (the old STATIC OsTaskGetFreeTaskCB is gone: its kernel-pool logic lives
- * in the OsTaskCreateTCBGet gate — los_task_box.c when BOX=on, the STATIC
- * INLINE baseline in los_task_pri.h when BOX=off) */
+/* (the kernel-pool TCB pick lives in the OsTaskCreateTCBGet gate —
+ * los_task_box.c when BOX=on, the STATIC INLINE baseline in los_task_pri.h
+ * when BOX=off) */
 
-/* M5B: no longer STATIC - the box create family (los_task_box.c) builds the
- * kernel part through this generic path with a box pointer (refs shape);
- * declared in los_task_pri.h under LOSCFG_BOX. The box resource routing
- * goes through the OsTaskBox* hooks (M5B-R). */
+/* Not STATIC: the box create family (los_task_box.c) builds the kernel part
+ * through this generic path with a box pointer; declared in los_task_pri.h
+ * under LOSCFG_BOX. The box resource routing goes through the OsTaskBox*
+ * hooks. */
 UINT32 OsTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack, BOOL useUsrStack,
                         const VOID *boxPtr)
 {
@@ -1452,7 +1452,7 @@ UINT32 LOS_TaskCreateOnlyStatic(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOI
         return LOS_ERRNO_TSK_PTR_NULL;
     }
 #ifdef LOSCFG_BOX
-    /* M5G seam: a box context runs the box static-create core (validation
+    /* Box seam: a box context runs the box static-create core (validation
      * + box-pool TCB + INUSER binding, los_task_box.c); kernel contexts
      * keep the native path (idle task et al.). */
     if (OsGetCurBoxCB() != NULL) {

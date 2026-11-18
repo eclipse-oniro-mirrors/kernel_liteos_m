@@ -10,6 +10,9 @@
 #include "los_sem_pri.h"
 #include "los_shmem_pri.h"
 #include "los_swtmr_pri.h"
+#ifdef LOSCFG_BASE_IPC_CONDVAR
+#include "los_condvar_pri.h"   /* LosCondVarCB (boxes_res_auto.cfg externs) */
+#endif
 
 #ifdef __cplusplus
 extern "C" {

@@ -1,8 +1,6 @@
 /*
- * Minimal shim of the old liteos los_singly_list_pri.h (verbatim from
- * refs/liteos, plus the missing VOID return type on OsSinglyListAdd that
- * the original file lacked). Only the OS_SL_LIST type is consumed by the
- * BOX M2 port; the traversal macros come along for free.
+ * Singly-linked list helpers. Only the OS_SL_LIST type is consumed by the box
+ * code; the traversal macros come along for free.
  */
 #ifndef LOS_SINGLY_LIST_PRI_H
 #define LOS_SINGLY_LIST_PRI_H

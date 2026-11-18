@@ -1,0 +1,170 @@
+# Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
+# Copyright (c) 2020-2021 Huawei Device Co., Ltd.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of
+#    conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list
+#    of conditions and the following disclaimer in the documentation and/or other materials
+#    provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its contributors may be used
+#    to endorse or promote products derived from this software without specific prior written
+#    permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT NEGLIGENCE OR OTHERWISE, ARISING IN ANY WAY OUT OF
+# THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import("//kernel/liteos_m/liteos.gni")
+
+# BOX core: user-mode isolation sitting beside the kernel base modules -
+# box lifecycle and resource pools, the box task family, the SID (system
+# identifier) module, and the SID-addressed faces of the IPC objects.
+#
+# Everything here exists only under LOSCFG_BOX; module_switch collapses the
+# target to an empty group otherwise, so a BOX=off build compiles none of it.
+#
+# The private headers live in include/ and are published through
+# kernel/BUILD.gn's public_include (the same route base/include takes). The
+# kernel uses bare-name includes throughout, so consumers did not need
+# editing when these headers moved out of kernel/base/include and
+# kernel/include.
+module_switch = defined(LOSCFG_BOX)
+module_name = get_path_info(rebase_path("."), "name")
+kernel_module(module_name) {
+  sources = [
+    # Box lifecycle: environment build (data copy / bss zero / box heap),
+    # entry-task creation, resource-pool wiring, validity checks, destroy.
+    "los_box.c",
+
+    # Box task family: encoded task ids, the static TCB/kernel-stack pools,
+    # initial user-context crafting, create/delete routing and stack recycle.
+    "los_task_box.c",
+
+    # SID module core: handle encoding, the SIdObj slot pools (kernel + per
+    # box) and the entity binding that every SID-addressed object below
+    # resolves through.
+    "los_sec.c",
+
+    # SID event pools, including the task-embedded event access that the
+    # per-box timer task is woken through.
+    "los_event_sid.c",
+
+    # SID condition variables (LOSCFG_BASE_IPC_CONDVAR): a pool object built
+    # out of an embedded EVENT_CB_S plus a mutex sId.
+    "los_condvar.c",
+
+    # refs usr/los_usr_init.c: the R2 user-readable globals (g_sysMode /
+    # g_curBoxId / g_boxLocalPool / g_curPerBoxData) and the
+    # user-executable __stack_chk_fail (COMMON_TEXT: a box-side canary trip
+    # prints + spins instead of faulting into the kernel copy).
+    "los_usr_init.c",
+  ]
+
+  # Per-box software timers: timer pool plus a deferred-callback ring,
+  # consumed by a task that runs inside the owning box. Requires the
+  # kernel swtmr module (same conjunction as the C guards).
+  if (defined(LOSCFG_BASE_CORE_SWTMR)) {
+    sources += [ "los_swtmr_usr.c" ]
+  }
+
+  # Route a fault taken by a box task into the box destroy flow
+  # (module-level LOSCFG_BOX switch covers it).
+  sources += [ "los_exc_usr.c" ]
+
+  # SID faces of the two IPC objects whose pend/post core stays in
+  # kernel/base: per-box pools plus sId resolution.
+  if (defined(LOSCFG_BASE_IPC_MUX)) {
+    sources += [ "los_mux_box.c" ]
+  }
+  if (defined(LOSCFG_BASE_IPC_SEM)) {
+    sources += [ "los_sem_box.c" ]
+  }
+  if (defined(LOSCFG_BASE_IPC_QUEUE)) {
+    sources += [ "los_queue_box.c" ]
+  }
+
+  include_dirs = [ "include" ]
+
+  # The LOS_xxx -> SYS_LOS_xxx rename root. These TUs DEFINE the syscall
+  # bodies, so they must compile under the rename - the plain names belong
+  # to the COMMON_TEXT veneers that user code links against.
+  configs += [ "$LITEOSTOPDIR/arch/arm/cortex_m:box_syscalls" ]
+
+  configs += [ "$LITEOSTOPDIR:warn_config" ]
+
+  # The user-world half of this directory (see :box_usr below) is built
+  # through this dep, so the kernel-side aggregation keeps covering it.
+  deps = [ ":box_usr" ]
+}
+
+# BOX user world: the refs kernel_s/usr siblings of los_usr_init.c. These TUs
+# RUN unprivileged inside a box, so they must compile WITHOUT the rename root
+# - their LOS_xxx / OsXxx references have to stay PLAIN to bind the
+# COMMON_TEXT veneers. Under the rename they would bind the kernel bodies in
+# kernel flash and the first call would fault on instruction fetch (IACCVIOL).
+#
+# arch:public (injected into every kernel_module) hands out only "." and
+# "box", never "box/include", so the rename header stays unreachable here;
+# the usr root below is what makes #include "syscalls.h" resolve to the
+# user-side prototypes.
+kernel_module("box_usr") {
+  module_switch = defined(LOSCFG_BOX)
+
+  sources = [
+    # User-world API wrappers (refs kernel_s/usr/los_usr_api.c): the plain
+    # LOS_TaskCreate / LOS_TaskCreateOnly / LOS_TaskStackRecycle /
+    # LOS_MuxCreate copies. They allocate the user stack from the box heap
+    # (a user-world resource) before trapping into the create syscall.
+    "los_usr_api.c",
+  ]
+
+  # The box swtmr task (refs kernel_s/usr/los_usr_swtmr_task.c): consumes the
+  # deferred-callback ring the kernel scanner fills, so handlers run inside
+  # the owning box. Requires the kernel swtmr module (same conjunction as the
+  # C guard inside the file).
+  if (defined(LOSCFG_BASE_CORE_SWTMR)) {
+    sources += [ "los_usr_swtmr_task.c" ]
+  }
+
+  # VFPv4 codegen for the user world. The ABI tag must match the rest of the
+  # image (the linker refuses to merge VFP-register-argument objects into a
+  # soft-float image), so this stays softfp: real VFP instructions,
+  # core-register calling convention. Same flags as the target-side box usr
+  # modules.
+  cflags = [
+    "-mfpu=fpv4-sp-d16",
+    "-mfloat-abi=softfp",
+  ]
+
+  include_dirs = [
+    # usr world root: #include "syscalls.h" resolves to the user-side
+    # prototypes. This root carries no kernel/ subdir, so los_base.h's
+    # __has_include("kernel/syscalls.h") stays FALSE in these TUs.
+    "$LITEOSTOPDIR/arch/arm/cortex_m/box/include/usr",
+    "include",
+  ]
+
+  configs += [ "$LITEOSTOPDIR:warn_config" ]
+}
+
+# Two kernel_module targets in this file means liteos.gni no longer
+# auto-generates the public config (auto_config is set only when
+# modules_count == 1), and kernel:public references box:public - so it has to
+# be spelled out. Empty on purpose: the usr include root above is module-local
+# and must NOT propagate, or kernel-world TUs would resolve "syscalls.h" to
+# the usr stub.
+config("public") {
+  configs = []
+}

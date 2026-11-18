@@ -664,6 +664,18 @@ menuconfig BASE_IPC_EVENT
       and los_event.c is not compiled into the image.
 
 if BASE_IPC_EVENT
+config BASE_IPC_EVENT_LIMIT
+    int "Max Event Number"
+    default 4   if KERNEL_RAM_PRESET_TINY
+    default 8   if KERNEL_RAM_PRESET_SMALL
+    default 16  if KERNEL_RAM_PRESET_STANDARD
+    default 6
+    help
+      This represents the maximum number of kernel-side SID events. Only the
+      id-addressed event family (LOS_EventCreate / LOS_Event*WithSId) uses
+      this pool; the pointer-addressed family (LOS_EventInit / LOS_EventRead
+      over an EVENT_CB_S the caller owns) needs no pool at all.
+
 config EVENT_PERM_MODE
     int "Event permission manaing mode"
     default 1
@@ -793,6 +805,39 @@ config QUEUE_PERM_MODE
       0 for public mode, 1 for private mode and 2 for managing mode.
 
 endif # BASE_IPC_QUEUE
+
+menuconfig BASE_IPC_CONDVAR
+    bool "Enable Condition Variable"
+    default n
+    depends on BASE_IPC_MUX && BASE_IPC_EVENT && BOX
+    help
+      Enable the BOX condition-variable module (refs safe_ipc/los_condvar.c).
+      A condvar is a pool object addressed by sId, like sem/mux/queue/event:
+      it embeds an EVENT_CB_S for the waiter queue and is used together with a
+      mutex sId (OsCondVarWait releases the mux around the wait and re-takes
+      it afterwards). Depends on MUX and EVENT because it is built out of
+      both, and on BOX because the whole module lives in kernel/box/.
+
+if BASE_IPC_CONDVAR
+config BASE_IPC_CONDVAR_LIMIT
+    int "Max Condvar Number"
+    default 2   if KERNEL_RAM_PRESET_TINY
+    default 4   if KERNEL_RAM_PRESET_SMALL
+    default 8   if KERNEL_RAM_PRESET_STANDARD
+    default 4
+    help
+      This represents the maximum number of kernel-side condvars. Each box has
+      its own pool sized by LOSCFG_BOXx_COND_LIMIT in boxes_res_auto.cfg, and
+      every live condvar also draws one slot from the matching SID pool, so
+      this counts towards LOSCFG_KERNEL_SID_LIMIT.
+
+config COND_PERM_MODE
+    int "Condvar permission managing mode"
+    default 1
+    depends on BASE_IPC_PERM
+    help
+      0 for public mode, 1 for private mode and 2 for managing mode.
+endif # BASE_IPC_CONDVAR
 
 menuconfig BASE_IPC_RWSEM
     bool "Enable Rwsem"

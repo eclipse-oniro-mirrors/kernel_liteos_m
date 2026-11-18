@@ -1,28 +1,23 @@
 /*
- * los_box.c — BOX kernel core (M5A: relocated to kernel/base, mirroring refs
- * kernel_s/base/los_box.c; M5B: env build gains the refs task-resource
- * pool init and the entry task goes through OsFirstBoxTaskCreate).
+ * los_box.c — BOX kernel core: box lifecycle, environment build,
+ * resource-pool wiring, validity checks, and destroy.
  *
- * Ported subset of refs/liteos/kernel_s/base/los_box.c:
- *   - OsBoxInit: boot-time stand-in for the refs LOS_BoxInit syscall (one
- *     call per box there, static config here). Per-box tail mirrors refs
- *     LOS_BoxInit: status gate (OS_BOX_INITING) -> derived layout sizes ->
- *     OsBoxEnvBuild.
- *   - OsBoxEnvBuild: refs los_box.c:738-767 — OsBoxDataBssInit (copy
- *     .BOX_x_DATA, zero .BOX_x_BSS) -> box heap init (port addition, see
- *     below) -> OsBoxResInit -> LOS_ListInit(taskCBList) -> create the box
- *     FIRST (entry) task through OsFirstBoxTaskCreate, which sets
- *     OS_BOX_INIT on success and returns the box to OS_BOX_UNINIT on
- *     failure. The task starts born-INUSER and enters user mode on first
- *     dispatch (PendSV INUSER path).
- *   - OsBoxResTaskInit: refs box-pool parameter/address validation family
- *     for the task resource (full check-valid family is M5D).
+ *   - OsBoxInit: boot-time stand-in for a per-box init syscall (one call
+ *     per box from user space in the syscall design; the entry params live
+ *     in the boxCB from the static config here). Per-box tail: status gate
+ *     (OS_BOX_INITING) -> derived layout sizes -> OsBoxEnvBuild.
+ *   - OsBoxEnvBuild: OsBoxDataBssInit (copy .BOX_x_DATA, zero .BOX_x_BSS)
+ *     -> OsBoxResInit -> LOS_ListInit(taskCBList) -> create the box FIRST
+ *     (entry) task through OsFirstBoxTaskCreate, which sets OS_BOX_INIT on
+ *     success and returns the box to OS_BOX_UNINIT on failure. The task
+ *     starts born-INUSER and enters user mode on first dispatch (PendSV
+ *     INUSER path).
+ *   - OsBoxResTaskInit: box-pool parameter/address validation for the task
+ *     resource; the full check-valid family lives further down.
  *   - Current-context globals: g_sysMode / g_curBoxId / g_boxLocalPool all
- *     live in .USER_READONLY_DATA (refs los_usr_init.c semantics: the user
- *     world reads its box pool address directly, no syscall; the kernel
- *     writes them — dispatch on task switch).
- * Deferred to M5+: SID pools, IPC resource lists, check-valid family,
- * monitor/destroy.
+ *     live in .USER_READONLY_DATA: the user world reads its box pool
+ *     address directly, with no syscall, while the kernel writes them —
+ *     dispatch on task switch.
  */
 #include "los_typedef.h"
 #include "los_task_pri.h"
@@ -31,37 +26,52 @@
 #include "securec.h"
 #include "los_debug.h"
 #include "los_box_pri.h"
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+/* LosSwtmrCB / the box swtmr section of the public header (resource-init
+ * body below); usr_pri.h carries OsSwtmrUsrBoxInit. */
+#include "los_swtmr.h"
+#include "los_swtmr_usr_pri.h"
+#endif
+#if defined(LOSCFG_BOX) && (LOSCFG_BASE_IPC_EVENT == 1)
+#include "los_event_sid.h"  /* LosEventCB / OsBoxEventInit / OsBoxEventListInit */
+#endif
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_IPC_CONDVAR)
+#include "los_condvar_pri.h"  /* LosCondVarCB / OsBoxCondInit / OsBoxCondListInit */
+#endif
 #include "los_sec_pri.h"        /* LosTaskStack */
 #include "los_interrupt.h"      /* OS_INT_ACTIVE */
 #include "los_exc.h"            /* OS_EXC_ACTIVE */
 #ifdef LOSCFG_BASE_IPC_MUX
-#include "los_mux_pri.h"        /* OsBoxMuxInit / OsBoxMuxListInit (M5C) */
+#include "los_mux_pri.h"        /* OsBoxMuxInit / OsBoxMuxListInit */
 #endif
 #ifdef LOSCFG_BASE_IPC_SEM
-#include "los_sem_pri.h"        /* LosSemCB / OsBoxSemInit / OsBoxSemListInit (M5G) */
+#include "los_sem_pri.h"        /* LosSemCB / OsBoxSemInit / OsBoxSemListInit */
+#include "los_queue_pri.h"     /* LosQueueCB / OsBoxQueueInit / OsBoxQueueListInit */
 #endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-/* User-world readable globals (MPU R2: kernel RW / user RO). */
-UINT32 g_sysMode __attribute__((section(".USER_READONLY_DATA"))) = 0;
-volatile UINT32 g_curBoxId __attribute__((section(".USER_READONLY_DATA"))) = OS_KERNEL_BOX;
-UINTPTR g_boxLocalPool[OS_BOX_MEM_LAYOUT_NUM] __attribute__((section(".USER_READONLY_DATA"))) = {0};
-/* M5G: shared tick counter for the user world (refs g_tickCount shape):
+/* g_sysMode / g_curBoxId / g_boxLocalPool (plus the ported-but-unused
+ * g_curPerBoxData) are defined in los_usr_init.c - the refs usr-init file,
+ * same R2 placement. This file keeps the target-only tick counter below. */
+/* Shared tick counter for the user world (same shape as g_tickCount):
  * the kernel increments it in OsTickHandler (interrupt context, gated),
- * the box usr world reads it directly via the double-read + DMB pattern
- * (usr_demo los_usr_api.c LOS_TickCountGet) — no syscall round trip.
+ * the box usr world reads it directly — no syscall round trip. The readers
+ * are los_usr_swtmr_task.c (the handler running-ticks probe) and the boxA
+ * tick test; a user-side LOS_TickCountGet wrapper is still deferred (see the
+ * note in los_usr_api.c: the rename it needs collides with include order in
+ * unrelated kernel TUs).
  * UINT32 keeps the aligned-word read atomic; the usr double-read tolerates
  * the (never shrinking) wraparound. */
-volatile UINT32 g_usrTickCount __attribute__((section(".USER_READONLY_DATA"))) = 0;
+LITE_OS_SEC_USER_RO_DATA volatile UINT32 g_usrTickCount = 0;
 
 LosBoxCB *g_boxCBArr = NULL;
 SysMemLayout *g_sysMemLayout = NULL;
 
-/* refs los_box.c:886 — index the box array by the dispatch-maintained
- * g_curBoxId; OS_KERNEL_BOX for kernel context. */
+/* Index the box array by the dispatch-maintained g_curBoxId; NULL for
+ * kernel context (OS_KERNEL_BOX). */
 LosBoxCB *OsGetCurBoxCB(VOID)
 {
     if ((g_curBoxId & OS_KERNEL_BOX) == OS_KERNEL_BOX) {
@@ -73,13 +83,12 @@ LosBoxCB *OsGetCurBoxCB(VOID)
 
 STATIC UINT32 OsBoxResTaskInit(const LosBoxCB *box);
 
-/* refs OsBoxDataBssInit (los_box.c:708-735): copy the box data image from
- * its flash load address and zero the bss. The refs dynboxWord guard and
- * the LASLR arm are omitted (no dynamic boxes / no LASLR in this build);
- * memcpy_s / memset_s stand in for the refs memcpy / memset (securec,
- * -Werror). The derived sizes (boxDataLoadSize / boxBssSize /
- * boxMemPoolSize) are computed by the init path (OsBoxInit) before this
- * runs, refs style; the restart path reuses the stored values. */
+/* Copy the box data image from its flash load address and zero the bss.
+ * The dynboxWord guard and the LASLR arm are omitted (no dynamic boxes /
+ * no LASLR in this build); memcpy_s / memset_s stand in for plain
+ * memcpy / memset (securec, -Werror). The derived sizes (boxDataLoadSize
+ * / boxBssSize / boxMemPoolSize) are computed by the init path (OsBoxInit)
+ * before this runs; the restart path reuses the stored values. */
 STATIC UINT32 OsBoxDataBssInit(const LosBoxCB *box)
 {
     const BoxMemLayout *ptr = NULL;
@@ -105,13 +114,13 @@ STATIC UINT32 OsBoxDataBssInit(const LosBoxCB *box)
     return LOS_OK;
 }
 
-/* refs OsBoxEnvBuild (los_box.c:738-767): data/bss init -> resource pools
- * -> taskCBList -> create the box FIRST (entry) task through
+/* Build the box environment: data/bss init -> resource pools ->
+ * taskCBList -> create the box FIRST (entry) task through
  * OsFirstBoxTaskCreate, which sets OS_BOX_INIT on success; on create
  * failure the box returns to OS_BOX_UNINIT. The box heap is NOT touched
- * here: refs leaves it to the entry task (user mode, LOS_MemInit — refs
- * demo boxXEntry), which re-runs on every restart. The refs monitor arm
- * is omitted (LOSCFG_SYSTEM_MONITOR off). */
+ * here: it is left to the entry task (user mode, LOS_MemInit in the box
+ * entry), which re-runs on every restart. The monitor arm is omitted
+ * (LOSCFG_SYSTEM_MONITOR off). */
 STATIC UINT32 OsBoxEnvBuild(LosBoxCB *boxCB, UINT32 *taskId)
 {
     TSK_INIT_PARAM_S tskInitParam = {0};
@@ -142,7 +151,6 @@ STATIC UINT32 OsBoxEnvBuild(LosBoxCB *boxCB, UINT32 *taskId)
     return LOS_OK;
 }
 
-/* refs los_box.c:386-391 */
 STATIC UINT32 OsBoxResAddrCheck(UINTPTR address, UINTPTR size, UINTPTR start, UINTPTR end)
 {
     if ((address < start) || (address > end) || (end <= size) || (address > (end - size))) {
@@ -151,15 +159,15 @@ STATIC UINT32 OsBoxResAddrCheck(UINTPTR address, UINTPTR size, UINTPTR start, UI
     return LOS_OK;
 }
 
-/* refs OsBoxResParmChk (non-TASK_STACK_REUSE form, los_box.c:397-406). */
+/* Resource-parameter gate (non-TASK_STACK_REUSE form). */
 STATIC_INLINE BOOL OsBoxResParmChk(const LosBoxCB *box)
 {
     return ((UINTPTR)(box->boxResStackList) == 0) || ((UINTPTR)(box->boxResTaskList) == 0) ||
            (box->boxResTaskNum == 0);
 }
 
-/* refs OsBoxResTaskInit (los_box.c:408-426): the TCB / kernel-stack pools
- * must live inside the box resource window and are zeroed before use. */
+/* The TCB / kernel-stack pools must live inside the box resource window
+ * and are zeroed before use. */
 STATIC UINT32 OsBoxResTaskInit(const LosBoxCB *box)
 {
     if (OsBoxResParmChk(box)) {
@@ -191,10 +199,10 @@ UINT32 OsBoxInit(LosBoxCB * const userBoxArr, SysMemLayout * const sysMemLayoutA
     g_boxCBArr = userBoxArr;
     g_sysMemLayout = sysMemLayoutArr;
 
-    /* Boot-time stand-in for the refs LOS_BoxInit syscall (refs: one call
-     * per box from user space; the entry params live in the boxCB from the
-     * static config here). Per-box tail mirrors refs LOS_BoxInit: status
-     * gate (OS_BOX_INITING) -> derived layout sizes -> OsBoxEnvBuild, whose
+    /* Boot-time stand-in for a per-box init syscall (one call per box
+     * from user space in the syscall design; the entry params live in the
+     * boxCB from the static config here). Per-box tail: status gate
+     * (OS_BOX_INITING) -> derived layout sizes -> OsBoxEnvBuild, whose
      * tail creates the box FIRST task and sets OS_BOX_INIT. */
     for (i = 0; i < LOSCFG_BASE_BOX_MAX_LIMIT; i++) {
         LosBoxCB *boxCB = &userBoxArr[i];
@@ -210,8 +218,8 @@ UINT32 OsBoxInit(LosBoxCB * const userBoxArr, SysMemLayout * const sysMemLayoutA
             return ret;
         }
 
-        /* refs LOS_BoxInit: compute the derived layout sizes once; the
-         * restart path reuses the stored values. */
+        /* Compute the derived layout sizes once; the restart path reuses
+         * the stored values. */
         for (idx = 0; idx < OS_BOX_MEM_LAYOUT_NUM; idx++) {
             BoxMemLayout *ptr = &boxCB->layout[idx];
             ptr->boxDataLoadSize = (UINT32)(ptr->boxDataLoadEndAddr - ptr->boxDataLoadStartAddr);
@@ -230,12 +238,12 @@ UINT32 OsBoxInit(LosBoxCB * const userBoxArr, SysMemLayout * const sysMemLayoutA
 }
 
 /* =====================================================================
- * check-valid + user-copy layer (refs los_box.c:92-372).
- * Scaffold: the WithBox/WithSection/Stack helpers copy the refs address
- * window checks verbatim; the trust-context short-circuit (IS_TRUST_CONTEXT
- * is always TRUE while IS_USER_ADDR() is stubbed) makes the top-level
- * OsCheckValid*Addr / OsCopy* accept any non-NULL pointer. M5D wires the
- * real userspace probe.
+ * check-valid + user-copy layer.
+ * The WithBox/WithSection/Stack helpers run the address-window checks;
+ * the trust-context short-circuit (IS_TRUST_CONTEXT is always TRUE while
+ * IS_USER_ADDR() is stubbed) currently makes the top-level
+ * OsCheckValid*Addr / OsCopy* accept any non-NULL pointer, until the real
+ * userspace probe replaces the stub.
  * ===================================================================== */
 
 STATIC_INLINE UINT32 OsCheckValidTextWithBox(UINTPTR address, UINT32 len, const LosBoxCB *boxCB)
@@ -491,31 +499,85 @@ UINT32 OsStrlenFromUser(const CHAR *src, UINT32 count)
 }
 
 /* =====================================================================
- * per-box resource pool init family (refs los_box.c:408-706).
- * Scaffold: each arm is a compile-through stub returning LOS_OK; the real
- * OsBoxXxxListInit / OsBoxXxxInit bodies (los_mux.c / los_event.c / ...)
- * are not in the provided refs snapshot and are ported in M5C.
+ * per-box resource pool init family. Each wired arm validates the
+ * box-provided pool against the box resource window, zeroes it, and hands
+ * it to the module's per-box init (OsBoxXxxListInit / OsBoxXxxInit); the
+ * remaining arms are compile-through stubs returning LOS_OK.
  * ===================================================================== */
 
 #ifdef LOSCFG_BASE_IPC_EVENT
 STATIC UINT32 OsBoxResEventInit(const LosBoxCB *box)
 {
-    (VOID)box;
-    /* TODO(M5C): OsBoxEventListInit -> addr checks -> OsBoxEventInit. */
+    /* Safe-IPC event pools, same shape as OsBoxResSemInit: free-list head ->
+     * addr checks -> zero both arrays -> the module's per-box init, which
+     * registers the entity array with the SID module and builds the free
+     * list over the LosEventCB array. */
+    UINT32 ret;
+
+    if (OsBoxEventListInit(box->boxId) != LOS_OK) {
+        return LOS_ERRNO_BOX_BOXID_ERR;
+    }
+    if (box->boxResEvtNum == 0) {
+        return LOS_OK;
+    }
+    if (OsBoxResAddrCheck((UINTPTR)(box->boxResEvtList),
+                          sizeof(LosEventCB) * box->boxResEvtNum,
+                          box->boxResStartAddr, box->boxResEndAddr) != LOS_OK) {
+        return LOS_ERRNO_BOX_INVALID_ADDR;
+    }
+    if (OsBoxResAddrCheck((UINTPTR)(box->boxResEvtEntityList), sizeof(EntityObj) * box->boxResEvtNum,
+        box->boxResStartAddr, box->boxResEndAddr) != LOS_OK) {
+        return LOS_ERRNO_BOX_INVALID_ADDR;
+    }
+    (VOID)memset(box->boxResEvtList, 0, sizeof(LosEventCB) * box->boxResEvtNum);
+    (VOID)memset(box->boxResEvtEntityList, 0, sizeof(EntityObj) * box->boxResEvtNum);
+    ret = OsBoxEventInit((EntityObj *)box->boxResEvtEntityList, (LosEventCB *)box->boxResEvtList,
+                         box->boxResEvtNum, box->boxId);
+    if (ret != LOS_OK) {
+        return ret;
+    }
     return LOS_OK;
 }
 #endif
 
 #ifdef LOSCFG_BASE_IPC_CONDVAR
+/* Condvar pools, same shape as OsBoxResSemInit / OsBoxResEventInit: free-list
+ * head -> addr checks on both arrays -> zero them -> the module's per-box init
+ * (which registers the entity array with the SID module and builds the free
+ * list over the LosCondVarCB array). */
 STATIC UINT32 OsBoxResCondInit(const LosBoxCB *box)
 {
-    (VOID)box;
+    UINT32 ret;
+
+    if (OsBoxCondListInit(box->boxId) != LOS_OK) {
+        return LOS_ERRNO_BOX_BOXID_ERR;
+    }
+    if (box->boxResCondNum == 0) {
+        return LOS_OK;
+    }
+    if (OsBoxResAddrCheck((UINTPTR)(box->boxResCondList),
+                          sizeof(LosCondVarCB) * box->boxResCondNum,
+                          box->boxResStartAddr, box->boxResEndAddr) != LOS_OK) {
+        return LOS_ERRNO_BOX_INVALID_ADDR;
+    }
+    if (OsBoxResAddrCheck((UINTPTR)(box->boxResCondEntityList), sizeof(EntityObj) * box->boxResCondNum,
+        box->boxResStartAddr, box->boxResEndAddr) != LOS_OK) {
+        return LOS_ERRNO_BOX_INVALID_ADDR;
+    }
+    (VOID)memset(box->boxResCondList, 0, sizeof(LosCondVarCB) * box->boxResCondNum);
+    (VOID)memset(box->boxResCondEntityList, 0, sizeof(EntityObj) * box->boxResCondNum);
+    ret = OsBoxCondInit((EntityObj *)box->boxResCondEntityList,
+                        (LosCondVarCB *)box->boxResCondList,
+                        box->boxResCondNum, box->boxId);
+    if (ret != LOS_OK) {
+        return ret;
+    }
     return LOS_OK;
 }
 #endif
 
 #ifdef LOSCFG_BASE_IPC_MUX
-/* refs los_box.c:475-503 (LOSCFG_KERNEL_MUXDEP block dropped: off here). */
+/* The LOSCFG_KERNEL_MUXDEP block is dropped: off in this build. */
 STATIC UINT32 OsBoxResMuxInit(const LosBoxCB *box)
 {
     UINT32 ret;
@@ -547,8 +609,29 @@ STATIC UINT32 OsBoxResMuxInit(const LosBoxCB *box)
 #ifdef LOSCFG_BASE_IPC_QUEUE
 STATIC UINT32 OsBoxResQueInit(const LosBoxCB *box)
 {
-    (VOID)box;
-    /* TODO(M5C): OsBoxQueueListInit -> addr checks -> OsBoxQueueInit. */
+    UINT32 ret;
+
+    if (OsBoxQueueListInit(box->boxId) != LOS_OK) {
+        return LOS_ERRNO_BOX_BOXID_ERR;
+    }
+    if (box->boxResQueNum == 0) {
+        return LOS_OK;
+    }
+    if (OsBoxResAddrCheck((UINTPTR)(box->boxResQueList), sizeof(LosQueueCB) * box->boxResQueNum,
+        box->boxResStartAddr, box->boxResEndAddr) != LOS_OK) {
+        return LOS_ERRNO_BOX_INVALID_ADDR;
+    }
+    if (OsBoxResAddrCheck((UINTPTR)(box->boxResQueEntityList), sizeof(EntityObj) * box->boxResQueNum,
+        box->boxResStartAddr, box->boxResEndAddr) != LOS_OK) {
+        return LOS_ERRNO_BOX_INVALID_ADDR;
+    }
+    (VOID)memset(box->boxResQueList, 0, sizeof(LosQueueCB) * box->boxResQueNum);
+    (VOID)memset(box->boxResQueEntityList, 0, sizeof(EntityObj) * box->boxResQueNum);
+    ret = OsBoxQueueInit((EntityObj *)box->boxResQueEntityList, (LosQueueCB *)box->boxResQueList,
+                         box->boxResQueNum, box->boxId);
+    if (ret != LOS_OK) {
+        return ret;
+    }
     return LOS_OK;
 }
 #endif
@@ -594,8 +677,33 @@ STATIC UINT32 OsBoxResShmInit(const LosBoxCB *box)
 #ifdef LOSCFG_BASE_CORE_SWTMR
 STATIC UINT32 OsBoxResSwtInit(const LosBoxCB *box)
 {
+    /* Swtmr list init -> addr checks -> swtmr pool init seam: attach the
+     * box-provided timer pool + callback ring (the swtmr task itself is
+     * created from the box entry task via BoxSwtmrInit). */
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    UINT32 ret;
+
+    if (box->boxResSwtNum == 0) {
+        return LOS_OK;
+    }
+    if (OsBoxResAddrCheck((UINTPTR)(box->boxResSwtList),
+                          sizeof(LosSwtmrCB) * box->boxResSwtNum,
+                          box->boxResStartAddr, box->boxResEndAddr) != LOS_OK) {
+        return LOS_ERRNO_BOX_INVALID_ADDR;
+    }
+    if (OsBoxResAddrCheck(box->boxResSwtQueue,
+                          sizeof(UINTPTR) * box->boxResSwtQueueLen * 2U,
+                          box->boxResStartAddr, box->boxResEndAddr) != LOS_OK) {
+        return LOS_ERRNO_BOX_INVALID_ADDR;
+    }
+    ret = OsSwtmrUsrBoxInit(box->boxId, (LosSwtmrCB *)box->boxResSwtList,
+                            box->boxResSwtNum, box->boxResSwtQueue,
+                            box->boxResSwtQueueLen);
+    if (ret != LOS_OK) {
+        return ret;
+    }
+#endif
     (VOID)box;
-    /* TODO(M5C): OsBoxSwtmrListInit -> addr checks -> OsBoxSwtmrInit. */
     return LOS_OK;
 }
 #endif
@@ -608,7 +716,8 @@ STATIC UINT32 OsBoxResMQueueInit(const LosBoxCB *box)
 }
 #endif
 
-/* refs los_box.c:639-706 — dispatch order is verbatim. */
+/* Resource-init dispatch. The module order mirrors the baseline box
+ * resource-init sequence; keep it in sync when that baseline changes. */
 UINT32 OsBoxResInit(LosBoxCB *box)
 {
     UINT32 ret;
@@ -676,15 +785,15 @@ UINT32 OsBoxResInit(LosBoxCB *box)
 }
 
 /* =====================================================================
- * box lifecycle (refs los_box.c:769-884 + los_task.c:1866).
- * OsGetBoxAndSetStatus copies refs verbatim. OsBoxRestart is refs
- * verbatim: status gate -> OsBoxEnvBuild (data/bss, heap, resource pools,
+ * box lifecycle.
+ * OsGetBoxAndSetStatus gates on the box status under the scheduler lock.
+ * OsBoxRestart: status gate -> OsBoxEnvBuild (data/bss, resource pools,
  * then the FIRST task is recreated inside; OsFirstBoxTaskCreate sets
- * OS_BOX_INIT). OsBoxDestroy runs the refs teardown sequence (SID
- * release / SID pool reset / swtmr / tasks).
- * Deviation from refs: refs gates OsBoxDestroy on LOSCFG_EXC_ISOLATION;
- * this build has EXC_ISOLATION off, so the body is compiled under
- * LOSCFG_BOX directly to make the lifecycle surface exercisable.
+ * OS_BOX_INIT). OsBoxDestroy runs the teardown sequence (SID release /
+ * SID pool reset / swtmr / tasks).
+ * OsBoxDestroy is compiled under LOSCFG_BOX directly rather than gated on
+ * LOSCFG_EXC_ISOLATION (off in this build) to keep the lifecycle surface
+ * exercisable.
  * ===================================================================== */
 
 UINT32 OsGetBoxAndSetStatus(UINT16 boxId, LosBoxCB **boxCB)
@@ -712,9 +821,9 @@ UINT32 OsGetBoxAndSetStatus(UINT16 boxId, LosBoxCB **boxCB)
     return LOS_OK;
 }
 
-/* refs OsBoxRestart (los_box.c:830-844): status gate -> OsBoxEnvBuild,
- * whose tail recreates the box FIRST task and sets OS_BOX_INIT. The refs
- * LOSCFG_DYNAMIC_BOX arm is omitted (no dynamic boxes in this build). */
+/* Restart a box: status gate -> OsBoxEnvBuild, whose tail recreates the
+ * box FIRST task and sets OS_BOX_INIT. The LOSCFG_DYNAMIC_BOX arm is
+ * omitted (no dynamic boxes in this build). */
 UINT32 OsBoxRestart(UINT16 boxId)
 {
     UINT32 ret;
@@ -732,23 +841,18 @@ VOID OsBoxDestroy(UINT16 boxId)
 {
     LosBoxCB *boxCB = &g_boxCBArr[boxId];
 
-    /* refs los_box.c:862-883 (gated LOSCFG_EXC_ISOLATION). Sequence is
-     * verbatim: SIdDrvBoxIpcRelease -> SIdBoxResDestroy -> SwtmrDestroy ->
-     * OsBoxMulPoolHeadClear (refs gates on LOSCFG_MEM_MUL_POOL) ->
-     * OsTaskDestroy; Dynbox/Shell arms omitted (not configured). The box
-     * heap itself is left to the restarted entry task (refs demo
-     * LOS_MemInit). Deviation: refs compiles this under
-     * LOSCFG_EXC_ISOLATION (off here); LOSCFG_BOX keeps the surface
-     * exercisable. */
+    /* Teardown sequence: SIdDrvBoxIpcRelease -> SIdBoxResDestroy ->
+     * SwtmrDestroy -> OsBoxMulPoolHeadClear (gated on
+     * LOSCFG_MEM_MUL_POOL) -> OsTaskDestroy; Dynbox/Shell arms omitted
+     * (not configured). The box heap itself is left to the restarted
+     * entry task (LOS_MemInit in the box entry). */
     LOS_TaskLock();
     OsSIdDrvBoxIpcRelease(boxCB);
     OsSIdBoxResDestroy(boxCB);
     OsSwtmrDestroy(boxCB);
-    /* refs los_box.c:878 gates on #ifdef LOSCFG_MEM_MUL_POOL — refs (old
-     * LiteOS) leaves the macro UNDEFINED when off. OHOS differs:
-     * los_config.h #ifndef-defaults it to 0, so the macro is ALWAYS
-     * defined and #ifdef would be permanently true; the value check
-     * (los_memory_pri.h:281 form) carries the refs intent. */
+    /* Value check, not #ifdef: los_config.h #ifndef-defaults
+     * LOSCFG_MEM_MUL_POOL to 0, so the macro is ALWAYS defined and #ifdef
+     * would be permanently true. */
 #if (LOSCFG_MEM_MUL_POOL == 1)
     OsBoxMulPoolHeadClear(boxId);
 #endif
@@ -759,28 +863,55 @@ VOID OsBoxDestroy(UINT16 boxId)
 
 /* ---- SID / swtmr destroy helpers ---- */
 
-/* refs: releases IPC resources held by a driver box. No driver box in
- * this build, so the helper is a no-op kept for the destroy sequence. */
+/* Releases IPC resources held by a driver box. No driver box in this
+ * build, so the helper is a no-op kept for the destroy sequence. */
 VOID OsSIdDrvBoxIpcRelease(const LosBoxCB *boxCB)
 {
     (VOID)boxCB;
 }
 
-/* Reset the box SID pool by re-running OsSIdBoxInit (memset + rebuild the
- * per-box free list). Idempotent with the init-time OS_SID_BOX_INIT. */
+/* refs OsSIdBoxResDestroy, BASE_SID_LIST branch: there is no used-list to
+ * walk, so the pool is scanned for live slots (sId != 0) and each one is
+ * deleted - which unbinds its entity (owner / moduleData) and frees the slot.
+ * refs' EXC_ISOLATION variant passes OsSIdRecycleByDestroy so each module's
+ * destroyCb can hand the resource back; that whole block is compiled out here
+ * (no OsSIdRegModuleHandle, so no destroyCb is ever registered) and the plain
+ * delete path runs instead. That is sufficient because the box's CB arrays are
+ * rebuilt from scratch by OsBoxResInit on the next start.
+ * Ordering matters: OsBoxDestroy calls this BEFORE the status drops to
+ * OS_BOX_UNINIT, so OsSIdObjGet's BOX_IS_INIT gate still admits the box. */
 VOID OsSIdBoxResDestroy(const LosBoxCB *boxCB)
 {
+    SIdObj *sIdObj = NULL;
+    UINT32 intSave;
+    UINT32 i;
+
     if ((boxCB == NULL) || (boxCB->boxSIdPool == NULL) || (boxCB->boxSIdPoolSize == 0)) {
         return;
     }
-    (VOID)OsSIdBoxInit(NULL, NULL, boxCB->boxSIdPool, boxCB->boxSIdPoolSize);
+
+    for (i = 0; i < boxCB->boxSIdPoolSize; i++) {
+        sIdObj = &boxCB->boxSIdPool[i];
+        if (sIdObj->sId == 0) {
+            continue;
+        }
+        SCHEDULER_LOCK(intSave);
+        (VOID)OsSIdObjDel(sIdObj->sId);
+        SCHEDULER_UNLOCK(intSave);
+    }
 }
 
-/* refs los_swtmr.c: destroys per-box swtmr resources. Both boxes have
- * swt limit == 0 in this build, so the helper is a no-op. */
+/* Destroys per-box swtmr resources. With the per-box swtmr machinery live
+ * (boxA owns a timer pool), the box destroy sequence routes into the
+ * swtmr usr destroy (stop ticking timers, recycle to the box free list,
+ * reset the callback ring). */
 VOID OsSwtmrDestroy(const LosBoxCB *boxCB)
 {
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    OsSwtmrDestroyUsr((VOID *)(UINTPTR)boxCB);
+#else
     (VOID)boxCB;
+#endif
 }
 
 #ifdef __cplusplus

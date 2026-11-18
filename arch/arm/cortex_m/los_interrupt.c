@@ -250,12 +250,70 @@ STATIC VOID OsExcInfoDisplay(const ExcInfo *excInfo)
 #endif
 }
 
+#ifdef LOSCFG_BOX
+/* Registering an exception hook replaces the default
+ * notify+display path in HalExcHandleEntry below, so the box hook needs a
+ * way to keep the dump. Thin BOX-only wrapper - with BOX off
+ * OsExcInfoDisplay stays STATIC and this file is unchanged.
+ *
+ * Deviation from OsExcInfoDisplay: the LOSCFG_EXC_SIMPLE_INFO tail
+ * (OsGetAllTskInfo / OsExcNvicDump / OsExcMemPoolCheckInfo) is deliberately
+ * NOT run here. Under BOX the single COMMON copy of los_printf.c carries the
+ * lightweight LOS_PRINTF_COMMON_ENGINE formatter, and running the tail from
+ * this exception context escalates to a Lockup after the third task row.
+ * Everything a box fault actually needs survives: type/phase/faultAddr,
+ * current task, full register dump and the backtrace. */
+VOID OsExcInfoDisplayBox(const ExcInfo *excInfo)
+{
+#if (LOSCFG_KERNEL_PRINTF != 0)
+    PRINTK("*************Exception Information**************\n");
+    OsExcTypeInfo(excInfo);
+    OsExcCurTaskInfo(excInfo);
+    OsExcRegInfo(excInfo);
+#if (LOSCFG_KERNEL_BACKTRACE == 1)
+    OsExcBackTraceInfo(excInfo);
+#endif
+#endif
+}
+#endif
+
 LITE_OS_SEC_TEXT_INIT BOOL ArchExcActive(VOID)
 {
     UINT32 ipsr = ArchGetIpsr();
     /* 15: SysTick interrupt number and less than this number is exception. */
     return (ipsr < ARM_EXCEPTION_SYSTICK) && (ipsr > 0);
 }
+
+/* Pitfall 57: the FLAG_NO_FLOAT branch below bridges two frame geometries
+ * with LOS_OFF_SET_OF(EXC_CONTEXT_S, uwR4), so that offset has to match the
+ * S16-S31 prefix the struct actually has. los_exc.S picks the geometry at
+ * RUNTIME from EXC_RETURN, while the struct picks it at COMPILE time from the
+ * FP condition in los_arch_interrupt.h - if those two ever disagree again
+ * every exception register reads 64 bytes low, and the dump still looks
+ * plausible, which is the worst failure mode. Lock it down.
+ *
+ * The condition here is written out to be IDENTICAL to the struct's, and both
+ * arms are asserted: gating the check on LOSCFG_BOX alone would leave a
+ * BOX=off build that enables the FPU unchecked, and would assert the wide
+ * size for a BOX=on build whose __FPU_PRESENT is not 1. */
+#if ((defined(LOSCFG_BOX) && defined (__FPU_PRESENT) && (__FPU_PRESENT == 1U)) || \
+     ((defined (__FPU_PRESENT) && (__FPU_PRESENT == 1U)) && \
+      (defined (__FPU_USED   ) && (__FPU_USED    == 1U))     ))
+/* Wide: 64 (S16-S31) + 36 (R4-R11 + PRIMASK) + 4 (SP) + 104 (extended
+ * hardware frame: 8 words + S0-S15 + FPSCR + reserved). */
+_Static_assert((sizeof(EXC_CONTEXT_S) == 208) &&
+               (LOS_OFF_SET_OF(EXC_CONTEXT_S, uwR4) == 64),
+               "FP-capable build needs the wide EXC_CONTEXT_S: los_exc.S builds "
+               "the extended frame whenever CONTROL.FPCA is set (box user code "
+               "sets it, which is why LOSCFG_BOX is an arm of the condition)");
+#else
+/* Short: 36 (R4-R11 + PRIMASK) + 4 (SP) + 32 (basic hardware frame: R0-R3,
+ * R12, LR, PC, xPSR). uwR4 is the first member, so its offset is 0 and the
+ * FLAG_NO_FLOAT compensation below must be a no-op. */
+_Static_assert((sizeof(EXC_CONTEXT_S) == 72) &&
+               (LOS_OFF_SET_OF(EXC_CONTEXT_S, uwR4) == 0),
+               "non-FP build needs the short EXC_CONTEXT_S (no S16-S31 prefix)");
+#endif
 
 LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, UINT32 pid, EXC_CONTEXT_S *excBufAddr)
 {
@@ -311,20 +369,8 @@ LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, U
     ArchTaskExit();
 }
 
-/* stack protector */
-/* M5C (refs los_usr_init.c): box user code compiled with
- * -fstack-protector-strong (any user API taking the address of a local,
- * e.g. LOS_MuxCreate(&sId), instruments the caller) loads the canary in
- * unprivileged mode, so the guard must live where the user world can
- * read it: .USER_READONLY_DATA (MPU R2, kernel-W / user-RO). refs keeps
- * a per-box guard in usr data; this one-world build shares the kernel's
- * guard at an R2 address instead (documented deviation - boxes can read
- * the global canary, which only weakens their own overflow protection).
- * __stack_chk_fail stays kernel-side: the kernel copy panic-dumps, and
- * a corrupted user canary reaching it faults on entry (user code cannot
- * execute kernel text) - the fault itself is the signal. */
 #ifdef LOSCFG_BOX
-WEAK UINT32 __stack_chk_guard __attribute__((section(".USER_READONLY_DATA"))) = 0xd00a0dff;
+WEAK LITE_OS_SEC_USER_RO_DATA UINT32 __stack_chk_guard = 0xd00a0dff;
 #else
 WEAK UINT32 __stack_chk_guard = 0xd00a0dff;
 #endif

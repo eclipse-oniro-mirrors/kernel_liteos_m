@@ -51,22 +51,23 @@
 #include <string.h>
 #include "securec.h"
 
-/* M5G-R: this whole TU moves to the COMMON sections under BOX (compiled
+/* This whole TU moves to the COMMON sections under BOX (compiled
  * in the box_usr_mem module, kernel/base drops it): box user code calls
  * PRINTK -> LOS_Printf through the same code the kernel uses - the
  * "full PRINTK" for box code. The move required two structural changes:
  *  1. OsLogLevelCheck (+ its STATIC g_logString) moved here from
  *     los_debug.c - it sits on the LOS_Printf call path and would be a
- *     kernel-segment landing point otherwise (pitfall 44: audit every UND
- *     symbol of a COMMON-segment TU). The non-COMMON level prefix still
- *     touches g_logString/LOS_CurTaskNameGet, which user callers never
- *     reach (PRINTK is always LOG_COMMON_LEVEL).
+ *     kernel-segment landing point otherwise. Every UND symbol of a
+ *     COMMON-segment TU has to be audited this way. The non-COMMON level
+ *     prefix still touches g_logString/LOS_CurTaskNameGet, which user
+ *     callers never reach (PRINTK is always LOG_COMMON_LEVEL).
  *  2. the formatting engine: under LOS_PRINTF_COMMON_ENGINE (defined by
  *     the box_usr_mem build) OsVprintf formats with OsVsnprintfCommon
  *     instead of vsnprintf_s. The libsec/musl printf closure (FILE
  *     streams, pthread locks, TLS errno, soft-double conversion) cannot
- *     be routed to the COMMON sections - pitfall 45's "burden members
- *     stay out" at printf scale. The KERNEL build (BOX=off) keeps the
+ *     be routed to the COMMON sections: a COMMON member must not drag in
+ *     anything that lives outside COMMON, and at printf scale it drags in
+ *     a great deal. The KERNEL build (BOX=off) keeps the
  *     full vsnprintf_s engine, bit-for-bit. */
 #if (LOSCFG_KERNEL_PRINTF == 1) || (LOSCFG_KERNEL_PRINTF == 2)
 STATIC const CHAR *g_logString[] = {

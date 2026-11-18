@@ -31,6 +31,11 @@
 
 #include "los_queue.h"
 #include "los_queue_debug_pri.h"
+#ifdef LOSCFG_BOX
+#include "los_queue_pri.h"   /* OsGetQueueFreeList / g_boxFreeQueueList */
+#include "los_sec_pri.h"      /* OsSIdGetDataCB / OsQueueSecCreateOut */
+#include "los_box_pri.h"      /* OsGetCurBoxCB (box-context create routing) */
+#endif
 #include "los_task_pri.h"
 #include "securec.h"
 #include "los_config.h"
@@ -54,11 +59,88 @@
 
 LITE_OS_SEC_BSS LosQueueCB *g_allQueue = NULL ;
 LITE_OS_SEC_BSS LOS_DL_LIST g_freeQueueList;
+#ifdef LOSCFG_BOX
+/* Per-box queue free lists, one head per box over the box resource arrays
+ * (same placement as the mux/sem box lists). */
+LITE_OS_SEC_BSS LOS_DL_LIST g_boxFreeQueueList[LOSCFG_BASE_BOX_MAX_LIMIT];
+/* Kernel queue entity array, registered with the SID module under
+ * LOS_KERNEL_SID_HEAD (same shape as g_kernelMuxEntityArr in los_mux.c):
+ * one EntityObj per kernel-table queue CB, parallel to g_allQueue. The
+ * static queue pool is not covered - under BOX a static CB cannot pass the
+ * create exit's OsSIdGenObj bind, so that path does not exist. */
+LITE_OS_SEC_BSS STATIC EntityObj g_kernelQueEntityArr[LOSCFG_BASE_IPC_QUEUE_LIMIT];
+#endif
 
 #if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
 LITE_OS_SEC_BSS LosQueueCB *g_staticQueue = NULL ;
 LITE_OS_SEC_BSS LOS_DL_LIST g_freeStaticQueueList;
 #endif
+
+/*
+ * IPC security gates. Open state (LOSCFG_BOX): a box caller addresses a
+ * queue by its SID handle, and queue keeps TWO CB pools - the kernel table
+ * plus the per-box pools (g_boxFreeQueueList over boxResQueList) - so the
+ * handle cannot normalize to a kernel index the way a single-pool module
+ * could. Every entry instead resolves the handle into the owning pool's CB
+ * pointer up front (OsQueueResolve, the lock-free resolver shape refs calls
+ * OsQueueGetCB) and the body runs on the CB; the create exit
+ * (OsQueueCreateOut) binds the sId through OsSIdGenObj, which draws a slot
+ * from the current context's SID pool and binds that pool's entity array.
+ * The box create arm draws from the owning box's pool
+ * (OsGetQueueFreeList); the kernel list serves kernel/interrupt contexts.
+ * Closed state: the resolve gate collapses to the baseline bound check +
+ * GET_QUEUE_HANDLE and CreateOut writes back the pool index, so a BOX=off
+ * build keeps the baseline flow.
+ */
+#ifdef LOSCFG_BOX
+STATIC INLINE UINT32 OsQueueResolve(UINT32 queueID, LosQueueCB **queueCB)
+{
+    return OsSIdGetDataCB(queueID, (UINT32)LOS_SID_TYPE_QUE, (VOID **)queueCB);
+}
+
+STATIC INLINE UINT32 OsQueueCreateOut(UINT32 *queueID, LosQueueCB *queueCB, UINT8 *queueMem)
+{
+    LOS_DL_LIST *freeList = NULL;
+#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+    /* with static and dynamic allocation coexisting, a failed reclaim must
+     * go back to the list the CB came from (mirrors LOS_QueueDelete) or the
+     * CB drifts between the pools. Static-pool queues cannot exist under
+     * BOX anyway - the create exit cannot bind a CB outside both pools. */
+    BOOL isStatic = (queueCB->queueID >= (UINT32)LOSCFG_BASE_IPC_QUEUE_LIMIT);
+    if (isStatic) {
+        freeList = &g_freeStaticQueueList;
+    }
+#else
+    BOOL isStatic = FALSE;
+#endif
+    if (freeList == NULL) {
+        /* dynamic CBs: the owning list follows the running context - the
+         * box pool for a box create, the kernel list otherwise */
+        OsGetQueueFreeList((UINTPTR)OsGetCurBoxCB(), &freeList);
+    }
+    UINT32 ret = OsQueueSecCreateOut(queueID, (VOID *)queueCB, queueMem, freeList, isStatic);
+    if (ret != LOS_OK) {
+        OsQueueDbgUpdateHook(queueCB->queueID, NULL);
+    }
+    return ret;
+}
+#else
+STATIC INLINE UINT32 OsQueueResolve(UINT32 queueID, LosQueueCB **queueCB)
+{
+    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
+        return LOS_ERRNO_QUEUE_INVALID;
+    }
+    *queueCB = GET_QUEUE_HANDLE(queueID);
+    return LOS_OK;
+}
+
+STATIC INLINE UINT32 OsQueueCreateOut(UINT32 *queueID, LosQueueCB *queueCB, UINT8 *queueMem)
+{
+    (VOID)queueMem;
+    *queueID = queueCB->queueID;
+    return LOS_OK;
+}
+#endif /* LOSCFG_BOX */
 
 /**************************************************************************
  Function    : OsQueueInit
@@ -89,6 +171,15 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsQueueInit(VOID)
                    0, LOSCFG_BASE_IPC_QUEUE_LIMIT * sizeof(LosQueueCB));
 
     LOS_ListInit(&g_freeQueueList);
+#ifdef LOSCFG_BOX
+    /* Register the kernel queue entity array with the SID module under the
+     * kernel SID head, so a kernel-table queue CB binds against the kernel
+     * entity array (OsSIdModuleInit shape from OsMuxInit). */
+    if (OsSIdModuleInit(LOS_SID_TYPE_QUE, 0, g_kernelQueEntityArr, LOSCFG_BASE_IPC_QUEUE_LIMIT,
+                        LOS_KERNEL_SID_HEAD) != LOS_OK) {
+        return LOS_ERRNO_QUEUE_NO_MEMORY;
+    }
+#endif
     for (index = 0; index < LOSCFG_BASE_IPC_QUEUE_LIMIT; index++) {
         queueNode = ((LosQueueCB *)g_allQueue) + index;
         queueNode->queueID = index;
@@ -170,6 +261,19 @@ static UINT32 OsQueueCreate(const CHAR *queueName,
         }
 
         SCHEDULER_LOCK(intSave);
+#ifdef LOSCFG_BOX
+        /* box contexts draw from their own pool (LOSCFG_BOXx_QUEUE_LIMIT);
+         * kernel/interrupt contexts keep the kernel list */
+        LOS_DL_LIST *cbList = NULL;
+        OsGetQueueFreeList((UINTPTR)OsGetCurBoxCB(), &cbList);
+        if (LOS_ListEmpty(cbList)) {
+            SCHEDULER_UNLOCK(intSave);
+            (VOID)LOS_MemFree(m_aucSysMem0, queue);
+            OsQueueCheckHook();
+            return LOS_ERRNO_QUEUE_CB_UNAVAILABLE;
+        }
+        unusedQueue = LOS_DL_LIST_FIRST(cbList);
+#else
         if (LOS_ListEmpty(&g_freeQueueList)) {
             SCHEDULER_UNLOCK(intSave);
             (VOID)LOS_MemFree(m_aucSysMem0, queue);
@@ -177,6 +281,7 @@ static UINT32 OsQueueCreate(const CHAR *queueName,
             return LOS_ERRNO_QUEUE_CB_UNAVAILABLE;
         }
         unusedQueue = LOS_DL_LIST_FIRST(&(g_freeQueueList));
+#endif
     }
 #else
     (void)staticMem;
@@ -187,12 +292,27 @@ static UINT32 OsQueueCreate(const CHAR *queueName,
     }
 
     SCHEDULER_LOCK(intSave);
+#ifdef LOSCFG_BOX
+    /* box contexts draw from their own pool; kernel/interrupt contexts keep
+     * the kernel list */
+    {
+        LOS_DL_LIST *cbList = NULL;
+        OsGetQueueFreeList((UINTPTR)OsGetCurBoxCB(), &cbList);
+        if (LOS_ListEmpty(cbList)) {
+            SCHEDULER_UNLOCK(intSave);
+            (VOID)LOS_MemFree(m_aucSysMem0, queue);
+            return LOS_ERRNO_QUEUE_CB_UNAVAILABLE;
+        }
+        unusedQueue = LOS_DL_LIST_FIRST(cbList);
+    }
+#else
     if (LOS_ListEmpty(&g_freeQueueList)) {
         SCHEDULER_UNLOCK(intSave);
         (VOID)LOS_MemFree(m_aucSysMem0, queue);
         return LOS_ERRNO_QUEUE_CB_UNAVAILABLE;
     }
     unusedQueue = LOS_DL_LIST_FIRST(&(g_freeQueueList));
+#endif
 #endif
 
     LOS_ListDelete(unusedQueue);
@@ -212,7 +332,13 @@ static UINT32 OsQueueCreate(const CHAR *queueName,
     OsQueueDbgUpdateHook(queueCB->queueID, OsCurrTaskGet()->taskEntry);
     SCHEDULER_UNLOCK(intSave);
 
-    *queueID = queueCB->queueID;
+    /* SID-bound handle out (the baseline writes the pool index) */
+    {
+        UINT32 outRet = OsQueueCreateOut(queueID, queueCB, queue);
+        if (outRet != LOS_OK) {
+            return outRet;
+        }
+    }
 
     OsHookCall(LOS_HOOK_TYPE_QUEUE_CREATE, queueCB);
 
@@ -284,17 +410,14 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueCreate(const CHAR *queueName,
 }
 #endif
 
-static INLINE LITE_OS_SEC_TEXT UINT32 OsQueueReadParameterCheck(UINT32 queueID, VOID *bufferAddr,
+static INLINE LITE_OS_SEC_TEXT UINT32 OsQueueReadParameterCheck(const LosQueueCB *queueCB, VOID *bufferAddr,
                                                                 UINT32 *bufferSize, UINT32 timeOut)
 {
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
-        return LOS_ERRNO_QUEUE_INVALID;
-    }
     if ((bufferAddr == NULL) || (bufferSize == NULL)) {
         return LOS_ERRNO_QUEUE_READ_PTR_NULL;
     }
 
-    OsQueueDbgTimeUpdateHook(queueID);
+    OsQueueDbgTimeUpdateHook(queueCB->queueID);
 
     if (*bufferSize == 0) {
         return LOS_ERRNO_QUEUE_READSIZE_ISZERO;
@@ -308,18 +431,14 @@ static INLINE LITE_OS_SEC_TEXT UINT32 OsQueueReadParameterCheck(UINT32 queueID, 
     return LOS_OK;
 }
 
-static INLINE LITE_OS_SEC_TEXT UINT32 OsQueueWriteParameterCheck(UINT32 queueID, VOID *bufferAddr,
+static INLINE LITE_OS_SEC_TEXT UINT32 OsQueueWriteParameterCheck(const LosQueueCB *queueCB, VOID *bufferAddr,
                                                                  UINT32 *bufferSize, UINT32 timeOut)
 {
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
-        return LOS_ERRNO_QUEUE_INVALID;
-    }
-
     if (bufferAddr == NULL) {
         return LOS_ERRNO_QUEUE_WRITE_PTR_NULL;
     }
 
-    OsQueueDbgTimeUpdateHook(queueID);
+    OsQueueDbgTimeUpdateHook(queueCB->queueID);
 
     if (*bufferSize == 0) {
         return LOS_ERRNO_QUEUE_WRITESIZE_ISZERO;
@@ -410,9 +529,8 @@ static INLINE UINT32 OsQueueOperateParamCheck(const LosQueueCB *queueCB, UINT32 
     return LOS_OK;
 }
 
-UINT32 OsQueueOperate(UINT32 queueID, UINT32 operateType, VOID *bufferAddr, UINT32 *bufferSize, UINT32 timeOut)
+UINT32 OsQueueOperate(LosQueueCB *queueCB, UINT32 operateType, VOID *bufferAddr, UINT32 *bufferSize, UINT32 timeOut)
 {
-    LosQueueCB *queueCB = NULL;
     LosTaskCB *resumedTask = NULL;
     UINT32 ret;
     UINT32 readWrite = OS_QUEUE_READ_WRITE_GET(operateType);
@@ -421,7 +539,6 @@ UINT32 OsQueueOperate(UINT32 queueID, UINT32 operateType, VOID *bufferAddr, UINT
     UINT32 intSave;
     SCHEDULER_LOCK(intSave);
 
-    queueCB = (LosQueueCB *)GET_QUEUE_HANDLE(queueID);
     ret = OsQueueOperateParamCheck(queueCB, operateType, bufferSize);
     if (ret != LOS_OK) {
         goto QUEUE_END;
@@ -477,18 +594,23 @@ LITE_OS_SEC_TEXT UINT32 LOS_QueueReadCopy(UINT32 queueID,
 {
     UINT32 ret;
     UINT32 operateType;
+    LosQueueCB *queueCB = NULL;
 
-    ret = OsQueueReadParameterCheck(queueID, bufferAddr, bufferSize, timeOut);
+    ret = OsQueueResolve(queueID, &queueCB);
+    if (ret != LOS_OK) {
+        return LOS_ERRNO_QUEUE_INVALID;
+    }
+
+    ret = OsQueueReadParameterCheck(queueCB, bufferAddr, bufferSize, timeOut);
     if (ret != LOS_OK) {
         return ret;
     }
 
     operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_READ, OS_QUEUE_HEAD, OS_QUEUE_NOT_POINT);
 
-    OsHookCall(LOS_HOOK_TYPE_QUEUE_READ_COPY, (LosQueueCB *)GET_QUEUE_HANDLE(queueID),
-               operateType, *bufferSize, timeOut);
+    OsHookCall(LOS_HOOK_TYPE_QUEUE_READ_COPY, queueCB, operateType, *bufferSize, timeOut);
 
-    return OsQueueOperate(queueID, operateType, bufferAddr, bufferSize, timeOut);
+    return OsQueueOperate(queueCB, operateType, bufferAddr, bufferSize, timeOut);
 }
 
 LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteHeadCopy(UINT32 queueID,
@@ -498,14 +620,20 @@ LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteHeadCopy(UINT32 queueID,
 {
     UINT32 ret;
     UINT32 operateType;
+    LosQueueCB *queueCB = NULL;
 
-    ret = OsQueueWriteParameterCheck(queueID, bufferAddr, &bufferSize, timeOut);
+    ret = OsQueueResolve(queueID, &queueCB);
+    if (ret != LOS_OK) {
+        return LOS_ERRNO_QUEUE_INVALID;
+    }
+
+    ret = OsQueueWriteParameterCheck(queueCB, bufferAddr, &bufferSize, timeOut);
     if (ret != LOS_OK) {
         return ret;
     }
 
     operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_WRITE, OS_QUEUE_HEAD, OS_QUEUE_NOT_POINT);
-    return OsQueueOperate(queueID, operateType, bufferAddr, &bufferSize, timeOut);
+    return OsQueueOperate(queueCB, operateType, bufferAddr, &bufferSize, timeOut);
 }
 
 LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteCopy(UINT32 queueID,
@@ -515,54 +643,73 @@ LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteCopy(UINT32 queueID,
 {
     UINT32 ret;
     UINT32 operateType;
+    LosQueueCB *queueCB = NULL;
 
-    ret = OsQueueWriteParameterCheck(queueID, bufferAddr, &bufferSize, timeOut);
+    ret = OsQueueResolve(queueID, &queueCB);
+    if (ret != LOS_OK) {
+        return LOS_ERRNO_QUEUE_INVALID;
+    }
+
+    ret = OsQueueWriteParameterCheck(queueCB, bufferAddr, &bufferSize, timeOut);
     if (ret != LOS_OK) {
         return ret;
     }
 
     operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_WRITE, OS_QUEUE_TAIL, OS_QUEUE_NOT_POINT);
 
-    OsHookCall(LOS_HOOK_TYPE_QUEUE_WRITE_COPY, (LosQueueCB *)GET_QUEUE_HANDLE(queueID),
-               operateType, bufferSize, timeOut);
+    OsHookCall(LOS_HOOK_TYPE_QUEUE_WRITE_COPY, queueCB, operateType, bufferSize, timeOut);
 
-    return OsQueueOperate(queueID, operateType, bufferAddr, &bufferSize, timeOut);
+    return OsQueueOperate(queueCB, operateType, bufferAddr, &bufferSize, timeOut);
 }
 
 LITE_OS_SEC_TEXT UINT32 LOS_QueueRead(UINT32 queueID, VOID *bufferAddr, UINT32 bufferSize, UINT32 timeOut)
 {
     UINT32 ret;
     UINT32 operateType;
+    LosQueueCB *queueCB = NULL;
 
-    ret = OsQueueReadParameterCheck(queueID, bufferAddr, &bufferSize, timeOut);
+    /* SID handle -> pool index in place (no-op with BOX off) */
+    ret = OsQueueResolve(queueID, &queueCB);
+    if (ret != LOS_OK) {
+        return LOS_ERRNO_QUEUE_INVALID;
+    }
+
+    ret = OsQueueReadParameterCheck(queueCB, bufferAddr, &bufferSize, timeOut);
     if (ret != LOS_OK) {
         return ret;
     }
 
     operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_READ, OS_QUEUE_HEAD, OS_QUEUE_POINT);
 
-    OsHookCall(LOS_HOOK_TYPE_QUEUE_READ, (LosQueueCB *)GET_QUEUE_HANDLE(queueID), operateType, bufferSize, timeOut);
+    OsHookCall(LOS_HOOK_TYPE_QUEUE_READ, queueCB, operateType, bufferSize, timeOut);
 
-    return OsQueueOperate(queueID, operateType, bufferAddr, &bufferSize, timeOut);
+    return OsQueueOperate(queueCB, operateType, bufferAddr, &bufferSize, timeOut);
 }
 
 LITE_OS_SEC_TEXT UINT32 LOS_QueueWrite(UINT32 queueID, VOID *bufferAddr, UINT32 bufferSize, UINT32 timeOut)
 {
     UINT32 ret;
     UINT32 operateType;
+    LosQueueCB *queueCB = NULL;
     UINT32 size = sizeof(UINT32 *);
     (VOID)bufferSize;
 
-    ret = OsQueueWriteParameterCheck(queueID, bufferAddr, &size, timeOut);
+    /* SID handle -> pool index in place (no-op with BOX off) */
+    ret = OsQueueResolve(queueID, &queueCB);
+    if (ret != LOS_OK) {
+        return LOS_ERRNO_QUEUE_INVALID;
+    }
+
+    ret = OsQueueWriteParameterCheck(queueCB, bufferAddr, &size, timeOut);
     if (ret != LOS_OK) {
         return ret;
     }
 
     operateType = OS_QUEUE_OPERATE_TYPE(OS_QUEUE_WRITE, OS_QUEUE_TAIL, OS_QUEUE_POINT);
 
-    OsHookCall(LOS_HOOK_TYPE_QUEUE_WRITE, (LosQueueCB *)GET_QUEUE_HANDLE(queueID), operateType, size, timeOut);
+    OsHookCall(LOS_HOOK_TYPE_QUEUE_WRITE, queueCB, operateType, size, timeOut);
 
-    return OsQueueOperate(queueID, operateType, &bufferAddr, &size, timeOut);
+    return OsQueueOperate(queueCB, operateType, &bufferAddr, &size, timeOut);
 }
 
 LITE_OS_SEC_TEXT UINT32 LOS_QueueWriteHead(UINT32 queueID,
@@ -596,7 +743,7 @@ LITE_OS_SEC_TEXT VOID *OsQueueMailAlloc(UINT32 queueID, VOID *mailPool, UINT32 t
     LosQueueCB *queueCB = (LosQueueCB *)NULL;
     LosTaskCB *runTsk = (LosTaskCB *)NULL;
 
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
+    if (OsQueueResolve(queueID, &queueCB) != LOS_OK) {
         return NULL;
     }
 
@@ -611,8 +758,7 @@ LITE_OS_SEC_TEXT VOID *OsQueueMailAlloc(UINT32 queueID, VOID *mailPool, UINT32 t
     }
 
     SCHEDULER_LOCK(intSave);
-    queueCB = GET_QUEUE_HANDLE(queueID);
-    OsQueueDbgTimeUpdateHook(queueID);
+    OsQueueDbgTimeUpdateHook(queueCB->queueID);
     if (queueCB->queueState == OS_QUEUE_UNUSED) {
         goto END;
     }
@@ -660,7 +806,7 @@ LITE_OS_SEC_TEXT UINT32 OsQueueMailFree(UINT32 queueID, VOID *mailPool, VOID *ma
     LosQueueCB *queueCB = (LosQueueCB *)NULL;
     LosTaskCB *resumedTask = (LosTaskCB *)NULL;
 
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
+    if (OsQueueResolve(queueID, &queueCB) != LOS_OK) {
         return LOS_ERRNO_QUEUE_MAIL_HANDLE_INVALID;
     }
 
@@ -669,14 +815,13 @@ LITE_OS_SEC_TEXT UINT32 OsQueueMailFree(UINT32 queueID, VOID *mailPool, VOID *ma
     }
 
     SCHEDULER_LOCK(intSave);
-    queueCB = GET_QUEUE_HANDLE(queueID);
-    OsQueueDbgTimeUpdateHook(queueID);
+    OsQueueDbgTimeUpdateHook(queueCB->queueID);
     if (queueCB->queueState == OS_QUEUE_UNUSED) {
         SCHEDULER_UNLOCK(intSave);
         return LOS_ERRNO_QUEUE_NOT_CREATE;
     }
 
-    OsQueueDbgTimeUpdateHook(queueID);
+    OsQueueDbgTimeUpdateHook(queueCB->queueID);
 
     if (!LOS_ListEmpty(&queueCB->memList)) {
         resumedTask = OS_TCB_FROM_PENDLIST(LOS_DL_LIST_FIRST(&queueCB->memList));
@@ -714,12 +859,11 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueDelete(UINT32 queueID)
     UINT32 intSave;
     UINT32 ret;
 
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
+    if (OsQueueResolve(queueID, &queueCB) != LOS_OK) {
         return LOS_ERRNO_QUEUE_NOT_FOUND;
     }
 
     SCHEDULER_LOCK(intSave);
-    queueCB = (LosQueueCB *)GET_QUEUE_HANDLE(queueID);
     if (queueCB->queueState == OS_QUEUE_UNUSED) {
         ret = LOS_ERRNO_QUEUE_NOT_CREATE;
         goto QUEUE_END;
@@ -751,7 +895,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueDelete(UINT32 queueID)
     queueCB->queueName = (UINT8 *)NULL;
     queueCB->queueState = OS_QUEUE_UNUSED;
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1) && !defined(LOSCFG_BOX)
     if (queueID >= LOSCFG_BASE_IPC_QUEUE_LIMIT && queueID < OS_ALL_IPC_QUEUE_LIMIT) {
         LOS_ListAdd(&g_freeStaticQueueList, &queueCB->readWriteList[OS_QUEUE_WRITE]);
         SCHEDULER_UNLOCK(intSave);
@@ -759,7 +903,24 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueDelete(UINT32 queueID)
         return LOS_OK;
     }
 #endif
+#ifdef LOSCFG_BOX
+    /* recycle to the owning pool: a box queue goes back to its box free
+     * list, a kernel queue to the kernel list. Static-pool queues cannot
+     * exist under BOX - the create exit cannot bind a CB that sits outside
+     * both pools (its index overruns the registered entity array, which
+     * OsSIdBind rejects), so the static arm above is compiled out. */
+    if (!OS_SID_BID_IS_KER(queueID)) {
+        LOS_ListAdd(&g_boxFreeQueueList[OS_GET_SID_BOXID(queueID)], &queueCB->readWriteList[OS_QUEUE_WRITE]);
+    } else {
+        LOS_ListAdd(&g_freeQueueList, &queueCB->readWriteList[OS_QUEUE_WRITE]);
+    }
+    /* Unbind the SID middle layer: clears the entity (owner / moduleData) and
+     * frees the pool slot, so this sId stops resolving and the slot can be
+     * handed out again. Same position sem/mux/event take, same lock hold. */
+    (VOID)OsSIdObjDel(queueID);
+#else
     LOS_ListAdd(&g_freeQueueList, &queueCB->readWriteList[OS_QUEUE_WRITE]);
+#endif
     SCHEDULER_UNLOCK(intSave);
 
     OsQueueDbgUpdateHook(queueCB->queueID, NULL);
@@ -784,14 +945,13 @@ LITE_OS_SEC_TEXT_MINOR UINT32 LOS_QueueInfoGet(UINT32 queueID, QUEUE_INFO_S *que
         return LOS_ERRNO_QUEUE_PTR_NULL;
     }
 
-    if (queueID >= OS_ALL_IPC_QUEUE_LIMIT) {
+    if (OsQueueResolve(queueID, &queueCB) != LOS_OK) {
         return LOS_ERRNO_QUEUE_INVALID;
     }
 
     (VOID)memset_s((VOID *)queueInfo, sizeof(QUEUE_INFO_S), 0, sizeof(QUEUE_INFO_S));
     SCHEDULER_LOCK(intSave);
 
-    queueCB = (LosQueueCB *)GET_QUEUE_HANDLE(queueID);
     if (queueCB->queueState == OS_QUEUE_UNUSED) {
         ret = LOS_ERRNO_QUEUE_NOT_CREATE;
         goto QUEUE_END;

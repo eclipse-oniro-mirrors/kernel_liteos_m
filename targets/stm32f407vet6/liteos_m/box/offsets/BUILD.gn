@@ -1,19 +1,18 @@
 # BOX asm-offsets generation, wired into the build graph.
 #
-# Regenerates box/kernel/los_offsets.h from the TaskCB/TaskContext
-# struct definitions on every build - the manual gen_offsets.py run is no
-# longer needed. The header is written at its source-tree location so every
-# existing relative #include keeps working; the ninja-declared output is an
-# out-dir stamp. The script compare-and-swaps the header and, only on real
-# changes, bumps the mtimes of the consumer sources - that bump is what
-# recompiles them, because this build has no depfiles (pitfall 27).
+# Regenerates box/kernel/los_offsets.h from the TaskCB/TaskContext struct
+# definitions on every build. The header is written at its source-tree
+# location so every existing relative #include keeps working; the
+# ninja-declared output is an out-dir stamp. The script compare-and-swaps the
+# header and, only on real changes, bumps the mtimes of the consumer sources -
+# that bump is what recompiles them, because this build has no depfiles, so a
+# header change alone would leave stale objects in place.
 #
 # Consumers (each must keep a deps edge on this action for ordering, and a
 # --touch entry for recompilation):
 #   bsp_config: los_offsets.c
-#   arch:       los_dispatch_box.S, los_box_uspace.S and (M5G-R, moved from
-#               targets/box/syscalls) syscalls/src/los_syscall_entry.S +
-#               syscalls/src/los_svc_entry.S
+#   arch:       box/los_dispatch_box.S, box/los_box_uspace.S,
+#               box/los_syscall_entry.S, box/los_svc_entry.S
 
 action("gen_box_offsets") {
   script = "gen_offsets.py"
@@ -29,15 +28,15 @@ action("gen_box_offsets") {
     "--stamp", rebase_path("$target_gen_dir/los_offsets.h.stamp", root_build_dir),
     "--touch", rebase_path("los_offsets.c", root_build_dir),
     "--touch", rebase_path(
-        "//kernel/liteos_m/arch/arm/cortex_m/syscalls/src/los_syscall_entry.S",
+        "//kernel/liteos_m/arch/arm/cortex_m/box/los_syscall_entry.S",
         root_build_dir),
     "--touch", rebase_path(
-        "//kernel/liteos_m/arch/arm/cortex_m/syscalls/src/los_svc_entry.S",
+        "//kernel/liteos_m/arch/arm/cortex_m/box/los_svc_entry.S",
         root_build_dir),
     "--touch", rebase_path(
-        "//kernel/liteos_m/arch/arm/cortex_m/los_dispatch_box.S",
+        "//kernel/liteos_m/arch/arm/cortex_m/box/los_dispatch_box.S",
         root_build_dir),
-    "--touch", rebase_path("//kernel/liteos_m/arch/arm/cortex_m/los_box_uspace.S",
+    "--touch", rebase_path("//kernel/liteos_m/arch/arm/cortex_m/box/los_box_uspace.S",
                            root_build_dir),
   ]
 

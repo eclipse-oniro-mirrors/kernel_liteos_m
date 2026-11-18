@@ -49,6 +49,36 @@
    the current running task's. Set by LOS_TaskBackTrace, restored to NULL after. */
 LosTaskCB *g_backtraceTaskCB = NULL;
 
+#ifdef LOSCFG_BOX
+/* BOX adds executable ranges outside [_stext, _etext): the shared
+ * COMMON_TEXT veneers (g_sysMemLayout->sysUsrText*, i.e. every LOS_xxx
+ * syscall stub and the COMMON copy of the allocator/printf) and each box's
+ * own text (boxCB->layout[0].boxText*). A fault taken in user mode saves
+ * uwSP on the box user stack - OsBacktraceBoxUserStack below already points
+ * the scan window at it - but every frame link on that stack is a return
+ * address into one of those two ranges, so the single-range baseline filter
+ * rejects all of them and the exception dump prints an empty backtrace.
+ * Only the RUNNING box's text is accepted: a stale stack word pointing into
+ * some other box's text must not be mistaken for a frame link. */
+STATIC INLINE BOOL OsBacktraceBoxCodeAddr(UINTPTR value)
+{
+    const SysMemLayout *sysMem = (const SysMemLayout *)g_sysMemLayout;
+    const LosBoxCB *boxCB = (const LosBoxCB *)OsGetCurBoxCB();
+
+    if ((sysMem != NULL) && (sysMem->sysUsrTextStartAddr != 0) &&
+        (value >= sysMem->sysUsrTextStartAddr) &&
+        (value < sysMem->sysUsrTextEndAddr)) {
+        return TRUE;
+    }
+    if ((boxCB != NULL) && (boxCB->layout[0].boxTextStartAddr != 0) &&
+        (value >= boxCB->layout[0].boxTextStartAddr) &&
+        (value < boxCB->layout[0].boxTextEndAddr)) {
+        return TRUE;
+    }
+    return FALSE;
+}
+#endif
+
 /* This function is used to judge whether the data in the stack is a code section address.
    The default code section is only one, but there may be more than one. Modify the
    judgment condition to support multiple code sections. */
@@ -57,7 +87,11 @@ WEAK BOOL OsStackDataIsCodeAddr(UINTPTR value)
     if ((value > CODE_START_ADDR) && (value < CODE_END_ADDR)) {
         return TRUE;
     }
+#ifdef LOSCFG_BOX
+    return OsBacktraceBoxCodeAddr(value);
+#else
     return FALSE;
+#endif
 }
 
 #ifdef LOSCFG_BOX

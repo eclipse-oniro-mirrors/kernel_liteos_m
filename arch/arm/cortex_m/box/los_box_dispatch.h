@@ -54,8 +54,14 @@
  * dual-stack select: pick the user stack and drop privilege for a task
  * suspended in user mode (g_sysMode tracks it for the veneers).
  *
- * M5A additionally maintains the refs current-context globals (refs
- * dispatch.S / OsSwitchBoxContext semantics):
+ * The new-vs-old boxCB compare below is a cheap FAST PATH: it avoids the call
+ * entirely for same-box task switches. BoxMpuSwitch has a second guard against
+ * the box its R3/R4 are actually programmed for, which covers what this
+ * compare cannot see - a box -> kernel -> same-box round trip (the cbz skips
+ * the kernel case, so the MPU still holds the previous box and reprogramming
+ * it on the way back would be pure waste).
+ *
+ * The restore path additionally maintains the current-context globals:
  *   - g_curBoxId: the running task's box id, EVERY switch (kernel tasks
  *     carry OS_KERNEL_BOX on curBoxId);
  *   - g_boxLocalPool[0]: the new box's heap address, only when switching

@@ -942,8 +942,8 @@ int settimeofday(const struct timeval *tv, const struct timezone *tz)
     if (tv != NULL) {
         if (g_rtcTimeFunc.RtcSetTimeHook != NULL) {
             UINT64 usec;
-            g_rtcTimeBase = tv->tv_sec * OS_SYS_MS_PER_SECOND + tv->tv_usec / OS_SYS_MS_PER_SECOND;
-            usec = tv->tv_sec * OS_SYS_US_PER_SECOND + tv->tv_usec;
+            g_rtcTimeBase = (UINT64)tv->tv_sec * OS_SYS_MS_PER_SECOND + (UINT64)tv->tv_usec / OS_SYS_MS_PER_SECOND;
+            usec = (UINT64)tv->tv_sec * OS_SYS_US_PER_SECOND + (UINT64)tv->tv_usec;
             if (g_rtcTimeFunc.RtcSetTimeHook(g_rtcTimeBase, &usec) < 0) {
                 return -1;
             }

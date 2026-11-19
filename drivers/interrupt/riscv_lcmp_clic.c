@@ -162,6 +162,19 @@ STATIC UINT32 HalCurIrqGet(VOID)
     return mcause & MCAUSE_INT_ID_MASK;
 }
 
+/* 
+ * Raw write of clicintattr[i]: vectored[0], trig[1], polarity[2], mode[7:6].
+ * Compose from the CLIC_ATTR_* macros; board-facing API, declared in clic.h.
+ */
+UINT32 HalIrqSetClicIntAttr(UINT32 hwiNum, UINT8 clicintattr)
+{
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
+    clic_w8(&CLIC_REG->intCtrl[hwiNum].attr, clicintattr);
+    return LOS_OK;
+}
+
 /* Driver-owned ops table (arm_nvic.c pattern): the selected driver owns
  * g_hwiControllerOps + HwiControllerOpsGet; the arch layer only consumes them via
  * HwiControllerOpsGet() (e.g. HalHwiInterruptDone). Statically initialized —

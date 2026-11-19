@@ -26,6 +26,7 @@
  * so vfs_init.c stays untouched.
  */
 #include <errno.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -325,6 +326,19 @@ static void YaffsStatToStat(struct stat *buf, const struct yaffs_stat *ys)
     buf->st_nlink = (short)ys->st_nlink;
 }
 
+static int YaffsChmod(struct MountPoint *mp, const char *path, mode_t mode)
+{
+    (void)mp;
+    if (path == NULL) {
+        errno = EFAULT;
+        return (int)LOS_NOK;
+    }
+    if (yaffs_chmod(path, mode) != 0) {
+        return YaffsErrFail();
+    }
+    return (int)LOS_OK;
+}
+
 static int YaffsStat(struct MountPoint *mp, const char *path, struct stat *buf)
 {
     struct yaffs_stat ys;
@@ -523,6 +537,7 @@ static struct FileOps g_yaffsFops = {
     .write = YaffsWrite,
     .lseek = YaffsLseek,
     .stat = YaffsStat,
+    .chmod = YaffsChmod,
     .truncate = YaffsTruncate,
     .unlink = YaffsUnlink,
     .rename = YaffsRename,

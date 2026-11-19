@@ -24,73 +24,60 @@
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-# Kernel -march/-mabi are composed from the Kconfig ISA capability symbols
-# (ARCH_RISCV_ISA_*/RV32IMC/LINX_M, Linux riscv-march-y model) and emitted
-# from :public, which lands after the board-owned -march (last one wins):
-# qemu rv32imac, ws63 rv32imfc, hi3322 rv32imfdcb0p92xlinxma_xlinxmb_xlinxmc_xlinxmd.
+# Kernel -march/-mabi are composed from the Kconfig ISA symbols
+# (ARCH_RISCV_ISA_*/RV32IMC/LCMP_*/TES) and emitted from :public, which lands
+# after the toolchain-level -march baseline (last one wins).
 
 import("../../../liteos.gni")
 
-RISCV_MARCH = ""
-RISCV_MABI = ""
-if (defined(LOSCFG_ARCH_RISCV32)) {
-  RISCV_MARCH = "rv32im"
-  RISCV_MABI = "ilp32"
-  if (defined(LOSCFG_ARCH_RISCV_ISA_A)) {
-    RISCV_MARCH += "a"
-  }
-  if (defined(LOSCFG_ARCH_RISCV_ISA_F)) {
-    RISCV_MARCH += "f"
-    RISCV_MABI = "ilp32f"
-  }
-  if (defined(LOSCFG_ARCH_RISCV_ISA_D)) {
-    RISCV_MARCH += "d"
-    RISCV_MABI = "ilp32d"
-  }
-  if (defined(LOSCFG_ARCH_RISCV_RV32IMC)) {
-    RISCV_MARCH += "c"
-  }
-
-  # clang 15+ bare "b" means ratified B 1.0; LinxCore170 has the 0.92 draft only.
-  if (defined(LOSCFG_ARCH_RISCV_ISA_B0p92)) {
-    RISCV_MARCH += "b0p92"
-  } else if (defined(LOSCFG_ARCH_RISCV_ISA_B1p0)) {
-    RISCV_MARCH += "b"
-  }
-
-  if (defined(LOSCFG_ARCH_LINX_M)) {
-    # m-profile full custom segment set; LCMP_* per-segment symbols stay
-    # separate (they gate instruction EMITTING, see los_dispatch.S).
-    RISCV_MARCH += "xlinxma_xlinxmb_xlinxmc_xlinxmd"
-  } else {
-    # Standalone LCMP segments: each LCMP_* symbol adds its own segment.
-    _xlinx = ""
-    if (defined(LOSCFG_LCMP_CUSTOM_INST16_EXTENSIONS)) {
-      _xlinx += "xlinxma"
-    }
-    if (defined(LOSCFG_LCMP_CUSTOM_INST16_SUB_EXTENSIONS)) {
-      if (_xlinx != "") {
-        _xlinx += "_"
-      }
-      _xlinx += "xlinxmb"
-    }
-    if (defined(LOSCFG_LCMP_CUSTOM_INST32_EXTENSIONS)) {
-      if (_xlinx != "") {
-        _xlinx += "_"
-      }
-      _xlinx += "xlinxmc"
-    }
-    if (defined(LOSCFG_LCMP_CUSTOM_INST48_EXTENSIONS)) {
-      if (_xlinx != "") {
-        _xlinx += "_"
-      }
-      _xlinx += "xlinxmd"
-    }
-    if (_xlinx != "") {
-      RISCV_MARCH += _xlinx
-    }
-  }
+RISCV_MARCH = "rv32im"
+RISCV_MABI = "ilp32"
+if (defined(LOSCFG_ARCH_RISCV_ISA_A)) {
+  RISCV_MARCH += "a"
 }
+if (defined(LOSCFG_ARCH_RISCV_ISA_F)) {
+  RISCV_MARCH += "f"
+  RISCV_MABI = "ilp32f"
+}
+if (defined(LOSCFG_ARCH_RISCV_ISA_D)) {
+  RISCV_MARCH += "d"
+  RISCV_MABI = "ilp32d"
+}
+if (defined(LOSCFG_ARCH_RISCV_RV32IMC)) {
+  RISCV_MARCH += "c"
+}
+
+# clang 15+ bare "b" means ratified B 1.0; LinxCore170 has the 0.92 draft only.
+if (defined(LOSCFG_ARCH_RISCV_ISA_B0p92)) {
+  RISCV_MARCH += "b0p92"
+} else if (defined(LOSCFG_ARCH_RISCV_ISA_B1p0)) {
+  RISCV_MARCH += "b"
+}
+
+LCMP_MARCH_EXTENIONS = []
+if (defined(LOSCFG_LCMP_CUSTOM_INST16_EXTENSIONS)) {
+  LCMP_MARCH_EXTENIONS += ["xlinxma"]
+}
+if (defined(LOSCFG_LCMP_CUSTOM_INST16_SUB_EXTENSIONS)) {
+  LCMP_MARCH_EXTENIONS += ["xlinxmb"]
+}
+if (defined(LOSCFG_LCMP_CUSTOM_INST32_EXTENSIONS)) {
+  LCMP_MARCH_EXTENIONS += ["xlinxmc"]
+}
+if (defined(LOSCFG_LCMP_CUSTOM_INST48_EXTENSIONS)) {
+  LCMP_MARCH_EXTENIONS += ["xlinxmd"]
+}
+if (defined(LOSCFG_ARCH_RISCV_TES)) {
+  LCMP_MARCH_EXTENIONS += ["xlinxme"]
+}
+LCMP_MARCH_EXTENIONS_LIST = ""
+foreach(item, LCMP_MARCH_EXTENIONS) {
+  if (LCMP_MARCH_EXTENIONS_LIST != "") {
+    LCMP_MARCH_EXTENIONS_LIST += "_"
+  }
+  LCMP_MARCH_EXTENIONS_LIST += item
+}
+RISCV_MARCH += LCMP_MARCH_EXTENIONS_LIST
 
 kernel_module("arch") {
   sources = [
@@ -135,8 +122,6 @@ config("public") {
     "../include/arch",
   ]
 
-  # Kconfig-composed ISA, emitted here so it lands after the board-owned
-  # -march (last one wins).
   if (RISCV_MARCH != "") {
     cflags = [
       "-march=$RISCV_MARCH",
@@ -144,5 +129,9 @@ config("public") {
     ]
     cflags_cc = cflags
     asmflags = cflags
+    ldflags = [
+      "-march=$RISCV_MARCH",
+      "-mabi=$RISCV_MABI",
+    ]
   }
 }

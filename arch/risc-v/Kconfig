@@ -1,5 +1,5 @@
 # RISC-V Architecture
-# Only LinxCore131 (ws63) and LinxCore170 (3322) cores are adapted here.
+# Only LinxCore131 and LinxCore170 cores are adapted here.
 # Note: config names omit the LOSCFG_ prefix; genconfig adds it automatically,
 # so GN checks use defined(LOSCFG_ARCH_LINXCORE_131) etc.
 
@@ -101,17 +101,16 @@ config ARCH_LINXCORE_131
     select ARCH_RISCV32
     select RISCV_HIMIDEERV200_PLIC if !ARCH_INTERRUPT_VENDOR
     help
-      HiSilicon LinxCore131 (ws63). Single-precision FPU (rv32imfc).
+      HiSilicon LinxCore131. Single-precision FPU (rv32imfc).
       Does not belong to LinxCore m-profile, so does not select ARCH_LINX_M.
 
 config ARCH_LINXCORE_170
     bool
     select ARCH_LINX_M
     select ARCH_RISCV_ISA_F
-    select ARCH_RISCV_ISA_D
     help
-      HiSilicon LinxCore170 (hi3322/diting). Double-precision FPU
-      (rv32imfdc).
+      HiSilicon LinxCore170 (LinxCore m-profile, rv32imfc floor). Config
+      variants CONFIG61/41/32/60 select this and add their ISA/segment set.
 
 config ARCH_RISCV_EPMP
     bool
@@ -171,9 +170,10 @@ config NMI_STACK_SIZE
     default 1024
 
 # LinxCore170 configuration variants
+
 config ARCH_LINXCORE_170_CONFIG61
     bool
-    select ARCH_LINX_M
+    select ARCH_LINXCORE_170
     select ARCH_RISCV_ISA_B0p92
     select ARCH_RISCV_ISA_D
     select LCMP_CUSTOM_INST16_EXTENSIONS
@@ -182,7 +182,7 @@ config ARCH_LINXCORE_170_CONFIG61
 
 config ARCH_LINXCORE_170_CONFIG41
     bool
-    select ARCH_LINX_M
+    select ARCH_LINXCORE_170
     select ARCH_RISCV_ISA_B0p92
     select ARCH_RISCV_ISA_D
     select LCMP_CUSTOM_INST16_EXTENSIONS
@@ -190,7 +190,7 @@ config ARCH_LINXCORE_170_CONFIG41
 
 config ARCH_LINXCORE_170_CONFIG32
     bool
-    select ARCH_LINX_M
+    select ARCH_LINXCORE_170
     select ARCH_RISCV_ISA_B0p92
     select ARCH_RISCV_ISA_F
     select LCMP_CUSTOM_INST16_EXTENSIONS
@@ -198,7 +198,7 @@ config ARCH_LINXCORE_170_CONFIG32
 
 config ARCH_LINXCORE_170_CONFIG60
     bool
-    select ARCH_LINX_M
+    select ARCH_LINXCORE_170
     select ARCH_RISCV_ISA_B0p92
     select ARCH_RISCV_ISA_D
     select ARCH_RISCV_ISA_V

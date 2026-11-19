@@ -45,9 +45,6 @@
 .global HalTrapVector
 .align 6
 
-/* mtvec target. PUSH_CALLER_REG allocates the full frame; CPU_SPECIAL slots
- * 0/1 are filled with mcause/mepc. POP_CALLER_REG skips them (restored via
- * csrw), so they must be restored explicitly before POP. */
 HalTrapVector:
     PUSH_CALLER_REG
     csrr  a0, mcause
@@ -55,22 +52,39 @@ HalTrapVector:
     li    a2, MCAUSE_MASK_INT_NUM
     and   a1, a0, a1            /* a1 = interrupt bit */
     and   a0, a2, a0            /* a0 = interrupt number */
+    beqz  a1, HalTrapEntry      /* not an interrupt → exception */
+#ifdef LOSCFG_ARCH_LINX_M
+    csrr  t0, MCAUSE
+    sw    t0, 0 * REGBYTES(sp)  /* slot 0 = mcause */
+    csrr  t0, mepc
+    sw    t0, 1 * REGBYTES(sp)  /* slot 1 = mepc */
+#else
     csrr  t0, mstatus
     sw    t0, 0 * REGBYTES(sp)  /* slot 0 = mstatus */
     csrr  t0, mepc
     sw    t0, 1 * REGBYTES(sp)  /* slot 1 = mepc */
-    beqz  a1, HalTrapEntry      /* not an interrupt → exception */
+#endif
 
     csrw  mscratch, sp
     la    sp, __irq_stack_top
     jal   HalHwiInterruptDone
     csrr  sp, mscratch
     call  OsSchedProcSchedFlag
+#ifdef LOSCFG_ARCH_RISCV_TES
+    /* TES: re-arm trusted execution before return (tmeseps.PTES). */
+    li    t0, TMESEPS_PTES_MASK
+    csrs  tmeseps, t0
+#endif
 
     lw    t0, 1 * REGBYTES(sp)
     csrw  mepc, t0
+#ifdef LOSCFG_ARCH_LINX_M
+    lw    t0, 0 * REGBYTES(sp)
+    csrw  MCAUSE, t0            /* write back the entry mcause */
+#else
     lw    t0, 0 * REGBYTES(sp)
     csrw  mstatus, t0
+#endif
     POP_CALLER_REG
     mret
 #endif /* _LOS_TRAP_S */

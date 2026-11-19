@@ -48,6 +48,7 @@ extern "C" {
 static void TaskF01(void)
 {
     UINT32 ret;
+    UINT32 srcCpu = ArchCurrCpuid();   /* 存改绑前核号：迁移验证比对基准 */
 
     (VOID)LOS_AtomicInc((Atomic *)&g_testCount);
 
@@ -56,10 +57,13 @@ static void TaskF01(void)
     ret = OS_TCB_FROM_TID(g_testTaskID01)->taskStatus & OS_TASK_STATUS_CHECK_MASK;
     ICUNIT_ASSERT_NOT_EQUAL_VOID((ret & OS_TASK_STATUS_RUNNING), 0, ret);
 
-    ret = LOS_TaskCpuAffiSet(g_testTaskID01, CPUID_TO_AFFI_MASK((ArchCurrCpuid() + 1) % (LOSCFG_KERNEL_CORE_NUM)));
+    ret = LOS_TaskCpuAffiSet(g_testTaskID01, CPUID_TO_AFFI_MASK((srcCpu + 1) % (LOSCFG_KERNEL_CORE_NUM)));
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
-    ICUNIT_ASSERT_EQUAL_VOID(ArchCurrCpuid(), ArchCurrCpuid() + 1, ArchCurrCpuid());
+    /* 迁移完成验证：AffiSet 返回即迁移已发生（内部 OsSchedAffiChange+IPI+调度），
+     * 当前核应为原核的下一核。原断言 ArchCurrCpuid()==ArchCurrCpuid()+1 恒假
+     * （_VOID 语义吞掉失败，迁移从未被真正验证——2026-11-19 MR 检视修复） */
+    ICUNIT_ASSERT_EQUAL_VOID(ArchCurrCpuid(), (srcCpu + 1) % (LOSCFG_KERNEL_CORE_NUM), ArchCurrCpuid());
 }
 
 static UINT32 Testcase(void)

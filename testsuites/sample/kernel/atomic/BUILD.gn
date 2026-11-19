@@ -44,6 +44,15 @@ static_library("test_atomic") {
     "it_los_atomic_010.c",
     "it_los_atomic_011.c",
   ]
+  if (defined(LOSCFG_KERNEL_SMP)) {
+    sources += [
+      "It_smp_los_atomic_001.c",
+      "It_smp_los_atomic_002.c",
+      "It_smp_los_atomic_003.c",
+      "It_smp_los_atomic_004.c",
+    ]
+  }
+
   include_dirs = [ "." ]
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]
 }

@@ -37,6 +37,8 @@ VOID ItSuiteSmpSwtmr(void)
 {
 #if (LOS_KERNEL_TEST_FULL == 1)
 #ifdef LOSCFG_KERNEL_SMP
+    ItSmpLosTick001();
+    ItSmpLosTick002();
     ItSmpLosSwtmr001();
     ItSmpLosSwtmr002();
     ItSmpLosSwtmr003();

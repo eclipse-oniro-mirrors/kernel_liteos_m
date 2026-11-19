@@ -31,7 +31,7 @@
 #include "osTest.h"
 #include "it_los_hwi.h"
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 
 static volatile UINT32 g_withArgHit;
 static volatile VOID *g_withArgDevId;

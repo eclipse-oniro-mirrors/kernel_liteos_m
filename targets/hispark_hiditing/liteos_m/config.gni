@@ -37,7 +37,7 @@ board_toolchain_path = rebase_path("//prebuilts/bisheng_26_03_1/BiSheng-llvm-15.
 
 # clang compiler-rt builtins for riscv32, linked --whole-archive to satisfy
 # __muldi3 / soft-fp helpers. Derived from board_toolchain_path; the multilib
-# dir name must match the -march/-mabi above.
+# dir name must match board_arch and the ABI (ilp32d).
 board_clang_rt_lib = board_toolchain_path + "/../lib/clang/15.0.4/lib/rv32imfdcxlinxma_xlinxmb_xlinxmc_xlinxmd_ilp32d/libclang_rt.builtins-riscv32.a"
 
 # Compiler prefix (clang/llvm-ar are not prefixed).
@@ -49,8 +49,6 @@ board_toolchain_type = "clang"
 # Board related common compile flags (Clang-compatible, matching hs-fbb).
 board_cflags = [
   "--target=riscv32",
-  "-march=rv32imfdc",
-  "-mabi=ilp32d",
   "-msmall-data-limit=0",
   "-Oz",
   "-D__RISC_V__",
@@ -83,8 +81,6 @@ board_cxx_flags -= [ "-std=gnu99" ]
 
 board_asmflags = [
   "--target=riscv32",
-  "-march=rv32imfdc",
-  "-mabi=ilp32d",
   "-D__RISC_V__",
   "-DCHIP_HI3322=1",
   "-DTARGET_CHIP_3322=1",

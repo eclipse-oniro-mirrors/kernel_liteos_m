@@ -68,7 +68,7 @@ SaveRunTask:
     csrr    t0, MEPC
     SREG    t0, 1 * REGBYTES(sp)     /* slot 1 = mepc */
 #ifdef LOSCFG_LCMP_CUSTOM_INST16_EXTENSIONS
-    /* Clear UOP cause bits in mcause (LinxCore170 LCMP extension). */
+    /* clear in-flight UOP bits on switch-out; pairs with trap-exit write-back */
     li      t0, LOS_MCAUSE_UOP
     csrrc   zero, MCAUSE, t0
 #endif

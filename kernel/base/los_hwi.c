@@ -92,7 +92,9 @@ STATIC UINT32 OsHwiCreate(HwiHandleInfo *hwiForm, HWI_MODE_T hwiMode, HWI_PROC_F
     if (hwiForm->hook == NULL) {
         hwiForm->hook = hwiHandler;
         hwiForm->registerInfo = (irqParam != NULL) ? (HWI_ARG_T)(UINTPTR)irqParam->pDevId : 0;
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
         hwiForm->respCount = 0;
+#endif
         hwiForm->next = NULL;
     } else {
         LOS_SpinUnlockRestore(&g_hwiSpin, intSave);
@@ -110,7 +112,9 @@ STATIC UINT32 OsHwiDel(HwiHandleInfo *hwiForm, HWI_HANDLE_T hwiNum)
     LOS_SpinLockSave(&g_hwiSpin, &intSave);
     hwiForm->hook = NULL;
     hwiForm->registerInfo = 0;
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
     hwiForm->respCount = 0;
+#endif
     hwiForm->shareMode = 0;
     hwiForm->next = NULL;
     LOS_SpinUnlockRestore(&g_hwiSpin, intSave);
@@ -306,10 +310,12 @@ VOID OsIntHandle(HWI_HANDLE_T hwiNum, HwiHandleInfo *handleForm)
     OsIntPre(hwiNum);
 #endif
 
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
     handleForm->respCount++;
+#endif
     /* Dispatch the IRQ handler. */
     if (handleForm->hook != NULL) {
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
         handleForm->hook((VOID *)(UINTPTR)handleForm->registerInfo);
 #else
         handleForm->hook();
@@ -332,6 +338,7 @@ VOID OsIntHandle(HWI_HANDLE_T hwiNum, HwiHandleInfo *handleForm)
     LOS_IntRestore(intSave);
 }
 
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
 LITE_OS_SEC_TEXT UINT32 LOS_HwiRespCntGet(HWI_HANDLE_T hwiNum, UINT32 *respCount)
 {
     HwiControllerOps *hwiOps = HwiControllerOpsGet();
@@ -348,6 +355,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_HwiRespCntGet(HWI_HANDLE_T hwiNum, UINT32 *respCount
     *respCount = hwiForm->respCount;
     return LOS_OK;
 }
+#endif
 
 #ifdef LOSCFG_KERNEL_SMP
 LITE_OS_SEC_TEXT UINT32 LOS_HwiSendIpi(HWI_HANDLE_T hwiNum, UINT32 cpuMask)

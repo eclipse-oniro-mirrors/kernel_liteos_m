@@ -36,10 +36,7 @@ board_toolchain_prefix = "riscv32-linux-musl-"
 board_toolchain_type = "gcc"
 
 # Board related common compile flags.
-# Use rv32imc/ilp32 to match SDK's libc (no FPU)
 board_cflags = [
-  "-mabi=ilp32f",
-  "-march=rv32imfc",
   "-falign-functions=2",
   "-fno-optimize-strlen",
   "-freorder-blocks-algorithm=simple",
@@ -67,8 +64,6 @@ board_cxx_flags = board_cflags
 board_cxx_flags -= [ "-std=c99" ]
 
 board_asmflags = [
-  "-mabi=ilp32f",
-  "-march=rv32imfc",
   "-DCHIP_WS63=1",
   "-D__RISC_V__",
 ]

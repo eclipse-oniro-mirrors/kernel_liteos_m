@@ -108,7 +108,7 @@ BOOL OsHwiIsCreated(UINT32 index)
 }
 #endif
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 
 /* *
  * @ingroup los_hwi

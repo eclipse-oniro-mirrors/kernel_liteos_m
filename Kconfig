@@ -155,9 +155,13 @@ config PLATFORM_NRF52832
 
 config PLATFORM_HI3322
     bool "hi3322"
-    select ARCH_LINXCORE_170
+    select ARCH_LINXCORE_170_CONFIG60
+    select LCMP_CUSTOM_INST16_SUB_EXTENSIONS
     help
-        HiSilicon HI3322 wearable SoC (RISC-V LinxCore170).
+        HiSilicon HI3322 wearable SoC (RISC-V LinxCore170, CONFIG60 variant:
+        EPMP + vector-capable core, no TES). Board-level INST16_SUB mirrors
+        the vendor 3322 app selection; the LCMP trap protocol the custom
+        segments require is implemented (los_trap.S / los_dispatch.S).
 
 config PLATFORM_RK3568_M
     bool "rk3568_m"

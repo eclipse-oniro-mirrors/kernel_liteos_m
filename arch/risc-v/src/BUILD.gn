@@ -24,10 +24,60 @@
 # OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-# -march/-mabi are owned by the board-level config.gni (OHOS convention,
-# e.g. ws63: rv32imfc / ilp32f); the arch module must not inject them.
+# Kernel -march/-mabi are composed from the Kconfig ISA symbols
+# (ARCH_RISCV_ISA_*/RV32IMC/LCMP_*/TES) and emitted from :public, which lands
+# after the toolchain-level -march baseline (last one wins).
 
 import("../../../liteos.gni")
+
+RISCV_MARCH = "rv32im"
+RISCV_MABI = "ilp32"
+if (defined(LOSCFG_ARCH_RISCV_ISA_A)) {
+  RISCV_MARCH += "a"
+}
+if (defined(LOSCFG_ARCH_RISCV_ISA_F)) {
+  RISCV_MARCH += "f"
+  RISCV_MABI = "ilp32f"
+}
+if (defined(LOSCFG_ARCH_RISCV_ISA_D)) {
+  RISCV_MARCH += "d"
+  RISCV_MABI = "ilp32d"
+}
+if (defined(LOSCFG_ARCH_RISCV_RV32IMC)) {
+  RISCV_MARCH += "c"
+}
+
+# clang 15+ bare "b" means ratified B 1.0; LinxCore170 has the 0.92 draft only.
+if (defined(LOSCFG_ARCH_RISCV_ISA_B0p92)) {
+  RISCV_MARCH += "b0p92"
+} else if (defined(LOSCFG_ARCH_RISCV_ISA_B1p0)) {
+  RISCV_MARCH += "b"
+}
+
+LCMP_MARCH_EXTENIONS = []
+if (defined(LOSCFG_LCMP_CUSTOM_INST16_EXTENSIONS)) {
+  LCMP_MARCH_EXTENIONS += ["xlinxma"]
+}
+if (defined(LOSCFG_LCMP_CUSTOM_INST16_SUB_EXTENSIONS)) {
+  LCMP_MARCH_EXTENIONS += ["xlinxmb"]
+}
+if (defined(LOSCFG_LCMP_CUSTOM_INST32_EXTENSIONS)) {
+  LCMP_MARCH_EXTENIONS += ["xlinxmc"]
+}
+if (defined(LOSCFG_LCMP_CUSTOM_INST48_EXTENSIONS)) {
+  LCMP_MARCH_EXTENIONS += ["xlinxmd"]
+}
+if (defined(LOSCFG_ARCH_RISCV_TES)) {
+  LCMP_MARCH_EXTENIONS += ["xlinxme"]
+}
+LCMP_MARCH_EXTENIONS_LIST = ""
+foreach(item, LCMP_MARCH_EXTENIONS) {
+  if (LCMP_MARCH_EXTENIONS_LIST != "") {
+    LCMP_MARCH_EXTENIONS_LIST += "_"
+  }
+  LCMP_MARCH_EXTENIONS_LIST += item
+}
+RISCV_MARCH += LCMP_MARCH_EXTENIONS_LIST
 
 kernel_module("arch") {
   sources = [
@@ -71,4 +121,17 @@ config("public") {
     "../include",
     "../include/arch",
   ]
+
+  if (RISCV_MARCH != "") {
+    cflags = [
+      "-march=$RISCV_MARCH",
+      "-mabi=$RISCV_MABI",
+    ]
+    cflags_cc = cflags
+    asmflags = cflags
+    ldflags = [
+      "-march=$RISCV_MARCH",
+      "-mabi=$RISCV_MABI",
+    ]
+  }
 }

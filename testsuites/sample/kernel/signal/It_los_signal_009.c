@@ -10,23 +10,7 @@
  * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
  */
 
-/* 用例简要描述: 【BUG_19 缺陷暴露用例】删除带未处理待决信号的任务泄漏 OsSigInfoNode 堆节点
- *
- * 【现象】    任务 B 注册 SIGUSR1/SIGUSR2 后阻塞在 LOS_SignalWait(只等 SIGUSR2);
- *            任务 A 发送 SIGUSR1(节点入 B 的 sigCB->sigInfoList, 因 B 等待集合
- *            不含 SIGUSR1 既不唤醒也不设 OS_TASK_FLAG_SIGNAL), 随后 A 删除 B:
- *            LOS_TaskDelete 对该状态放行(无 SIGNAL 标志保护),
- *            OsTaskResourceReclaim 只 LOS_MemFree(taskCB->sig) 释放 OsSigCB 本体,
- *            不遍历 sigInfoList -> 每个未处理信号的 OsSigInfoNode 永久泄漏,
- *            且节点无任何其他回收路径。
- * 【根因】    kernel/base/los_task.c:1451-1453 OsTaskResourceReclaim 仅释放 sigCB,
- *            缺少对 sigCB->sigInfoList 链上 OsSigInfoNode 的遍历释放;
- *            (los_signal.c DeleteSigInfoFromList 仅在目标任务亲自处理信号时释放)
- * 【修复方向】OsTaskResourceReclaim 在 LOS_MemFree(taskCB->sig) 前遍历
- *            sigCB->sigInfoList, 逐节点 LOS_MemFree 后再释放 sigCB 本体。
- * 【恢复方法】修复后把 bug_isolate.h 中 KERNEL_BUG_19_SIGNAL_TASKDEL_LEAK 置 1,
- *            聚合注册点(It_los_signal.c)恢复调用, 用例恢复执行作为回归看护常跑。
- * 【关联】    BUG_19 / resleak 批次问题记录 20261023_213003。 */
+/* 用例简要描述: 删除带未处理待决信号的任务, sigInfoList 节点须随任务全量回收 */
 #include "It_los_signal.h"
 #include "los_memory.h"
 

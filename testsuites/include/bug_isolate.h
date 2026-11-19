@@ -33,27 +33,9 @@
  * 当前隔离清单(缺陷编号见 总览.md 附录 B):
  *   - ItLosTestCmsisKernel008 (BUG_01: osKernelInitialize guard 失效,
  *     仅 qemu/ARM, cmsis_func_test.c:1449 附近)
- *   - ItPosixSignal091        (BUG_03: sigtimedwait 后续 semaphore 误 post,
- *     疑与 BUG_08 同根因; BUG_08 已修复(20260923)恢复 sigwait 族阻塞唤醒路径,
- *     本项保留隔离待复测 semaphore 误 post 是否随同消解)
  *   - ItLosMem013             (BUG_25: bestfit free 路径对非法/已毁节点未校验
  *     即写链, RK3568 从核布局敏感 Data Abort 崩核, 与 20261104_162007(ItLosMux007
  *     插桩崩核)同根因; 问题 20261107_0115)
- *
- * 历史隔离项(已消解):
- *   - ItPosixSignal094        (BUG_08: posix sigwait 族唤醒 mask 位序错位 ——
- *     musl porting sigaddset 用 1U<<sig, 内核 LOS_SIGNAL_MASK 用 1U<<(sigNo-1),
- *     SignalSend 唤醒判断永不命中 -> sigwait/sigwaitinfo/sigtimedwait 等待者
- *     永睡; qemu 内核探针实证 waitFlag=0x1000 vs LOS_SIGNAL_MASK(12)=0x800;
- *     20260923 已修复: porting sigaddset/sigdelset/sigismember 统一为 1U<<(sig-1),
- *     lib signal.c 补 sigwait 族成功返回信号号/真阻塞语义; 用例已恢复执行看护)
- *   - ItPosixPthread034 (BUG_07 布局敏感) —— 经接口定性复审, __sched_cpucount
- *     为 musl 实现内部符号(双下划线保留命名空间,非 POSIX 对外接口,posix 串讲
- *     G2 分类"内部辅助"),本就不应直测;用例降级为不直测并从 BUILD.gn 移除,
- *     BUG_07 无需布局修复即消解。其可测行为由 pthread_032/033(affinity 族
- *     对外接口)间接覆盖。
- *   - 历史机制 PRODUCT_BUG_ISOLATE(单宏全量隔离)已退役, 全部条目迁移至
- *     下方每用例宏(20260922)。
  */
 
 #ifndef _BUG_ISOLATE_H
@@ -84,10 +66,6 @@
                                            * 态重入 guard 失效(BUG_01, 仅 qemu/ARM; 与 FUZZ_BUG_S11 同源)。
                                            * 隔离点在 cmsis_func_test.c 注册处: 外层 !LOSCFG_ARCH_ARM,
                                            * 内层本宏守卫单独一行(纯两层嵌套), 非 ARM 修复后置 1 恢复 */
-#define POSIX_BUG_03_SIGTIMEDWAIT       0 /* ItPosixSignal091: sigtimedwait 后续 semaphore 误
-                                           * post(BUG_03, 疑与 BUG_08 同根因) */
-#define POSIX_BUG_08_SIGWAIT_MASK       0 /* ItPosixSignal094: sigwait 族唤醒 mask 位序错位
-                                           * (BUG_08, musl/内核位序不一致, 等待者永睡) */
 #define KERNEL_BUG_09_LMS_ERRINFO_NULL  0 /* ItLosLms039: LMS OsLmsGetErrorInfo 池外报告地址
                                            * 空指针解引用(BUG_09, 问题 #50); 隔离点在
                                            * It_los_lms.c 聚合注册点, 置 1 恢复调用 */
@@ -103,19 +81,6 @@
                                                * 单跑相位敏感不现; 隔离点在 It_los_pm.c 聚合注册点,
                                                * 仅 tickless 板隔离, ws63(周期 tick)构造上不可触发
                                                * 照常执行; 修复后置 1 恢复 */
-#define KERNEL_BUG_12_PM_TICKTIMER_PERIODIC_DEAD 1 /* ItLosPm006: 周期 tick 板(ws63) PM tickless 停表链
-                                                    * 失效(BUG_12, BUG_11 孪生缺陷): 周期模式
-                                                    * OsSchedGetNextExpireTime 返回 currTime+rollSum
-                                                    * (tick 数被当 cycle 数相加), realSleepTime 语义
-                                                    * 错误 -> sleepCycle 恒 0/垃圾值 -> tickLock/
-                                                    * timerStart 停表链永不正确执行; 用例断言修复后
-                                                    * 契约(timerStart 计数>=1 且编程周期在一个 tick
-                                                    * 以上); 已修复: los_sched_tick.c:129 周期分支
-                                                    * startTime+rollSum 改为 startTime+
-                                                    * OS_SYS_TICK_TO_CYCLE(rollSum)(commit
-                                                    * 84d6dfa6); 置 1 恢复 ItLosPm006 作为回归看护
-                                                    * 常跑; 隔离点在 It_los_pm.c 聚合注册点(仅周期
-                                                    * tick 板守本宏, qemu tickless 板由 BUG_11 宏守卫) */
 
 #define KERNEL_BUG_14_DYNLOAD_SHN_COMMON 0 /* ItLosDynload016(!1194 dynload 新模块): 加载含 SHN_COMMON
                                             * 符号的 ET_REL 对象越界崩溃。【现象】LOS_MemLoad 加载带
@@ -181,11 +146,6 @@
  * 19/20/21/22 六条红灯实锤([Failed]+[ResLeak] 佐证), BUG_23 在 qemu 结构性
  * 不可达(SWTMR_IN_ISR 形态, 见宏注释), 待环形形态板验证。
  * 问题详情见 批次目录 resleak_test_design/resleak_MR_NONE_20261023_2130/问题记录/。 */
-#define KERNEL_BUG_19_SIGNAL_TASKDEL_LEAK 0 /* ItLosSignal009: 删除带未处理待决信号的任务,
-                                              * OsTaskResourceReclaim(los_task.c:1451)只释放
-                                              * sigCB 不遍历 sigInfoList, OsSigInfoNode 永久
-                                              * 泄漏; 已修复: 回收统一走 OsSignalTaskDelete
-                                              * 遍历释放节点; 本宏=1 恢复用例作为回归看护 */
 #define POSIX_BUG_20_PTHREAD_CANCEL_KEY_LEAK 0 /* ItPosixPthread044: 异步取消线程
                                                  * DoPthreadCancel(pthread.c:449-453)不释放
                                                  * TSD key 数组(512B)且跳过析构器(仅
@@ -193,16 +153,9 @@
                                                  * 线程被硬杀后遗留不可 join 的 ZOMBIE 任务;
                                                  * 隔离点在 It_posix_pthread.c 聚合注册点 */
 #define KERNEL_BUG_21_PM_LOCKCNT_FULL_LEAK 0 /* ItLosPm007: PM 唤醒锁全局计数打满后新名字
-                                              * 请求, OsPmLockRequest(los_pm.c:594-617)节点
-                                              * 先插链表后查容量, 失败不回滚 -> 节点永久
-                                              * 滞留; 隔离点在 It_los_pm.c 聚合注册点 */
-#define POSIX_BUG_22_MQOPEN_NAMEFAIL_LEAK 1 /* ItPosixQueue058: mq_open 名字保存失败
-                                              * (mqueue.c:199-201)ERROUT 只释放名字不删刚建的
-                                              * 内核队列, 槽位+缓冲永久泄漏 —— 已修复:
-                                              * DoMqueueCreate 三个失败分支(表槽占用/名字
-                                              * 保存/CB 回查)均在 ERROUT 前补 LOS_QueueDelete
-                                              * 归还队列, 与 mq_personal 分支对齐; 隔离点在
-                                              * It_posix_queue.c 聚合注册点 */
+                                               * 请求, OsPmLockRequest(los_pm.c:594-617)节点
+                                               * 先插链表后查容量, 失败不回滚 -> 节点永久
+                                               * 滞留; 隔离点在 It_los_pm.c 聚合注册点 */
 #define KERNEL_BUG_23_SWTMR_EXPIRYLIST_LEAK 0 /* ItLosSwtmr124: 同 tick 到期数超过
                                                * expiryList 容量时 ONCE 定时器被丢弃置
                                                * DELETING(los_swtmr.c:410-418+:219), 无人

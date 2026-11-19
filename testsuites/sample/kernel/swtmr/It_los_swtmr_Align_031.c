@@ -99,13 +99,13 @@ static UINT32 Testcase(VOID)
     ret = LOS_SwtmrStart(swtmrId3);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_TaskDelay(10); // 10, set delay time.
+    ret = LOS_TaskDelay(11); // 11, one tick past the fire boundary: reading on the boundary races the swtmr daemon.
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     ICUNIT_GOTO_EQUAL(g_swtmrCount1, 1, g_swtmrCount1, EXIT); // 1, Here, assert that g_testCount is equal to this .
     ICUNIT_GOTO_EQUAL(g_swtmrCount2, 0, g_swtmrCount2, EXIT); // 0, Here, assert that g_testCount is equal to this .
     ICUNIT_GOTO_EQUAL(g_swtmrCount3, 0, g_swtmrCount3, EXIT); // 0, Here, assert that g_testCount is equal to this .
 
-    ret = LOS_TaskDelay(60); // 60, set delay time.
+    ret = LOS_TaskDelay(61); // 61, one tick past the 4th fire boundary (same daemon race as above).
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ICUNIT_GOTO_EQUAL(g_swtmrCount1, 4, g_swtmrCount1, EXIT); // 4, Here, assert that g_testCount is equal to this .

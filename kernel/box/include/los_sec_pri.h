@@ -214,6 +214,12 @@ extern UINT32 OsSIdBind(UINT32 type, SIdObj *sIdObj, UINT32 dataCBIdx, VOID *dat
 extern UINT32 OsSIdGenObj(UINT32 type, UINT32 dataCBIdx, VOID *dataCB, UINT32 *sId);
 extern UINT32 OsSIdObjGet(UINT32 sId, SIdObj **outSIdObj);
 extern UINT32 OsSIdGetDataCB(UINT32 sId, UINT32 moduleType, VOID **dataCB);
+/* Public sId hand-out/release pair (los_sec.c). LOS_GenSId had no in-tree
+ * caller until the M6T queue port; the declarations live here - next to
+ * every other sId contract - instead of a public header (the usr world
+ * reaches the sId world through the LOS_* resource APIs, not these). */
+extern UINT32 LOS_GenSId(UINT32 type);
+extern UINT32 LOS_SIdDelete(UINT32 sId);
 /* Entry gate - normalize a SID handle into its pool index, in place.
  * idOffset/idWidth describe the pool-handle field in the CB, and the width
  * matters: LosQueueCB.queueID is UINT16 at a 2-mod-4 offset, so reading it

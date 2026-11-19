@@ -46,6 +46,11 @@ extern "C" {
 
 VOID ItLosBoxUsr001(VOID);
 VOID ItLosBoxUsr002(VOID);
+VOID ItLosBoxUsr003(VOID);
+VOID ItLosBoxUsr004(VOID);
+VOID ItLosBoxUsr005(VOID);
+VOID ItLosBoxUsr006(VOID);
+VOID ItLosBoxUsr007(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

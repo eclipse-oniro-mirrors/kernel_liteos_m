@@ -43,6 +43,11 @@ source_set("test_box_usr") {
     "It_los_boxA_usr.c",
     "It_los_boxA_usr_001.c",
     "It_los_boxA_usr_002.c",
+    "It_los_boxA_usr_003.c",
+    "It_los_boxA_usr_004.c",
+    "It_los_boxA_usr_005.c",
+    "It_los_boxA_usr_006.c",
+    "It_los_boxA_usr_007.c",
   ]
 
   # Raw include dir, NOT the testsuites ":include" config: that config
@@ -59,9 +64,9 @@ source_set("test_box_usr") {
   # reach the case files through osTest.h if ever needed.
   configs += [ "//kernel/liteos_m/targets/stm32f407vet6/liteos_m/box/usr_demo:public" ]
 
-  # Same section-routing force-include and ABI flags as box_usr_demo: any
-  # LITE_OS_SEC_* object sneaking in must land in the box sections, and the
-  # VFPv4/softfp codegen tag must match the rest of the image.
+  # Section-routing force-include and ABI flags: any LITE_OS_SEC_* object
+  # sneaking in must land in the box sections, and the VFPv4/softfp codegen
+  # tag must match the rest of the image.
   cflags = [
     "-include",
     rebase_path("//kernel/liteos_m/targets/stm32f407vet6/liteos_m/board/include/los_builddef_target.h"),

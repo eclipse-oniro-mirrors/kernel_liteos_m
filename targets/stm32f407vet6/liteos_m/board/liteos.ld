@@ -5,11 +5,11 @@
  * standard ELF section names .text/.data/.bss/.got/.ARM.exidx stay as is).
  *
  *  FLASH 1MB @0x08000000 (die measured 1MB via FSIZE; part number 512KB):
- *    0x08000000  kernel code + load images    128K  no MPU region: kernel
- *    0x08020000  common code (R0)            128K  reaches via PRIVDEFENA
- *    0x08040000  box A code slot (R3)         64K  background, user access
- *    0x08050000  box B code slot (R3)          64K  -> MemManage fault
- *    0x08060000  spare                        640K
+ *    0x08000000  kernel code + load images    256K  no MPU region: kernel
+ *    0x08040000  common code (R0)            256K  reaches via PRIVDEFENA
+ *    0x08080000  box A code slot (R3)         64K  background, user access
+ *    0x08090000  box B code slot (R3)          64K  -> MemManage fault
+ *    0x080A0000  spare                        384K
  *  SRAM 128KB @0x20000000:
  *    0x20000000  kernel RAM                    64K  no MPU region
  *    0x20010000  common data (R1)              16K  AP=001 RW/RW
@@ -17,6 +17,16 @@
  *    0x20018000  box A data slot (R4)          16K  fixed slot, one region
  *    0x2001C000  box B data slot (R4)          16K  fixed slot, one region
  *  CCM 64KB @0x10000000: kernel only (core coupled, DMA cannot reach it).
+ *
+ * R0 layout surgery (M6S, 2026-11-19): COMMON moved 0x08020000->0x08040000
+ * and grew 128K->256K (256K-aligned MPU region, holds the shared code PLUS
+ * the whole kernel-test suite set); KERNEL_FLASH absorbed the old COMMON
+ * hole (128K->256K, kernel measured 58K - growth headroom); box slots
+ * moved to 0x08080000/0x08090000, still 64K-aligned. All bases tracked in
+ * include/asm/memmap_config.h (slot macros + RASR SIZE field); box layout
+ * addresses derive from the __boxA/B_* link symbols, so boxes_cfg needs no
+ * change. Requires the 1MB die (FSIZE-verified) - a 512KB part cannot
+ * hold this layout (first out-of-bounds byte: 0x08080000).
  *
  * Adapted from arm_mps2_an386/liteos_m/board/liteos.ld:
  * - code/rodata stay in flash, .data keeps its LMA in flash (startup.s copy)
@@ -33,10 +43,10 @@ SVC_IRQ_STACK_SIZE  = 4K;
 
 MEMORY
 {
-   KERNEL_FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 128K
-   COMMON_FLASH (rx)      : ORIGIN = 0x08020000, LENGTH = 128K
-   BOX_A_FLASH (rx)       : ORIGIN = 0x08040000, LENGTH = 64K
-   BOX_B_FLASH (rx)       : ORIGIN = 0x08050000, LENGTH = 64K
+   KERNEL_FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 256K
+   COMMON_FLASH (rx)      : ORIGIN = 0x08040000, LENGTH = 256K
+   BOX_A_FLASH (rx)       : ORIGIN = 0x08080000, LENGTH = 64K
+   BOX_B_FLASH (rx)       : ORIGIN = 0x08090000, LENGTH = 64K
    KERNEL_RAM (rwx)       : ORIGIN = 0x20000000, LENGTH = 64K
    COMMON_RAM (rw)        : ORIGIN = 0x20010000, LENGTH = 16K
    USER_READONLY_RAM (rw) : ORIGIN = 0x20014000, LENGTH = 16K
@@ -96,8 +106,8 @@ SECTIONS
      * too so they fall through to .COMMON_TEXT - see the comment there for
      * the member-by-member audit and for why the three unwinder members
      * are NOT in the list. */
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o *_arm_addsubdf3.o *_arm_addsubsf3.o *_arm_cmpdf2.o *_arm_fixdfsi.o *_arm_fixunsdfsi.o *_arm_muldf3.o *_arm_muldivdf3.o *_arm_mulsf3.o *_arm_truncdfsf2.o *_aeabi_ldivmod.o *_aeabi_uldivmod.o *_dvmd_tls.o *_fixunsdfdi.o *_popcountsi2.o *_udivmoddi4.o *libmusl-m.frexp.o *libmusl-m.frexpl.o) .text.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o *_arm_addsubdf3.o *_arm_addsubsf3.o *_arm_cmpdf2.o *_arm_fixdfsi.o *_arm_fixunsdfsi.o *_arm_muldf3.o *_arm_muldivdf3.o *_arm_mulsf3.o *_arm_truncdfsf2.o *_aeabi_ldivmod.o *_aeabi_uldivmod.o *_dvmd_tls.o *_fixunsdfdi.o *_popcountsi2.o *_udivmoddi4.o *libmusl-m.frexp.o *libmusl-m.frexpl.o) .text)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o *_arm_addsubdf3.o *_arm_addsubsf3.o *_arm_cmpdf2.o *_arm_fixdfsi.o *_arm_fixunsdfsi.o *_arm_muldf3.o *_arm_muldivdf3.o *_arm_mulsf3.o *_arm_truncdfsf2.o *_aeabi_ldivmod.o *_aeabi_uldivmod.o *_dvmd_tls.o *_fixunsdfdi.o *_popcountsi2.o *_udivmoddi4.o *libmusl-m.frexp.o *libmusl-m.frexpl.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o) .text.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o *_arm_addsubdf3.o *_arm_addsubsf3.o *_arm_cmpdf2.o *_arm_fixdfsi.o *_arm_fixunsdfsi.o *_arm_muldf3.o *_arm_muldivdf3.o *_arm_mulsf3.o *_arm_truncdfsf2.o *_aeabi_ldivmod.o *_aeabi_uldivmod.o *_dvmd_tls.o *_fixunsdfdi.o *_popcountsi2.o *_udivmoddi4.o *libmusl-m.frexp.o *libmusl-m.frexpl.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o) .text)
     /* board/include/los_builddef_target.h routes kernel code via
      * LITE_OS_SEC_TEXT* to .kernel.text; ITCM variant falls back to
      * normal flash (STM32F407 has no ITCM). */
@@ -105,9 +115,9 @@ SECTIONS
     *(.itcm.kernel.text)
     . = ALIGN(0x4);
     _etext = .;
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o) .rodata.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o) .gnu.linkonce.r.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o) .rodata)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o) .rodata.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o) .gnu.linkonce.r.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o) .rodata)
     *(.rodata1)
     . = ALIGN(0x4);
     __kernel_text_end = .;
@@ -238,6 +248,23 @@ SECTIONS
      * (only the rodata needs it here; the function itself rides the
      * .usrtcm.text attribute, the globals ride .USER_READONLY_DATA). */
     KEEP(*los_usr_init*.o(.rodata .rodata.*))
+    /* Kernel-test suites (testsuites/sample/kernel/queue + event, built as
+     * static_library members): their .text/.rodata land in COMMON_FLASH so
+     * the 128K KERNEL_FLASH slot holds only the kernel proper + the test
+     * framework (osTest.c test_init module). EXCLUDE_FILE above drops these
+     * members from the KERNEL_FLASH .text/.rodata rules; these rules collect
+     * them here. Patterns are the archive MEMBER names (It_los_queue_001.c.o,
+     * LLt_/Llt_ variants, It_los_event_NNN.c.o) - the It_ prefix cannot
+     * collide with kernel modules like base.los_queue.o. Deliberately NOT
+     * KEEP: suite code is kernel-only and every live case is referenced from
+     * its suite entry (ItSuiteLosQueue/ItSuiteLosEvent), so --gc-sections
+     * drops the cases the suite-list macros gate out (TEST_FULL /
+     * QUEUE_STATIC_ALLOCATION), keeping COMMON_TEXT small. Data/BSS stay in
+     * KERNEL_RAM: nothing in a box ever touches suite state. */
+    *It_los_queue*.o(.text .text.* .rodata .rodata.*)
+    *LLt_los_queue*.o(.text .text.* .rodata .rodata.*)
+    *Llt_los_queue*.o(.text .text.* .rodata .rodata.*)
+    *It_los_event*.o(.text .text.* .rodata .rodata.*)
     /* libc mem/str primitives shared with the box world: the pure
      * helpers — mem family (musl mem*.o + libsec mem{set,cpy}_s) and 16
      * plain str members — carry no globals/rodata tables. The two

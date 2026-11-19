@@ -4,9 +4,9 @@
  * current working directory, so a plain INCLUDE inside liteos.ld fails).
  *
  * Slot geometry (matches liteos.ld MEMORY and include/asm/memmap_config.h):
- *   box A: code 0x08040000 / 64K (64K-aligned) -> one MPU region (R3)
+ *   box A: code 0x08080000 / 64K (64K-aligned) -> one MPU region (R3)
  *          data 0x20018000 / 16K (16K-aligned) -> one MPU region (R4)
- *   box B: code 0x08050000 / 64K
+ *   box B: code 0x08090000 / 64K
  *          data 0x2001C000 / 16K
  *
  * The RAM slot holds .BOX_x_DATA + .BOX_x_BSS + .BOX_x_HEAP and always ends

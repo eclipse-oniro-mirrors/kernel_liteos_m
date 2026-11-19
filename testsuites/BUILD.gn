@@ -91,6 +91,61 @@ config("include") {
   defines = []
   include_dirs = [ "include" ]
 
+  # Kernel suite selection (Kconfig TEST_KERNEL_* / TEST_BOX_USR): compile a
+  # suite out by injecting its LOS_KERNEL_*_TEST=0 here - osTest.h keeps the
+  # =1 defaults under #ifndef, so an all-on build (no define injected, every
+  # knob at its default y) stays byte-identical to a tree without this
+  # mechanism. test_box_usr keeps compiling even with TEST_BOX_USR off: the
+  # boxA test entry stays linked (boxes.ld KEEP) and only the usr-phase
+  # bring-up in osTest.c drops out.
+  if (!defined(LOSCFG_TEST_KERNEL_QUEUE)) {
+    defines += [ "LOS_KERNEL_IPC_QUEUE_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_EVENT)) {
+    defines += [ "LOS_KERNEL_IPC_EVENT_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_TASK)) {
+    defines += [ "LOS_KERNEL_CORE_TASK_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_MUX)) {
+    defines += [ "LOS_KERNEL_IPC_MUX_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_SEM)) {
+    defines += [ "LOS_KERNEL_IPC_SEM_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_SWTMR)) {
+    defines += [ "LOS_KERNEL_CORE_SWTMR_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_HWI)) {
+    # kills ItSuiteLosHwi only; the queue/event ISR-context cases gate on
+    # LOS_KERNEL_HWI_TEST and keep running (osTest.h LOS_KERNEL_HWI_SUITE_TEST)
+    defines += [ "LOS_KERNEL_HWI_SUITE_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_MEM)) {
+    defines += [ "LOS_KERNEL_MEM_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_MISC)) {
+    defines += [ "LOS_KERNEL_MISC_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_TCB_VERIFY)) {
+    defines += [ "LOS_KERNEL_TCB_VERIFY_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_ATOMIC)) {
+    defines += [ "LOS_KERNEL_ATOMIC_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_RWSEM)) {
+    defines += [ "LOS_KERNEL_IPC_RWSEM_TEST=0" ]
+  }
+  if (!defined(LOSCFG_TEST_KERNEL_EXC)) {
+    defines += [ "LOS_KERNEL_EXC_TEST=0" ]
+  }
+  if (defined(LOSCFG_BOX) && !defined(LOSCFG_TEST_KERNEL_BOX)) {
+    defines += [ "LOS_KERNEL_BOX_TEST=0" ]
+  }
+  if (defined(LOSCFG_BOX) && !defined(LOSCFG_TEST_BOX_USR)) {
+    defines += [ "LOS_KERNEL_BOX_USR_TEST=0" ]
+  }
+
   if (defined(LOSCFG_KERNEL_TEST_FULL)) {
     defines += [ "LOS_KERNEL_TEST_FULL=1" ]
   }
@@ -113,6 +168,17 @@ config("include") {
   }
   cflags = _test_cflags
   asmflags = _test_cflags
+  if (!defined(LOSCFG_ARCH_RISCV)) {
+    # CCR.UNALIGN_TRP is 1 on this build family (LOSCFG_ARCH_UNALIGNED_EXC=y,
+    # armed by HalHwiInit in drivers/interrupt/arm_nvic.c): a single unaligned
+    # word LDR/STR is a UsageFault, and GCC -O2 freely emits those for string
+    # copies / packed accesses (the first queue-suite case faults this way:
+    # "UniDSP" init stores STR.W [sp,#19]). Test TUs opt out of unaligned
+    # generation - the byte/halfword sequences cost nothing meaningful on a
+    # test build. Kernel/library code is compiled as before and has proven
+    # clean under demo regression runs.
+    cflags += [ "-mno-unaligned-access" ]
+  }
   if (ohos_build_compiler == "clang") {
     # clang 15 对测试代码存量告警类的降级(同上 -Werror 过滤同理,仅测试侧生效)
     cflags += [
@@ -169,39 +235,72 @@ group("testsuites") {
     # order mirrors the original flat dep list so an all-defaults build
     # keeps the exact same dep-graph order (archive members / layout).
     if (defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
-      deps += [
-        "sample/kernel/event:test_event",
-        "sample/kernel/hwi:test_hwi",
-        "sample/kernel/mem:test_mem",
-        "sample/kernel/mux:test_mux",
-        "sample/kernel/queue:test_queue",
-        "sample/kernel/sem:test_sem",
-        "sample/kernel/rwsem:test_rwsem",
-        "sample/kernel/swtmr:test_swtmr",
-        "sample/kernel/task:test_task",
-        "sample/kernel/misc:test_misc",
-        "sample/kernel/tcb_verify:test_tcb_verify",
-        "sample/kernel/atomic:test_atomic",
-        "sample/kernel/uart:test_uart",
-      ]
+      # Per-suite selection (Kconfig TEST_KERNEL_*): each suite keeps its
+      # original dep position so an all-on build keeps the same dep-graph
+      # order as the former flat list.
+      if (defined(LOSCFG_TEST_KERNEL_EVENT)) {
+        deps += [ "sample/kernel/event:test_event" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_HWI)) {
+        deps += [ "sample/kernel/hwi:test_hwi" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_MEM)) {
+        deps += [ "sample/kernel/mem:test_mem" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_MUX)) {
+        deps += [ "sample/kernel/mux:test_mux" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_QUEUE)) {
+        deps += [ "sample/kernel/queue:test_queue" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_SEM)) {
+        deps += [ "sample/kernel/sem:test_sem" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_RWSEM)) {
+        deps += [ "sample/kernel/rwsem:test_rwsem" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_SWTMR)) {
+        deps += [ "sample/kernel/swtmr:test_swtmr" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_TASK)) {
+        deps += [ "sample/kernel/task:test_task" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_MISC)) {
+        deps += [ "sample/kernel/misc:test_misc" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_TCB_VERIFY)) {
+        deps += [ "sample/kernel/tcb_verify:test_tcb_verify" ]
+      }
+      if (defined(LOSCFG_TEST_KERNEL_ATOMIC)) {
+        deps += [ "sample/kernel/atomic:test_atomic" ]
+      }
+      if (defined(LOSCFG_TEST_UART_DRV)) {
+        deps += [ "sample/kernel/uart:test_uart" ]
+      }
     }
     # BOX bookkeeping suite: gated by the BOX feature itself, NOT by
     # TEST_ICUNIT_KERNEL - boards with a small kernel flash (stm32f407vet6:
     # 128K, too small for the full sample/kernel set) run it standalone
     # through the TestTaskEntry hook in osTest.c.
-    if (defined(LOSCFG_BOX)) {
+    if (defined(LOSCFG_BOX) && defined(LOSCFG_TEST_KERNEL_BOX)) {
       deps += [ "sample/kernel/box:test_box" ]
+    }
 
-      # UTS usr-world suite (source_set: boxA file-name section routing;
-      # runs through the shared iCunit copy in the box test entry). Test
-      # builds only - the whole block sits under LOSCFG_KERNEL_TEST.
+    # UTS usr-world suite (source_set: boxA file-name section routing;
+    # runs through the shared iCunit copy in the box test entry). Test
+    # builds only - the whole block sits under LOSCFG_KERNEL_TEST. Kept
+    # under plain LOSCFG_BOX even with TEST_BOX_USR off: the boxA test
+    # entry stays compiled (usr_demo BUILD.gn) and boxes.ld KEEP retains
+    # it, so ItSuiteLosBoxUsr must stay defined; with the usr phase off
+    # (LOS_KERNEL_BOX_USR_TEST=0) the entry simply never runs.
+    if (defined(LOSCFG_BOX)) {
       deps += [ "sample/usr/box:test_box_usr" ]
     }
     # exc suite: osTest.h enables LOS_KERNEL_EXC_TEST when
     # SHELL_EXCINFO_DUMP or BACKTRACE_TYPE!=0 - align the BUILD dep with
     # that condition (the destructive cases are MANUAL-gated; the remaining
     # aarch64-safe cases are backtrace walks + exc-hook registration).
-    if (defined(LOSCFG_TEST_ICUNIT_KERNEL) &&
+    if (defined(LOSCFG_TEST_ICUNIT_KERNEL) && defined(LOSCFG_TEST_KERNEL_EXC) &&
         (defined(LOSCFG_SHELL_EXCINFO_DUMP) ||
          (defined(LOSCFG_BACKTRACE_TYPE) && LOSCFG_BACKTRACE_TYPE != 0))) {
       deps += [ "sample/kernel/exc:test_exc" ]

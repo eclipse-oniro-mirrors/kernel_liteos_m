@@ -82,17 +82,43 @@ extern "C" {
 #ifndef LOS_KERNEL_ATOMIC_TEST
 #define LOS_KERNEL_ATOMIC_TEST 1
 #endif
+/* The per-suite macros below are #ifndef-protected so testsuites/BUILD.gn can
+ * compile a single suite out (kernel suite selection, Kconfig TEST_KERNEL_*):
+ * the build injects LOS_KERNEL_*_TEST=0 into every test TU, which drops the
+ * suite entry call from TestKernel() AND the per-case blocks inside the suite
+ * lists. With no define injected the defaults below apply - an all-on build
+ * is byte-identical to a tree without this mechanism. */
+#ifndef LOS_KERNEL_CORE_TASK_TEST
 #define LOS_KERNEL_CORE_TASK_TEST 1
+#endif
+#ifndef LOS_KERNEL_IPC_MUX_TEST
 #define LOS_KERNEL_IPC_MUX_TEST 1
+#endif
+#ifndef LOS_KERNEL_IPC_SEM_TEST
 #define LOS_KERNEL_IPC_SEM_TEST 1
+#endif
+#ifndef LOS_KERNEL_IPC_EVENT_TEST
 #define LOS_KERNEL_IPC_EVENT_TEST 1
+#endif
+#ifndef LOS_KERNEL_IPC_QUEUE_TEST
 #define LOS_KERNEL_IPC_QUEUE_TEST 1
+#endif
+#ifndef LOS_KERNEL_CORE_SWTMR_TEST
 #define LOS_KERNEL_CORE_SWTMR_TEST 1
+#endif
 #ifndef LOS_KERNEL_HWI_TEST
 #define LOS_KERNEL_HWI_TEST 1
 #endif
+#ifndef LOS_KERNEL_HWI_SUITE_TEST
+/* The dedicated hwi suite is separable from the ISR-context cases inside the
+ * IPC suites (queue_isr, event 023/024/038 gate on LOS_KERNEL_HWI_TEST): a
+ * board can run those while excluding ItSuiteLosHwi itself. */
+#define LOS_KERNEL_HWI_SUITE_TEST LOS_KERNEL_HWI_TEST
+#endif
 #define LOS_KERNEL_FS_TEST 0
+#ifndef LOS_KERNEL_MEM_TEST
 #define LOS_KERNEL_MEM_TEST 1
+#endif
 #if (LOSCFG_BASE_CORE_CPUP == 1)
 #define LOS_KERNEL_CORE_CPUP_TEST 1
 #else
@@ -134,8 +160,12 @@ extern "C" {
 #define LOS_KERNEL_SIGNAL_TEST 0
 #endif
 #endif
+#ifndef LOS_KERNEL_MISC_TEST
 #define LOS_KERNEL_MISC_TEST 1
+#endif
+#ifndef LOS_KERNEL_TCB_VERIFY_TEST
 #define LOS_KERNEL_TCB_VERIFY_TEST 1
+#endif
 
 #ifndef LOS_KERNEL_BOX_TEST
 /* BOX kernel-side bookkeeping suite (sample/kernel/box): only meaningful
@@ -161,6 +191,7 @@ extern "C" {
 #define LOS_KERNEL_TRACE_TEST 0
 #endif
 
+#ifndef LOS_KERNEL_EXC_TEST
 #if (defined(LOSCFG_SHELL_EXCINFO_DUMP) || (LOSCFG_BACKTRACE_TYPE != 0))
 /* AArch64 exclusion lifted: the destructive fault-injection cases are
  * now gated by LOS_KERNEL_TEST_MANUAL; what remains (backtrace walks,
@@ -169,6 +200,7 @@ extern "C" {
 #else
 #define LOS_KERNEL_EXC_TEST 0
 #endif
+#endif
 
 #if (LOSCFG_SHELL == 1)
 #define LOS_KERNEL_SHELL_TEST 1
@@ -176,10 +208,12 @@ extern "C" {
 #define LOS_KERNEL_SHELL_TEST 0
 #endif
 
+#ifndef LOS_KERNEL_IPC_RWSEM_TEST
 #if (LOSCFG_BASE_IPC_RWSEM == 1)
 #define LOS_KERNEL_IPC_RWSEM_TEST 1
 #else
 #define LOS_KERNEL_IPC_RWSEM_TEST 0
+#endif
 #endif
 
 #ifndef LOS_FEATURE_ADAPTED

@@ -6,16 +6,19 @@
  * los_box_uspace.S — hence no !LOSCFG_BOX fallback shape here. The
  * vanilla los_dispatch.S never includes this header.
  *
- * Register contracts (caller = the V7M PendSV path in los_dispatch.S):
+ * Register contracts (caller = the V7M PendSV path in los_dispatch_box.S):
  *   BOX_PENDSV_SAVE     in: r0 = saved context base, r6 = g_oldTask
  *                       out: r0 = value for oldTask->stackPointer
  *                       clobbers r2
  *   BOX_PENDSV_RESTORE  in: r0 = newTask, r1 = newTask->stackPointer,
- *                           r6 = g_oldTask, lr = EXC_RETURN
+ *                           r6 = g_oldTask, r12 = PRIMASK, lr = EXC_RETURN
  *                       out: r1 = sp to restore (user sp when INUSER),
  *                            CONTROL mode bits + g_sysMode updated,
- *                            MPU switched to the new box (C call, r0/lr
- *                            preserved across it)
+ *                            MPU switched to the new box. BoxMpuSwitch is
+ *                            AAPCS C and may scratch r0-r3/r12/lr, so every
+ *                            one of those that is live here (r0 newTask,
+ *                            r1 stackPointer, r12 PRIMASK, lr EXC_RETURN)
+ *                            is pushed around the BL.
  *                       clobbers r2, r3
  *
  * Offsets (TASK_CB_*) come from the generated los_offsets.h (the target
@@ -28,6 +31,30 @@
  * it (same family as los_offsets.h).
  */
 #include "los_offsets.h"
+
+/* BOX and KERNEL_SIGNAL are mutually exclusive (enforced in
+ * kernel/extended/signal/Kconfig; this #error is the backstop for a config
+ * that bypasses Kconfig).
+ *
+ * Reason, concretely: the signal-context restore path this dispatch family
+ * used to carry (SIGNAL_CONTEXT_RESTORE in los_dispatch_box.S) branched
+ * straight to SignalContextRestore when OsSignalTaskContextRestore returned a
+ * signal stack, i.e. PAST BOX_PENDSV_RESTORE below. Everything that macro
+ * maintains then kept describing the task being switched OUT:
+ *   g_curBoxId      -> OsGetCurBoxCB() resolves the WRONG box for every
+ *                      pool/SID/permission decision the task makes;
+ *   MPU R3/R4       -> the task's own text/data are unmapped while ANOTHER
+ *                      box's are mapped and accessible;
+ *   g_boxLocalPool  -> the usr-world allocator draws from the wrong heap;
+ *   CONTROL/g_sysMode -> privilege and the veneers' kernel/user view desync.
+ * None of that faults, so it surfaced as an isolation break, not a crash.
+ * That path has since been deleted from los_dispatch_box.S outright. Porting
+ * the vanilla SIGNAL_CONTEXT_RESTORE back would require rewriting it to
+ * re-establish box state first (the signal target's boxCB, not the outgoing
+ * task's) before resuming on the signal stack. */
+#if defined(LOSCFG_KERNEL_SIGNAL) && (LOSCFG_KERNEL_SIGNAL == 1)
+#error "LOSCFG_KERNEL_SIGNAL cannot be enabled together with LOSCFG_BOX: the signal-context restore path bypasses BOX_PENDSV_RESTORE and would resume the task under the previous task's box state (MPU/g_curBoxId/g_boxLocalPool/g_sysMode). See kernel/extended/signal/Kconfig."
+#endif
 /* asm-side status-bit value; mirrors los_task_base.h's C definition
  * (0x0200), which los_offsets.c _Static_asserts against drift. The
  * asm-offsets header exports offsets only - re-exporting a status bit
@@ -68,9 +95,26 @@
  *     INTO a box task (the user world reads it from usr rodata directly —
  *     its allocator calls take the pool explicitly, no syscall involved).
  *
- * Register budget: r4/r5 are dead at the call site (the context pop below
- * reloads r4-r12) and r4 additionally survives the BoxMpuSwitch BL
- * (callee-saved per AAPCS).
+ * Register budget across the BoxMpuSwitch BL (pit 58): BoxMpuSwitch is plain
+ * AAPCS C - it may freely scratch r0-r3, r12 and lr. FOUR of those are live
+ * here and used to be held only by luck:
+ *   r0  = newTask (consumed by everything below the call);
+ *   r1  = newTask->stackPointer, loaded by the PendSV caller BEFORE this
+ *         macro and consumed by the handler tail's context pop (ldmfd r1!).
+ *         It is NOT reloaded for a task restored in KERNEL mode - only the
+ *         INUSER arm below reloads it from TASK_CB_USER_SP - so a call that
+ *         scratches r1 makes the tail pop the context from garbage. The
+ *         M6N-era BoxMpuSwitch codegen happened to use r2/r3 only; a cosmetic
+ *         refactor moved the scratch to r1 and crashed the first different-box
+ *         restore of a syscall-parked task (guard-hit early returns and the
+ *         INUSER reload had masked the clobber until a second box joined the
+ *         schedule).
+ *   r12 = PRIMASK, saved by the PendSV prologue, restored at the tail
+ *         (msr primask, r12);
+ *   lr  = EXC_RETURN.
+ * All four are pushed around the BL. r4 (the box mempool for g_boxLocalPool)
+ * needs no push: AAPCS keeps it alive as callee-saved. r5 is dead across the
+ * call (reloaded right after it).
  */
 .macro BOX_PENDSV_RESTORE
     ldrb    r4, [r0, #TASK_CB_CUR_BOX_ID]
@@ -82,10 +126,10 @@
     beq     9\@f
     cbz     r2, 8\@f
     ldr     r4, [r2, #BOX_CB_LAYOUT0_MEMPOOL]
-    push    {r0, lr}
+    push    {r0, r1, r12, lr}
     mov     r0, r2
     bl      BoxMpuSwitch
-    pop     {r0, lr}
+    pop     {r0, r1, r12, lr}
     ldr     r5, =g_boxLocalPool
     str     r4, [r5]
 8\@:

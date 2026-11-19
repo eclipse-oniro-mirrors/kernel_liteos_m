@@ -81,7 +81,7 @@ STATIC VOID OsResLeakForceReclaim(VOID)
      * reclamation is left to the idle task and LOS_TaskCreate as designed. */
 }
 
-#if (LOSCFG_POSIX_MQUEUE_API == 1)
+#if (LOSCFG_POSIX_MQUEUE_API == 1) && !defined(LOSCFG_BOX)
 STATIC VOID OsResLeakMqueuePreInit(VOID)
 {
     STATIC UINT32 s_preInitialized = 0;
@@ -140,7 +140,16 @@ STATIC VOID OsResLeakLazyLockPreInit(VOID)
 
 VOID OsResLeakInit(VOID)
 {
-#if (LOSCFG_POSIX_MQUEUE_API == 1)
+    /* mqueue prewarm is skipped under LOSCFG_BOX: the posix mq wrapper
+     * (lib/posix mqueue.c) indexes its g_mqueueTable by the handle
+     * LOS_QueueCreate returns, which is a small pool index on vanilla
+     * builds but an encoded sId under BOX - mq_open on any BOX build
+     * indexes wild memory and UsageFaults (caught by the first
+     * queue+event kernel-test run). The kernel suites exercise the
+     * LOS_Queue* family directly and never touch posix mq, so skipping
+     * the prewarm loses nothing here; making mq_* BOX-safe is a
+     * separate piece of work (see the box-fusion-design known-issues). */
+#if (LOSCFG_POSIX_MQUEUE_API == 1) && !defined(LOSCFG_BOX)
     OsResLeakMqueuePreInit();
 #endif
     OsResLeakLazyLockPreInit();

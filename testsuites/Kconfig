@@ -86,6 +86,93 @@ config TEST_ICUNIT_KERNEL
     bool "testsuites/sample/kernel"
     default y
 
+menu "Kernel suite selection"
+    depends on TEST_ICUNIT_KERNEL
+
+# Per-suite granularity inside sample/kernel. The whole set needs ~200K of
+# kernel flash; boards with a small kernel flash slot (stm32f407vet6: 128K)
+# enable only the suites they are bringing up. All knobs default to y, so an
+# untouched debug.config builds the exact same binary as before this menu
+# existed. Turning a knob off removes the suite directory from the build AND
+# compiles its TestKernel() call out (testsuites/BUILD.gn injects the
+# matching LOS_KERNEL_*_TEST=0 define into every test TU).
+
+config TEST_KERNEL_ATOMIC
+    bool "sample/kernel/atomic suite"
+    default y
+
+config TEST_KERNEL_EVENT
+    bool "sample/kernel/event suite"
+    default y
+
+config TEST_KERNEL_EXC
+    bool "sample/kernel/exc suite"
+    default y
+
+config TEST_KERNEL_HWI
+    bool "sample/kernel/hwi suite"
+    default y
+    help
+      Note: turning this off removes the dedicated hwi suite only. The
+      ISR-context cases inside the IPC suites (queue_isr/event 023-024-038)
+      gate on LOS_KERNEL_HWI_TEST, which stays at its default 1 - they run
+      whenever their parent suite is enabled.
+
+config TEST_KERNEL_MEM
+    bool "sample/kernel/mem suite"
+    default y
+
+config TEST_KERNEL_MISC
+    bool "sample/kernel/misc suite"
+    default y
+
+config TEST_KERNEL_MUX
+    bool "sample/kernel/mux suite"
+    default y
+
+config TEST_KERNEL_QUEUE
+    bool "sample/kernel/queue suite"
+    default y
+
+config TEST_KERNEL_RWSEM
+    bool "sample/kernel/rwsem suite"
+    default y
+
+config TEST_KERNEL_SEM
+    bool "sample/kernel/sem suite"
+    default y
+
+config TEST_KERNEL_SWTMR
+    bool "sample/kernel/swtmr suite"
+    default y
+
+config TEST_KERNEL_TASK
+    bool "sample/kernel/task suite"
+    default y
+
+config TEST_KERNEL_TCB_VERIFY
+    bool "sample/kernel/tcb_verify suite"
+    default y
+
+config TEST_KERNEL_BOX
+    bool "sample/kernel/box suite (BOX bookkeeping)"
+    default y
+    depends on BOX
+
+endmenu
+
+config TEST_BOX_USR
+    bool "sample/usr/box suite (UTS usr phase)"
+    default y
+    depends on KERNEL_TEST && BOX
+    help
+      The unified runner's usr phase, executed by the boxA test entry
+      (usr_demo/tboxA/boxA_test_main.c) through the shared iCunit copy in
+      the COMMON sections. Turning this off keeps the boxA test entry
+      compiled (boxes.ld KEEP retains it) but skips OsBoxInit in the test
+      task, so boxes stay down and the run reports the kernel-phase results
+      only.
+
 config TEST_ICUNIT_CMSIS
     bool "testsuites/sample/cmsis"
     default y

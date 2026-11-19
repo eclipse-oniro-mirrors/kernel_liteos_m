@@ -23,12 +23,15 @@
 #include "syscalls.h"
 #include "uts_phase.h"
 #include "osTest.h"
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+#include "los_swtmr_usr_pri.h"   /* BoxSwtmrInit */
+#endif
 
 extern VOID ItSuiteLosBoxUsr(VOID);
 
 VOID boxTestEntry(VOID)
 {
-    /* Re-initialize the box heap from USER context (demo boxAEntry shape).
+    /* Re-initialize the box heap from USER context.
      * The pool lock mux has to be created HERE, not kernel-side: under BOX the
      * allocator is compiled once in the usr world, so MemLockCreate's
      * LOS_MuxCreate is the usr wrapper -> OsMuxCreate, which draws the CB from
@@ -52,6 +55,21 @@ VOID boxTestEntry(VOID)
     while (g_utsPhase != UTS_PHASE_GO) {
         LOS_TaskDelay(1);
     }
+
+#if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
+    /* Bring up this box's swtmr task (the deferred-callback consumer).
+     * Done AFTER the park on purpose: during the kernel
+     * phase the prio-0 consumer must not be scheduled at all, so the usr
+     * suites that need it (ItLosBoxUsr005) get it only for their own window.
+     * Without this the box swtmr handlers never fire - every "wait for the
+     * handler" phase times out. */
+    {
+        UINT32 swtRet = BoxSwtmrInit(LOS_BOXA_ID, 1024);
+        if (swtRet != LOS_OK) {
+            LOS_PrintStr("UTS: BoxSwtmrInit failed!\n");
+        }
+    }
+#endif
 
     PRINTK("\t\n --- UTS usr phase (boxA, user mode) --- \n\n");
     ItSuiteLosBoxUsr();

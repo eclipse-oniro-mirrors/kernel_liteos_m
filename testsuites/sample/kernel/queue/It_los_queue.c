@@ -31,14 +31,43 @@
 
 #include "It_los_queue.h"
 
+/* Queue cases split along the handle-identity model. Under BOX every handle
+ * is an encoded sId (M6K layout), under BOX=off it is a plain pool index,
+ * and 20 cases assert semantics that only exist for the pool index:
+ *
+ *  1. NOT_CREATE on "slot exists but not created": they poke a raw small id
+ *     (hardcoded 2, the pre-create residue, id+1) or a stale id after delete
+ *     and expect LOS_ERRNO_QUEUE_NOT_CREATE. The sId world never reaches the
+ *     queueState check on such a handle - OsSIdValidate/OsSIdObjDel reject
+ *     it first with QUEUE_INVALID / NOT_FOUND (OsQueueDelete resolves before
+ *     it checks state). Affected: 004 005 019 028 041 053 058 096 097 104
+ *     117(head: 007 030 040, isr: 002, static: 005).
+ *  2. Static queues: LOS_QueueCreateStatic cannot bind a static-pool CB
+ *     under BOX (los_queue.c OsQueueCreateOut: "Static-pool queues cannot
+ *     exist under BOX anyway" - the create exit cannot bind a CB outside
+ *     both pools) and fails with LOS_ERRNO_SEC_INVALID_SIDMODULE. Affected:
+ *     static 001 003 004.
+ *  3. ItLosQueue301 asserts delete->create REUSES the same handle (an ABA
+ *     exposure case); the sId carries a fresh generation salt precisely to
+ *     prevent that, so the new handle differs by design.
+ *
+ * The guards below keep every one of these cases registered on BOX=off
+ * builds, where those semantics hold - they are vanilla-semantics
+ * regression material, not dead code. */
+#ifdef LOSCFG_BOX
+#define QUEUE_VANILLA_ONLY(call)
+#else
+#define QUEUE_VANILLA_ONLY(call) call
+#endif
+
 
 VOID ItSuiteLosQueue(VOID)
 {
     ItLosQueue001();
     ItLosQueue002();
     ItLosQueue003();
-    ItLosQueue004();
-    ItLosQueue005();
+    QUEUE_VANILLA_ONLY(ItLosQueue004());
+    QUEUE_VANILLA_ONLY(ItLosQueue005());
     ItLosQueue006();
     ItLosQueue007();
     ItLosQueue008();
@@ -52,14 +81,14 @@ VOID ItSuiteLosQueue(VOID)
     ItLosQueue016();
     ItLosQueue017();
     ItLosQueue018();
-    ItLosQueue019();
+    QUEUE_VANILLA_ONLY(ItLosQueue019());
     ItLosQueue020();
     ItLosQueue021();
     ItLosQueue022();
     ItLosQueue025();
     ItLosQueue026();
     ItLosQueue027();
-    ItLosQueue028();
+    QUEUE_VANILLA_ONLY(ItLosQueue028());
     ItLosQueue029();
     ItLosQueue030();
     ItLosQueue031();
@@ -72,17 +101,17 @@ VOID ItSuiteLosQueue(VOID)
     ItLosQueue038();
     ItLosQueue039();
     ItLosQueue040();
-    ItLosQueue041();
+    QUEUE_VANILLA_ONLY(ItLosQueue041());
     ItLosQueue042();
     ItLosQueue043();
     ItLosQueue051();
     ItLosQueue052();
-    ItLosQueue053();
+    QUEUE_VANILLA_ONLY(ItLosQueue053());
     ItLosQueue054();
     ItLosQueue055();
     ItLosQueue056();
     ItLosQueue057();
-    ItLosQueue058();
+    QUEUE_VANILLA_ONLY(ItLosQueue058());
     ItLosQueue059();
     ItLosQueue060();
     ItLosQueue061();
@@ -110,22 +139,22 @@ VOID ItSuiteLosQueue(VOID)
     ItLosQueue087();
     ItLosQueue088();
     ItLosQueue090();
-    ItLosQueue096();
-    ItLosQueue097();
-    ItLosQueue104();
+    QUEUE_VANILLA_ONLY(ItLosQueue096());
+    QUEUE_VANILLA_ONLY(ItLosQueue097());
+    QUEUE_VANILLA_ONLY(ItLosQueue104());
     ItLosQueue106();
     ItLosQueue107();
     ItLosQueue114();
     ItLosQueue115();
     ItLosQueue116();
-    ItLosQueue117(); /* OsQueueMailAlloc/OsQueueMailFree 邮件内存机制 */
+    QUEUE_VANILLA_ONLY(ItLosQueue117()); /* OsQueueMailAlloc/OsQueueMailFree 邮件内存机制 */
     ItLosQueueHead001();
     ItLosQueueHead002();
     ItLosQueueHead003();
     ItLosQueueHead004();
     ItLosQueueHead005();
     ItLosQueueHead006();
-    ItLosQueueHead007();
+    QUEUE_VANILLA_ONLY(ItLosQueueHead007());
     ItLosQueueHead008();
     ItLosQueueHead009();
     ItLosQueueHead010();
@@ -146,17 +175,17 @@ VOID ItSuiteLosQueue(VOID)
     ItLosQueueHead027();
     ItLosQueueHead028();
     ItLosQueueHead029();
-    ItLosQueueHead030();
+    QUEUE_VANILLA_ONLY(ItLosQueueHead030());
     ItLosQueueHead031();
     ItLosQueueHead032();
     ItLosQueueHead038();
     ItLosQueueHead039();
-    ItLosQueueHead040();
+    QUEUE_VANILLA_ONLY(ItLosQueueHead040());
     ItLosQueueHead041();
     ItLosQueueHead042();
 #if (LOS_KERNEL_HWI_TEST == 1)
     ItLosQueueIsr001();
-    ItLosQueueIsr002();
+    QUEUE_VANILLA_ONLY(ItLosQueueIsr002());
     ItLosQueueIsr003();
     ItLosQueueIsr004();
     ItLosQueueIsr005();
@@ -198,14 +227,14 @@ VOID ItSuiteLosQueue(VOID)
     ItLosQueue110();
 #endif
 #if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
-    ItLosQueueStatic001();
+    QUEUE_VANILLA_ONLY(ItLosQueueStatic001());
     ItLosQueueStatic002();
-    ItLosQueueStatic003();
-    ItLosQueueStatic004();
-    ItLosQueueStatic005();
+    QUEUE_VANILLA_ONLY(ItLosQueueStatic003());
+    QUEUE_VANILLA_ONLY(ItLosQueueStatic004());
+    QUEUE_VANILLA_ONLY(ItLosQueueStatic005());
     ItLosQueueStatic006();
 #endif
-    ItLosQueue301();
+    QUEUE_VANILLA_ONLY(ItLosQueue301());
     ItLosQueueHead301();
     ItLosQueueHead302();
     ItLosQueueIsr301();

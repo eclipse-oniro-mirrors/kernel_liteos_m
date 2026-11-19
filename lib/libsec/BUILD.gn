@@ -37,12 +37,13 @@ kernel_module(module_name) {
   if (!defined(LOSCFG_POSIX_MALLOC_API)) {
     configs += [ ":no_float" ]
   }
-  # 覆盖率统计开启时排除插桩: securec 非覆盖率关注点, gcov 计数器白白
-  # 占用 .bss (~30-40KB) 且 -O0+计数器序言拖慢 memcpy_s/memset_s 热路径;
-  # 仅在 LOSCFG_TEST_KERNEL_COVERAGE 开启时才排除, 发布构建零影响
-  if (defined(LOSCFG_TEST_KERNEL_COVERAGE)) {
-    configs += [ "//kernel/liteos_m/testsuites:no_test_coverage" ]
-  }
+  # Exclude securec from gcov instrumentation: securec is not a coverage
+  # concern, gcov counters needlessly occupy .bss (~30-40KB), and -O0 with
+  # counter prologues slows down the memcpy_s/memset_s hot paths.
+  # (no_test_coverage is self-guarded by LOSCFG_TEST_KERNEL_COVERAGE at its
+  #  definition, so plain builds get zero flags and no conditional wrapper
+  #  is needed at the call site.)
+  configs += [ "//kernel/liteos_m/testsuites:no_test_coverage" ]
   if (defined(LOSCFG_KERNEL_LMS)) {
     if ("$ohos_build_compiler" == "gcc") {
       cflags_c = [ "-fsanitize=kernel-address" ]

@@ -234,11 +234,22 @@ VOID llvm_gcda_end_file(void)
 VOID __gcov_init(struct gcov_info *info)
 {
     UINT32 intSave;
+    struct gcov_info *it;
 
     if (info == NULL) {
         return;
     }
     intSave = LOS_IntLock();
+    /* 幂等：同一 gcov_info 已注册则直接忽略。头插法无脑再插一次会把链表
+     * 接成环（.init_array 被多条走链者重复执行时必然发生），环会让 dump 的
+     * while (info != NULL) 无限循环（2026-11-17 夜 qemu/ws63 实锤：
+     * 361MB 日志 ≈ 245 文件 ×1235 圈，无 GCOV_DUMP_DONE）。 */
+    for (it = g_gcovHead; it != NULL; it = GCOV_INFO_NEXT(it)) {
+        if (it == info) {
+            LOS_IntRestore(intSave);
+            return;
+        }
+    }
     GCOV_INFO_NEXT(info) = g_gcovHead;
     g_gcovHead = info;
     LOS_IntRestore(intSave);
@@ -255,13 +266,15 @@ VOID __gcov_merge_add(gcov_type_t *counters, gcov_unsigned_t n)
 }
 
 /* __gcov_exit is called by the GCC-emitted .fini_array destructor of every
- * instrumented translation unit. Bare-metal builds never iterate
- * .fini_array, but the linker still collects the section, so the reference
- * must link. Routing it to the explicit dump keeps libgcov's "dump at
- * exit" semantics should destructors ever be run (idempotent). */
+ * instrumented translation unit. Bare-metal builds never iterate .fini_array
+ * at exit, but the linker still collects the section, so the reference must
+ * link. It must NOT trigger a dump though: ItLosCppsupport005 deliberately
+ * walks .fini_array (global-dtor semantics test), which would fire this once
+ * per instrumented TU — the first call would dump the whole registry mid-case
+ * and latch g_gcovDumped, leaving the end-of-suite dump empty. The framework
+ * calls TEST_GcovDump() explicitly after all cases, so a no-op is safe. */
 VOID __gcov_exit(VOID)
 {
-    TEST_GcovDump();
 }
 
 /* ============================================================================
@@ -280,6 +293,20 @@ VOID TEST_GcovRunConstructors(VOID)
     VOID (**ctor)(VOID);
     UINT32 intSave;
 
+    /* 已有 gcov 注册 = .init_array 已被执行过（LOSCFG_KERNEL_CPPSUPPORT 下
+     * 板级 main() 的 LOS_CppSystemInit 先走了一遍）——跳过，防止构造器重复
+     * 执行：重复会双重注册 gcov_info（头插成环）并让 C++ 全局构造跑两遍
+     * （ItLosCppsupport004/005 断言 ctorCount==1 实得 2，Errline 27/36）。
+     * 板级未走链的板型（cppsupport 关/未接入）注册表为空 → 照走，兼容不变。 */
+#ifdef LOSCFG_COMPILER_CLANG_LLVM
+    if (g_llvmNTu > 0) {
+        return;
+    }
+#else
+    if (g_gcovHead != NULL) {
+        return;
+    }
+#endif
     if ((&__init_array_start == NULL) || (&__init_array_end == NULL)) {
         return; /* linker script has no .init_array: nothing registered */
     }

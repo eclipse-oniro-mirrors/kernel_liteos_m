@@ -31,7 +31,18 @@ import("//build/lite/config/component/lite_component.gni")
 
 LITEOS_MENUCONFIG_H = rebase_path("$root_out_dir/config.h")
 
-liteos_config_file = "${ohos_build_type}.config"
+# The kernel config fragment is picked by build type by default (debug.config,
+# hardwired: hb clamps ohos_build_type to 'debug' - build_args_resolver.py,
+# "For historical reasons"). LITEOS_CONFIG (env) overrides the fragment file
+# name, resolved relative to <product>/kernel_configs/: the kernel-test
+# builds use test.config (stm32f407vet6_mini) without touching debug.config,
+# so the demo fragment stays check-in-clean and a test build never mutates
+# it. Without the env var this resolves exactly as before.
+if (getenv("LITEOS_CONFIG") == "") {
+  liteos_config_file = "${ohos_build_type}.config"
+} else {
+  liteos_config_file = getenv("LITEOS_CONFIG")
+}
 
 liteos_config_file =
     rebase_path(liteos_config_file, "", "$product_path/kernel_configs")

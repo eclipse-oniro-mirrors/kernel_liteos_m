@@ -211,7 +211,7 @@ void TestKernel(void)
 #if (LOS_KERNEL_CORE_SWTMR_TEST == 1)
     ItSuiteLosSwtmr();
 #endif
-#if (LOS_KERNEL_HWI_TEST == 1)
+#if (LOS_KERNEL_HWI_SUITE_TEST == 1)
     ItSuiteLosHwi();
 #endif
 #if (LOS_KERNEL_MEM_TEST == 1)
@@ -308,10 +308,11 @@ VOID TestTaskEntry(VOID)
 #if defined(LOSCFG_BOX) && (LOS_KERNEL_BOX_USR_TEST == 1)
     /* UTS usr phase bring-up: initialize the boxes (boxA runs the test
      * entry usr_demo/tboxA/boxA_test_main.c, boxB stays down - entry
-     * override in boxes_auto.cfg). Per the refs convention OsBoxInit runs
-     * AFTER the scheduler started: IT_TST_INI is that first kernel task.
-     * The box entry task (prio 0) preempts immediately, parks on
-     * g_utsPhase (COMMON_RAM) and yields back before the kernel phase. */
+     * override in boxes_auto.cfg). OsBoxInit runs AFTER the scheduler
+     * started: IT_TST_INI is that first kernel task.
+     * The box entry task (low prio - below the whole test family) parks
+     * on g_utsPhase (COMMON_RAM) and stays out of the way until the
+     * kernel phase completes. */
     UINT32 utsBoxUp = 0;
     {
         extern LosBoxCB g_userBoxCBArr[];

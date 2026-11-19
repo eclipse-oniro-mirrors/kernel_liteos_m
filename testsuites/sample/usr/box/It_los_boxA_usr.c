@@ -41,4 +41,9 @@ VOID ItSuiteLosBoxUsr(VOID)
 {
     ItLosBoxUsr001();
     ItLosBoxUsr002();
+    ItLosBoxUsr003();
+    ItLosBoxUsr004();
+    ItLosBoxUsr005();
+    ItLosBoxUsr006();
+    ItLosBoxUsr007();
 }

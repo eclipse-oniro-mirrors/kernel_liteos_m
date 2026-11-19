@@ -20,48 +20,73 @@ extern "C" {
 /* External syscall entry (box/los_svc_entry.S) */
 extern VOID OsExcSvcCall(VOID);
 
-/* The box R3/R4 are currently programmed for; NULL = disabled (kernel map).
+/* ---- region programming ----
+ * RNR selects the region, then RBAR/RASR describe it. RASR bit 0 is ENABLE,
+ * so writing 0 retires the region; a retired region's base is meaningless,
+ * which is why the disable form leaves RBAR alone. */
+STATIC INLINE VOID MpuRegionSet(UINT32 region, UINTPTR baseAddr, UINT32 rasr)
+{
+    MPU->RNR = region;
+    MPU->RBAR = baseAddr;
+    MPU->RASR = rasr;
+}
+
+STATIC INLINE VOID MpuRegionDisable(UINT32 region)
+{
+    MPU->RNR = region;
+    MPU->RASR = 0;
+}
+
+/* Which box R3/R4 currently describe; NULL means they are retired (kernel map).
  *
- * Comparing against THIS rather than against the outgoing task's boxCB is what
- * makes a box -> kernel -> same-box round trip free. The dispatch asm
- * (BOX_PENDSV_RESTORE) skips BoxMpuSwitch when the incoming task is a kernel
- * task, so R3/R4 keep describing the previous box - correct, because kernel
- * tasks run privileged and the box regions only constrain user access, and
- * g_mpuBoxCB therefore still records the truth. Without this guard the way
- * back into that same box would rewrite six MPU registers plus a DSB/ISB pair
- * for nothing.
+ * This is deliberately NOT the running task's box. The dispatch asm
+ * (BOX_PENDSV_RESTORE) skips BoxMpuSwitch on the box -> kernel edge, so the
+ * mapping outlives that switch - harmless, since kernel tasks run privileged
+ * and the box regions only constrain user access - but it means neither the
+ * outgoing task's boxCB nor g_curBoxId can answer "what is in the registers
+ * right now". Only this variable can, and comparing against it is what makes
+ * a box -> kernel -> same-box round trip cost nothing. The asm keeps its own
+ * new-vs-old boxCB compare as the fast path that skips the call entirely for
+ * same-box task switches; this catches the round trip that compare cannot
+ * see. Pointer equality does mean mapping equality: layout[0] comes from the
+ * static config and does not move across a destroy/restart (no dynamic boxes
+ * in this build - dynboxWord is 0 for both).
  *
- * The asm keeps its own new-vs-old boxCB comparison as a cheap fast path (it
- * avoids the call entirely for same-box task switches); this guard catches the
- * cases that comparison cannot see. A box's layout[0] addresses come from the
- * static config and do not move across a destroy/restart, so a matching
- * pointer really does mean a matching mapping (no dynamic boxes in this build:
- * dynboxWord is 0 for both). */
+ * CALL CONTRACT (pit 58): BoxMpuSwitch is ordinary AAPCS C - it may scratch
+ * r0-r3, r12 and lr freely. The dispatch asm used to hold r1
+ * (newTask->stackPointer) and r12 (PRIMASK) live across this BL unpushed; the
+ * M6N-era codegen happened to use just r2/r3, and a cosmetic refactor that
+ * moved the scratch to r1 crashed the first different-box restore of a
+ * syscall-parked task (the guard's early return and the INUSER-path reload
+ * had masked the clobber until a second box joined the schedule). The asm now
+ * pushes r0/r1/r12/lr around the call (los_box_dispatch.h), so this function
+ * is free to allocate registers however the compiler likes - the DO-NOT-TIDY
+ * note that used to sit here recorded the wrong root cause and is gone. */
 STATIC const LosBoxCB *g_mpuBoxCB = NULL;
 
 VOID BoxMpuSwitch(const LosBoxCB *boxCB)
 {
     if (boxCB == g_mpuBoxCB) {
-        return;   /* R3/R4 already describe this box (or are already off) */
+        return;
     }
-    g_mpuBoxCB = boxCB;
 
     if (boxCB == NULL) {
-        /* Kernel task: no box regions needed, the background map covers. */
-        MPU->RNR = MPU_REGION_R3_BOX_CODE;
-        MPU->RASR = 0;                              /* disable */
-        MPU->RNR = MPU_REGION_R4_BOX_DATA;
-        MPU->RASR = 0;
+        /* Kernel task: the background map covers it, no box regions needed. */
+        MpuRegionDisable(MPU_REGION_R3_BOX_CODE);
+        MpuRegionDisable(MPU_REGION_R4_BOX_DATA);
     } else {
-        MPU->RNR = MPU_REGION_R3_BOX_CODE;
-        MPU->RBAR = boxCB->layout[0].boxTextStartAddr;
-        MPU->RASR = MPU_RASR_BOX_CODE;
-        MPU->RNR = MPU_REGION_R4_BOX_DATA;
-        MPU->RBAR = boxCB->layout[0].boxDataStartAddr;
-        MPU->RASR = MPU_RASR_BOX_DATA;
+        MpuRegionSet(MPU_REGION_R3_BOX_CODE, boxCB->layout[0].boxTextStartAddr,
+                     MPU_RASR_BOX_CODE);
+        MpuRegionSet(MPU_REGION_R4_BOX_DATA, boxCB->layout[0].boxDataStartAddr,
+                     MPU_RASR_BOX_DATA);
     }
     __DSB();
     __ISB();
+
+    /* Recorded only once the hardware actually describes it: a call that dies
+     * mid-programming must not leave the record claiming a mapping the MPU
+     * never received. */
+    g_mpuBoxCB = boxCB;
 }
 
 VOID MpuLayoutInit(VOID)
@@ -71,25 +96,15 @@ VOID MpuLayoutInit(VOID)
     MPU->CTRL = 0;                                  /* configure disabled */
 
     /* R0: common code, executable from kernel and user boxes. */
-    MPU->RNR = MPU_REGION_R0_COMMON_TEXT;
-    MPU->RBAR = COMMON_FLASH_BASE;
-    MPU->RASR = MPU_RASR_COMMON_TEXT;
-
+    MpuRegionSet(MPU_REGION_R0_COMMON_TEXT, COMMON_FLASH_BASE, MPU_RASR_COMMON_TEXT);
     /* R1: common data, RW from both worlds. */
-    MPU->RNR = MPU_REGION_R1_COMMON_DATA;
-    MPU->RBAR = COMMON_RAM_BASE;
-    MPU->RASR = MPU_RASR_COMMON_DATA;
-
+    MpuRegionSet(MPU_REGION_R1_COMMON_DATA, COMMON_RAM_BASE, MPU_RASR_COMMON_DATA);
     /* R2: user read-only data, written by kernel only. */
-    MPU->RNR = MPU_REGION_R2_USER_READONLY;
-    MPU->RBAR = USER_READONLY_RAM_BASE;
-    MPU->RASR = MPU_RASR_USER_READONLY;
-
-    /* R3/R4: box slots, disabled until a box task is dispatched. */
-    MPU->RNR = MPU_REGION_R3_BOX_CODE;
-    MPU->RASR = 0;
-    MPU->RNR = MPU_REGION_R4_BOX_DATA;
-    MPU->RASR = 0;
+    MpuRegionSet(MPU_REGION_R2_USER_READONLY, USER_READONLY_RAM_BASE, MPU_RASR_USER_READONLY);
+    /* R3/R4: box slots, retired until a box task is dispatched. This is also
+     * the state g_mpuBoxCB's NULL initial value records. */
+    MpuRegionDisable(MPU_REGION_R3_BOX_CODE);
+    MpuRegionDisable(MPU_REGION_R4_BOX_DATA);
 
     __DSB();
     __ISB();

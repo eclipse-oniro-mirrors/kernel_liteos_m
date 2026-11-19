@@ -5,12 +5,12 @@
 #define BOX_CB_LAYOUT0_MEMPOOL       28
 #define EXC_CTX_FP_GAP               64
 #define EXC_CTX_FP_TAIL              72
-#define TASK_CB_BOX_CB               140
-#define TASK_CB_CUR_BOX_ID           152
+#define TASK_CB_BOX_CB               136
+#define TASK_CB_CUR_BOX_ID           148
 #define TASK_CB_KERNEL_SP            0
 #define TASK_CB_STATUS               4
-#define TASK_CB_SYSCALL_NEST_CNT     148
-#define TASK_CB_USER_SP              144
+#define TASK_CB_SYSCALL_NEST_CNT     144
+#define TASK_CB_USER_SP              140
 #define TASK_CTX_R0                  36
 #define TASK_CTX_R4                  0
 #define TASK_CTX_SIZE                68

@@ -34,17 +34,20 @@
  * (BOX_PENDSV_SAVE / BOX_PENDSV_RESTORE from los_box_dispatch.h) and the
  * unified FP context geometry (in-body notes).
  *
- * M0+ (ARMv6-M, Thumb-1): no FPU, no IT blocks, movs only, push/pop R0-R7.
- * M4 (ARMv7-M, Thumb-2): optional FPU, Secure support.
+ * ARMv7-M only (this target: M4, optional FPU). The ARMv6-M branches the
+ * vanilla dispatcher carries are gone - BOX_PENDSV_RESTORE already needed
+ * Thumb-2 (IT blocks), so a V6M BOX build never assembled in the first
+ * place; the #error below fails it early with a message instead. The
+ * KERNEL_SIGNAL restore path is gone too: it branched straight past
+ * BOX_PENDSV_RESTORE, which is an isolation break under BOX (see the #error
+ * in los_box_dispatch.h); SIGNAL support would need that path rewritten to
+ * re-establish box state first. LOSCFG_SECURE (TrustZone) never applied to
+ * this file's target and its only consumer was the removed signal path.
  */
 
 .syntax unified
-#ifdef LOSCFG_ARCH_ARM_V6M
-.arch armv6-m
-#else
 .arch armv7e-m
 .fpu fpv4-sp-d16
-#endif
 .thumb
 
 .equ    OS_FPU_CPACR,                0xE000ED88
@@ -53,42 +56,25 @@
 .equ    OS_NVIC_SYSPRI2,             0xE000ED20
 .equ    OS_NVIC_PENDSV_PRI,          0xF0F00000
 .equ    OS_NVIC_PENDSVSET,           0x10000000
-.equ    OS_TASK_STATUS_RUNNING,      0x0010
-.equ    OS_CONTROL_FPCA_ENABLE,      0x4
+/* OS_TASK_STATUS_RUNNING / OS_CONTROL_FPCA_ENABLE from the vanilla file were
+ * dropped: their only ever consumers were the removed signal/secure paths
+ * (this file never set RUNNING itself - the C layer owns task status). */
 .equ    OS_CONTROL_KERNEL_MODE,      0x2
-#if (LOSCFG_SECURE == 1)
-.equ    OS_CONTROL_USER_MODE,        0x3
-.equ    OS_TASK_FLAG_USER_TASK,      0x0200
-#endif
 /* BOX dual-stack PendSV hooks + the asm-side OS_TASK_STATUS_INUSER home
  * (BOX-only consumers: this file, los_svc_entry.S, los_box_uspace.S). */
 #include "los_box_dispatch.h"
 
+/* ARMv6-M is not supported by the BOX dispatch: BOX_PENDSV_SAVE/RESTORE and
+ * the SVC entry are Thumb-2 (IT blocks, ldrh/tst combinations), so a V6M BOX
+ * build never assembled. The V6M branches of the vanilla dispatcher were
+ * removed from this file; fail the combination explicitly rather than with a
+ * confusing assembler error deep inside the hooks. */
+#ifdef LOSCFG_ARCH_ARM_V6M
+#error "LOSCFG_ARCH_ARM_V6M is not supported together with LOSCFG_BOX: the BOX dispatch (los_dispatch_box.S) is ARMv7-M only (BOX_PENDSV_SAVE/RESTORE need Thumb-2)."
+#endif
+
     .section .text
     .thumb
-
-#ifndef LOSCFG_ARCH_ARM_V6M
-.macro SIGNAL_CONTEXT_RESTORE
-    push    {r12, lr}
-    blx     OsSignalTaskContextRestore
-    pop     {r12, lr}
-    cmp     r0, #0
-    beq     1f
-    mov     r1, r0
-#if (LOSCFG_SECURE == 1)
-    /* r0 = task owning the restored signal context (same task the C
-     * helper checked: g_oldTask under LOSCFG_SCHED_LATENCY, else g_runTask) */
-#ifdef LOSCFG_SCHED_LATENCY
-    ldr     r0, =g_oldTask
-#else
-    ldr     r0, =g_runTask
-#endif
-    ldr     r0, [r0]
-#endif
-    b       SignalContextRestore
-1:
-.endm
-#endif
 
     .type ArchStartToRun, %function
     .global ArchStartToRun
@@ -106,32 +92,7 @@ ArchStartToRun:
     /* Switch to privileged Thread mode using PSP */
     movs    r2, #OS_CONTROL_KERNEL_MODE
     msr     control, r2
-#ifdef LOSCFG_ARCH_ARM_V6M
-    isb
 
-    /* r1 = newTask->stackPointer (offset 0) */
-    ldr     r1, [r0]
-
-    /* Set PSP past the entire TaskContext (36 bytes).
-     * Future stack pushes grow downward from here. */
-    adds    r1, #36
-    msr     psp, r1
-
-    /* Load R0 (taskID), LR (ArchTaskExit), PC (OsTaskEntry) from context.
-     *
-     * We CANNOT use exception return (bx 0xFFFFFFFD) from Thread mode:
-     * on ARMv6-M this is UNPREDICTABLE — the core treats it as a regular
-     * branch to 0xFFFFFFFC, causing a HardFault.
-     * Instead, we branch directly to OsTaskEntry, matching the M7 port.
-     */
-    ldr     r1, [r0]          /* r1 = context_base */
-    ldr     r0, [r1, #36]     /* r0 = uwR0 = taskID (first arg) */
-    ldr     r5, [r1, #56]     /* r5 = uwLR = ArchTaskExit */
-    ldr     r6, [r1, #60]     /* r6 = uwPC = OsTaskEntry */
-    mov     lr, r5
-    cpsie   i
-    bx      r6
-#else
     /* BOX note (no branch needed): the first task ever dispatched here is
      * always a KERNEL task — box init runs from HelloworldTask after the
      * scheduler started, so user tasks only ever enter through the PendSV
@@ -172,7 +133,6 @@ __DisabledFPU:
     mov     lr, r5
     cpsie   i
     bx      r6
-#endif
 
     .fnend
 
@@ -233,16 +193,8 @@ HalPendSV:
     .fnstart
     .cantunwind
 
-#ifdef LOSCFG_ARCH_ARM_V6M
-    mrs     r1, primask
-    cpsid   i
-#else
     mrs     r12, primask
     cpsid   i
-
-HalTaskSwitch:
-    SIGNAL_CONTEXT_RESTORE
-#endif
 
     /* Check if actual switch needed: g_runTask != g_oldTask */
     ldr     r0, =g_runTask
@@ -252,29 +204,6 @@ HalTaskSwitch:
     cmp     r2, r3
     beq     HalPendSVNoSwitch
 
-#ifdef LOSCFG_ARCH_ARM_V6M
-    /* Save context: R4-R11 + PRIMASK (36 bytes below PSP) */
-    mrs     r0, psp
-    subs    r0, #36
-    stmia   r0!, {r4-r7}
-    mov     r4, r8
-    mov     r5, r9
-    mov     r6, r10
-    mov     r7, r11
-    stmia   r0!, {r4-r7}
-    str     r1, [r0]             /* PRIMASK at context_base + 32 */
-    subs    r0, #32              /* r0 = context_base */
-
-    /* g_oldTask->stackPointer = context_base */
-    str     r0, [r3]             /* r3 = g_oldTask (task ptr) */
-
-    /* g_oldTask = g_runTask */
-    ldr     r0, =g_oldTask
-    str     r2, [r0]
-
-    /* r0 = newTask->stackPointer */
-    ldr     r0, [r2]
-#else
     /* Save context: R4-R12 (+ optional FPU) */
     mrs     r0, psp
     ldr.w   r3, =OS_FPU_CPACR
@@ -321,38 +250,8 @@ __DisabledFPU1:
 
     /* r1 = newTask->stackPointer */
     ldr     r1, [r0]
-#endif
 
-#ifdef LOSCFG_ARCH_ARM_V6M
-    /* Restore R8-R11 (offset 16-28) */
-    adds    r0, #16
-    ldmia   r0!, {r4-r7}
-    mov     r8, r4
-    mov     r9, r5
-    mov     r10, r6
-    mov     r11, r7
-
-    /* Restore R4-R7 (offset 0-12) */
-    subs    r0, #32
-    ldmia   r0!, {r4-r7}
-
-    /* Load PRIMASK (offset 32), set PSP, restore PRIMASK */
-    adds    r0, #16
-    ldr     r1, [r0]
-    adds    r0, #4
-    msr     psp, r0
-    msr     primask, r1
-#else
     BOX_PENDSV_RESTORE
-SignalContextRestore:
-#if (LOSCFG_SECURE == 1)
-    ldrh    r7, [r0, #4]
-    tst     r7, #OS_TASK_FLAG_USER_TASK
-    ite     eq
-    moveq   r3, #OS_CONTROL_KERNEL_MODE
-    movne   r3, #OS_CONTROL_USER_MODE
-    msr     control, r3
-#endif
     ldr.w   r3, =OS_FPU_CPACR
     ldr     r3, [r3]
     and     r3, r3, #OS_FPU_CPACR_ENABLE
@@ -372,16 +271,11 @@ __DisabledFPU2:
 8:
     msr     psp,  r1
     msr     primask, r12
-#endif
 
     bx      lr
 
 HalPendSVNoSwitch:
-#ifdef LOSCFG_ARCH_ARM_V6M
-    msr     primask, r1
-#else
     msr     primask, r12
-#endif
     bx      lr
 
     .fnend

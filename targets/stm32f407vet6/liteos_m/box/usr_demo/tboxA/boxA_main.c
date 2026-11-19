@@ -744,7 +744,13 @@ STATIC VOID BoxUserEventTest(VOID)
 #define BOX_KEVT_KERNEL_MASK 0x1U
 #define BOX_KEVT_BOX_MASK    0x2U
 
-/* published by the kernel in R2 (board/main.c, KernelSharedEventSetup) */
+/* published by the kernel in R2 (board/main.c, KernelSharedEventSetup).
+ * Not compiled under LOSCFG_KERNEL_TEST: the publisher lives in main.c's
+ * demo branch (compiled out in test builds) and the demo boxAEntry never
+ * runs there (the entry override points at boxTestEntry) - but boxes.ld
+ * KEEP retains the whole object, so the reference would be an undefined
+ * symbol at link time. */
+#ifndef LOSCFG_KERNEL_TEST
 extern volatile UINT32 g_kSharedEvtSId;
 
 STATIC VOID BoxUserKernelEventTest(VOID)
@@ -785,6 +791,7 @@ STATIC VOID BoxUserKernelEventTest(VOID)
         LOS_PrintStr("kernel event readback FAIL\n");
     }
 }
+#endif /* !LOSCFG_KERNEL_TEST */
 
 /* Deep test: the BLOCKING half of the SID event family, which the
  * shallow BoxUserEventTest above never reaches - Create/Write/Poll are all
@@ -843,6 +850,41 @@ STATIC UINT32 BoxEvtSpawn(VOID (*entry)(VOID), CHAR *name, UINT32 *taskId)
     return LOS_TaskCreate(taskId, &initParam);
 }
 
+/* Wait until waiters [0, n) have all PARKED (g_evtState[i] == 1), then report
+ * how many never got there.
+ *
+ * Polls rather than sleeping once. The single fixed LOS_TaskDelay(10) this
+ * replaces made "event deep park FAIL" / "event deep pair park FAIL" fire
+ * sporadically (three separate occasions on record) and, because g_testFail is
+ * never reset, one such round poisoned the boxA summary of EVERY round after
+ * it - 1 real failure showed up as 150+ summary FAILs. The waiters are prio 5
+ * and so is the helloworld task that runs the boxB destroy/restart churn, so a
+ * contended window can eat the whole delay before the child even reaches the
+ * read. Polling costs nothing in the common case (it returns on the first tick
+ * where all n are parked) and gives ~40 ticks of slack under contention. Same
+ * shape as BoxCondParkCheck below. */
+STATIC UINT32 BoxEvtWaitParked(UINT32 n)
+{
+    UINT32 i;
+    UINT32 spin;
+    UINT32 bad = 0;
+
+    for (spin = 0; spin < 20; spin++) {
+        for (i = 0; (i < n) && (g_evtState[i] == 1); i++) {
+        }
+        if (i == n) {
+            break;
+        }
+        LOS_TaskDelay(2);
+    }
+    for (i = 0; i < n; i++) {
+        if (g_evtState[i] != 1) {
+            bad++;
+        }
+    }
+    return bad;
+}
+
 /* Every wait below is a bounded LOS_TaskDelay loop rather than an unbounded
  * one: the entry task is prio 0 and the waiters prio 5, so the waiters only
  * run while it sleeps. A lost wakeup then shows up as a FAIL instead of
@@ -869,8 +911,7 @@ STATIC UINT32 BoxUserEventDeepTest(VOID)
         fails++;
         LOS_PrintStr("event deep spawn A FAIL\n");
     } else {
-        LOS_TaskDelay(10);
-        if (g_evtState[0] != 1) {
+        if (BoxEvtWaitParked(1) != 0) {
             fails++;                 /* never blocked - the read returned early */
             LOS_PrintStr("event deep park FAIL\n");
         } else if (LOS_EventWriteWithSId(sId, BOX_EVT_MASK) != LOS_OK) {
@@ -917,17 +958,25 @@ STATIC UINT32 BoxUserEventDeepTest(VOID)
         fails++;
         LOS_PrintStr("event deep spawn pair FAIL\n");
     } else {
-        LOS_TaskDelay(10);
-        if ((g_evtState[0] != 1) || (g_evtState[1] != 1)) {
+        if (BoxEvtWaitParked(2) != 0) {
             fails++;
             LOS_PrintStr("event deep pair park FAIL\n");
         } else if (LOS_EventWriteOnceWithSId(sId, BOX_EVT_MASK) != LOS_OK) {
             fails++;
             LOS_PrintStr("event deep write-once FAIL\n");
         } else {
-            LOS_TaskDelay(10);
             /* exactly one woke: 2 (returned) + 1 (still parked) == 3.
-             * 2 == neither woke, 4 == once behaved like the plain write. */
+             * 2 == neither woke, 4 == once behaved like the plain write.
+             * Poll until at least one has returned, THEN settle before judging:
+             * polling on "== 3" alone could catch the transient on the way to 4
+             * and mask a woke-both bug, while the fixed LOS_TaskDelay(10) this
+             * replaces could fire before the woken child was scheduled at all
+             * and report a false 2. The settle delay keeps the assertion honest
+             * in both directions. */
+            for (spin = 0; ((g_evtState[0] + g_evtState[1]) < 3) && (spin < 20); spin++) {
+                LOS_TaskDelay(2);
+            }
+            LOS_TaskDelay(5);
             if ((g_evtState[0] + g_evtState[1]) != 3) {
                 fails++;
                 LOS_PrintStr("event deep once-count FAIL\n");
@@ -1387,7 +1436,9 @@ VOID boxAEntry(VOID)
 #endif
         BoxUserEventTest();
         (VOID)BoxUserEventDeepTest();
+#ifndef LOSCFG_KERNEL_TEST
         BoxUserKernelEventTest();
+#endif
         BoxUserQueueTest();
 #ifdef LOSCFG_BASE_IPC_CONDVAR
         (VOID)BoxUserCondVarTest();

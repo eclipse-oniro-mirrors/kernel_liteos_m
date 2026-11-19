@@ -3,5 +3,18 @@ config KERNEL_SIGNAL
     default n if KERNEL_RAM_PRESET_TINY || KERNEL_RAM_PRESET_SMALL
     default y
     depends on KERNEL_EXTKERNEL && ARCH_ARM_CORTEX_M
+    depends on !BOX
     help
       Select y to build LiteOS with signal.
+
+      Mutually exclusive with BOX. The signal-context restore path in the
+      dispatch asm jumps straight to SignalContextRestore, past the
+      BOX_PENDSV_RESTORE hook that maintains the per-task box state - so a
+      signal-delivered task would resume with g_curBoxId, the MPU box regions
+      (R3/R4), g_boxLocalPool and CONTROL/g_sysMode all still describing the
+      PREVIOUS task. That is a silent isolation break rather than a crash: the
+      task runs its own code under another box's memory map, and no fault
+      reports it. Supporting signals under BOX needs that path to re-establish
+      box state first; until then the combination is rejected here rather than
+      left to fail quietly. The los_box_dispatch.h #error is the backstop for
+      configs that bypass Kconfig.

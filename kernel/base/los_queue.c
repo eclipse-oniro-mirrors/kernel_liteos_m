@@ -322,6 +322,11 @@ static UINT32 OsQueueCreate(const CHAR *queueName,
     queueCB->queueSize = msgSize;
     queueCB->queue = queue;
     queueCB->queueState = OS_QUEUE_INUSED;
+#ifdef LOSCFG_BOX
+    /* Dynamic allocation reached this far, so the delete path frees the
+     * message memory (the LOS_QueueCreateWithSId port sets STATIC instead). */
+    queueCB->queueMemType = OS_QUEUE_ALLOC_DYNAMIC;
+#endif
     queueCB->readWriteableCnt[OS_QUEUE_READ] = 0;
     queueCB->readWriteableCnt[OS_QUEUE_WRITE] = len;
     queueCB->queueHead = 0;
@@ -926,7 +931,20 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueDelete(UINT32 queueID)
     OsQueueDbgUpdateHook(queueCB->queueID, NULL);
     OsHookCall(LOS_HOOK_TYPE_QUEUE_DELETE, queueCB);
 
+#ifdef LOSCFG_BOX
+    /* refs delete tail: only the DYNAMIC flavor is heap-freed. The static
+     * flavor is LOS_QueueCreateWithSId's caller-provided memory - freeing
+     * that walks the heap with a foreign pointer and fails the whole delete
+     * with LOS_NOK. (The vanilla static-queue arm above is compiled out
+     * under BOX, so this branch is the only static flavor there is.) */
+    if (queueCB->queueMemType == OS_QUEUE_ALLOC_DYNAMIC) {
+        ret = LOS_MemFree(m_aucSysMem0, (VOID *)queue);
+    } else {
+        ret = LOS_OK;
+    }
+#else
     ret = LOS_MemFree(m_aucSysMem0, (VOID *)queue);
+#endif
     return ret;
 
 QUEUE_END:

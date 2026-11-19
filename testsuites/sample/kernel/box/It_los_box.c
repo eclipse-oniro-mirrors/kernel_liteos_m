@@ -36,4 +36,6 @@ VOID ItSuiteLosBox(VOID)
 {
     ItLosBox001();
     ItLosBox002();
+    ItLosBox003();
+    ItLosBox004();
 }

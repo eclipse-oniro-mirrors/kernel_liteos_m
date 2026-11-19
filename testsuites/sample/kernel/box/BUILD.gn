@@ -34,6 +34,8 @@ static_library("test_box") {
     "It_los_box.c",
     "It_los_box_001.c",
     "It_los_box_002.c",
+    "It_los_box_003.c",
+    "It_los_box_004.c",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

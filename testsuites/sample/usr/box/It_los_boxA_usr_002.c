@@ -33,8 +33,7 @@
  *
  * create (boxA pool SID) -> pend-timeout on count=0 (blocking schedule
  * out/in through the SVC graft) -> post -> immediate pend -> delete; the
- * second round proves the pool slot is recycled. Shape follows the proven
- * demo test (boxA_main.c BoxUserSemTest), expressed as an ICunit case. */
+ * second round proves the pool slot is recycled. */
 
 #include "osTest.h"
 #include "syscalls.h"

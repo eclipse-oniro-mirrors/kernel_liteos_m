@@ -1084,6 +1084,15 @@ typedef struct {
     LOS_DL_LIST readWriteList[OS_READWRITE_LEN]; /**< Pointer to the linked list to be read or written,
                                                       0:readlist, 1:writelist */
     LOS_DL_LIST memList; /**< Pointer to the memory linked list */
+#ifdef LOSCFG_BOX
+    /* refs tagQueueMemCB.queueMemType: how the message memory was obtained.
+     * LOS_QueueDelete only frees the DYNAMIC flavor - the refs port
+     * LOS_QueueCreateWithSId (kernel/box/los_queue_box.c) hands in
+     * caller-provided memory, freeing that would fault the heap walk.
+     * BOX-only field: the BOX=off layout (and its byte-stable baseline)
+     * is untouched. See OS_QUEUE_ALLOC_* in los_queue_pri.h. */
+    UINT8 queueMemType;
+#endif
 } LosQueueCB;
 
 

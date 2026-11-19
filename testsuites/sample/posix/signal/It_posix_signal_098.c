@@ -44,10 +44,6 @@
  *   - sigtimedwait(NULL, NULL, &ts) → -1/EINVAL(set==NULL 防御)
  *   - tv_sec=-1 → -1/EINVAL; tv_nsec=1e9 → -1/EINVAL
  *   - 无 pending + 50ms(5 tick) → -1 且 errno==EAGAIN
- *
- * BUG_03 绕开说明: 现有 091(POSIX_BUG_03_SIGTIMEDWAIT 隔离)依赖"阻塞后被信号
- * 唤醒"语义; 本用例走纯超时路径(无 pending、无唤醒依赖, 超时由内核定时唤醒
- * 自身), 语义与误 post 缺陷正交, 风险低(分析材料同判)。
  */
 
 /* 用例简要描述: sigtimedwait 超时与非法时间参数 */

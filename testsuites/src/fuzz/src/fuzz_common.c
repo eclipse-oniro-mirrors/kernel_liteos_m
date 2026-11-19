@@ -42,15 +42,16 @@
 #include "los_debug.h"
 #include "los_task_pri.h"
 #include "los_sem.h"
-#include "los_mux.h"
 #include "los_queue.h"
+#include "los_sem_pri.h"
+#include "los_mux_pri.h"
 #include "los_swtmr_pri.h"
 
 /* 内核资源池数组（testsuites 既有惯例：osTest.c 同款 extern） */
 extern LosTaskCB *g_osTaskCBArray;
-extern LosSemCB *g_allSem;
+extern LosSemCB *g_osAllSem;
 extern LosQueueCB *g_allQueue;
-extern LosMuxCB *g_allMux;
+extern LosMuxCB *g_osAllMux;
 extern SWTMR_CTRL_S *g_osSwtmrCBArray;
 
 S_ElementInit g_element[ELEMENT_LEN];
@@ -74,13 +75,13 @@ void FuzzGuardSnapshot(void)
         g_taskBusy[i] = (g_osTaskCBArray[i].taskStatus & OS_TASK_STATUS_UNUSED) ? 0 : 1;
     }
     for (i = 0; i < LOSCFG_BASE_IPC_SEM_LIMIT; i++) {
-        g_semBusy[i] = (((LosSemCB *)g_allSem)[i].semStat == OS_SEM_UNUSED) ? 0 : 1;
+        g_semBusy[i] = (((LosSemCB *)g_osAllSem)[i].semStat == LOS_UNUSED) ? 0 : 1;
     }
     for (i = 0; i < LOSCFG_BASE_IPC_QUEUE_LIMIT; i++) {
         g_queueBusy[i] = (((LosQueueCB *)g_allQueue)[i].queueState == OS_QUEUE_INUSED) ? 0 : 1;
     }
     for (i = 0; i < LOSCFG_BASE_IPC_MUX_LIMIT; i++) {
-        g_muxBusy[i] = (((LosMuxCB *)g_allMux)[i].muxStat == OS_MUX_USED) ? 1 : 0;
+        g_muxBusy[i] = (((LosMuxCB *)g_osAllMux)[i].muxStat == LOS_USED) ? 1 : 0;
     }
     for (i = 0; i < LOSCFG_BASE_CORE_SWTMR_LIMIT; i++) {
         g_swtmrBusy[i] = (((SWTMR_CTRL_S *)g_osSwtmrCBArray)[i].state != OS_SWTMR_STATUS_UNUSED) ? 1 : 0;

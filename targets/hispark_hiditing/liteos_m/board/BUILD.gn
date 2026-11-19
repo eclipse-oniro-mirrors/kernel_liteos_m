@@ -38,6 +38,10 @@ kernel_module(module_name) {
 
   cflags = [ "-Werror" ]
 
+  # Exclude gcov instrumentation in coverage builds: board-level adaptation
+  # code is out of the kernel coverage scope.
+  configs += [ "//kernel/liteos_m/testsuites:no_test_coverage" ]
+
   defines = []
 
   # NAND backend tag for the smoke-test banner

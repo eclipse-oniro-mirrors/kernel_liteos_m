@@ -32,6 +32,10 @@ kernel_module(module_name) {
   ]
 
   configs += [ "$LITEOSTOPDIR:warn_config" ]
+
+  # Exclude gcov instrumentation in coverage builds: board-level adaptation
+  # code is out of the kernel coverage scope.
+  configs += [ "//kernel/liteos_m/testsuites:no_test_coverage" ]
 }
 
 config("public") {

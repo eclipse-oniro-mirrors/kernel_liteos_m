@@ -35,6 +35,7 @@ menu "Test"
 
 config TEST
     bool
+    depends on !KERNEL_RAM_PRESET
     default n
 
 # Single choice: a build has EITHER the normal test suites OR the fuzz-only
@@ -47,17 +48,28 @@ choice
 
 config KERNEL_TEST
     bool "Enable Kernel Test"
+    depends on !KERNEL_RAM_PRESET
     select TEST
 
 config KERNEL_FUZZ
     bool "Enable Kernel Fuzz Test (fuzz-only image)"
     select TEST
+    depends on !KERNEL_RAM_PRESET
     help
       Fuzz-only build: the normal test suites are NOT compiled and the
       image boots straight into the API fuzz suite (auto-runs at boot,
       see the fuzz-only branch in osTest.c TestTaskEntry).  The suite/case
       call paths follow the same single-choice rule (LOSCFG_KERNEL_TEST
       vs LOSCFG_KERNEL_FUZZ).
+
+config TEST_KERNEL_FLASH_STAT
+    bool "Enable Kernel Flash Stat"
+    select TEST
+    depends on !KERNEL_RAM_PRESET
+    help
+      Flash-size measurement image: the anchor invokes the basic kernel APIs 
+      once in task context so that -ffunction-sections + --gc-sections keeps 
+      the Kconfig-enabled feature code in the image.
 
 endchoice
 

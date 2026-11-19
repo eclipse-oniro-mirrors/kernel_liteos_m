@@ -676,4 +676,8 @@ extern VOID OsCpupStop(VOID);
 extern VOID ItSuiteFuzzAll(VOID);
 #endif
 
+#ifdef LOSCFG_TEST_KERNEL_FLASH_STAT
+extern VOID LosFlashLinkRef(VOID);
+#endif
+
 #endif /* _OSTEST_H */

@@ -116,7 +116,6 @@ LITE_OS_SEC_BSS STATIC UINTPTR g_swtmrExpiryBuf[LOSCFG_KERNEL_CORE_NUM][LOSCFG_B
 #endif
 
 __attribute__((section(".data.init"))) UINTPTR g_sys_mem_addr_end;
-#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
 /* temp task blocks for booting procedure */
 LITE_OS_SEC_BSS LosTaskCB                g_mainTask[LOSCFG_KERNEL_CORE_NUM];
 
@@ -133,10 +132,11 @@ LITE_OS_SEC_TEXT_INIT_LEVEL_ONE VOID OsSetMainTask(VOID)
         g_mainTask[i].taskId = LOSCFG_BASE_CORE_TSK_LIMIT;
         g_mainTask[i].priority = LOS_TASK_PRIORITY_LOWEST + 1;
         g_mainTask[i].taskName = "osMain";
+#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
         g_mainTask[i].hpl = NULL;
+#endif
     }
 }
-#endif
 
 /*****************************************************************************
  Function    : LOS_Reboot

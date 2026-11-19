@@ -79,6 +79,8 @@ struct ClicRegs {
 #define CLIC_ATTR_MODE_M         (3U << CLIC_ATTR_MODE_SHIFT)  /* machine mode */
 
 extern VOID HalIrqInit(VOID);
+/* Raw per-IRQ clicintattr[i] write; compose from the CLIC_ATTR_* macros. */
+extern UINT32 HalIrqSetClicIntAttr(UINT32 hwiNum, UINT8 clicintattr);
 
 #ifdef __cplusplus
 #if __cplusplus

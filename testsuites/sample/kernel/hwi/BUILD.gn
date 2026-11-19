@@ -89,6 +89,14 @@ static_library("test_hwi") {
   if (defined(LOSCFG_KERNEL_SMP)) {
     sources += [
     "It_smp_los_hwi_001.c",
+    "It_smp_los_hwi_isr_neg_01.c",
+    "It_smp_los_hwi_isr_neg_02.c",
+    "It_smp_los_hwi_isr_neg_03.c",
+    "It_smp_los_hwi_err_01.c",
+    "It_smp_los_hwi_err_02.c",
+    "It_smp_los_hwi_persist_01.c",
+    "It_smp_los_hwi_bound_01.c",
+    "It_smp_los_hwi_ipimask_01.c",
     "It_smp_los_hwi_002.c",
     "It_smp_los_hwi_003.c",
     "It_smp_los_hwi_004.c",

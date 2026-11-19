@@ -42,6 +42,11 @@ extern "C" {
 #endif /* __cplusplus */
 #endif /* __cplusplus */
 
+extern VOID ItSmpLosAtomic001(VOID);
+extern VOID ItSmpLosAtomic002(VOID);
+extern VOID ItSmpLosAtomic003(VOID);
+extern VOID ItSmpLosAtomic004(VOID);
+
 #define ATOMIC_MUTI_TASK_NUM            3
 
 extern Atomic g_testAtomicID03;

@@ -38,6 +38,16 @@ VOID ItSuiteSmpTask(void)
 #if (LOS_KERNEL_TEST_FULL == 1)
 #ifdef LOSCFG_KERNEL_SMP
     ItSmpLosTask001();
+    ItSmpLosSpin001();
+    ItSmpLosSpin002();
+    ItSmpLosSpin003();
+    ItSmpLosSpin004();
+    ItSmpLosSpin005();
+    ItSmpLosSpin006();
+    ItSmpLosSpin007();
+    ItSmpLosTaskErr01();
+    ItSmpLosTaskErr02();
+    ItSmpLosTaskCreateAffi01();
     ItSmpLosTask002();
     ItSmpLosTask003();
     ItSmpLosTask004();

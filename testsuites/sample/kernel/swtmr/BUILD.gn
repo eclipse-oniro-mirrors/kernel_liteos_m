@@ -159,6 +159,8 @@ static_library("test_swtmr") {
   if (defined(LOSCFG_KERNEL_SMP)) {
     sources += [
     "It_smp_los_swtmr_001.c",
+    "It_smp_los_tick_001.c",
+    "It_smp_los_tick_002.c",
     "It_smp_los_swtmr_002.c",
     "It_smp_los_swtmr_003.c",
     "It_smp_los_swtmr_004.c",

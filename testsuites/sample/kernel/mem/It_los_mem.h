@@ -356,3 +356,10 @@ VOID ItLosMem333(VOID);
 #endif /* __cplusplus */
 
 #endif /* IT_LOS_MEM_H */
+
+extern VOID ItSmpLosMem001(VOID);
+extern VOID ItSmpLosMem002(VOID);
+extern VOID ItSmpLosMem003(VOID);
+extern VOID ItSmpLosMem005(VOID);
+extern VOID ItSmpLosMem006(VOID);
+extern VOID ItSmpLosMem007(VOID);

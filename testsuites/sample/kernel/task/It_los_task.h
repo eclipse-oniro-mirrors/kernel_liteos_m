@@ -205,6 +205,16 @@ extern VOID ItLosTask310(VOID);
 #ifdef LOSCFG_KERNEL_SMP
 #define IT_TASK_SMP_LOOP 100 /* liteos_a It_los_task.h:64 */
 extern VOID ItSmpLosTask001(VOID);
+extern VOID ItSmpLosTaskCreateAffi01(VOID);
+extern VOID ItSmpLosSpin001(VOID);
+extern VOID ItSmpLosSpin002(VOID);
+extern VOID ItSmpLosSpin003(VOID);
+extern VOID ItSmpLosSpin004(VOID);
+extern VOID ItSmpLosSpin005(VOID);
+extern VOID ItSmpLosSpin006(VOID);
+extern VOID ItSmpLosSpin007(VOID);
+extern VOID ItSmpLosTaskErr01(VOID);
+extern VOID ItSmpLosTaskErr02(VOID);
 extern VOID ItSmpLosTask002(VOID);
 extern VOID ItSmpLosTask003(VOID);
 extern VOID ItSmpLosTask004(VOID);

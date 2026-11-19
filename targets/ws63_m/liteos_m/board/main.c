@@ -104,19 +104,17 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
     HalPlicInit();
 
 #ifdef LOSCFG_SHELL
-    {
 #ifdef LOSCFG_SHELL_LK
-        OsLkLoggerInit("shell");
+    OsLkLoggerInit("shell");
 #endif
 #ifdef LOSCFG_SHELL_DMESG
-        (VOID)OsDmesgInit();
+    (VOID)OsDmesgInit();
 #endif
-        ret = LosShellInit();
-        if (ret != LOS_OK) {
-            PRINT_ERR("Shell init failed: 0x%x\n", ret);
-        }
-        ShellInputPollTaskInit();
+    ret = LosShellInit();
+    if (ret != LOS_OK) {
+        PRINT_ERR("Shell init failed: 0x%x\n", ret);
     }
+    ShellInputPollTaskInit();
 #endif
 
 #if defined(LOSCFG_TEST)

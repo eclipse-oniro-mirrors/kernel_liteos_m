@@ -55,7 +55,11 @@ static UINT32 TestCase(VOID)
     osTaskInitParam.uwResved = LOS_TASK_ATTR_JOINABLE;
 
     osTaskInitParam.uwStackSize = 0x1000;
-    taskStack = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, osTaskInitParam.uwStackSize, 8);
+    /* LOS_TaskCreateStatic checks topStack against LOSCFG_STACK_POINT_ALIGN_SIZE
+     * (los_task.c): the previous hardcoded 8 only passed on archs requiring 8 —
+     * on 16-byte archs it relied on the allocator luckily returning a 16-aligned
+     * block. Align with the exact macro the kernel checks. */
+    taskStack = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, osTaskInitParam.uwStackSize, LOSCFG_STACK_POINT_ALIGN_SIZE);
     ICUNIT_ASSERT_NOT_EQUAL((UINTPTR)taskStack, 0, (UINTPTR)taskStack);
 
     ret = LOS_TaskCreateStatic(&taskId, &osTaskInitParam, taskStack);

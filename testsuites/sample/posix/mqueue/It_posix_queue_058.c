@@ -10,37 +10,7 @@
  * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
  */
 
-/* 用例简要描述: 【BUG_22 缺陷暴露用例】mq_open 名字保存失败后已创建内核队列不删除而泄漏
- *
- * 【现象】    堆内存紧张(仅剩小块碎片)时 mq_open(O_CREAT) 以 attr{mq_maxmsg=1,
- *            mq_msgsize=1} 创建: 内核队列(LOS_QueueCreate: 静态 CB 槽位 + 消息
- *            缓冲堆内存)创建成功后, SaveMqueueName 为长名字(总长 255=PATH_MAX-1,
- *            通过 MqNameCheck)分配 nameLen+1=256B 内存失败 -> mq_open 返回
- *            -1/ENOMEM, 但刚创建的内核队列既未 LOS_QueueDelete 也无任何 POSIX
- *            句柄可回收 -> 队列槽位+缓冲永久泄漏; 反复触发可耗尽
- *            LOSCFG_BASE_IPC_QUEUE_LIMIT, 之后所有 mq_open(O_CREAT)/
- *            LOS_QueueCreate 返回队列池满。
- * 【根因】    lib/posix/src/mqueue.c:199-201 DoMqueueCreate 在 SaveMqueueName
- *            失败分支 goto ERROUT, 而 ERROUT(:224-230) 仅释放 mq_name, 不调
- *            LOS_QueueDelete; 对照同函数 mq_personal 分配失败路径(:208-215)
- *            有完整的队列删除, 证明该分支系遗漏(GetMqueueCBByID 失败分支
- *            :203-206 同样漏删)。
- * 【修复方向】SaveMqueueName/GetMqueueCBByID 失败分支在 ERROUT 前调用
- *            LOS_QueueDelete(mqueueID) 归还队列资源(注意失败时 mqueueCB 可能
- *            已登记 g_queueTable, 需先清表再删队列, 与 mq_personal 分支对齐)。
- * 【恢复方法】修复后把 bug_isolate.h 中 POSIX_BUG_22_MQOPEN_NAMEFAIL_LEAK 置 1,
- *            聚合注册点(It_posix_queue.c)恢复调用, 用例恢复执行作为回归看护常跑。
- * 【关联】    BUG_22 / resleak 批次问题记录 20261023_213006。
- * 修正记录:  首轮取证名字总长 256 > PATH_MAX-1 被 MqNameCheck 以 ENAMETOOLONG
- *            拦截未触达泄漏分支(errno=36), 名长改为 254(含斜杠总长 255)。
- *            二轮造洞依赖"64B 排水轮恰好分到 >=2 块"的偶发前提: 20261027 短跑轮
- *            (qemu_test_20261027_232406) 256B 轮已把堆耗至 max free node 0x28,
- *            64B 轮 0 块 -> 无条件释放栈顶两块误放 2x0x110 大洞, 名字串分配成功,
- *            mq_open 整体成功, 队列计数 +1 被误判为泄漏(Errline:118 RetCode:0x2)。
- *            三轮改为确定性造洞: 排水后释放数组末块(必属实际分到块的最小粒度轮),
- *            再以 LOS_MemInfoGet 实测驱动回填 0xC0 块直至最大空闲节点 < 0x110,
- *            洞径恒落于 [0x40, 0x110), 与前置用例碎片状态解耦, 必然停在
- *            SaveMqueueName 的 ENOMEM 分支。 */
+/* 用例简要描述: mq_open 名字保存失败时已建内核队列须删除归还(槽位/缓冲不泄漏) */
 #include "It_posix_queue.h"
 #include <mqueue.h>
 #include <fcntl.h>

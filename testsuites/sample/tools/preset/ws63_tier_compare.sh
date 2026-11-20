@@ -261,6 +261,7 @@ RV = f"{ROOT}/device/soc/hisilicon/ws63v100/sdk/tools/bin/compiler/riscv/cc_risc
 FALLBACK = {"tiny": 2048, "small": 5120, "standard": 10240}
 LAND = {"tiny": (1, 128), "small": (6, 512), "standard": (16, 512)}
 TIERS = ("tiny", "small", "standard")
+TIER_LABEL = {"tiny": "极小MCU-TINY", "small": "小型设备-SMALL", "standard": "标准嵌入式-STANDARD"}
 
 kc = open(f"{KLM}/kernel/Kconfig", errors="replace").read()
 nominal, helps = {}, {}
@@ -369,36 +370,35 @@ def put(ws, ri, ci, v, num=None, align=None, font=None, fill=None):
 
 # ---- Sheet1 挡位对比总览 ----
 ws = put_sheet("挡位对比总览",
-               ["挡位", "RAM 预期标称(B)", "RAM 实测(B)", "RAM 偏差(B)", "RAM 倍率",
-                "RAM 判定", "ROM 预期标称", "ROM 实测(B)", "ROM 口径", "ROM 判定"],
-               [12, 15, 13, 12, 10, 22, 13, 13, 20, 12])
+               ["ws63使用场景", "RAM 基线数据(B)", "RAM 最新数据(B)", "RAM 偏差(B)",
+                "RAM 判定", "ROM 基线数据", "ROM 最新数据(B)", "ROM 口径", "ROM 判定"],
+               [20, 15, 13, 12, 10, 22, 13, 13, 20, 12])
 for i, row in enumerate(rows, 2):
     t = row["tier"]
     n, a = nominal[t], row["ram_total"]
     warn = a > n
-    put(ws, i, 1, t.upper())
+    put(ws, i, 1, TIER_LABEL[t])
     put(ws, i, 2, n, NUM)
     put(ws, i, 3, a, NUM, font=WARN_FONT if warn else BODY, fill=WARN_FILL if warn else None)
     put(ws, i, 4, a - n, DEV, font=WARN_FONT if warn else BODY, fill=WARN_FILL if warn else None)
-    put(ws, i, 5, f"{a / n:.1f}×", font=WARN_FONT if warn else BODY, fill=WARN_FILL if warn else None)
-    put(ws, i, 6, "⚠ warning 超出标称" if warn else "符合",
+    put(ws, i, 5, "⚠ warning 超出标称" if warn else "符合",
         font=WARN_FONT if warn else OK_FONT, fill=WARN_FILL if warn else OK_FILL)
-    put(ws, i, 7, "—(未定义)", font=NA_FONT)
-    put(ws, i, 8, row["rom"], NUM)
-    put(ws, i, 9, row["rom_src"], align=CENTER)
-    put(ws, i, 10, "N/A", font=NA_FONT, fill=NA_FILL)
+    put(ws, i, 6, "—(未定义)", font=NA_FONT)
+    put(ws, i, 7, row["rom"], NUM)
+    put(ws, i, 8, row["rom_src"], align=CENTER)
+    put(ws, i, 9, "N/A", font=NA_FONT, fill=NA_FILL)
 
 # ---- Sheet2 RAM 构成与口径校准 ----
 ws = put_sheet("RAM构成与口径校准",
-               ["挡位", "静态符号(B)", "栈(B)", "动态申请(B)", "节点开销(B)", "RAM 合计(B)",
-                "校准口径 静态+动态(B)", "预期标称(B)", "校准倍率", "校准判定"],
-               [12, 13, 10, 13, 13, 13, 19, 13, 10, 22])
+               ["ws63使用场景", "静态符号(B)", "栈(B)", "动态申请(B)", "节点开销(B)", "RAM 最新数据(B)",
+                "校准口径 静态+动态(B)", "基线数据(B)", "校准倍率", "校准判定"],
+               [20, 13, 10, 13, 13, 13, 19, 13, 10, 22])
 for i, row in enumerate(rows, 2):
     t = row["tier"]
     cp = row["comp"]
     st, sk, dy = cp.get("ram_static"), cp.get("stack"), cp.get("dyn")
     n = nominal[t]
-    put(ws, i, 1, t.upper())
+    put(ws, i, 1, TIER_LABEL[t])
     put(ws, i, 2, st if st is not None else "?", NUM if st is not None else None)
     put(ws, i, 3, sk if sk is not None else "?", NUM if sk is not None else None)
     put(ws, i, 4, dy if dy is not None else "?", NUM if dy is not None else None)
@@ -422,15 +422,15 @@ for i, row in enumerate(rows, 2):
 
 # ---- Sheet3 挡位落地核验 ----
 ws = put_sheet("挡位落地核验",
-               ["挡位", "TSK_LIMIT 预期", "TSK_LIMIT 实测", "IDLE_STACK 预期(B)",
-                "IDLE_STACK 实测(B)", "判定"],
-               [12, 15, 15, 18, 18, 14])
+               ["ws63使用场景", "TSK_LIMIT 基线数据", "TSK_LIMIT 最新数据", "IDLE_STACK 预期(B)",
+                "IDLE_STACK 最新数据(B)", "判定"],
+               [20, 15, 15, 18, 18, 14])
 for i, row in enumerate(rows, 2):
     t = row["tier"]
     et, ei = LAND[t]
     gt, gi = row["tsk"], row["idle"]
     ok = (gt == et) and (gi == ei)
-    put(ws, i, 1, t.upper())
+    put(ws, i, 1, TIER_LABEL[t])
     put(ws, i, 2, et); put(ws, i, 3, gt if gt is not None else "?")
     put(ws, i, 4, ei, NUM); put(ws, i, 5, gi if gi is not None else "?", NUM)
     put(ws, i, 6, "一致" if ok else "⚠ 偏差",

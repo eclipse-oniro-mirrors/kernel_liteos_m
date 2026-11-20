@@ -91,6 +91,7 @@ extern VOID ItLosHwi050(VOID);
 extern VOID ItLosHwi051(VOID);
 extern VOID ItLosHwi052(VOID);
 extern VOID ItLosHwi053(VOID);
+extern VOID ItLosHwi058(VOID);
 #if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
 extern VOID ItLosHwi054(VOID);
 extern VOID ItLosHwi055(VOID);

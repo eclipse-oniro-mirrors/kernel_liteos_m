@@ -74,6 +74,7 @@ static_library("test_event") {
     "It_los_event_041.c",
     "It_los_event_042.c",
     "It_los_event_043.c",
+    "It_los_event_044.c",
   ]
   if (defined(LOSCFG_KERNEL_SMP)) {
     sources += [

@@ -39,6 +39,15 @@ extern "C" {
 #endif /* __cplusplus */
 #endif /* __cplusplus */
 
+extern VOID ItSmpLosHwiIsrNeg01(VOID);
+extern VOID ItSmpLosHwiBound01(VOID);
+extern VOID ItSmpLosHwiIpiMask01(VOID);
+extern VOID ItSmpLosHwiIsrNeg02(VOID);
+extern VOID ItSmpLosHwiIsrNeg03(VOID);
+extern VOID ItSmpLosHwiErr01(VOID);
+extern VOID ItSmpLosHwiErr02(VOID);
+extern VOID ItSmpLosHwiPersist01(VOID);
+
 #ifdef __RISC_V__
 #define OS_USER_HWI_MAX (26)
 #define OS_HWI_MAX_USED_NUM (26)

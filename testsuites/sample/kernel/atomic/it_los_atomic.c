@@ -37,6 +37,13 @@ Atomic64 g_testAtomicID05 = 0;
 
 VOID ItSuiteLosAtomic(VOID)
 {
+    /* SMP 族 */
+#ifdef LOSCFG_KERNEL_SMP
+    ItSmpLosAtomic001();
+    ItSmpLosAtomic002();
+    ItSmpLosAtomic003();
+    ItSmpLosAtomic004();
+#endif
     ItLosAtomic001();
     ItLosAtomic002();
     ItLosAtomic003();

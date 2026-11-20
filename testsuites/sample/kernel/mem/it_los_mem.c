@@ -153,6 +153,16 @@ VOID TEST_MulPoolUnRegister(VOID)
 
 VOID ItSuiteLosMem(void)
 {
+#ifdef LOSCFG_KERNEL_SMP
+    ItSmpLosMem001();
+    ItSmpLosMem002();
+    ItSmpLosMem003();
+    ItSmpLosMem005();
+#if defined(LOSCFG_KERNEL_SMP) && (LOSCFG_MEM_FREE_BY_TASKID == 1)
+    ItSmpLosMem006();
+#endif
+    ItSmpLosMem007();
+#endif
     MemStart();
 
     ItLosMem001();

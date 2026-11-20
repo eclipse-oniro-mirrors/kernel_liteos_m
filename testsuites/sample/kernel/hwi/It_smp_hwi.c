@@ -37,6 +37,14 @@ VOID ItSuiteSmpHwi(void)
 #if (LOS_KERNEL_TEST_FULL == 1)
 #ifdef LOSCFG_KERNEL_SMP
     ItSmpLosHwi001();
+    ItSmpLosHwiIsrNeg01();
+    ItSmpLosHwiIsrNeg02();
+    ItSmpLosHwiIsrNeg03();
+    ItSmpLosHwiErr01();
+    ItSmpLosHwiErr02();
+    ItSmpLosHwiPersist01();
+    ItSmpLosHwiBound01();
+    ItSmpLosHwiIpiMask01();
     ItSmpLosHwi002();
     ItSmpLosHwi003();
     ItSmpLosHwi004();

@@ -195,6 +195,8 @@ extern VOID ItLosSwtmr121(VOID);
 extern VOID ItLosSwtmr122(VOID);
 #ifdef LOSCFG_KERNEL_SMP
 extern VOID ItSmpLosSwtmr001(VOID);
+extern VOID ItSmpLosTick001(VOID);
+extern VOID ItSmpLosTick002(VOID);
 extern VOID ItSmpLosSwtmr002(VOID);
 extern VOID ItSmpLosSwtmr003(VOID);
 extern VOID ItSmpLosSwtmr004(VOID);

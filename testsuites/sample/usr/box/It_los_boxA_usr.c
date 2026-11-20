@@ -39,19 +39,11 @@
 
 VOID ItSuiteLosBoxUsr(VOID)
 {
-    ItLosBoxUsr001();
-    ItLosBoxUsr002();
-    ItLosBoxUsr003();
-    ItLosBoxUsr004();
-    ItLosBoxUsr005();
-    ItLosBoxUsr006();
-    ItLosBoxUsr007();
 
-    /* Memory cases (mem/).
-     * The baseline case runs FIRST so its published numbers come from the
-     * cleanest pool; it does not REQUIRE a pristine pool (only the accounting
-     * identity is asserted), so the order is a convenience, not a dependency. */
-    ItLosBoxUsrMemE001();
+    /* Memory cases (mem/). Baseline first for the cleanest numbers (it does
+     * not require a pristine pool - only the accounting identity is
+     * asserted); the API groups follow the behaviour groups. */
+    ItLosBoxUsrMem001();
     ItLosBoxUsrMem002();
     ItLosBoxUsrMem003();
     ItLosBoxUsrMem004();
@@ -59,7 +51,15 @@ VOID ItSuiteLosBoxUsr(VOID)
     ItLosBoxUsrMem006();
     ItLosBoxUsrMem007();
     ItLosBoxUsrMem008();
+    ItLosBoxUsrMemApi001();
+    ItLosBoxUsrMemApi002();
+    ItLosBoxUsrMemApi003();
+    ItLosBoxUsrMemApi004();
+    ItLosBoxUsrMemApi005();
+    ItLosBoxUsrMemApi008();
+    ItLosBoxUsrMemC001();
     ItLosBoxUsrMemC006();
+    ItLosBoxUsrMemE001();
     ItLosBoxUsrMemF002();
     ItLosBoxUsrMemF003();
     ItLosBoxUsrMemTsk001();
@@ -72,4 +72,23 @@ VOID ItSuiteLosBoxUsr(VOID)
     ItLosBoxUsrMemTsk008();
     ItLosBoxUsrMemTsk009();
     ItLosBoxUsrMemTsk010();
+
+
+    /* Functional BOX usr cases: condvar / event / swtmr / queue / task /
+     * semaphore lifecycle. Independent of the heap state. */
+    ItLosBoxUsr001();
+    ItLosBoxUsr002();
+    ItLosBoxUsr003();
+    ItLosBoxUsr004();
+    ItLosBoxUsr005();
+    ItLosBoxUsr006();
+    ItLosBoxUsr007();
+
+    /* MEM-API-006 runs ABSOLUTELY LAST: LOS_MemDeInit leaks the pool LOCK, and
+     * under BOX that lock is a MUX drawn from the box mux pool (LIMIT 4, one of
+     * them already owned by the heap lock). Keeping it after every other case -
+     * including the functional usr ones - stops the leaked slot from starving
+     * C001 / C006 / Usr003, which also need muxes. Kernel defect, reported
+     * separately. */
+    ItLosBoxUsrMemApi006();
 }

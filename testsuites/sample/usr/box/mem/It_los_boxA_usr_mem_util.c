@@ -110,10 +110,11 @@ BOOL BoxMemSame(const BoxMemSnap *a, const BoxMemSnap *b)
 UINT32 BoxMemFail(const CHAR *caseName, const CHAR *what,
                   UINT32 actual, UINT32 expect)
 {
-    /* One line per broken invariant, so a verbose run names them all instead of
-     * stopping at the first. */
-    BOX_MEM_TRACE("[MEM] %s FAIL: %s (actual=%u expect=%u)\n",
-                  caseName, what, actual, expect);
+    /* One line per broken invariant, so a run names them all instead of stopping
+     * at the first. Uses the always-on failure macro: a failure that cannot be
+     * read is worse than no test at all. */
+    BOX_MEM_FAIL_LOG("[MEM] FAIL %s: %s (actual=%u/0x%x expect=%u/0x%x)\n",
+                     caseName, what, actual, actual, expect, expect);
     return 1U;
 }
 

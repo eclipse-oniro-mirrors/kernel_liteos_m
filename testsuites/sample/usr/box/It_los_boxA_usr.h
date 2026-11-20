@@ -52,9 +52,9 @@ VOID ItLosBoxUsr005(VOID);
 VOID ItLosBoxUsr006(VOID);
 VOID ItLosBoxUsr007(VOID);
 
-/* Memory cases (mem/), one per file. Named like the functional BOX usr
- * cases (ItLosBoxUsr<N>) with a "Mem" tag, so a case name alone tells you
- * it runs in boxA USER mode. Generated from the files present. */
+/* Memory cases (mem/), one per file: groups A/B/C/E/F plus the API
+ * surface groups H (los_memory.h entry points). Generated from the files
+ * present. */
 VOID ItLosBoxUsrMem001(VOID);
 VOID ItLosBoxUsrMem002(VOID);
 VOID ItLosBoxUsrMem003(VOID);
@@ -63,6 +63,13 @@ VOID ItLosBoxUsrMem005(VOID);
 VOID ItLosBoxUsrMem006(VOID);
 VOID ItLosBoxUsrMem007(VOID);
 VOID ItLosBoxUsrMem008(VOID);
+VOID ItLosBoxUsrMemApi001(VOID);
+VOID ItLosBoxUsrMemApi002(VOID);
+VOID ItLosBoxUsrMemApi003(VOID);
+VOID ItLosBoxUsrMemApi004(VOID);
+VOID ItLosBoxUsrMemApi005(VOID);
+VOID ItLosBoxUsrMemApi006(VOID);
+VOID ItLosBoxUsrMemApi008(VOID);
 VOID ItLosBoxUsrMemC001(VOID);
 VOID ItLosBoxUsrMemC006(VOID);
 VOID ItLosBoxUsrMemE001(VOID);

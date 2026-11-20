@@ -25,19 +25,18 @@ extern "C" {
 
 /* ---------------- fixed slot geometry (MPU region bases) ---------------- */
 
-/* Flash 1MB @0x08000000 (die measured 1MB via FSIZE; part number says 512KB).
- * M6S layout surgery: COMMON moved to 0x08040000 and grew to 256K (R0 must
- * stay 2^N-sized and naturally aligned - it is the MPU window the user boxes
- * and the test suites share); KERNEL absorbed the old COMMON hole; box code
- * slots moved to 0x08080000/0x08090000. This layout needs the 1MB die. */
-#define KERNEL_FLASH_BASE           0x08000000UL   /* 256K, no MPU region */
-#define KERNEL_FLASH_SIZE           0x00040000UL
-#define COMMON_FLASH_BASE           0x08040000UL   /* 256K, MPU R0 */
-#define COMMON_FLASH_SIZE           0x00040000UL
-#define BOX_A_CODE_SLOT_BASE        0x08080000UL   /* 64K,  MPU R3 (dynamic) */
+/* Flash 512KB @0x08000000 (the die is 512KB - board evidence 2026-11-20:
+ * a fetch at 0x08080000 read erased flash, so bytes past 512K cannot be
+ * programmed). Kernel content ~62K of its 128K; COMMON owns the 256K
+ * tail for the growing suite set. Layout ends exactly at the boundary. */
+#define KERNEL_FLASH_BASE           0x08000000UL   /* 128K, no MPU region */
+#define KERNEL_FLASH_SIZE           0x00020000UL
+#define BOX_A_CODE_SLOT_BASE        0x08020000UL   /* 64K,  MPU R3 (dynamic) */
 #define BOX_A_CODE_SLOT_SIZE        0x00010000UL
-#define BOX_B_CODE_SLOT_BASE        0x08090000UL
+#define BOX_B_CODE_SLOT_BASE        0x08030000UL
 #define BOX_B_CODE_SLOT_SIZE        0x00010000UL
+#define COMMON_FLASH_BASE           0x08040000UL   /* 256K, MPU R0 - last region */
+#define COMMON_FLASH_SIZE           0x00040000UL
 
 /* SRAM 128KB @0x20000000 */
 #define KERNEL_RAM_BASE             0x20000000UL   /* 64K,  no MPU region */

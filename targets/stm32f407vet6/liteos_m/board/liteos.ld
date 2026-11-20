@@ -4,12 +4,13 @@
  * Section names: UPPERCASE_WITH_UNDERSCORES (custom sections only;
  * standard ELF section names .text/.data/.bss/.got/.ARM.exidx stay as is).
  *
- *  FLASH 1MB @0x08000000 (die measured 1MB via FSIZE; part number 512KB):
- *    0x08000000  kernel code + load images    256K  no MPU region: kernel
- *    0x08040000  common code (R0)            256K  reaches via PRIVDEFENA
- *    0x08080000  box A code slot (R3)         64K  background, user access
- *    0x08090000  box B code slot (R3)          64K  -> MemManage fault
- *    0x080A0000  spare                        384K
+ *  FLASH 512KB @0x08000000 (the die is 512KB - an earlier 1MB assumption
+ *  was disproved on board: a fetch at 0x08080000 read erased flash):
+ *    0x08000000  kernel code + load images    128K  no MPU region: kernel
+ *    0x08020000  box A code slot (R3)          64K  reaches via PRIVDEFENA
+ *    0x08030000  box B code slot (R3)          64K  background, user access
+ *    0x08040000  common code (R0)             256K  -> MemManage fault
+ *    (layout ends exactly at the 512KB boundary)
  *  SRAM 128KB @0x20000000:
  *    0x20000000  kernel RAM                    64K  no MPU region
  *    0x20010000  common data (R1)              16K  AP=001 RW/RW
@@ -18,15 +19,12 @@
  *    0x2001C000  box B data slot (R4)          16K  fixed slot, one region
  *  CCM 64KB @0x10000000: kernel only (core coupled, DMA cannot reach it).
  *
- * R0 layout surgery (M6S, 2026-11-19): COMMON moved 0x08020000->0x08040000
- * and grew 128K->256K (256K-aligned MPU region, holds the shared code PLUS
- * the whole kernel-test suite set); KERNEL_FLASH absorbed the old COMMON
- * hole (128K->256K, kernel measured 58K - growth headroom); box slots
- * moved to 0x08080000/0x08090000, still 64K-aligned. All bases tracked in
- * include/asm/memmap_config.h (slot macros + RASR SIZE field); box layout
- * addresses derive from the __boxA/B_* link symbols, so boxes_cfg needs no
- * change. Requires the 1MB die (FSIZE-verified) - a 512KB part cannot
- * hold this layout (first out-of-bounds byte: 0x08080000).
+ * Quota rationale (M6S-R2): kernel content measures ~62K so it keeps its
+ * original 128K; COMMON is the only segment that grows (suite set ~83K
+ * today, ~200K projected at the full 13 suites) and owns the 256K tail.
+ * All bases are tracked in include/asm/memmap_config.h (slot macros + RASR
+ * SIZE field); box layout addresses derive from the __boxA/B_* link
+ * symbols, so boxes_cfg needs no change.
  *
  * Adapted from arm_mps2_an386/liteos_m/board/liteos.ld:
  * - code/rodata stay in flash, .data keeps its LMA in flash (startup.s copy)
@@ -43,10 +41,10 @@ SVC_IRQ_STACK_SIZE  = 4K;
 
 MEMORY
 {
-   KERNEL_FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 256K
+   KERNEL_FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 128K
+   BOX_A_FLASH (rx)       : ORIGIN = 0x08020000, LENGTH = 64K
+   BOX_B_FLASH (rx)       : ORIGIN = 0x08030000, LENGTH = 64K
    COMMON_FLASH (rx)      : ORIGIN = 0x08040000, LENGTH = 256K
-   BOX_A_FLASH (rx)       : ORIGIN = 0x08080000, LENGTH = 64K
-   BOX_B_FLASH (rx)       : ORIGIN = 0x08090000, LENGTH = 64K
    KERNEL_RAM (rwx)       : ORIGIN = 0x20000000, LENGTH = 64K
    COMMON_RAM (rw)        : ORIGIN = 0x20010000, LENGTH = 16K
    USER_READONLY_RAM (rw) : ORIGIN = 0x20014000, LENGTH = 16K

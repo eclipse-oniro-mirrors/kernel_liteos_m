@@ -4,7 +4,7 @@
 结构对齐 it_los_atomic_001.c + It_los_task.c:
   - It_preset_NNN.py 内 ItPresetNNN() 仅做 TEST_ADD_CASE 自注册
   - 本入口依序调用注册函数, 再由 ICunitRun 统一执行并输出板端同款日志
-结果 -> run_20261112/preset/<case>/result.md; ItPreset002 挡位产物 -> itp002/.
+结果 -> testresult/preset/<case>/result.md; ItPreset002 挡位产物 -> itp002/.
 用法:  python3 It_preset.py [用例名...]   (默认全部)
 """
 import sys

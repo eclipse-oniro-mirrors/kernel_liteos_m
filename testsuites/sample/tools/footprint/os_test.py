@@ -18,9 +18,9 @@ ROOT = os.path.abspath(os.path.join(HERE, "../../../../../.."))
 KLM = f"{ROOT}/kernel/liteos_m"
 FP = f"{KLM}/tools/footprint"
 TOOL = f"{FP}/footprint.py"
-OUT = f"{ROOT}/testcase/run_20261112/footprint"
-QOUT = f"{ROOT}/testcase/run_20261112/artifacts/qemu_baseline"
-WOUT = f"{ROOT}/testcase/run_20261112/artifacts/ws63_baseline"
+OUT = f"{ROOT}/testresult/footprint"
+QOUT = f"{ROOT}/testresult/artifacts/qemu_baseline"
+WOUT = f"{ROOT}/testresult/artifacts/ws63_baseline"
 ARMCC = "/home/liteos/compiler/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gcc"
 RVPATH = f"{ROOT}/device/soc/hisilicon/ws63v100/sdk/tools/bin/compiler/riscv/cc_riscv32_musl_100/cc_riscv32_musl_fp/bin"
 

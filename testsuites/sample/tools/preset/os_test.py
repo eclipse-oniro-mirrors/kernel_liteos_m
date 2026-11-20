@@ -18,7 +18,7 @@ import os, sys, time, fcntl, termios, struct, pty, hashlib, subprocess, shutil, 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "../../../../../.."))
 KLM = f"{ROOT}/kernel/liteos_m"
-OUT = f"{ROOT}/testcase/run_20261112/preset"
+OUT = f"{ROOT}/testresult/preset"
 QEMU_VENDOR = f"{ROOT}/vendor/ohemu/qemu_mini_system_demo/kernel_configs/debug.config"
 WS63_VENDOR = f"{ROOT}/vendor/hihope/ws63_m_testsuits/kernel_configs/debug.config"
 KENV = {"CONFIG_": "LOSCFG_", "srctree": KLM, "PATH": os.environ["PATH"], "HOME": os.environ["HOME"]}

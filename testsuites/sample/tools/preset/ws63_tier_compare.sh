@@ -15,7 +15,7 @@
 #         被 nightly 直接调用时以 TIER_CMP_NO_LOCK=1 跳过(锁由父进程持有, 避免同锁自阻塞)
 # 定位:   ROOT 按脚本自身位置自定位(本文件所在 preset 目录上溯 6 级 = 工程根, 同 os_test.py 口径),
 #         全部执行目录均为 ROOT 相对路径, 不绑定机器绝对路径
-# 输出:   testresult/ws63挡位预期对比.xlsx(openpyxl; 超出标称 → ⚠ warning 红底标识)
+# 输出:   当前目录/ws63挡位预期对比.xlsx(默认落在脚本执行时的 $PWD, --out 可覆盖; 超出标称 → ⚠ warning 红底标识)
 # 用法:   bash ws63_tier_compare.sh [--out 路径.xlsx] [--fresh]    # --fresh 强制现场构建
 #         SKIP_REBUILD=1 bash ws63_tier_compare.sh                 # 构建后不重建 ws63 基线镜像
 # 前置:   backup/ws63_debug.config.baseline(骨架回退源, nightly 阶段2 刷新);
@@ -40,7 +40,7 @@ WBL=$RUN/backup/ws63_debug.config.baseline
 WOUT=$ROOT/out/ws63_m/ws63_m_testsuits
 WPRE=$ROOT/out/preloader/ws63_m_testsuits
 LOG=$RUN/ws63_tier_compare.log
-XLSX=$RUN/ws63挡位预期对比.xlsx
+XLSX=$PWD/ws63挡位预期对比.xlsx   # 默认输出到执行时所在目录(当前目录), --out 可覆盖
 FRESH=0
 
 export PATH=$RV_BIN:/usr/local/bin:/usr/bin:/bin:$PATH

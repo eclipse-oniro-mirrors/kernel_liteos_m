@@ -52,6 +52,34 @@ VOID ItLosBoxUsr005(VOID);
 VOID ItLosBoxUsr006(VOID);
 VOID ItLosBoxUsr007(VOID);
 
+/* Memory cases (mem/), one per file. Named like the functional BOX usr
+ * cases (ItLosBoxUsr<N>) with a "Mem" tag, so a case name alone tells you
+ * it runs in boxA USER mode. Generated from the files present. */
+VOID ItLosBoxUsrMem001(VOID);
+VOID ItLosBoxUsrMem002(VOID);
+VOID ItLosBoxUsrMem003(VOID);
+VOID ItLosBoxUsrMem004(VOID);
+VOID ItLosBoxUsrMem005(VOID);
+VOID ItLosBoxUsrMem006(VOID);
+VOID ItLosBoxUsrMem007(VOID);
+VOID ItLosBoxUsrMem008(VOID);
+VOID ItLosBoxUsrMemC001(VOID);
+VOID ItLosBoxUsrMemC006(VOID);
+VOID ItLosBoxUsrMemE001(VOID);
+VOID ItLosBoxUsrMemF002(VOID);
+VOID ItLosBoxUsrMemF003(VOID);
+VOID ItLosBoxUsrMemTsk001(VOID);
+VOID ItLosBoxUsrMemTsk002(VOID);
+VOID ItLosBoxUsrMemTsk003(VOID);
+VOID ItLosBoxUsrMemTsk004(VOID);
+VOID ItLosBoxUsrMemTsk005(VOID);
+VOID ItLosBoxUsrMemTsk006(VOID);
+VOID ItLosBoxUsrMemTsk007(VOID);
+VOID ItLosBoxUsrMemTsk008(VOID);
+VOID ItLosBoxUsrMemTsk009(VOID);
+VOID ItLosBoxUsrMemTsk010(VOID);
+
+
 #ifdef __cplusplus
 #if __cplusplus
 }

@@ -48,6 +48,36 @@ source_set("test_box_usr") {
     "It_los_boxA_usr_005.c",
     "It_los_boxA_usr_006.c",
     "It_los_boxA_usr_007.c",
+    # Memory cases: one per file, all under mem/, named like the functional
+    # BOX usr cases (It_los_boxA_usr_*). Shared helpers are declared in
+    # mem/It_los_boxA_usr_mem_util.h and DEFINED ONCE in the matching .c.
+    # File names keep "boxA": boxes.ld routes objects into the boxA slot by
+    # file name, and a GN object is "<target>.<source>.o" regardless of
+    # subdirectory.
+    "mem/It_los_boxA_usr_mem_util.c",
+    "mem/It_los_boxA_usr_mem_001.c",
+    "mem/It_los_boxA_usr_mem_002.c",
+    "mem/It_los_boxA_usr_mem_003.c",
+    "mem/It_los_boxA_usr_mem_004.c",
+    "mem/It_los_boxA_usr_mem_005.c",
+    "mem/It_los_boxA_usr_mem_006.c",
+    "mem/It_los_boxA_usr_mem_007.c",
+    "mem/It_los_boxA_usr_mem_008.c",
+    "mem/It_los_boxA_usr_mem_c001.c",
+    "mem/It_los_boxA_usr_mem_c006.c",
+    "mem/It_los_boxA_usr_mem_e001.c",
+    "mem/It_los_boxA_usr_mem_f002.c",
+    "mem/It_los_boxA_usr_mem_f003.c",
+    "mem/It_los_boxA_usr_mem_tsk_001.c",
+    "mem/It_los_boxA_usr_mem_tsk_002.c",
+    "mem/It_los_boxA_usr_mem_tsk_003.c",
+    "mem/It_los_boxA_usr_mem_tsk_004.c",
+    "mem/It_los_boxA_usr_mem_tsk_005.c",
+    "mem/It_los_boxA_usr_mem_tsk_006.c",
+    "mem/It_los_boxA_usr_mem_tsk_007.c",
+    "mem/It_los_boxA_usr_mem_tsk_008.c",
+    "mem/It_los_boxA_usr_mem_tsk_009.c",
+    "mem/It_los_boxA_usr_mem_tsk_010.c",
   ]
 
   # Raw include dir, NOT the testsuites ":include" config: that config

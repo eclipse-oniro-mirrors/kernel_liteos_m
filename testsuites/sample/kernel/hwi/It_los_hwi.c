@@ -133,6 +133,8 @@ VOID ItSuiteLosHwi()
     /* 053: 高段向量(32..95) LOCIEN0/1 与 LOCIPRI reg1-8, 仅 ws63(himideerv200 PLIC) */
     ItLosHwi053();
 #endif
+    /* 058: LOS_IntUnLock 返回值三架构分叉契约 + 解锁后 tick 恢复投递, 全板 */
+    ItLosHwi058();
 #if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
     /* 054-057: GICD MMU 访问开关(AMP 中断隔离), 仅 rk3568 AMP slave.
      * 054: 状态机往返/ALREADY 语义/压力循环; 055: 锁定期间中断投递独立性;

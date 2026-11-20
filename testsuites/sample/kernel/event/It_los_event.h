@@ -109,6 +109,7 @@ extern VOID ItLosEvent040(VOID);
 extern VOID ItLosEvent041(VOID);
 extern VOID ItLosEvent042(VOID);
 extern VOID ItLosEvent043(VOID);
+extern VOID ItLosEvent044(VOID);
 #ifdef LOSCFG_KERNEL_SMP
 extern VOID ItSmpLosEvent001(VOID);
 extern VOID ItSmpLosEvent002(VOID);

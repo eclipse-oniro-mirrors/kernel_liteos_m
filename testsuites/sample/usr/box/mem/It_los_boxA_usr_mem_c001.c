@@ -106,8 +106,11 @@ static UINT32 MemC001Case(VOID)
         fails += BoxMemFail(caseName, "no sem could be created", sems, 1U);
     }
 
+    dprintf("[MEM] %s: created %u mux(es) + %u sem(s)\n", caseName, muxes, sems);
+
     /* ---- the heap must not have moved ---- */
     if (!BoxMemSnapGet(&s1, "c001 full")) {
+        dprintf("[MEM] FAIL %s: snapshot after IPC create was refused\n", caseName);
         fails++;
     } else if (!BoxMemSame(&s0, &s1)) {
         fails += BoxMemFail(caseName, "IPC create moved the heap",
@@ -116,12 +119,23 @@ static UINT32 MemC001Case(VOID)
 
     /* ---- release and verify again ---- */
     for (i = 0; i < muxes; i++) {
-        (VOID)LOS_MuxDelete(g_c001Mux[i]);
+        UINT32 dret = LOS_MuxDelete(g_c001Mux[i]);
+        if (dret != LOS_OK) {
+            dprintf("[MEM] FAIL %s: MuxDelete(%u) returned 0x%x - slot LEAKED, "
+                    "later cases will starve\n", caseName, g_c001Mux[i], dret);
+            fails++;
+        }
     }
     for (i = 0; i < sems; i++) {
-        (VOID)LOS_SemDelete(g_c001Sem[i]);
+        UINT32 dret = LOS_SemDelete(g_c001Sem[i]);
+        if (dret != LOS_OK) {
+            dprintf("[MEM] FAIL %s: SemDelete(%u) returned 0x%x - slot LEAKED\n",
+                    caseName, g_c001Sem[i], dret);
+            fails++;
+        }
     }
     if (!BoxMemSnapGet(&s1, "c001 final")) {
+        dprintf("[MEM] FAIL %s: snapshot after IPC delete was refused\n", caseName);
         fails++;
     } else if (!BoxMemSame(&s0, &s1)) {
         fails += BoxMemFail(caseName, "IPC delete moved the heap",

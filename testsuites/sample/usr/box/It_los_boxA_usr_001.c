@@ -44,6 +44,13 @@
 #include "osTest.h"
 #include "syscalls.h"
 
+/* User-stack recycler (kernel/box/los_usr_api.c). No header carries a prototype:
+ * the function is a usr-world WRAPPER (it loops OsTaskGetRecycleStack - svc 39 -
+ * and frees each stack through the COMMON allocator), not a syscall entry, so
+ * the usr include root only #undefs the rename for the name. boxA_main.c and
+ * mem/It_los_boxA_usr_mem_util.h declare it the same way. */
+extern VOID LOS_TaskStackRecycle(VOID);
+
 /* usr-world compile-time self-check: if the kernel rename root leaked into
  * this TU, LOS_TaskCreate is a macro (#define LOS_TaskCreate SYS_...). In
  * the usr world it must stay a PLAIN symbol - the veneer/wrapper link. */

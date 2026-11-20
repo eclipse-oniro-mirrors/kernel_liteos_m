@@ -89,7 +89,8 @@ static UINT32 MemC006Case(VOID)
         }
         muxes++;
     }
-    BOX_MEM_TRACE("[MEM] %s usable muxes=%u\n", caseName, muxes);
+    dprintf("[MEM] %s: usable muxes = %u (boxA MUX_LIMIT minus the heap lock)\n",
+            caseName, muxes);
 
     /* ---- a full pool must refuse ---- */
     if (LOS_MuxCreate(&probe) == LOS_OK) {
@@ -116,7 +117,12 @@ static UINT32 MemC006Case(VOID)
 
     for (i = 0; i < BOX_MEM_C006_MAX; i++) {
         if (g_c006Mux[i] != 0U) {
-            (VOID)LOS_MuxDelete(g_c006Mux[i]);
+            UINT32 dret = LOS_MuxDelete(g_c006Mux[i]);
+            if (dret != LOS_OK) {
+                dprintf("[MEM] FAIL %s: MuxDelete(%u) returned 0x%x - slot LEAKED\n",
+                        caseName, g_c006Mux[i], dret);
+                fails++;
+            }
             g_c006Mux[i] = 0U;
         }
     }

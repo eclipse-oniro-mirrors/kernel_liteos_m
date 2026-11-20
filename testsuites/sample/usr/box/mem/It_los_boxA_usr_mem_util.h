@@ -101,6 +101,13 @@
 #define BOX_MEM_TRACE(...)  do { } while (0)
 #endif
 
+/* Failure reporting is NOT a trace and must never be compiled out: without it a
+ * failing case prints only "Errline: N" and the actual broken invariant is lost.
+ * Kept as a separate macro so BOX_MEM_VERBOSE stays about step-by-step numbers
+ * while a failure always names itself. Costs one format string per BoxMemFail
+ * call site - a few hundred bytes, and worth every one. */
+#define BOX_MEM_FAIL_LOG(...)  dprintf(__VA_ARGS__)
+
 /* ----------------------------------------------------------------------------
  * Address-space accounting as OsMemInfoGet reports it
  *
@@ -125,6 +132,21 @@
  * -------------------------------------------------------------------------- */
 #define BOX_MEM_NODE_HEAD_SIZE  16U
 #define BOX_MEM_SENTINEL_SIZE   BOX_MEM_NODE_HEAD_SIZE
+
+/* Node sizeAndFlag bits, mirrored from bestfit/los_memory_internal.h (which is
+ * bestfit-private and NOT on the usr include path):
+ *
+ *     OS_MEM_NODE_USED_FLAG     0x80000000U
+ *     OS_MEM_NODE_ALIGNED_FLAG  0x40000000U
+ *
+ * They matter to a caller because LOS_MemAlloc() rejects a request whose size
+ * already carries either bit: those bits live in the node header, so passing
+ * them in a size is how a caller corrupts the free list. API-MEM-001 feeds both
+ * in to prove the guard exists. Kept in sync by name with the kernel header -
+ * if the kernel ever moves them, that case fails loudly rather than silently
+ * testing nothing. */
+#define BOX_MEM_NODE_USED_FLAG      0x80000000U
+#define BOX_MEM_NODE_ALIGNED_FLAG   0x40000000U
 
 /* User stack the task cases use: 0x400 is the smallest the kernel accepts from
  * a box (LOSCFG_BASE_CORE_TSK_MIN_STACK_SIZE) and is what the box's own swtmr

@@ -46,4 +46,30 @@ VOID ItSuiteLosBoxUsr(VOID)
     ItLosBoxUsr005();
     ItLosBoxUsr006();
     ItLosBoxUsr007();
+
+    /* Memory cases (mem/).
+     * The baseline case runs FIRST so its published numbers come from the
+     * cleanest pool; it does not REQUIRE a pristine pool (only the accounting
+     * identity is asserted), so the order is a convenience, not a dependency. */
+    ItLosBoxUsrMemE001();
+    ItLosBoxUsrMem002();
+    ItLosBoxUsrMem003();
+    ItLosBoxUsrMem004();
+    ItLosBoxUsrMem005();
+    ItLosBoxUsrMem006();
+    ItLosBoxUsrMem007();
+    ItLosBoxUsrMem008();
+    ItLosBoxUsrMemC006();
+    ItLosBoxUsrMemF002();
+    ItLosBoxUsrMemF003();
+    ItLosBoxUsrMemTsk001();
+    ItLosBoxUsrMemTsk002();
+    ItLosBoxUsrMemTsk003();
+    ItLosBoxUsrMemTsk004();
+    ItLosBoxUsrMemTsk005();
+    ItLosBoxUsrMemTsk006();
+    ItLosBoxUsrMemTsk007();
+    ItLosBoxUsrMemTsk008();
+    ItLosBoxUsrMemTsk009();
+    ItLosBoxUsrMemTsk010();
 }

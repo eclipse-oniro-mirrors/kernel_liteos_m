@@ -317,6 +317,12 @@ void TestCmsis2(void)
 
 VOID TestTaskEntry(VOID)
 {
+#if defined(LOSCFG_TEST_KERNEL_FLASH_STAT)
+    dprintf("\n[FLASH] invoking kernel APIs in task context\n");
+    LosFlashLinkRef();
+    dprintf("[FLASH] all APIs invoked and returned\n");
+    return;
+#endif
 #ifdef LOSCFG_TEST_KERNEL_COVERAGE
     /* Run .init_array constructors so every instrumented translation unit
      * registers its gcov_info with the standalone runtime before the first

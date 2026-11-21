@@ -42,12 +42,6 @@ extern "C" {
 #define LOSCFG_BASE_CORE_TSK_MONITOR                        1
 
 /*=============================================================================
-                    Software timer module configuration
-=============================================================================*/
-#define LOSCFG_BASE_CORE_SWTMR                              1
-#define LOSCFG_BASE_CORE_SWTMR_ALIGN                        1
-
-/*=============================================================================
                     Memory module configuration
 =============================================================================*/
 extern UINTPTR g_intheap_begin;
@@ -59,6 +53,7 @@ extern UINTPTR g_intheap_size;
 #define OS_SYS_MEM_NUM                                      20
 #define LOSCFG_KERNEL_MEM_SLAB                              0
 #define LOSCFG_MEMORY_BESTFIT                               1
+
 /*=============================================================================
                     Exception module configuration
 =============================================================================*/

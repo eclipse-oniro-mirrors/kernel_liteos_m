@@ -51,6 +51,7 @@
 #undef LOS_SemDelete
 #undef LOS_SemPend
 #undef LOS_SemPost
+#undef LOS_SemGetValue
 #undef UartPuts
 #undef LOS_TaskEventRead
 #undef LOS_TaskEventWrite

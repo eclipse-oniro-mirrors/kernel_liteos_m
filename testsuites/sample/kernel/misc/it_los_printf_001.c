@@ -33,6 +33,12 @@
 #include "it_los_misc.h"
 #include "los_printf.h"
 
+/* los_base.h applies the BOX syscall rename (UartPuts -> SYS_UartPuts) before
+ * los_printf.h's prototype is parsed in this TU, and los_printf.h's include
+ * guard may already be set from an earlier chain. Re-declare through the
+ * renamed spelling so the call site has a prototype under -Werror. */
+extern VOID UartPuts(const CHAR *s, UINT32 len, BOOL isLock);
+
 /* 用例简要描述: UartPuts 带锁/无锁双模式输出+len=0 不崩溃 */
 static UINT32 TestCase(VOID)
 {

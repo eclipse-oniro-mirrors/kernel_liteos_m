@@ -53,6 +53,9 @@ VOID ItSuiteLosMux(void)
 #ifdef LOSCFG_MUTEX_WAITMODE_FIFO
     ItLosMux031();
 #endif
+#ifdef LOSCFG_BOX
+    ItLosMux032();      /* LOS_MuxHeld + kernel SID domain (doc 06, 4.2.1) */
+#endif
 
 #if (LOS_KERNEL_TEST_FULL == 1)
     ItLosMux007();
@@ -75,7 +78,10 @@ VOID ItSuiteLosMux(void)
     ItLosMux036();
 #endif
 #if (LOS_KERNEL_HWI_TEST == 1)
+#ifndef LOSCFG_BOX
+    /* box not support OS_INT_ACTIVE create mux */
     ItLosMux013();
+#endif
     ItLosMux016();
     ItLosMux017();
     ItLosMux301();

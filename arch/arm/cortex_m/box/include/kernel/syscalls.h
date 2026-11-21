@@ -158,6 +158,7 @@ extern UINT64 LOS_TickCountGet(VOID);
 #define LOS_SemDelete                PREFIX(LOS_SemDelete)
 #define LOS_SemPend                   PREFIX(LOS_SemPend)
 #define LOS_SemPost                   PREFIX(LOS_SemPost)
+#define LOS_SemGetValue               PREFIX(LOS_SemGetValue)
 #endif
 
 #ifdef LOSCFG_BASE_IPC_CONDVAR

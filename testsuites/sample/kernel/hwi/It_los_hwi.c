@@ -48,7 +48,10 @@ VOID ItSuiteLosHwi()
     ItLosHwi020();
     ItLosHwi021();
     ItLosHwi022();
+#ifndef LOSCFG_BOX
+    /* box not support OS_INT_ACTIVE create sid */
     ItLosHwi023();
+#endif
     ItLosHwi024();
 #if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1) && !defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR)
 /**

@@ -85,6 +85,24 @@ VOID ItSuiteLosBoxUsr(VOID)
     ItLosBoxUsrQueue001();
     ItLosBoxUsrEvent003();
 
+#if (LOSCFG_TEST_KERNEL_MUX == 1)
+    /* Mux cases (mux/): lifecycle, cross-task contention/timeout, ownership
+     * and box-pool quota through the SID veneers. Gated by the kernel mux
+     * suite's knob so a mux-off product links none of them. */
+    ItLosBoxUsrMux001();
+    ItLosBoxUsrMux002();
+    ItLosBoxUsrMux003();
+    ItLosBoxUsrMux004();
+    ItLosBoxUsrMux005();
+    ItLosBoxUsrMux006();
+#endif
+#if (LOSCFG_TEST_KERNEL_SEM == 1)
+    /* Semaphore cases (sem/): box-side sem gaps. Same gating contract as the
+     * kernel sem suite. */
+    ItLosBoxUsrSem002();
+    ItLosBoxUsrSem003();
+#endif
+
     /* MEM-API-006 runs ABSOLUTELY LAST: LOS_MemDeInit leaks the pool LOCK, and
      * under BOX that lock is a MUX drawn from the box mux pool (LIMIT 4, one of
      * them already owned by the heap lock). Keeping it after every other case -

@@ -69,6 +69,7 @@ VOID ItSuiteLosSem(void)
     ItLosSem042();
     ItLosSem043();
     ItLosSem045();
+    ItLosSem046();      /* count 3 + binary overflow + stale sId (doc 07, 4.2.1) */
 
 #if (LOS_KERNEL_TEST_FULL == 1)
     ItLosSem012();

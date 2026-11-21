@@ -485,6 +485,7 @@ extern "C" {
  * Solution: Check the task properties and whether it is waiting for other tasks to finish.
  */
 #define LOS_ERRNO_TSK_IS_DETACHED                   LOS_ERRNO_OS_ERROR(LOS_MOD_TSK, 0x2e)
+#define LOS_ERRNO_TSK_ID_PERM_ERR                   LOS_ERRNO_OS_ERROR(LOS_MOD_TSK, 0x50)
 
 /**
  * @ingroup los_task
@@ -816,6 +817,26 @@ extern UINT32 LOS_TaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam
  * @see LOS_TaskCreateStatic
  */
 extern UINT32 LOS_TaskCreateOnlyStatic(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam, VOID *topStack);
+
+/**
+ * @ingroup  los_task
+ * @brief Create a kernel task (static stack, suspended after creation).
+ *
+ * Kernel-only entry: the task is always taken from the kernel pool (task id
+ * box segment is 0) and no user-area stack validation is performed; a box
+ * context is never routed here (no user-mode syscall slot exists).
+ *
+ * @attention kernel-only; not callable from interrupt context.
+ */
+extern UINT32 LOS_TaskKernelCreateOnlyStatic(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam, VOID *topStack);
+
+/**
+ * @ingroup  los_task
+ * @brief Create a kernel task (static stack) and resume it.
+ *
+ * @attention kernel-only; not callable from interrupt context.
+ */
+extern UINT32 LOS_TaskKernelCreateStatic(UINT32 *taskId, TSK_INIT_PARAM_S *taskInitParam, VOID *topStack);
 #endif /* LOSCFG_TASK_STACK_STATIC_ALLOCATION */
 
 /**

@@ -84,6 +84,16 @@ VOID ItSuiteLosBoxUsr(VOID)
     ItLosBoxUsrSwtmr002();
     ItLosBoxUsrQueue001();
     ItLosBoxUsrEvent003();
+    ItLosBoxUsr008();
+    ItLosBoxUsr009();
+    ItLosBoxUsr010();
+    ItLosBoxUsr011();
+    ItLosBoxUsr012();
+    ItLosBoxUsr013();
+    ItLosBoxUsr014();
+    ItLosBoxUsr015();
+    ItLosBoxUsr016();
+    ItLosBoxUsr017();
 
     /* MEM-API-006 runs ABSOLUTELY LAST: LOS_MemDeInit leaks the pool LOCK, and
      * under BOX that lock is a MUX drawn from the box mux pool (LIMIT 4, one of

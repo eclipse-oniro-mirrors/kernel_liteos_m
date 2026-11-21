@@ -140,6 +140,9 @@ VOID ItSuiteLosTask()
 #ifdef LOSCFG_TASK_STACK_STATIC_ALLOCATION
     ItLosTask303();
     ItLosTask304();
+    ItLosTask311();
+    ItLosTask312();
+    ItLosTask313();
 #endif
     ItLosTask305();
     ItLosTask306();

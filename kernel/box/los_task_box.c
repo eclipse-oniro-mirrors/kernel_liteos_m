@@ -92,6 +92,25 @@ BOOL OsBoxTaskIdCheckInvalid(UINT32 taskId)
     return (OS_BOX_GET_ID(taskId) >= boxCB->boxResTaskNum) ? TRUE : FALSE;
 }
 
+/*
+ * Permission check for id-addressed task operations: an untrusted (box
+ * user-mode) caller may reach only its own box segment. Kernel task ids and
+ * ids of another box are rejected before any TCB access; kernel contexts
+ * (no current box) keep the baseline behaviour.
+ */
+UINT32 OsTaskIdPermCheck(UINT32 taskId)
+{
+    LosBoxCB *curBox = OsGetCurBoxCB();
+
+    if (curBox == NULL) {
+        return LOS_OK;
+    }
+    if (OS_TASK_ID_IS_KER(taskId) || (OS_BOX_GET_BID(taskId) != curBox->boxId)) {
+        return LOS_ERRNO_TSK_ID_PERM_ERR;
+    }
+    return LOS_OK;
+}
+
 /* Box TCB free-list routing. */
 UINT32 OsBoxTaskGetFreeTaskCB(LosTaskCB **taskCB, const LosBoxCB *boxCB)
 {

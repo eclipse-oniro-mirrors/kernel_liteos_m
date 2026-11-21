@@ -66,6 +66,9 @@ extern "C" {
 #define OS_TASK_ID_IS_KER(taskId)                       ((((taskId) >> 16) & (UINT32)0xFFFF) == (UINT32)0)
 extern LosTaskCB *g_boxTaskCBArray[LOSCFG_BASE_BOX_MAX_LIMIT];
 extern BOOL OsBoxTaskIdCheckInvalid(UINT32 taskId);
+/* permission check: an untrusted (box user-mode) caller may reach only its
+ * own box segment; kernel contexts are unrestricted (LOS_OK) */
+extern UINT32 OsTaskIdPermCheck(UINT32 taskId);
 /* generic create path, box-aware (OsTaskCreateOnly carries a boxPtr);
  * defined in los_task.c, called by the box create family in los_task_box.c */
 extern UINT32 OsTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack,
@@ -101,6 +104,13 @@ extern LOS_DL_LIST g_taskRecycleList;
 #define OS_TASK_IS_BOX_CREATE(boxPtr)                   (0)
 #define OsTaskBoxCBInitDefault(taskCB)                  ((void)0)
 #define OsTaskBoxDelRunDefer(taskCB)                    (0)
+
+/* BOX-off: every caller is a trusted kernel context (zero-cost baseline) */
+STATIC INLINE UINT32 OsTaskIdPermCheck(UINT32 taskId)
+{
+    (VOID)taskId;
+    return LOS_OK;
+}
 
 STATIC INLINE UINT32 OsTaskCreateTCBGet(LosTaskCB **taskCB, const VOID *boxPtr)
 {

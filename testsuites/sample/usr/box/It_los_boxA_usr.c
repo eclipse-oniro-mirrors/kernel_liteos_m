@@ -84,6 +84,16 @@ VOID ItSuiteLosBoxUsr(VOID)
     ItLosBoxUsrSwtmr002();
     ItLosBoxUsrQueue001();
     ItLosBoxUsrEvent003();
+    ItLosBoxUsr008();
+    ItLosBoxUsr009();
+    ItLosBoxUsr010();
+    ItLosBoxUsr011();
+    ItLosBoxUsr012();
+    ItLosBoxUsr013();
+    ItLosBoxUsr014();
+    ItLosBoxUsr015();
+    ItLosBoxUsr016();
+    ItLosBoxUsr017();
 
 #if (LOSCFG_TEST_KERNEL_MUX == 1)
     /* Mux cases (mux/): lifecycle, cross-task contention/timeout, ownership

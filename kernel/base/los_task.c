@@ -1473,6 +1473,32 @@ UINT32 LOS_TaskCreateStatic(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *t
 
     return LOS_TaskResume(*taskId);
 }
+
+/*
+ * Kernel-only static create family: same native path as the CreateStatic
+ * pair, but without the BOX seam - a box context must never route here
+ * (user mode has no syscall slot for these, see syscalls_def.h).
+ */
+UINT32 LOS_TaskKernelCreateOnlyStatic(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack)
+{
+    if ((initParam == NULL) || (topStack == NULL)) {
+        return LOS_ERRNO_TSK_PTR_NULL;
+    }
+
+    return OsTaskCreateOnly(taskId, initParam, topStack, TRUE, NULL);
+}
+
+UINT32 LOS_TaskKernelCreateStatic(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID *topStack)
+{
+    UINT32 ret;
+
+    ret = LOS_TaskKernelCreateOnlyStatic(taskId, initParam, topStack);
+    if (ret != LOS_OK) {
+        return ret;
+    }
+
+    return LOS_TaskResume(*taskId);
+}
 #endif /* LOSCFG_TASK_STACK_STATIC_ALLOCATION */
 
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam)
@@ -1616,8 +1642,17 @@ LOS_RETURN:
  *****************************************************************************/
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_TaskDelete(UINT32 taskId)
 {
+    UINT32 ret;
+
     if (OS_TASK_ID_CHECK_INVALID(taskId)) {
         return LOS_ERRNO_TSK_ID_INVALID;
+    }
+
+    /* trusted kernel contexts always pass; box user mode is restricted to its
+     * own box segment (BOX-off: zero-cost inline stub returning LOS_OK) */
+    ret = OsTaskIdPermCheck(taskId);
+    if (ret != LOS_OK) {
+        return ret;
     }
 
 #ifdef LOSCFG_TASK_JOINABLE

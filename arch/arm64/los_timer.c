@@ -11,17 +11,16 @@
  *      priority is fixed below.
  *
  *   1 (RK3588): EL1 VIRTUAL timer (CNTVCT/CNTV_CVAL/CNTV_CTL, PPI 27) +
- *      polling tick pump. The RK3588 slave is handed to NS EL1 directly by
+ *      WFI idle. The RK3588 slave is handed to NS EL1 directly by
  *      the OP-TEE/TF-A chain, so arm64_elX_to_el1() in los_el_switch.S
  *      never runs and CNTHCTL_EL2.EL1PCEN/EL1PCTEN stay 0: every CNTP
  *      access (CNTP_CTL/CVAL/TVAL, CNTPCT) from EL1 then traps to a dead
  *      EL2 (no VBAR_EL2) and the core locks up silently. The virtual
  *      counter/timer (CNTVCT, CNTV_*) is NOT gated by CNTHCTL and is
- *      always accessible at EL1. OP-TEE also leaves the CPU7 PPI lines in
- *      Group0 (with GICD_CTLR.DS == 0 the GICR group/priority registers
- *      are secure-only), so the PPI 27 interrupt is routed to EL3 and
- *      never reaches NS EL1 - SlaveTickPump() in ArchEnterSleep() delivers
- *      the tick by polling instead of WFI (see its comment).
+ *      always accessible at EL1. On this board PPI 27 reaches NS EL1 as a
+ *      normal Group1-NS interrupt (measured: the tick advances at the
+ *      full tick rate on the IRQ path), so the tick is fully interrupt
+ *      driven and idle sleeps in WFI.
  *
  * Both backends rewrite the timer PPI priority in the redistributor: the
  * GIC default 0xf0 equals the projected ICC_PMR_EL1 (PRIbits=5) and would
@@ -137,13 +136,11 @@ STATIC UINT32 PTimerTickStart(HWI_PROC_FUNC handler)
      * CPU (enabled/pending), so enabling PPI 27 cannot latch a bogus tick */
     AARCH64_SYSREG_WRITE(cntv_ctl_el0, 0);
 
-    /* PPI 27 GICR setup. The enable write below lands (verified: bit 27
-     * reads back set in ISENABLER0). The group/priority writes however
-     * do NOT: with GICD_CTLR.DS == 0 they are secure-only, and OP-TEE's
-     * stay on CPU7 left PPI 27 in Group0 - its FIQ is swallowed at EL3
-     * and the tick never fires as an interrupt. The writes are kept for
-     * diagnosis; the actual tick delivery is the SlaveTickPump() polling
-     * path in ArchEnterSleep(). */
+    /* PPI 27 GICR setup. The enable and priority writes below land
+     * (verified against ISENABLER0 / IPRIORITYR6). With GICD_CTLR.DS == 0
+     * the NS readback of the group register is RAZ, so the group write
+     * below cannot be verified by readback - but the delivered interrupt
+     * itself proves PPI 27 is Group1 NS on this board. */
     {
         INT32 slot = GicrSlotProbe();
         volatile UINT32 *igroupr;
@@ -193,9 +190,9 @@ STATIC UINT32 PTimerTickStart(HWI_PROC_FUNC handler)
 
     (VOID)ArchIntEnable((HWI_HANDLE_T)tick->irqNum);
 
-    /* one-shot: arm the first expiry; the ISR (or the pump below) re-arms
-     * every tick. For the virtual backend the counter read also proves the
-     * path is not trapped (CNTHCTL gates only the physical counter/timer). */
+    /* one-shot: arm the first expiry; the ISR re-arms every tick. For the
+     * virtual backend the counter read also proves the path is not
+     * trapped (CNTHCTL gates only the physical counter/timer). */
     /* Record the first-arm counter value and reset the ISR count for the
      * discrete time base (see PTimerTickCycleGet below). */
     g_tickFirstArmCntpt = TICK_CT_READ();
@@ -241,7 +238,7 @@ STATIC UINT64 PTimerTickCycleGet(UINT32 *period)
         *period = 0;
     }
     if (g_tickFirstArmCntpt == 0) {
-        curr = AARCH64_SYSREG_READ(cntpct_el0);
+        curr = TICK_CT_READ();
         LOS_IntRestore(intSave);
         return curr;
     }
@@ -265,59 +262,10 @@ ArchTickTimer *ArchSysTickTimerGet(VOID)
     return &g_archTickTimer;
 }
 
-#if (LOSCFG_ARCH_TIMER_VIRT == 1)
-/*
- * RK3588 OP-TEE residue (measured on board): with GICD_CTLR.DS == 0 the
- * GICR SGI/PPI group and priority registers of CPU7 are only writable
- * from secure state. PPI 27 (the EL1 virtual timer this port uses) is
- * stuck in Group0 - its FIQ is routed to EL3 by OP-TEE's SCR_EL3 and
- * never reaches NS EL1. Evidence: the NS write of priority 0x00 to
- * GICR_IPRIORITYR6 does not land (reads back 0xf0f0f0f0) while the same
- * register on the Linux cores accepts NS writes (0xa0a0a0a0), and the
- * enabled PPI 27 sits pending forever without ever being acknowledged.
- *
- * Fix: pump the tick by polling. The idle task calls ArchEnterSleep()
- * every loop; when CNTVCT has passed CNTV_CVAL the tick handler runs
- * inline (task context with interrupts locked - identical semantics to
- * the swalled ISR). All board demo tasks block on LOS_TaskDelay or
- * semaphores, so the idle task is guaranteed to run between ticks.
- */
-STATIC VOID SlaveTickPump(VOID)
-{
-    UINT64 now = TICK_CT_READ();
-    UINT64 cval = TICK_CVAL_READ();
-    UINT32 intSave;
-
-    if ((INT64)(now - cval) < 0) {
-        return; /* deadline not reached yet */
-    }
-    intSave = LOS_IntLock();
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
-    HalTickEntry(NULL);
-#else
-    HalTickEntry();
-#endif
-    LOS_IntRestore(intSave);
-}
-#endif /* LOSCFG_ARCH_TIMER_VIRT */
-
 UINT32 ArchEnterSleep(VOID)
 {
-#if (LOSCFG_ARCH_TIMER_VIRT == 1)
-    /* No WFI: every interrupt line this slave could receive (PPI 27
-     * virtual timer, SGI 7 mcs kick - both pending in the redistributor
-     * right now) is stuck in Group0 and routed to EL3 by OP-TEE, so for
-     * NS EL1 they are "masked" and generate no WFI wake event. Sleeping
-     * here would park the core forever after a single pump pass. The
-     * idle loop spins instead: each OsIdleTask iteration calls this
-     * function, giving a microsecond-scale poll cadence - CNTVCT reads
-     * are register-local, so the bus is not hammered. The cost is 100%
-     * CPU7 utilization while idle, acceptable for an AMP demo core. */
-    SlaveTickPump();
-#else
     __asm__ volatile("dsb sy" ::: "memory");
     __asm__ volatile("wfi");
     __asm__ volatile("isb" ::: "memory");
-#endif
     return LOS_OK;
 }

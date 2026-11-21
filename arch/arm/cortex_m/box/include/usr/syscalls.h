@@ -58,8 +58,12 @@
 #undef LOS_SwtmrStart
 #undef LOS_SwtmrStop
 #undef LOS_SwtmrDelete
+#undef LOS_SwtmrTimeGet
+#undef LOS_SwtmrUsrInit
 #undef OsSwtmrHandlerItemGet
 #undef OsSwtmrUsrTaskInit
+#undef LOS_CurrNanosec
+#undef LOS_GetCpuCycle
 #undef LOS_EventCreate
 #undef LOS_EventDelete
 #undef LOS_EventReadWithSId

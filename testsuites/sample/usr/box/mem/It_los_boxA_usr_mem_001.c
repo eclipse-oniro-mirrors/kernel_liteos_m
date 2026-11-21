@@ -52,7 +52,7 @@
  * ---------------------------------------------------------------------------
  * This case originally asserted `freeNodes == 1 && usedNodes == 0`, i.e. that
  * the pool was freshly formatted. That held only while it was the FIRST memory
- * case to run. Once the BOX functional cases (ItLosBoxUsr003/004/005) were
+ * case to run. Once the BOX functional cases (ItLosBoxUsrCondvar001/Event002/Swtmr002) were
  * ordered ahead of it, they left parked waiter tasks and live timers allocated
  * on the same heap, so `freeNodes` was no longer 1 and the case failed on
  * hardware with ErrLine 138.

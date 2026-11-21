@@ -28,10 +28,10 @@
  * USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* ItLosBoxUsr006 - shallow SID queue lifecycle.
+/* ItLosBoxUsrQueue001 - shallow SID queue lifecycle.
  *
  * Runs in boxA USER mode through the shared iCunit. Same verdict shape as
- * ItLosBoxUsr003/004/005: a "fails counter, phases keep running" body (a
+ * ItLosBoxUsrCondvar001/Event002/Swtmr002: a "fails counter, phases keep running" body (a
  * failed phase still deletes what it created), one ICunit assertion
  * collapses the verdict at the end.
  *
@@ -102,7 +102,7 @@ static UINT32 TestCase(VOID)
     return LOS_OK;
 }
 
-VOID ItLosBoxUsr006(VOID)
+VOID ItLosBoxUsrQueue001(VOID)
 {
-    TEST_ADD_CASE("ItLosBoxUsr006", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosBoxUsrQueue001", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
 }

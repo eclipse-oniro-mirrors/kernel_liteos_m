@@ -29,7 +29,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* ItLosBoxUsr001 - usr-world dynamic task create through the FULL syscall
+/* ItLosBoxUsrTask001 - usr-world dynamic task create through the FULL syscall
  * path.
  *
  * The case body runs in boxA USER mode (the shared iCunit runner invoked
@@ -95,7 +95,7 @@ static UINT32 TestCase(VOID)
     return LOS_OK;
 }
 
-VOID ItLosBoxUsr001(VOID)
+VOID ItLosBoxUsrTask001(VOID)
 {
-    TEST_ADD_CASE("ItLosBoxUsr001", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosBoxUsrTask001", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
 }

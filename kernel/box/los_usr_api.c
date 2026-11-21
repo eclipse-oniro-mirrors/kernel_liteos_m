@@ -18,6 +18,7 @@
  */
 #include "los_typedef.h"
 #include "los_task.h"
+#include "los_tick.h"       /* OS_SYS_MS_PER_SECOND + conversion prototypes */
 #include "los_memory.h"    /* LOS_MemAllocAlign / LOS_MemFree */
 #include "los_box_pri.h"   /* LITE_OS_SEC_TEXT_USRSPACE */
 #include "syscalls.h"
@@ -26,6 +27,11 @@
 /* The box heap pool array lives in .USER_READONLY_DATA (R2, user-readable);
  * g_boxLocalPool[0] is the current box's heap pool (kernel-maintained). */
 extern UINTPTR g_boxLocalPool[];
+
+/* The user-readable tick counter (LITE_OS_SEC_USER_RO_DATA, R2 - written by
+ * the kernel tick handler, plain-readable from user mode; same shape as the
+ * swtmr task's own extern). */
+extern volatile UINT32 g_usrTickCount;
 
 /* attr values are advisory here: OsMuxCreate ignores attr because the mux
  * core is recursive + priority-inherit by construction. The names and values
@@ -39,12 +45,52 @@ extern UINTPTR g_boxLocalPool[];
  * has NO wrapper: there are zero mem syscalls — the allocator lives in the
  * shared COMMON sections and the box entry task calls LOS_MemInit DIRECTLY
  * (LOSCFG_MEM_MUL_POOL is OFF, so no multipool registry walk exists).
- * Note: the tick counter (g_usrTickCount) is published by the kernel tick
- * handler in the user-readable R2 section; its user-side LOS_TickCountGet
- * wrapper is DEFERRED — the rename needed to free the plain symbol collides
- * with include-order in unrelated kernel TUs (los_event.c / debug family,
- * where the prototype arrives before the rename header) — so the demo reads
- * the variable directly until the naming is solved. */
+ * The tick readout family is the refs USRSPACE direct-call face: pure
+ * conversions and the user-readable tick counter - all plain-name copies
+ * below, freed by the syscalls.h rename + local-prototype pair (the
+ * include-order trap that once DEFERRED the TickCountGet wrapper). */
+
+/* Refs conversion pair (kernel_s/base/los_tick.c, USRSPACE): ceil to the
+ * next tick and the UINT32_MAX sentinel. NOTE the semantic split - the
+ * OHOS vanilla pair floors and uses the OS_NULL_INT sentinel; the usr copy
+ * stays faithful to refs, the same way the two worlds' LOS_TaskCreate
+ * copies each stay faithful to their own source. */
+LITE_OS_SEC_TEXT_USRSPACE __attribute__((noinline, used))
+UINT32 LOS_MS2Tick(UINT32 millisec)
+{
+    UINT64 delayTick;
+
+    if (millisec == UINT32_MAX) {
+        return UINT32_MAX;
+    }
+
+    delayTick = (((UINT64)millisec * LOSCFG_BASE_CORE_TICK_PER_SECOND) +
+                 OS_SYS_MS_PER_SECOND - 1U) / OS_SYS_MS_PER_SECOND;
+    if (delayTick > UINT32_MAX) {
+        return UINT32_MAX;
+    }
+    return (UINT32)delayTick;
+}
+
+LITE_OS_SEC_TEXT_USRSPACE __attribute__((noinline, used))
+UINT32 LOS_Tick2MS(UINT32 tick)
+{
+    UINT64 delayMs = ((UINT64)tick * OS_SYS_MS_PER_SECOND) / LOSCFG_BASE_CORE_TICK_PER_SECOND;
+    if (delayMs > UINT32_MAX) {
+        return UINT32_MAX;
+    }
+    return (UINT32)delayMs;
+}
+
+/* Refs publishes the tick counter through the user-readable data section
+ * (g_tickCount, RODATA_USRSPACE); this tree's counterpart is g_usrTickCount
+ * (LITE_OS_SEC_USER_RO_DATA, written by the kernel tick handler). The
+ * wrapper is a plain read - the usr path needs no syscall. */
+LITE_OS_SEC_TEXT_USRSPACE __attribute__((noinline, used))
+UINT64 LOS_TickCountGet(VOID)
+{
+    return (UINT64)g_usrTickCount;
+}
 
 LITE_OS_SEC_TEXT_USRSPACE __attribute__((noinline, used))
 UINT32 LOS_MuxCreate(UINT32 *sId)

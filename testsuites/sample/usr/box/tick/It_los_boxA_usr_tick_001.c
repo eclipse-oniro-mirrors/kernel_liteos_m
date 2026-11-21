@@ -28,14 +28,18 @@
  * USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* ItLosBoxUsr007 - shallow SID event pool lifecycle.
+/* ItLosBoxUsrTick001 - usr-world tick readouts through the syscall face:
+ * LOS_CurrNanosec (UINT64) and LOS_GetCpuCycle (hi/lo out-args).
  *
- * Runs in boxA USER mode through the shared iCunit. Straight
- * create -> write -> poll(read-and-clear) -> delete chain on this box's
- * event pool, including the delete-return check; "fails counter" verdict
- * shape as in 003-006. This is the ONLY existing usr-side cover of
- * LOS_EventPollWithSId (the deep case 004 exercises Read/Write/WriteOnce
- * instead). */
+ * Runs in boxA USER mode. CurrNanosec is the only 64-bit-return syscall:
+ * the kernel epilogue writes r0 AND r1 back into the veneer's args block
+ * and the veneer's pop {r0-r3} restores both - a broken 64-bit path shows
+ * up here as a huge or wrap-around delta, which the bounds below catch.
+ *
+ *  phase 1 - two CurrNanosec reads across a 3-tick delay: strictly
+ *     increasing and the delta bounded well below a second (nanoseconds)
+ *  phase 2 - two GetCpuCycle reads across the same delay: the hi:lo pair
+ *     strictly increases as one 64-bit value; hi alone may stay flat */
 
 #include "osTest.h"
 #include "syscalls.h"
@@ -44,41 +48,43 @@
 #error "usr test TU compiled under the kernel rename root: check BUILD.gn configs"
 #endif
 
-#define USR_EVT_SHALLOW_MASK 0x11U
-
 static UINT32 TestCase(VOID)
 {
-    UINT32 sId = 0;
+    UINT64 ns1;
+    UINT64 ns2;
+    UINT32 hi1 = 0;
+    UINT32 lo1 = 0;
+    UINT32 hi2 = 0;
+    UINT32 lo2 = 0;
     UINT32 fails = 0;
-    UINT32 val;
-    UINT32 ret;
 
-    ret = LOS_EventCreate(&sId);
-    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
-
-    if (LOS_EventWriteWithSId(sId, USR_EVT_SHALLOW_MASK) != LOS_OK) {
+    /* ---- phase 1: CurrNanosec monotonic across a delay ---- */
+    /* This board's tick measures ~1s (documented quirk, see uts_phase.h),
+     * so a 3-tick delay spans ~3.1s of nanoseconds - bound generously at
+     * 8s: the point is monotonicity plus a sane magnitude, not timing. */
+    ns1 = LOS_CurrNanosec();
+    LOS_TaskDelay(3);
+    ns2 = LOS_CurrNanosec();
+    if ((ns2 <= ns1) || ((ns2 - ns1) > (UINT64)8000000000)) {
         fails++;
-        LOS_PrintStr("usr evt shallow write FAIL\n");
-    } else {
-        /* poll = read-and-clear: the full mask must come back exactly once */
-        val = LOS_EventPollWithSId(sId, USR_EVT_SHALLOW_MASK,
-                                   LOS_WAITMODE_OR | LOS_WAITMODE_CLR);
-        if (val != USR_EVT_SHALLOW_MASK) {
-            fails++;
-            LOS_PrintStr("usr evt shallow poll FAIL\n");
-        }
+        dprintf("usr tick ns1 0x%x%x ns2 0x%x%x\n",
+                (UINT32)(ns1 >> 32), (UINT32)ns1, (UINT32)(ns2 >> 32), (UINT32)ns2);
     }
 
-    if (LOS_EventDelete(sId) != LOS_OK) {
+    /* ---- phase 2: GetCpuCycle hi:lo monotonic across a delay ---- */
+    LOS_GetCpuCycle(&hi1, &lo1);
+    LOS_TaskDelay(3);
+    LOS_GetCpuCycle(&hi2, &lo2);
+    if (!((hi2 > hi1) || ((hi2 == hi1) && (lo2 > lo1)))) {
         fails++;
-        LOS_PrintStr("usr evt shallow delete FAIL\n");
+        dprintf("usr tick cyc1 0x%x:0x%x cyc2 0x%x:0x%x\n", hi1, lo1, hi2, lo2);
     }
 
     ICUNIT_ASSERT_EQUAL(fails, 0, fails);
     return LOS_OK;
 }
 
-VOID ItLosBoxUsr007(VOID)
+VOID ItLosBoxUsrTick001(VOID)
 {
-    TEST_ADD_CASE("ItLosBoxUsr007", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosBoxUsrTick001", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
 }

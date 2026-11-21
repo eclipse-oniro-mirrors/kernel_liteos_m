@@ -36,8 +36,8 @@
  *    epilogue: with no graft built, the epilogue's anchor load would
  *    read the USER frame base and later store a user address into
  *    stackPointer.
- *  - retval written back into the user stack args[0] slot, matching the
- *    veneer's pop semantics
+ *  - retval written back into the user stack args[0]/args[1] slots
+ *    (the 32/64-bit return pair), matching the veneer's pop semantics
  *  - frame graft: a hand-built frame on the task kernel stack is entered
  *    via bx EXC_RETURN, so the implementation runs as a privileged thread
  *    (real blocking, clean exception state)
@@ -281,11 +281,16 @@ __FpuFrameUnsupported:
     .fnstart
     .cantunwind
 OsSyscallEpilogue:
+    /* r0/r1 = the implementation's return value (AAPCS r0:r1 pair for the
+     * one UINT64 API, LOS_CurrNanosec; every other API returns 32 bits in
+     * r0 and its r1 is caller-saved scratch). Register budget follows the
+     * refs epilogue: r2 = g_runTask chain for the whole body, r3 = work.
+     * r1 stays LIVE until the args[1] store below - no parking copy. */
     mrs     r12, primask
     cpsid   i
 
-    ldr     r1, =g_runTask
-    ldr     r1, [r1]
+    ldr     r2, =g_runTask
+    ldr     r2, [r2]
 
     /*
      * Kernel sp bookkeeping: restore the EXACT pre-graft value from the
@@ -294,63 +299,82 @@ OsSyscallEpilogue:
      * anchor also stays valid across blocking: PendSV saves below the
      * implementation SP, and rewrites the TCB copy instead.
      */
-    mrs     r2, psp
-    ldr     r2, [r2, #16]              /* anchor = pre-graft kernel sp */
-    str     r2, [r1]
+    mrs     r3, psp
+    ldr     r3, [r3, #16]              /* anchor = pre-graft kernel sp */
+    str     r3, [r2]
 
-    /* retval -> user args[0] (veneer's pop picks it up into r0). */
-    ldr     r2, [r1, #TASK_CB_USER_SP]  /* user_sp = frame_base - 4 */
-    ldr     r2, [r2, #4]                /* frame->r0 = args pointer */
-    str     r0, [r2]
+    /* Frame base into sp (refs OsSyscallEpilogue shape): this epilogue
+     * runs as the grafted PRIVILEGED THREAD, so the thread-mode sp write
+     * targets the PSP (SPSEL=1 since the graft entry). From here the
+     * frame fields are addressed via [sp, #off] - sp is a dedicated
+     * register, so the frame base no longer consumes a GPR and the pc
+     * can be read once and kept live to the tail. The kernel-sp anchor
+     * above already consumed the graft psp, so psp is free to switch. */
+    ldr     sp, [r2, #TASK_CB_USER_SP]  /* user_sp = frame_base - 4 */
+
+    /* retval -> user args[0]/args[1] (the veneer's pop picks them up into
+     * r0/r1). args[1] carries the second return word for the one UINT64
+     * API (LOS_CurrNanosec, AAPCS r0:r1 pair); for every other API the
+     * user's r1 at the call site was caller-saved scratch, so
+     * overwriting it is legal. */
+    ldr     r3, [sp, #4]                /* frame->r0 = args pointer */
+    str     r0, [r3]
+    str     r1, [r3, #4]
 
     /* Restore INUSER, nest = 0, g_sysMode = 1. */
-    ldrh    r3, [r1, #TASK_CB_STATUS]
+    ldrh    r3, [r2, #TASK_CB_STATUS]
     orr     r3, r3, #OS_TASK_STATUS_INUSER
-    strh    r3, [r1, #TASK_CB_STATUS]
+    strh    r3, [r2, #TASK_CB_STATUS]
     movs    r3, #0
-    str     r3, [r1, #TASK_CB_SYSCALL_NEST_CNT]
+    str     r3, [r2, #TASK_CB_SYSCALL_NEST_CNT]
     ldr     r3, =g_sysMode
     movs    r0, #1
     str     r0, [r3]
 
     /*
-     * Resume at the instruction after svc. User stack layout:
-     *   [user_sp]       = stashed EXC_RETURN
-     *   [user_sp+4..]   = hw frame (basic 32B / FPU extended 104B, +4
-     *                     STKALIGN pad when frame->xpsr bit9 is set)
+     * Resume at the instruction after svc, refs shape: read every frame
+     * field while sp = frame base, pc ONCE into r0 (kept live - only r3
+     * works below), then advance sp itself to the resume position.
+     * User stack layout:
+     *   [sp]      = stashed EXC_RETURN
+     *   [sp+4..]  = hw frame (basic 32B / FPU extended 104B, +4 STKALIGN
+     *               pad when frame->xpsr bit9 is set)
      *   above the frame = veneer's pushed args block; the resume PSP is
-     *                     the block start (the veneer's pop {r0-r3}
-     *                     reads [PSP, PSP+16)).
-     * basic: PSP = user_sp + 36; extended: +72 more. The pc/lr/xpsr
-     * slots sit in the first 32 bytes of the frame in both cases.
+     *               the block start (the veneer's pop {r0-r3} reads
+     *               [PSP, PSP+16)).
+     * basic: resume = sp + 36; extended: +72 more. The pc/lr/xpsr slots
+     * sit in the first 32 bytes of the frame in both cases.
      */
-    ldr     r2, [r1, #TASK_CB_USER_SP]
-    ldr     r3, [r2, #28]               /* resume pc */
-    ldr     lr, [r2, #24]               /* restore user LR: the veneer
+    ldr     r0, [sp, #28]               /* resume pc - read once, live */
+    ldr     lr, [sp, #24]               /* restore user LR: the veneer
                                      * returns via bx lr, but the syscall
                                      * machinery destroyed LR (EXC_RETURN,
                                      * graft lr = epilogue, impl BLs).
                                      * Without this the user bx lr jumps
                                      * into the middle of the impl. */
-    adds    r2, #36                     /* resume PSP, basic frame */
+    ldr     r3, [sp, #32]               /* frame->xpsr (STKALIGN bit9) */
 #ifdef LOSCFG_ARCH_FPU_ENABLE
-    ldr     r0, [r2, #-36]              /* stashed EXC_RETURN */
-    tst     r0, #0x10                   /* bit4 = 0: extended frame */
+    ldr     r1, [sp]                    /* stashed EXC_RETURN */
+#endif
+    adds    sp, #36                     /* resume PSP, basic frame */
+#ifdef LOSCFG_ARCH_FPU_ENABLE
+    tst     r1, #0x10                   /* bit4 = 0: extended frame */
     it      eq
-    addeq   r2, #72                     /* skip the S0-S15/FPSCR area:
+    addeq   sp, #72                     /* skip the S0-S15/FPSCR area:
                                          * the hardware RESERVED it at SVC
                                          * entry (FPCA=1) even though
                                          * LSPACT was cleared and nothing
                                          * was ever written there - it
                                          * still occupies user-stack space */
 #endif
-    ldr     r0, [r1, #TASK_CB_USER_SP]  /* frame->xpsr at fixed +32 */
-    ldr     r0, [r0, #32]
-    tst     r0, #0x200                  /* STKALIGN: hw pushed an align
+    tst     r3, #0x200                  /* STKALIGN: hw pushed an align
                                      * word above the frame -> args 4 up */
     it      ne
-    addne   r2, #4
-    msr     psp, r2
+    addne   sp, #4
+    /* msr on M-profile takes r0-r7 only (sp is r13) - park sp in r3,
+     * whose STKALIGN value is dead now, then load the PSP. */
+    mov     r3, sp
+    msr     psp, r3
 
     /* Drop privilege and resume the user. Safe BECAUSE this function lives
      * in .usr.text (COMMON_TEXT): an interrupt landing anywhere in the
@@ -367,10 +391,10 @@ OsSyscallEpilogue:
      * Callee-saved r4-r11 ride through untouched (live user values);
      * r0-r3 are caller-saved and the veneer's pop {r0-r3} restores
      * them after the return. */
-    orr     r3, r3, #1
-    mrs     r2, control
-    orr     r2, r2, #1                /* CONTROL: PSP + unprivileged */
+    orr     r0, r0, #1
+    mrs     r3, control
+    orr     r3, r3, #1                /* CONTROL: PSP + unprivileged */
     msr     primask, r12              /* unmask - inside COMMON_TEXT */
-    msr     control, r2               /* drop privilege */
-    bx      r3
+    msr     control, r3               /* drop privilege */
+    bx      r0
     .fnend

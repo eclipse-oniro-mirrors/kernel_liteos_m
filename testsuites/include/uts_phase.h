@@ -61,11 +61,15 @@ extern "C" {
 #define UTS_PHASE_GO   1u /* kernel phase finished, usr phase may run */
 #define UTS_PHASE_DONE 2u /* usr phase finished, final report may print */
 
-/* Coordinator wait loop: 120 x 5 ticks. NOTE this board's tick measures
- * ~1s (not the configured 1ms - pre-existing SysTick quirk, see the
- * calibrate line), so this is a ~10min worst case; a hung usr case
- * reports HUNG and the run completes with the kernel results only. */
-#define UTS_USR_TIMEOUT_POLLS 120
+/* Coordinator wait loop: 600 x 5 ticks = 3000 ticks. The usr suite grew
+ * past the old 120 x 5 budget (deep cases poll tens of ticks each and the
+ * mem module adds ~20 cases) and a healthy run was being reported HUNG
+ * with its tail cases landing after the report (measured). NOTE this
+ * board's tick measures ~1s on the real die (not the configured 1ms -
+ * pre-existing SysTick quirk, see the calibrate line), so the worst case
+ * here is ~50min on board; a hung usr case reports HUNG and the run
+ * completes with the kernel results only. */
+#define UTS_USR_TIMEOUT_POLLS 600
 #define UTS_USR_POLL_TICKS    5
 
 extern volatile UINT32 g_utsPhase;

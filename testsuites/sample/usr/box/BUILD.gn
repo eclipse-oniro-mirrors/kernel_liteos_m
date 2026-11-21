@@ -41,13 +41,15 @@ import("//kernel/liteos_m/liteos.gni")
 source_set("test_box_usr") {
   sources = [
     "It_los_boxA_usr.c",
-    "It_los_boxA_usr_001.c",
-    "It_los_boxA_usr_002.c",
-    "It_los_boxA_usr_003.c",
-    "It_los_boxA_usr_004.c",
-    "It_los_boxA_usr_005.c",
-    "It_los_boxA_usr_006.c",
-    "It_los_boxA_usr_007.c",
+    # Functional usr cases, module-tagged (same naming rule: "boxA" in
+    # the file name for the boxes.ld slot routing).
+    "task/It_los_boxA_usr_task_001.c",
+    "sem/It_los_boxA_usr_sem_001.c",
+    "condvar/It_los_boxA_usr_condvar_001.c",
+    "queue/It_los_boxA_usr_queue_001.c",
+    "event/It_los_boxA_usr_event_002.c",
+    "event/It_los_boxA_usr_event_003.c",
+    "swtmr/It_los_boxA_usr_swtmr_002.c",
     "mem/It_los_boxA_usr_mem_util.c",
     "mem/It_los_boxA_usr_mem_001.c",
     "mem/It_los_boxA_usr_mem_002.c",
@@ -79,6 +81,12 @@ source_set("test_box_usr") {
     "mem/It_los_boxA_usr_mem_tsk_008.c",
     "mem/It_los_boxA_usr_mem_tsk_009.c",
     "mem/It_los_boxA_usr_mem_tsk_010.c",
+    # Module-subdir usr cases (tick/swtmr/event query surfaces), same
+    # naming rule: "boxA" in the file name for the boxes.ld slot routing.
+    "tick/It_los_boxA_usr_tick_001.c",
+    "tick/It_los_boxA_usr_tick_002.c",
+    "swtmr/It_los_boxA_usr_swtmr_001.c",
+    "event/It_los_boxA_usr_event_001.c",
   ]
 
   # Raw include dir, NOT the testsuites ":include" config: that config

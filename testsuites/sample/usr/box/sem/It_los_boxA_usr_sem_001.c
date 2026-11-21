@@ -29,7 +29,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* ItLosBoxUsr002 - usr-world semaphore lifecycle through the SID syscalls.
+/* ItLosBoxUsrSem001 - usr-world semaphore lifecycle through the SID syscalls.
  *
  * create (boxA pool SID) -> pend-timeout on count=0 (blocking schedule
  * out/in through the SVC graft) -> post -> immediate pend -> delete; the
@@ -71,7 +71,7 @@ static UINT32 TestCase(VOID)
     return LOS_OK;
 }
 
-VOID ItLosBoxUsr002(VOID)
+VOID ItLosBoxUsrSem001(VOID)
 {
-    TEST_ADD_CASE("ItLosBoxUsr002", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosBoxUsrSem001", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
 }

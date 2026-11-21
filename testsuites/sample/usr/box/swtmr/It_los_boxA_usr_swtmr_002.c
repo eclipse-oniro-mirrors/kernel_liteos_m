@@ -29,10 +29,10 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* ItLosBoxUsr005 - deep swtmr coverage.
+/* ItLosBoxUsrSwtmr002 - deep swtmr coverage.
  *
  * Runs in boxA USER mode through the shared iCunit. Verdict shape as in
- * ItLosBoxUsr003: "bad counter, phases keep running", one ICunit assertion
+ * ItLosBoxUsrCondvar001: "bad counter, phases keep running", one ICunit assertion
  * collapses the verdict.
  *
  *  phase 1 - ONCE fires exactly once, then self-deletes: the stale handle
@@ -227,8 +227,8 @@ static UINT32 TestCase(VOID)
     return LOS_OK;
 }
 
-VOID ItLosBoxUsr005(VOID)
+VOID ItLosBoxUsrSwtmr002(VOID)
 {
-    TEST_ADD_CASE("ItLosBoxUsr005", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosBoxUsrSwtmr002", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
 }
 #endif /* LOSCFG_BOX && LOSCFG_BASE_CORE_SWTMR */

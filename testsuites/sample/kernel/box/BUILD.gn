@@ -34,8 +34,12 @@ static_library("test_box") {
     "It_los_box.c",
     "It_los_box_001.c",
     "It_los_box_002.c",
-    "It_los_box_003.c",
-    "It_los_box_004.c",
+    # Module-subdir kernel-context BOX-API cases, same layout as the usr
+    # tree's module subdirs (usr/box/queue-less form): queue/ holds the
+    # CreateWithSId / InfoAllGet covers, swtmr/ the SwtmrUsrInit refusal.
+    "queue/It_los_box_003.c",
+    "queue/It_los_box_004.c",
+    "swtmr/It_los_box_005.c",
   ]
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]

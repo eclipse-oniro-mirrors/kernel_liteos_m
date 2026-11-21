@@ -29,7 +29,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* ItLosBoxUsr003 - condvar four-phase.
+/* ItLosBoxUsrCondvar001 - condvar four-phase.
  *
  * Runs in boxA USER mode through the shared iCunit. The body keeps the
  * "fails counter, no early return" shape on purpose: a waiter left parked
@@ -282,8 +282,8 @@ static UINT32 TestCase(VOID)
     return LOS_OK;
 }
 
-VOID ItLosBoxUsr003(VOID)
+VOID ItLosBoxUsrCondvar001(VOID)
 {
-    TEST_ADD_CASE("ItLosBoxUsr003", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosBoxUsrCondvar001", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
 }
 #endif /* LOSCFG_BASE_IPC_CONDVAR */

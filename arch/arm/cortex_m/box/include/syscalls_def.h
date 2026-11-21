@@ -143,7 +143,22 @@ LITEOS_SYSCALL_DEF(SYSCALL_NUM_SWTMR_HANDLER_GET, UINT32, OsSwtmrHandlerItemGet,
                    SwtmrHandlerItem *item)
 LITEOS_SYSCALL_DEF(SYSCALL_NUM_SWTMR_USR_TASK_INIT, UINT32, OsSwtmrUsrTaskInit,
                    UINT16 boxId, UINT32 stackSize)
+/* refs parity: remaining two entries of the refs swtmr user surface. */
+LITEOS_SYSCALL_DEF(SYSCALL_NUM_SWTMR_TIMEGET, UINT32, LOS_SwtmrTimeGet,
+                   UINT32 swtmrId, UINT32 *tick)
+LITEOS_SYSCALL_DEF(SYSCALL_NUM_SWTMR_USR_INIT, UINT32, LOS_SwtmrUsrInit,
+                   VOID *taskStack, UINT32 stackSize)
 #endif
+
+/* ---- tick readouts (refs parity arms TASK+20 / TASK+22) ----
+ * CurrNanosec returns UINT64 (r0/r1): the kernel epilogue writes both words
+ * back into the veneer's args block and the veneer's pop {r0-r3} restores
+ * them, so the 64-bit value crosses the trap intact. GetCpuCycle writes
+ * through user-supplied pointers (direct-dereference ABI, same accepted
+ * cost as PrintStr). */
+LITEOS_SYSCALL_DEF(SYSCALL_NUM_CURR_NANOSEC, UINT64, LOS_CurrNanosec, VOID)
+LITEOS_SYSCALL_DEF(SYSCALL_NUM_GET_CPU_CYCLE, VOID, LOS_GetCpuCycle,
+                   UINT32 *cntHi, UINT32 *cntLo)
 
 /* ---- SID event pool (BOX event IPC) ----
  * Pool-backed events addressed by flat sId (the owning box's pool).

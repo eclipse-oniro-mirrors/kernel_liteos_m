@@ -81,18 +81,40 @@ extern "C" {
 #define LOS_TaskEventWrite            PREFIX(LOS_TaskEventWrite)
 #endif
 #ifdef LOSCFG_BASE_CORE_SWTMR
-/* Swtmr usr surface. LOS_SwtmrCreate/Start/Stop/Delete renames the
+/* Swtmr usr surface. LOS_SwtmrCreate/Start/Stop/Delete/TimeGet renames the
  * kernel definitions in los_swtmr.c into SYS_ (the dispatch slots take
  * them directly); OsSwtmrHandlerItemGet / OsSwtmrUsrTaskInit rename the
- * BOX swtmr helpers in los_swtmr_usr.c. The plain names stay free for the
- * COMMON_TEXT veneers serving the box world. */
+ * BOX swtmr helpers in los_swtmr_usr.c, LOS_SwtmrUsrInit likewise (the
+ * refs-prototype bring-up entry defined there). The plain names stay free
+ * for the COMMON_TEXT veneers serving the box world. */
 #define LOS_SwtmrCreate               PREFIX(LOS_SwtmrCreate)
 #define LOS_SwtmrStart                PREFIX(LOS_SwtmrStart)
 #define LOS_SwtmrStop                 PREFIX(LOS_SwtmrStop)
 #define LOS_SwtmrDelete               PREFIX(LOS_SwtmrDelete)
+#define LOS_SwtmrTimeGet              PREFIX(LOS_SwtmrTimeGet)
 #define OsSwtmrHandlerItemGet         PREFIX(OsSwtmrHandlerItemGet)
 #define OsSwtmrUsrTaskInit            PREFIX(OsSwtmrUsrTaskInit)
+#define LOS_SwtmrUsrInit              PREFIX(LOS_SwtmrUsrInit)
 #endif
+/* Tick readouts (refs parity). The definitions in kernel/base/los_tick.c
+ * rename to SYS_; the SYS_ prototypes are declared alongside because
+ * los_tick.h reaches some TUs through include chains that complete BEFORE
+ * this header (the TickCountGet trap the sem block documents).
+ * MS2Tick/Tick2MS/TickCountGet are the refs USRSPACE direct-call face:
+ * user code gets same-named COMMON_TEXT copies (los_usr_api.c), NOT
+ * syscalls - refs publishes the pure conversions in the user-executable
+ * section and the tick counter through the user-readable data section
+ * (this tree's R2 g_usrTickCount), so no trap is needed on the usr path. */
+#define LOS_CurrNanosec               PREFIX(LOS_CurrNanosec)
+#define LOS_GetCpuCycle               PREFIX(LOS_GetCpuCycle)
+#define LOS_MS2Tick                   PREFIX(LOS_MS2Tick)
+#define LOS_Tick2MS                   PREFIX(LOS_Tick2MS)
+#define LOS_TickCountGet              PREFIX(LOS_TickCountGet)
+extern UINT64 LOS_CurrNanosec(VOID);
+extern VOID LOS_GetCpuCycle(UINT32 *highCnt, UINT32 *lowCnt);
+extern UINT32 LOS_MS2Tick(UINT32 millisec);
+extern UINT32 LOS_Tick2MS(UINT32 tick);
+extern UINT64 LOS_TickCountGet(VOID);
 #ifdef LOSCFG_BASE_IPC_EVENT
 /* SID event-pool family (kernel definitions in los_event_sid.c). */
 #define LOS_EventCreate               PREFIX(LOS_EventCreate)

@@ -91,6 +91,25 @@ VOID ItLosBoxUsrTick001(VOID);
 VOID ItLosBoxUsrTick002(VOID);
 VOID ItLosBoxUsrSwtmr001(VOID);
 VOID ItLosBoxUsrEvent001(VOID);
+
+/* Mux cases (mux/): same "runs in boxA USER mode" naming contract. Gated by
+ * the kernel mux suite's knob so a mux-off product has no dangling symbols. */
+#if (LOSCFG_TEST_KERNEL_MUX == 1)
+VOID ItLosBoxUsrMux001(VOID);
+VOID ItLosBoxUsrMux002(VOID);
+VOID ItLosBoxUsrMux003(VOID);
+VOID ItLosBoxUsrMux004(VOID);
+VOID ItLosBoxUsrMux005(VOID);
+VOID ItLosBoxUsrMux006(VOID);
+#endif
+
+/* Semaphore cases (sem/): ItLosBoxUsrSem001 is upstream's lifecycle case;
+ * 002/003 are the doc-4 box-side gaps, gated like the kernel sem suite. */
+#if (LOSCFG_TEST_KERNEL_SEM == 1)
+VOID ItLosBoxUsrSem002(VOID);
+VOID ItLosBoxUsrSem003(VOID);
+#endif
+
 #ifdef __cplusplus
 #if __cplusplus
 }

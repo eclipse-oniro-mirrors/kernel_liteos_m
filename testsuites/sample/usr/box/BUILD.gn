@@ -89,6 +89,37 @@ source_set("test_box_usr") {
     "event/It_los_boxA_usr_event_001.c",
   ]
 
+  # Mux cases (mux/): the usr-world successor of the kernel mux suite. The
+  # cases exercise lifecycle, cross-task contention/timeout, ownership and
+  # box-pool quota through the SID veneers. Same one-case-per-file and
+  # shared-helper layout as mem/; file names keep "boxA" for boxes.ld.
+  #
+  # Gated by the SAME Kconfig knob as the kernel mux suite: when
+  # LOSCFG_TEST_KERNEL_MUX is off, neither the kernel cases nor these usr
+  # cases are compiled, and It_los_boxA_usr.c's calls are #if'd out too.
+  # This keeps boxA flash/RAM unchanged for products that skip mux testing.
+  if (defined(LOSCFG_TEST_KERNEL_MUX)) {
+    sources += [
+      "mux/It_los_boxA_usr_mux_util.c",
+      "mux/It_los_boxA_usr_mux_001.c",
+      "mux/It_los_boxA_usr_mux_002.c",
+      "mux/It_los_boxA_usr_mux_003.c",
+      "mux/It_los_boxA_usr_mux_004.c",
+      "mux/It_los_boxA_usr_mux_005.c",
+      "mux/It_los_boxA_usr_mux_006.c",
+    ]
+  }
+
+  # Semaphore cases (sem/): doc 07, 4.2.1/4.2.4 box-side gaps. Gated by the
+  # kernel sem suite's knob for the same reason as the mux block: a sem-off
+  # product must not link box sem cases or carry their code.
+  if (defined(LOSCFG_TEST_KERNEL_SEM)) {
+    sources += [
+      "sem/It_los_boxA_usr_sem_002.c",
+      "sem/It_los_boxA_usr_sem_003.c",
+    ]
+  }
+
   # Raw include dir, NOT the testsuites ":include" config: that config
   # chains the kernel rename root (box_syscalls - LOS_xxx -> SYS_LOS_xxx).
   # usr test TUs must call the PLAIN names so they link the COMMON_TEXT

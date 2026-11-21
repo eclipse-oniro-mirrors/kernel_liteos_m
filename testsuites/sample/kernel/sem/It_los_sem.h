@@ -92,6 +92,7 @@ VOID ItLosSem042(void);
 VOID ItLosSem043(void);
 VOID ItLosSem044(void);
 VOID ItLosSem045(void);
+VOID ItLosSem046(void);
 
 #ifdef __cplusplus
 #if __cplusplus

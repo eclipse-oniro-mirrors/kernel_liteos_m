@@ -474,6 +474,32 @@ OUT:
 
 LITE_OS_SEC_TEXT UINT32 LOS_SemGetValue(UINT32 semHandle, INT32 *currVal)
 {
+#ifdef LOSCFG_BOX
+    LosSemCB *sem = NULL;
+    UINT32 intSave;
+
+    if (currVal == NULL) {
+        return LOS_ERRNO_SEM_PTR_NULL;
+    }
+    /* currVal is written back to the caller: validate it against the
+     * current context before the CB walk (same shape as the sId check in
+     * OsSemCreateInternal, los_sem_box.c). */
+    if (OsCheckValidDataAddr((UINTPTR)currVal, sizeof(INT32)) != LOS_OK) {
+        return LOS_ERRNO_SEM_PTR_NULL;
+    }
+
+    /* Box seam: this entry owns the lock, and a failed sId resolve returns
+     * here instead of through a shared OUT path. */
+    SCHEDULER_LOCK(intSave);
+    if (OsSemGetCB(semHandle, &sem) != LOS_OK) {
+        SCHEDULER_UNLOCK(intSave);
+        return LOS_ERRNO_SEM_INVALID;
+    }
+
+    *currVal = sem->semCount;
+    SCHEDULER_UNLOCK(intSave);
+    return LOS_OK;
+#else
     LosSemCB *sem = GET_SEM(semHandle);
 
     if (GET_SEM_INDEX(semHandle) >= (UINT32)LOSCFG_BASE_IPC_SEM_LIMIT) {
@@ -482,6 +508,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_SemGetValue(UINT32 semHandle, INT32 *currVal)
 
     *currVal = sem->semCount;
     return 0;
+#endif
 }
 
 #endif /* (LOSCFG_BASE_IPC_SEM == 1) */

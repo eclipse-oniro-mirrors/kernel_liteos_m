@@ -104,8 +104,8 @@ SECTIONS
      * too so they fall through to .COMMON_TEXT - see the comment there for
      * the member-by-member audit and for why the three unwinder members
      * are NOT in the list. */
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o *_arm_addsubdf3.o *_arm_addsubsf3.o *_arm_cmpdf2.o *_arm_fixdfsi.o *_arm_fixunsdfsi.o *_arm_muldf3.o *_arm_muldivdf3.o *_arm_mulsf3.o *_arm_truncdfsf2.o *_aeabi_ldivmod.o *_aeabi_uldivmod.o *_dvmd_tls.o *_fixunsdfdi.o *_popcountsi2.o *_udivmoddi4.o *libmusl-m.frexp.o *libmusl-m.frexpl.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o) .text.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o *_arm_addsubdf3.o *_arm_addsubsf3.o *_arm_cmpdf2.o *_arm_fixdfsi.o *_arm_fixunsdfsi.o *_arm_muldf3.o *_arm_muldivdf3.o *_arm_mulsf3.o *_arm_truncdfsf2.o *_aeabi_ldivmod.o *_aeabi_uldivmod.o *_dvmd_tls.o *_fixunsdfdi.o *_popcountsi2.o *_udivmoddi4.o *libmusl-m.frexp.o *libmusl-m.frexpl.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o) .text)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o *_arm_addsubdf3.o *_arm_addsubsf3.o *_arm_cmpdf2.o *_arm_fixdfsi.o *_arm_fixunsdfsi.o *_arm_muldf3.o *_arm_muldivdf3.o *_arm_mulsf3.o *_arm_truncdfsf2.o *_aeabi_ldivmod.o *_aeabi_uldivmod.o *_dvmd_tls.o *_fixunsdfdi.o *_popcountsi2.o *_udivmoddi4.o *libmusl-m.frexp.o *libmusl-m.frexpl.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o *It_los_sem*.o *it_los_sem*.o *It_los_mux*.o *It_los_mutex*.o) .text.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *libmusl-c.mem*.o *libsec.mem*.o *libmusl-c.strcat.o *libmusl-c.strchr.o *libmusl-c.strchrnul.o *libmusl-c.strcmp.o *libmusl-c.strcpy.o *libmusl-c.strcspn.o *libmusl-c.strncat.o *libmusl-c.strncmp.o *libmusl-c.strncpy.o *libmusl-c.strnlen.o *libmusl-c.strrchr.o *libmusl-c.strspn.o *libmusl-c.strstr.o *libmusl-c.strlen*.o *_arm_addsubdf3.o *_arm_addsubsf3.o *_arm_cmpdf2.o *_arm_fixdfsi.o *_arm_fixunsdfsi.o *_arm_muldf3.o *_arm_muldivdf3.o *_arm_mulsf3.o *_arm_truncdfsf2.o *_aeabi_ldivmod.o *_aeabi_uldivmod.o *_dvmd_tls.o *_fixunsdfdi.o *_popcountsi2.o *_udivmoddi4.o *libmusl-m.frexp.o *libmusl-m.frexpl.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o *It_los_sem*.o *it_los_sem*.o *It_los_mux*.o *It_los_mutex*.o) .text)
     /* board/include/los_builddef_target.h routes kernel code via
      * LITE_OS_SEC_TEXT* to .kernel.text; ITCM variant falls back to
      * normal flash (STM32F407 has no ITCM). */
@@ -113,9 +113,9 @@ SECTIONS
     *(.itcm.kernel.text)
     . = ALIGN(0x4);
     _etext = .;
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o) .rodata.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o) .gnu.linkonce.r.*)
-    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o) .rodata)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o *It_los_sem*.o *it_los_sem*.o *It_los_mux*.o *It_los_mutex*.o) .rodata.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o *It_los_sem*.o *it_los_sem*.o *It_los_mux*.o *It_los_mutex*.o) .gnu.linkonce.r.*)
+    *(EXCLUDE_FILE(*boxA*.o *boxB*.o *box_usr_mem.*.o *box_usr_test.*.o *los_usr_swtmr_task*.o *los_usr_init*.o *It_los_queue*.o *LLt_los_queue*.o *Llt_los_queue*.o *It_los_event*.o *It_los_sem*.o *it_los_sem*.o *It_los_mux*.o *It_los_mutex*.o) .rodata)
     *(.rodata1)
     . = ALIGN(0x4);
     __kernel_text_end = .;
@@ -246,23 +246,15 @@ SECTIONS
      * (only the rodata needs it here; the function itself rides the
      * .usrtcm.text attribute, the globals ride .USER_READONLY_DATA). */
     KEEP(*los_usr_init*.o(.rodata .rodata.*))
-    /* Kernel-test suites (testsuites/sample/kernel/queue + event, built as
-     * static_library members): their .text/.rodata land in COMMON_FLASH so
-     * the 128K KERNEL_FLASH slot holds only the kernel proper + the test
-     * framework (osTest.c test_init module). EXCLUDE_FILE above drops these
-     * members from the KERNEL_FLASH .text/.rodata rules; these rules collect
-     * them here. Patterns are the archive MEMBER names (It_los_queue_001.c.o,
-     * LLt_/Llt_ variants, It_los_event_NNN.c.o) - the It_ prefix cannot
-     * collide with kernel modules like base.los_queue.o. Deliberately NOT
-     * KEEP: suite code is kernel-only and every live case is referenced from
-     * its suite entry (ItSuiteLosQueue/ItSuiteLosEvent), so --gc-sections
-     * drops the cases the suite-list macros gate out (TEST_FULL /
-     * QUEUE_STATIC_ALLOCATION), keeping COMMON_TEXT small. Data/BSS stay in
-     * KERNEL_RAM: nothing in a box ever touches suite state. */
+
     *It_los_queue*.o(.text .text.* .rodata .rodata.*)
     *LLt_los_queue*.o(.text .text.* .rodata .rodata.*)
     *Llt_los_queue*.o(.text .text.* .rodata .rodata.*)
     *It_los_event*.o(.text .text.* .rodata .rodata.*)
+    *It_los_sem*.o(.text .text.* .rodata .rodata.*)
+    *it_los_sem*.o(.text .text.* .rodata .rodata.*)
+    *It_los_mux*.o(.text .text.* .rodata .rodata.*)
+    *It_los_mutex*.o(.text .text.* .rodata .rodata.*)
     /* libc mem/str primitives shared with the box world: the pure
      * helpers — mem family (musl mem*.o + libsec mem{set,cpy}_s) and 16
      * plain str members — carry no globals/rodata tables. The two

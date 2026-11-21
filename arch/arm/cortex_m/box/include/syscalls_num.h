@@ -128,8 +128,9 @@
  * form and the BOX=off table entries bind the renamed kernel natives. */
 #define SYSCALL_NUM_SEM_CREATE     80
 #define SYSCALL_NUM_SEM_DELETE     81
-#define SYSCALL_NUM_SEM_PEND      82
-#define SYSCALL_NUM_SEM_POST      83
+#define SYSCALL_NUM_SEM_PEND       82
+#define SYSCALL_NUM_SEM_POST       83
+#define SYSCALL_NUM_SEM_GETVALUE   84
 
 /* OTHER_BASE (= 130) + 0..39 stay free apart from the demo entries above:
  * zero mem syscalls. The shared COMMON allocator is called directly, and the

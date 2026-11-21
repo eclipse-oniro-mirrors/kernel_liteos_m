@@ -205,13 +205,17 @@ VOID ItSuiteLosQueue(VOID)
 #endif
 #if (LOS_KERNEL_TEST_FULL == 1)
 #if (LOS_KERNEL_HWI_TEST == 1)
+#ifndef LOSCFG_BOX
+    /* box not support OS_INT_ACTIVE create sid */
     ItLosQueue044();
     ItLosQueue045();
+
 #if (LOS_KERNEL_MULTI_HWI_TEST == 1)
     ItLosQueue046();
 #endif
-    ItLosQueue047();
     ItLosQueue048();
+#endif
+    ItLosQueue047();
     ItLosQueue050();
     ItLosQueue108();
 #endif
@@ -220,10 +224,13 @@ VOID ItSuiteLosQueue(VOID)
     LlTLosQueue001();
     LltLosQueue003();
     ItLosQueue091();
+#ifndef LOSCFG_BOX
+    /* box not support OS_INT_ACTIVE create sid */
     ItLosQueue092();
     ItLosQueue093();
-    ItLosQueue094();
     ItLosQueue095();
+#endif
+    ItLosQueue094();
     ItLosQueue110();
 #endif
 #if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)

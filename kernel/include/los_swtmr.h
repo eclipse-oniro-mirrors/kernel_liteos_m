@@ -231,6 +231,28 @@ enum enSwTmrAlignSensitive {
 
 /**
  * @ingroup los_swtmr
+ * Software timer error code: the caller has no box context for the
+ * per-box swtmr bring-up (kernel thread / interrupt).
+ *
+ * Value: 0x02000322
+ *
+ * Solution: Call the bring-up from a task running inside the owning box.
+ */
+#define LOS_ERRNO_SWTMR_INVALID_BOXCB              LOS_ERRNO_OS_ERROR(LOS_MOD_SWTMR, 0x22)
+
+/**
+ * @ingroup los_swtmr
+ * Software timer error code: the per-box swtmr task is already up
+ * (singleton bring-up, second call refused).
+ *
+ * Value: 0x02000323
+ *
+ * Solution: Do not bring the box swtmr task up twice.
+ */
+#define LOS_ERRNO_SWTMR_INIT                       LOS_ERRNO_OS_ERROR(LOS_MOD_SWTMR, 0x23)
+
+/**
+ * @ingroup los_swtmr
  * Software timer mode
  */
 enum EnSwTmrType {

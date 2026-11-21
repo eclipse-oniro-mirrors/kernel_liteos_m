@@ -231,12 +231,18 @@ LosSwtmrCB *OsSwtmrFromIdUsr(UINT32 swtmrId)
  * plain LOS_TaskCreate routes to the KERNEL pool here (its boxCB stays
  * NULL and the item consumption below rejects the caller), so this goes
  * through OsUsrTaskCreateOnly with a user stack from the box heap. Called
- * via the BoxSwtmrInit veneer from the owning box's entry task. */
-UINT32 OsSwtmrUsrTaskInit(UINT16 boxId, UINT32 stackSize)
+ * via the BoxSwtmrInit veneer from the owning box's entry task.
+ *
+ * taskStack is the refs contract split in two: NULL keeps the box-heap
+ * allocation (refs' own usr caller passes NULL for exactly this shape);
+ * a caller-supplied stack runs the task on it as a STATIC stack (the
+ * same discriminator LOS_TaskCreateStatic uses). */
+UINT32 OsSwtmrUsrTaskInitEx(UINT16 boxId, VOID *taskStack, UINT32 stackSize)
 {
     LosBoxCB *boxCB = NULL;
     TSK_INIT_PARAM_S swtmrTask = {0};
     VOID *usrStack = NULL;
+    BOOL stackType = STACK_TYPE_DYNAMIC;
     UINT32 swtmrTaskId;
     UINT32 ret;
 
@@ -244,13 +250,26 @@ UINT32 OsSwtmrUsrTaskInit(UINT16 boxId, UINT32 stackSize)
         (g_swtmrBoxCtx[boxId].cbArray == NULL)) {
         return LOS_ERRNO_SWTMR_TASK_CREATE_FAILED;
     }
+    /* A box's swtmr task is a singleton. The "no task" sentinel is
+     * (UINT32)-1: OsSwtmrUsrInit (module init) and OsSwtmrDestroyUsr both
+     * leave exactly that value, and a live bring-up records a real encoded
+     * box task id (never 0, never -1). Comparing against 0 instead would
+     * refuse the FIRST legitimate bring-up of every boot. */
+    if (g_swtmrBoxCtx[boxId].swtmrTaskId != (UINT32)-1) {
+        return LOS_ERRNO_SWTMR_INIT;
+    }
     boxCB = &g_userBoxCBArr[boxId];
 
-    /* user stack from the box heap: by then the entry task has brought
-     * the heap up (BoxSwtmrInit runs after the LOS_MemInit in the entry) */
-    usrStack = LOS_MemAlloc(boxCB->layout[0].boxMemPoolAddr, stackSize);
-    if (usrStack == NULL) {
-        return LOS_ERRNO_SWTMR_NO_MEMORY;
+    if (taskStack == NULL) {
+        /* user stack from the box heap: by then the entry task has brought
+         * the heap up (BoxSwtmrInit runs after the LOS_MemInit in the entry) */
+        usrStack = LOS_MemAlloc(boxCB->layout[0].boxMemPoolAddr, stackSize);
+        if (usrStack == NULL) {
+            return LOS_ERRNO_SWTMR_NO_MEMORY;
+        }
+    } else {
+        usrStack = taskStack;
+        stackType = STACK_TYPE_STATIC;
     }
 
     swtmrTask.pfnTaskEntry = (TSK_ENTRY_FUNC)BoxSwtmrTask;
@@ -259,7 +278,7 @@ UINT32 OsSwtmrUsrTaskInit(UINT16 boxId, UINT32 stackSize)
     swtmrTask.usTaskPrio = 0;
 
     ret = OsUsrTaskCreateOnly(&swtmrTaskId, &swtmrTask, usrStack, boxCB,
-                              (BOOL)STACK_TYPE_DYNAMIC);
+                              stackType);
     if (ret == LOS_OK) {
         /* born-INUSER tasks are created in the suspended state - the
          * activate step (LOS_TaskCreateStatic does the same at its tail)
@@ -274,6 +293,27 @@ UINT32 OsSwtmrUsrTaskInit(UINT16 boxId, UINT32 stackSize)
          * task busy-loops, starving every lower-priority task. */
     }
     return ret;
+}
+
+UINT32 OsSwtmrUsrTaskInit(UINT16 boxId, UINT32 stackSize)
+{
+    return OsSwtmrUsrTaskInitEx(boxId, NULL, stackSize);
+}
+
+/* Bring up the CURRENT box's swtmr task, refs prototype
+ * (kernel_s/base/los_swtmr.c LOS_SwtmrUsrInit). refs builds the expiry
+ * ring here as well; this tree attaches the ring with the pool itself
+ * (OsSwtmrUsrBoxInit, called at box creation), so what remains of the
+ * refs body is the guard chain plus the task creation. Reached through
+ * the syscall surface from the owning box's user code. */
+UINT32 LOS_SwtmrUsrInit(VOID *taskStack, UINT32 stackSize)
+{
+    const LosBoxCB *boxCB = OsGetCurBoxCB();
+
+    if (OS_INT_ACTIVE || (boxCB == NULL) || (boxCB->boxId >= LOSCFG_BASE_BOX_MAX_LIMIT)) {
+        return LOS_ERRNO_SWTMR_INVALID_BOXCB;
+    }
+    return OsSwtmrUsrTaskInitEx(boxCB->boxId, taskStack, stackSize);
 }
 
 /* Clear a box's swtmr resources: stop ticking timers, recycle them to the

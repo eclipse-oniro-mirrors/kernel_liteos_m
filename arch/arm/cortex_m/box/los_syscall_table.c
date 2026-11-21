@@ -18,6 +18,7 @@
 #include "los_event_sid.h"   /* LOS_TaskEventRead/Write, event pool family */
 #include "los_queue.h"        /* LOS_QueueCreate/Delete/Read+WriteCopy (-> SYS_*) */
 #include "los_swtmr.h"        /* LOS_SwtmrCreate/... + BOX section types */
+#include "los_tick.h"         /* LOS_CurrNanosec / LOS_GetCpuCycle (-> SYS_*) */
 #if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
 #include "los_swtmr_usr_pri.h" /* OsSwtmrHandlerItemGet/UsrTaskInit prototypes */
 #endif

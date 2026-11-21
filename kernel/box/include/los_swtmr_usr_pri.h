@@ -53,6 +53,18 @@ extern SwtmrBoxCtx g_swtmrBoxCtx[LOSCFG_BASE_BOX_MAX_LIMIT];
 extern UINT32 OsSwtmrUsrBoxInit(UINT16 boxId, LosSwtmrCB *swtmList, UINT32 listLen,
                                 UINTPTR queueBuf, UINT32 queueLen);
 
+/* Create the per-box swtmr task. taskStack NULL allocates the user stack
+ * from the box heap (dynamic); non-NULL runs the task on the caller stack
+ * (static discriminator). */
+extern UINT32 OsSwtmrUsrTaskInitEx(UINT16 boxId, VOID *taskStack, UINT32 stackSize);
+
+/* Same with the box-heap stack: the box entry's BoxSwtmrInit path. */
+extern UINT32 OsSwtmrUsrTaskInit(UINT16 boxId, UINT32 stackSize);
+
+/* refs-prototype bring-up of the CURRENT box's swtmr task (syscall face):
+ * the box is taken from the caller context, so no boxId argument. */
+extern UINT32 LOS_SwtmrUsrInit(VOID *taskStack, UINT32 stackSize);
+
 /* Resolve the LosSwtmrCB behind an (encoded) box swtmr id: NULL when the
  * id does not address a live box pool timer (out of range / stale owner).
  * Needed because OsSwtmrIdVerify in los_swtmr.c only walks the kernel

@@ -60,13 +60,16 @@ VOID boxTestEntry(VOID)
     /* Bring up this box's swtmr task (the deferred-callback consumer).
      * Done AFTER the park on purpose: during the kernel
      * phase the prio-0 consumer must not be scheduled at all, so the usr
-     * suites that need it (ItLosBoxUsr005) get it only for their own window.
+     * suites that need it (ItLosBoxUsrSwtmr002) get it only for their own window.
      * Without this the box swtmr handlers never fire - every "wait for the
      * handler" phase times out. */
     {
         UINT32 swtRet = BoxSwtmrInit(LOS_BOXA_ID, 1024);
         if (swtRet != LOS_OK) {
-            LOS_PrintStr("UTS: BoxSwtmrInit failed!\n");
+            /* The error code localizes the refusal (single-caller bring-up:
+             * TASK_CREATE_FAILED / NO_MEMORY / INIT / resume error each
+             * name a different layer). */
+            dprintf("UTS: BoxSwtmrInit failed, ret 0x%x\n", swtRet);
         }
     }
 #endif

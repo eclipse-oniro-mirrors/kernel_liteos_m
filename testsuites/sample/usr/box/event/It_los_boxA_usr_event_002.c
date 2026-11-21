@@ -29,10 +29,10 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* ItLosBoxUsr004 - deep blocking half of the SID event family.
+/* ItLosBoxUsrEvent002 - deep blocking half of the SID event family.
  *
  * Runs in boxA USER mode through the shared iCunit. Same verdict shape as
- * ItLosBoxUsr003: a "fails counter, phases keep running" body (every phase
+ * ItLosBoxUsrCondvar001: a "fails counter, phases keep running" body (every phase
  * recycles before the next one creates), one ICunit assertion collapses
  * the verdict at the end.
  *
@@ -220,7 +220,7 @@ static UINT32 TestCase(VOID)
     return LOS_OK;
 }
 
-VOID ItLosBoxUsr004(VOID)
+VOID ItLosBoxUsrEvent002(VOID)
 {
-    TEST_ADD_CASE("ItLosBoxUsr004", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosBoxUsrEvent002", TestCase, TEST_LOS, TEST_LOS_USR, TEST_LEVEL1, TEST_FUNCTION);
 }

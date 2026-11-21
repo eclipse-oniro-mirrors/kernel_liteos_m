@@ -41,7 +41,6 @@
  * Kernel mode, no box context. */
 
 #include "osTest.h"
-#include "It_los_box.h"
 #include "los_queue_pri.h"   /* queue API + bitmap macros */
 
 #define BOX_Q_LEN       3   /* queue depth */

@@ -44,17 +44,16 @@ extern "C" {
 #endif /* __cplusplus */
 #endif /* __cplusplus */
 
-VOID ItLosBoxUsr001(VOID);
-VOID ItLosBoxUsr002(VOID);
-VOID ItLosBoxUsr003(VOID);
-VOID ItLosBoxUsr004(VOID);
-VOID ItLosBoxUsr005(VOID);
-VOID ItLosBoxUsr006(VOID);
-VOID ItLosBoxUsr007(VOID);
+/* Module-subdir functional cases (task/sem/condvar/queue/event/swtmr):
+ * ids follow the file names, same convention as the mem cases. */
+VOID ItLosBoxUsrTask001(VOID);
+VOID ItLosBoxUsrSem001(VOID);
+VOID ItLosBoxUsrCondvar001(VOID);
+VOID ItLosBoxUsrEvent002(VOID);
+VOID ItLosBoxUsrSwtmr002(VOID);
+VOID ItLosBoxUsrQueue001(VOID);
+VOID ItLosBoxUsrEvent003(VOID);
 
-/* Memory cases (mem/), one per file: groups A/B/C/E/F plus the API
- * surface groups H (los_memory.h entry points). Generated from the files
- * present. */
 VOID ItLosBoxUsrMem001(VOID);
 VOID ItLosBoxUsrMem002(VOID);
 VOID ItLosBoxUsrMem003(VOID);
@@ -86,7 +85,12 @@ VOID ItLosBoxUsrMemTsk008(VOID);
 VOID ItLosBoxUsrMemTsk009(VOID);
 VOID ItLosBoxUsrMemTsk010(VOID);
 
-
+/* Module-subdir usr cases (tick/swtmr/event), registered after the mem
+ * block in ItSuiteLosBoxUsr. */
+VOID ItLosBoxUsrTick001(VOID);
+VOID ItLosBoxUsrTick002(VOID);
+VOID ItLosBoxUsrSwtmr001(VOID);
+VOID ItLosBoxUsrEvent001(VOID);
 #ifdef __cplusplus
 #if __cplusplus
 }

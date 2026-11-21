@@ -63,6 +63,7 @@ VOID ItSuiteLosEvent()
     ItLosEvent041();
     ItLosEvent042();
     ItLosEvent043();
+    ItLosEvent044();
 #if (LOS_KERNEL_TEST_FULL == 1)
     ItLosEvent002();
     ItLosEvent011();

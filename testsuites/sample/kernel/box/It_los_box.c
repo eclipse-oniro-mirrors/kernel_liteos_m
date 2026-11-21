@@ -38,4 +38,5 @@ VOID ItSuiteLosBox(VOID)
     ItLosBox002();
     ItLosBox003();
     ItLosBox004();
+    ItLosBox005();
 }

@@ -74,15 +74,16 @@ VOID ItSuiteLosBoxUsr(VOID)
     ItLosBoxUsrMemTsk010();
 
 
-    /* Functional BOX usr cases: condvar / event / swtmr / queue / task /
+    /* Functional BOX usr cases, module-tagged (task/sem/condvar/queue/
+     * event/swtmr subdirs): condvar / event / swtmr / queue / task /
      * semaphore lifecycle. Independent of the heap state. */
-    ItLosBoxUsr001();
-    ItLosBoxUsr002();
-    ItLosBoxUsr003();
-    ItLosBoxUsr004();
-    ItLosBoxUsr005();
-    ItLosBoxUsr006();
-    ItLosBoxUsr007();
+    ItLosBoxUsrTask001();
+    ItLosBoxUsrSem001();
+    ItLosBoxUsrCondvar001();
+    ItLosBoxUsrEvent002();
+    ItLosBoxUsrSwtmr002();
+    ItLosBoxUsrQueue001();
+    ItLosBoxUsrEvent003();
 
     /* MEM-API-006 runs ABSOLUTELY LAST: LOS_MemDeInit leaks the pool LOCK, and
      * under BOX that lock is a MUX drawn from the box mux pool (LIMIT 4, one of
@@ -91,4 +92,12 @@ VOID ItSuiteLosBoxUsr(VOID)
      * C001 / C006 / Usr003, which also need muxes. Kernel defect, reported
      * separately. */
     ItLosBoxUsrMemApi006();
+
+    /* Module-subdir usr cases: tick readouts, swtmr query/bring-up,
+     * SID event clear - all through the syscall face. */
+    ItLosBoxUsrTick001();
+    ItLosBoxUsrTick002();
+    ItLosBoxUsrSwtmr001();
+    ItLosBoxUsrEvent001();
+
 }

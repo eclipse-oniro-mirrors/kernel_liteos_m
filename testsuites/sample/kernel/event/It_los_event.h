@@ -108,6 +108,7 @@ extern VOID ItLosEvent040(VOID);
 extern VOID ItLosEvent041(VOID);
 extern VOID ItLosEvent042(VOID);
 extern VOID ItLosEvent043(VOID);
+extern VOID ItLosEvent044(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

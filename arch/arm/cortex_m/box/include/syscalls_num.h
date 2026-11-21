@@ -4,7 +4,7 @@
  * be unique: the dispatch table holds exactly one slot per number, so two
  * defs sharing a number silently overwrite each other and the losing API
  * ends up running the winner's body - no link error, no runtime error. */
-#define LOSCFG_SYSCALL_NUM  156
+#define LOSCFG_SYSCALL_NUM  158
 
 /* Numbering follows the class layout:
  * TASK base 0-63, IPC base 65+, OTHER base 130+.
@@ -39,6 +39,22 @@
 #define SYSCALL_NUM_SWTMR_DELETE          138
 #define SYSCALL_NUM_SWTMR_HANDLER_GET     139
 #define SYSCALL_NUM_SWTMR_USR_TASK_INIT   140
+
+/* Refs parity additions to the swtmr user surface (refs arms: TASK+27
+ * TimeGet, TASK+29 SwtmrUsrInit). TimeGet carries the OHOS two-arg face
+ * (the refs prototype has a third interval out-arg - recorded deviation,
+ * the syscall exposes the OHOS API). SwtmrUsrInit keeps the refs
+ * prototype. Numbers appended in the custom tail segment (141..155 are
+ * taken by the event/queue/condvar blocks). */
+#define SYSCALL_NUM_SWTMR_TIMEGET        156
+#define SYSCALL_NUM_SWTMR_USR_INIT       157
+
+/* Tick readouts for the box world (refs arms: TASK+20 / TASK+22; the same
+ * numbers keep the ABI aligned with refs). CurrNanosec returns UINT64:
+ * the epilogue writes both r0 and r1 back into the veneer's args block,
+ * the veneer's pop {r0-r3} restores them - see los_svc_entry.S. */
+#define SYSCALL_NUM_CURR_NANOSEC          20
+#define SYSCALL_NUM_GET_CPU_CYCLE         22
 
 /* SID event-pool family. */
 #define SYSCALL_NUM_EVENT_CREATE           141

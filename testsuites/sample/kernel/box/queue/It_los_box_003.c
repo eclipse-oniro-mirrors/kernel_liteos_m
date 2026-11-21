@@ -44,7 +44,6 @@
  * involved). */
 
 #include "osTest.h"
-#include "It_los_box.h"
 #include "los_queue_pri.h"   /* queue API + helpers */
 #include "los_sec_pri.h"     /* LOS_GenSId / LOS_SIdDelete / SID types */
 

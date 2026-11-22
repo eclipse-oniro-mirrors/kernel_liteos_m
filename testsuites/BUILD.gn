@@ -52,6 +52,24 @@ config("kernel_test_coverage") {
       #   CM4 的覆盖率（测试专用）构建，发布构建不受影响。
       cflags += [ "-fno-stack-protector" ]
     }
+    if (defined(LOSCFG_PLATFORM_STM32F407VET6)) {
+      # This board's KERNEL_FLASH/RAM are fixed 128K/64K slots and cannot
+      # hold gcov instrumentation for every whitelisted TU: the unfiltered
+      # set overflows both (measured +87K flash / +67K RAM with the target
+      # box-config table builders included). The filter keeps what this
+      # port actually wants to measure: the BOX mechanism (kernel/box, arch
+      # box glue) plus the IPC and task cores the suites exercise. The
+      # sem core is deliberately OUT since the external issue-1109 suite
+      # expansion: instrumenting los_sem.c shifts the sem/hwi suites'
+      # timing windows and drains the small sem pool (control run without
+      # instrumentation: 366/0/0; cov run with sem: 113 FAILs, 81x
+      # 0x3000200 cascade + 21x 0x2000904 trigger misses).
+      # target box-config sources (boxes_conf.c / offsets) are
+      # deliberately OUT - static table builders, low coverage value.
+      # It must stay a SINGLE flag: multiple -fprofile-filter-files take
+      # last-wins (same rule as -fprofile-exclude-files above).
+      cflags += [ "-fprofile-filter-files=.*kernel/liteos_m/(kernel/box/|kernel/base/los_(queue|event|mux|task)\\.c|arch/arm/cortex_m/box/).*" ]
+    }
     # 注: riscv gcc 7.3 不支持 -fprofile-exclude-files(GCC 8+), ws63 侧对非
     # 30 目标目录(shell/cmsis/lms/pm/cpup/backtrace)的插桩排除改由 liteos.gni
     # 的 kernel_module 模板追加 no_test_coverage 实现(见该处注释)。

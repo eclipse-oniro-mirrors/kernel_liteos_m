@@ -157,6 +157,13 @@ kernel_module("box_usr") {
   ]
 
   configs += [ "$LITEOSTOPDIR:warn_config" ]
+
+  # No gcov instrumentation: these TUs run unprivileged inside a box, and
+  # their sources sit inside the coverage whitelist directory (kernel/box/),
+  # so without this exclusion the compiler-emitted counters would land in
+  # kernel .bss - a user-mode counter update would MemManage-fault. The
+  # exclusion config is empty unless LOSCFG_TEST_KERNEL_COVERAGE is defined.
+  configs += [ "$LITEOSTOPDIR/testsuites:no_test_coverage" ]
 }
 
 # Two kernel_module targets in this file means liteos.gni no longer

@@ -8,6 +8,9 @@ module_name = "bsp_config"
 kernel_module(module_name) {
   asmflags = board_asmflags
 
+  # linker script template expansion must run before the final link
+  deps = [ ":gen_liteos_ld" ]
+
   # Section routing for this module only (kernel modules stay default):
   # LITE_OS_SEC_* -> .kernel.text/.data/.bss, .box.res, .usr.text ... 
   # All collected by liteos.ld (see los_builddef_target.h mapping).
@@ -33,7 +36,7 @@ kernel_module(module_name) {
       "../box/boxes_cfg/boxes_conf.c",
     ]
     configs += [ "$LITEOSTOPDIR/arch/arm/cortex_m:box_syscalls" ]
-    deps = [
+    deps += [
       # box user world (stub syscalls.h root + veneer-linked LOS_xxx)
       "../box/usr_demo:box_usr_demo",
       # usr shared copy of the bestfit allocator (COMMON_TEXT
@@ -52,6 +55,27 @@ kernel_module(module_name) {
   }
 }
 
+# Single linker-script source: liteos.ld.in carries the one coverage-vs-stock
+# difference (four FLASH slot sizes/origins) inside #ifdef. GNU ld does not
+# run cpp on linker scripts (#ifdef in a .ld is dead text - both MEMORY
+# blocks used to land and the later one won), so this action expands the
+# template into the plain .ld the linker consumes. Both stock and coverage
+# builds link the generated script; the stock expansion differs from the
+# historical liteos.ld only by comments (verified: same link product, demo
+# anchor unchanged).
+action("gen_liteos_ld") {
+  script = "gen_liteos_ld.py"
+  inputs = [ "liteos.ld.in" ]
+  outputs = [ "$target_out_dir/liteos.ld" ]
+  args = [
+    rebase_path("liteos.ld.in"),
+    rebase_path("$target_out_dir/liteos.ld"),
+  ]
+  if (defined(LOSCFG_TEST_KERNEL_COVERAGE)) {
+    args += [ "--cov" ]
+  }
+}
+
 config("public") {
   include_dirs = [
     ".",
@@ -60,9 +84,10 @@ config("public") {
     "../box/kernel",
     "../box/boxes_cfg",
   ]
+  _ld_script = rebase_path(get_label_info(":gen_liteos_ld", "target_out_dir") + "/liteos.ld")
   ldflags = [
     "-nostartfiles",
-    "-Wl,-T" + rebase_path("liteos.ld"),
+    "-Wl,-T" + _ld_script,
     "-nostdlib",
   ]
 

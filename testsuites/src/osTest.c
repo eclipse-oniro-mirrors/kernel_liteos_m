@@ -446,7 +446,7 @@ UINT32 los_TestInit(VOID)
     TSK_INIT_PARAM_S osTaskInitParam = { 0 };
 
     osTaskInitParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TestTaskEntry;
-    osTaskInitParam.uwStackSize = OS_TSK_TEST_STACK_SIZE;
+    osTaskInitParam.uwStackSize = OS_TSK_MAIN_TEST_STACK_SIZE;
     osTaskInitParam.pcName = "IT_TST_INI";
     osTaskInitParam.usTaskPrio = TASK_PRIO_TEST;
     osTaskInitParam.uwResved = LOS_TASK_ATTR_JOINABLE;

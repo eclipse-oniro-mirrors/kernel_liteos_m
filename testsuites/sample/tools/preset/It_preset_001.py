@@ -24,7 +24,7 @@ def TestCase():
         for dv, cond in sym.defaults:
             if "KERNEL_RAM_PRESET" in str(cond):
                 strscan.add(sym.name); break
-    checks.append(("str(cond) 扫描 managed 数(缺陷②口径)", "49", str(len(strscan)), len(strscan) == 49))
+    checks.append(("str(cond) 扫描 managed 数(缺陷②口径)", "61", str(len(strscan)), len(strscan) == 61))
     sym34 = ["KERNEL_BACKTRACE", "KERNEL_CPUP", "PLATFORM_EXC", "BASE_CORE_TSK_LIMIT",
              "BASE_CORE_TSK_MIN_STACK_SIZE", "BASE_CORE_TSK_IDLE_STACK_SIZE", "BASE_CORE_TSK_SWTMR_STACK_SIZE",
              "BASE_CORE_SWTMR", "BASE_CORE_SWTMR_LIMIT", "BASE_CORE_SWTMR_IN_ISR", "BASE_IPC_EVENT",
@@ -51,7 +51,7 @@ def TestCase():
     checks.append(("choice 级 managed(choice default if 挡位)", "2", str(ch_choice), ch_choice == 2))
     real_in_scan = sum(1 for n in sym34 if n in strscan)
     checks.append(("符号级真实项均在扫描集内", "34", str(real_in_scan), real_in_scan == 34))
-    checks.append(("误匹配数(49-34)", "15", str(len(strscan) - real_in_scan), len(strscan) - real_in_scan == 15))
+    checks.append(("误匹配数(61-34)", "27", str(len(strscan) - real_in_scan), len(strscan) - real_in_scan == 27))
     record("ItPreset001", checks)
 
 

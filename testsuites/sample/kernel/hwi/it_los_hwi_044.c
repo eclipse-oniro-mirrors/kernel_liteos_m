@@ -91,7 +91,7 @@ static UINT32 Testcase(VOID)
     LOS_HwiPostHookReg(PostHookFunc);
 
     /* 2) Create and trigger an interrupt. */
-    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, NULL);
     #ifdef LOSCFG_KERNEL_SMP
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
     #endif

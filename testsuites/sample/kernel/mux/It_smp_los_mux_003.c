@@ -65,7 +65,7 @@ static UINT32 Testcase(VOID)
     ret = LOS_MuxCreate(&g_mutexTest1);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 0, 0, (HWI_PROC_FUNC)Hwi01, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 0, 0, (HWI_PROC_FUNC)Hwi01, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(currCpuid));

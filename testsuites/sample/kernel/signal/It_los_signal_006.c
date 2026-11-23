@@ -58,7 +58,6 @@ static VOID SubTask006(VOID)
     sigset_t set;
     sigset_t oldSet;
     siginfo_t info;
-    HwiIrqParam irqParam;
     UINT32 loop;
 
     /* 1 F-Inv: set==NULL → INVALID, oldSet 已回填 */
@@ -107,11 +106,9 @@ static VOID SubTask006(VOID)
     }
 
     /* 5 F-Inv: 中断上下文 → PEND_INTERR */
-    (VOID)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
     g_hwiDone006 = 0;
     g_sigRetInHwi006 = 0;
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 2, 0, (HWI_PROC_FUNC)HwiHandler006, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 2, 0, (HWI_PROC_FUNC)HwiHandler006, NULL);
 #ifdef LOSCFG_KERNEL_SMP
         (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif

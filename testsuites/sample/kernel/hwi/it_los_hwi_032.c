@@ -69,15 +69,12 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     HWI_PRIOR_T hwiPrio = OS_HWI_PRIO_LOWEST;
     HWI_MODE_T mode = 0;
-    HwiIrqParam irqParam;
-    (void)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
 
     g_testCount = 0;
 
     /* Creates 3 interrupts in a row with interrupt number */
     for (g_uwIndex = 0; g_uwIndex < 3; g_uwIndex++) {
-        ret = LOS_HwiCreate(HWI_NUM_INT0 + g_uwIndex, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+        ret = LOS_HwiCreate(HWI_NUM_INT0 + g_uwIndex, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, NULL);
 #ifdef LOSCFG_KERNEL_SMP
             (VOID)LOS_HwiSetAffinity(HWI_NUM_INT0 + g_uwIndex, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif
@@ -89,7 +86,7 @@ static UINT32 Testcase(VOID)
     for (g_uwIndex = 4; g_uwIndex < TEST_MAX_NUMBER_HWI; g_uwIndex++) {
         /* if interrupt number is not HWI_NUM_INT0 + 5 */
         if (g_uwIndex != 5) {
-            ret = LOS_HwiCreate(HWI_NUM_INT0 + g_uwIndex, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+            ret = LOS_HwiCreate(HWI_NUM_INT0 + g_uwIndex, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, NULL);
 #ifdef LOSCFG_KERNEL_SMP
                 (VOID)LOS_HwiSetAffinity(HWI_NUM_INT0 + g_uwIndex, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif

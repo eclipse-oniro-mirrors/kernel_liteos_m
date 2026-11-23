@@ -73,7 +73,7 @@ static UINT32 Testcase(void)
     for (j = 0; j < LOOP; j++) {
         g_testCount = 0;
         g_ret = 0;
-        ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+        ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, NULL);
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
         for (i = 0; i < LOSCFG_KERNEL_CORE_NUM; i++) {

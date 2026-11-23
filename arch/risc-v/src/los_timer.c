@@ -92,10 +92,7 @@ STATIC UINT32 SysTickStart(HWI_PROC_FUNC handler)
 #else
     UINT32 period = (UINT32)LOSCFG_BASE_CORE_TICK_RESPONSE_MAX;
 #endif
-    HwiIrqParam irqParam;
-    irqParam.pDevId = (VOID *)period;
-
-    UINT32 ret = LOS_HwiCreate(RISCV_MACH_TIMER_IRQ, 0x1, 0, handler, &irqParam);
+    UINT32 ret = LOS_HwiCreate(RISCV_MACH_TIMER_IRQ, 0x1, 0, handler, NULL);
     if (ret != LOS_OK) {
         return ret;
     }

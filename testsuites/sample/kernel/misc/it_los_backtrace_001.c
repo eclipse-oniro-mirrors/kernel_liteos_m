@@ -49,7 +49,6 @@ static UINT32 TestCase(VOID)
     UINTPTR lr[BT_TC001_DEPTH] = {0};
     UINT32 localAnchor = 0xA5A5A5A5;
     UINT32 ret;
-    HwiIrqParam irqParam;
     UINT32 i;
 
     /* 1 F-Pos: 任务栈内 SP(局部变量地址) → 任务栈分支 + 回溯遍历
@@ -70,10 +69,8 @@ static UINT32 TestCase(VOID)
     LOS_RecordLR(lr, BT_TC001_DEPTH, 0, (UINTPTR)(CSTACK_START_ADDR + 0x40));
 
     /* 4 F-Pos: 中断上下文 LOS_BackTrace → handler 模式 MSP 分支 */
-    (VOID)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
     g_btHwiDone001 = 0;
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 2, 0, (HWI_PROC_FUNC)HwiHandlerBT001, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 2, 0, (HWI_PROC_FUNC)HwiHandlerBT001, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     LOS_HwiEnable(HWI_NUM_TEST);
     LOS_HwiTrigger(HWI_NUM_TEST);

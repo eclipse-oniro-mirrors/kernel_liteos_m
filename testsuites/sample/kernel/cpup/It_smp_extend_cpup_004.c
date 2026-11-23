@@ -62,13 +62,13 @@ static VOID Task01(void)
     g_dev1.pDevId = (void *)1;
     g_dev1.swIrq = HWI_NUM_TEST;
     // 3, used to set the hwi priority.
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 3, IRQF_SHARED, (HWI_PROC_FUNC)HwiF01, &g_dev1);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 3, IRQF_SHARED, (HWI_PROC_FUNC)HwiF01, NULL);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
     g_dev2.pDevId = (void *)2; // 2, used to set the dev ID.
     g_dev2.swIrq = HWI_NUM_TEST;
     // 3, used to set the hwi priority.
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 3, IRQF_SHARED, (HWI_PROC_FUNC)HwiF02, &g_dev2);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 3, IRQF_SHARED, (HWI_PROC_FUNC)HwiF02, NULL);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
     LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));

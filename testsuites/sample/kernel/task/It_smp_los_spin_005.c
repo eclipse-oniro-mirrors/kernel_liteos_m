@@ -38,7 +38,7 @@ static UINT32 Testcase(void)
     LOS_SpinLock(&g_spinLock);         /* 主任务持锁 */
 
     TestHwiClear(HWI_NUM_TEST);
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF05, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF05, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 #ifdef LOSCFG_KERNEL_SMP
     ret = LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));

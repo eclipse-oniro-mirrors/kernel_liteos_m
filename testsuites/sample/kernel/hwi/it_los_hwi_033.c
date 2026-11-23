@@ -52,15 +52,12 @@ static UINT32 Testcase(VOID)
     UINT32 loop;
     HWI_PRIOR_T hwiPrio = OS_HWI_PRIO_LOWEST;
     HWI_MODE_T mode = 0;
-    HwiIrqParam irqParam;
-    (void)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
 
     for (loop = 0; loop < HWI_LOOP_NUM; loop++) {
         for (index = 0; index < OS_HWI_MAX_USED_NUM; index++) {
             /* if not Interrupt number HWI_NUM_TEST1 + 3\4\32\35\36. */
             if ((index != 3) && (index != 4) && (index != 32) && (index != 35) && (index != 36)) {
-                ret = LOS_HwiCreate(HWI_NUM_TEST1 + index, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+                ret = LOS_HwiCreate(HWI_NUM_TEST1 + index, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, NULL);
                 ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
             }
 

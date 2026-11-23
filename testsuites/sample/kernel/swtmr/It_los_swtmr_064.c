@@ -60,9 +60,6 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     HWI_PRIOR_T hwiPrio = 3;
     HWI_MODE_T hwiMode;
-    HwiIrqParam irqParam;
-    (void)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
 
     g_testCount = 0;
 
@@ -70,7 +67,7 @@ ret = LOS_SwtmrCreate(TIMER_LOS_EXPIRATION3, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALI
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     hwiMode = 0;
-    ret = TEST_HwiCreate(HWI_NUM_TEST, hwiPrio, hwiMode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    ret = TEST_HwiCreate(HWI_NUM_TEST, hwiPrio, hwiMode, (HWI_PROC_FUNC)HwiF01, NULL);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
     ret = LOS_SwtmrStart(g_swtmrId1);

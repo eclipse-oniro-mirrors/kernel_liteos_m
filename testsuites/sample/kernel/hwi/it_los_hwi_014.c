@@ -72,23 +72,20 @@ static UINT32 Testcase(VOID)
     HWI_PRIOR_T hwiPrio1 = 4; /* HWI_NUM_TEST1 (155, HwiF03) - second (0x20) */
 #endif
     HWI_MODE_T mode = 0;
-    HwiIrqParam irqParam;
-    (void)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
     UINT32 intSave;
 
     g_testCount = 0;
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, NULL);
     #ifdef LOSCFG_KERNEL_SMP
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
     #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
 #ifdef LOSCFG_TEST_HWI_PRIO_FOLDED
-    ret = LOS_HwiCreate(HWI_NUM_TEST3, hwiPrio3, mode, (HWI_PROC_FUNC)HwiF02, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST3, hwiPrio3, mode, (HWI_PROC_FUNC)HwiF02, NULL);
 #else
-    ret = LOS_HwiCreate(HWI_NUM_TEST3, hwiPrio, mode, (HWI_PROC_FUNC)HwiF02, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST3, hwiPrio, mode, (HWI_PROC_FUNC)HwiF02, NULL);
 #endif
     #ifdef LOSCFG_KERNEL_SMP
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST3, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
@@ -96,9 +93,9 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
 #ifdef LOSCFG_TEST_HWI_PRIO_FOLDED
-    ret = LOS_HwiCreate(HWI_NUM_TEST1, hwiPrio1, mode, (HWI_PROC_FUNC)HwiF03, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST1, hwiPrio1, mode, (HWI_PROC_FUNC)HwiF03, NULL);
 #else
-    ret = LOS_HwiCreate(HWI_NUM_TEST1, hwiPrio, mode, (HWI_PROC_FUNC)HwiF03, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST1, hwiPrio, mode, (HWI_PROC_FUNC)HwiF03, NULL);
 #endif
     #ifdef LOSCFG_KERNEL_SMP
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST1, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));

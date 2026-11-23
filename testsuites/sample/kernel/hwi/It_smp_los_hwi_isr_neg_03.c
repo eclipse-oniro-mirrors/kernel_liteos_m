@@ -38,7 +38,7 @@ static UINT32 Testcase(void)
     g_eventId = (UINT32)(uintptr_t)&eventId;
 
     TestHwiClear(HWI_NUM_TEST);
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF03, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF03, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);

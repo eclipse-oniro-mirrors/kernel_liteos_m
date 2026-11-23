@@ -45,15 +45,12 @@ static UINT32 TestCase(VOID)
     UINT32 argsNow;
     HWI_PRIOR_T hwiPrio = 3;
     HWI_MODE_T mode = 0;
-    HwiIrqParam irqParam;
-    (VOID)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
 
     TestHplPrepare();
     argsBefore = g_hplArgsEntryCnt;
     g_testCount = 0;
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF14, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF14, NULL);
 #ifdef LOSCFG_KERNEL_SMP
         (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif

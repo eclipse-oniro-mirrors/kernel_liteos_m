@@ -74,7 +74,7 @@ static UINT32 Testcase(VOID)
     HWI_HANDLE_T hwiNum = HWI_NUM_INT14;
     g_testCount = 0;
 
-    ret = LOS_HwiCreate(hwiNum, 1, 0, (HWI_PROC_FUNC)Case2, 0);
+    ret = LOS_HwiCreate(hwiNum, 1, 0, (HWI_PROC_FUNC)Case2, NULL);
 #ifdef LOSCFG_KERNEL_SMP
         (VOID)LOS_HwiSetAffinity(hwiNum, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif

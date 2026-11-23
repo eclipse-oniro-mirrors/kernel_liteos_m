@@ -8,8 +8,8 @@
  * 1. Redistributions of source code must retain the above copyright notice, this list of
  *    conditions and the following disclaimer.
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list of
- *    conditions and the following disclaimer in the documentation and/or other materials
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
+ *    of conditions and the following disclaimer in the documentation and/or other materials
  *    provided with the distribution.
  *
  * 3. Neither the name of the copyright holder nor the names of its contributors may be used
@@ -28,15 +28,23 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Cortex-M exception handling (M4 + M0+ via LOSCFG_ARCH_ARM_V6M).
+ * Cortex-M exception handling.
+ * ARMv6-M: HardFault-only (no CFSR/HFSR/BFAR/MMAR, no separate
+ *   MemManage/Bus/Usage faults); context detection via EXC_RETURN bit 2.
+ * ARMv7-M: full fault state register analysis.
  *
- * M0+ (ARMv6-M, Thumb-1): HardFault-only — no CFSR/HFSR/BFAR/MMAR, no
- *   separate MemManage/Bus/Usage faults (all escalate to HardFault);
- *   context detection via EXC_RETURN bit 2 (NVIC active array on M0+
- *   does not cover system exceptions like PendSV/SysTick/SVC).
- * M4 (ARMv7-M, Thumb-2): full fault state register analysis.
+ * Single source for GNU as and IAR iasmarm (see los_dispatch.S).
+ * IAR: no ARMv6-M and no LOSCFG_SECURE (macros undefined for iasmarm).
  */
 
+#include "los_arch_macro.h"
+
+#ifdef __IASMARM__
+    PRESERVE8
+    SECTION .text:CODE(2)
+    THUMB
+    REQUIRE8
+#else /* __GNUC__ */
 .syntax unified
 #ifdef LOSCFG_ARCH_ARM_V6M
 .arch armv6-m
@@ -46,61 +54,48 @@
 #endif
 .thumb
 .section .text
-
-
-    .global  HalExcNMI
-    .global  HalExcHardFault
-    .global  HalExcMemFault
-    .global  HalExcBusFault
-    .global  HalExcUsageFault
-    .global  HalExcSvcCall
-
-    .extern HalExcHandleEntry
-#ifndef LOSCFG_ARCH_ARM_V6M
-    .extern g_uwExcTbl
 #endif
-    .extern g_taskScheduled
 
-.equ OS_FLG_BGD_ACTIVE,   0x0001
+    EXTERNAL HalExcHandleEntry
+#ifndef LOSCFG_ARCH_ARM_V6M
+    EXTERNAL g_uwExcTbl
+#endif
+    EXTERNAL g_taskScheduled
 
-.equ OS_EXC_CAUSE_NMI,   16
-.equ OS_EXC_CAUSE_HARDFAULT,   17
+    EQUAL OS_FLG_BGD_ACTIVE,   0x0001
+    EQUAL OS_EXC_CAUSE_NMI,   16
+    EQUAL OS_EXC_CAUSE_HARDFAULT,   17
+    EQUAL HF_DEBUGEVT,   20
+    EQUAL HF_VECTBL,   21
+    EQUAL FLAG_ADDR_VALID,   0x10000
+    EQUAL FLAG_HWI_ACTIVE,   0x20000
+    EQUAL FLAG_NO_FLOAT,     0x10000000
+    EQUAL OS_NVIC_FSR,           0xE000ED28      /* include BusFault/MemFault/UsageFault State Register */
+    EQUAL OS_NVIC_HFSR,          0xE000ED2C      /* HardFault State Register */
+    EQUAL OS_NVIC_BFAR,          0xE000ED38
+    EQUAL OS_NVIC_MMAR,          0xE000ED34
+    EQUAL OS_NVIC_ACT_BASE,      0xE000E300
+    EQUAL OS_NVIC_SHCSRS,        0xE000ED24
+    EQUAL OS_NVIC_SHCSR_MASK,    0xC00
 
-.equ HF_DEBUGEVT,   20
-.equ HF_VECTBL,   21
-
-.equ FLAG_ADDR_VALID,   0x10000
-.equ FLAG_HWI_ACTIVE,   0x20000
-.equ FLAG_NO_FLOAT,     0x10000000
-
-.equ OS_NVIC_FSR,           0xE000ED28      //include BusFault/MemFault/UsageFault State Register
-.equ OS_NVIC_HFSR,          0xE000ED2C      //HardFault State Register
-.equ OS_NVIC_BFAR,          0xE000ED38
-.equ OS_NVIC_MMAR,          0xE000ED34
-.equ OS_NVIC_ACT_BASE,      0xE000E300
-.equ OS_NVIC_SHCSRS,        0xE000ED24
-.equ OS_NVIC_SHCSR_MASK,    0xC00
-
-    .type HalExcNMI, %function
-    .global HalExcNMI
+    FUNC HalExcNMI
 HalExcNMI:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     movs    r0, #OS_EXC_CAUSE_NMI
     movs    r1, #0
     b       osExcDispatch
-    .fnend
+    FNEND
 
-    .type HalExcHardFault, %function
-    .global HalExcHardFault
+    FUNC HalExcHardFault
 HalExcHardFault:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
 #ifdef LOSCFG_ARCH_ARM_V6M
     movs    r0, #OS_EXC_CAUSE_HARDFAULT
     movs    r1, #0
     b       osExcDispatch
-    .fnend
+    FNEND
 #else
     mov  r0, #OS_EXC_CAUSE_HARDFAULT
     ldr  r2, =OS_NVIC_HFSR
@@ -109,56 +104,53 @@ HalExcHardFault:
     mov  r1, #HF_DEBUGEVT
     orr  r0, r0, r1, LSL #0x8
     tst  r2, #0x80000000
-    bne  osExcDispatch     // DEBUGEVT
+    bne  osExcDispatch     /* DEBUGEVT */
 
     and  r0, r0 , #0x000000FF
     mov  r1, #HF_VECTBL
     orr  r0, r0, r1, LSL #0x8
     tst  r2, #0x00000002
-    bne  osExcDispatch     // VECTBL
+    bne  osExcDispatch     /* VECTBL */
 
-    //if not DEBUGEVT and VECTBL then is FORCED
+    /* if not DEBUGEVT and VECTBL then is FORCED */
     and  r0, r0, #0x000000FF
 
     ldr  r2, =OS_NVIC_FSR
     ldr  r2, [r2]
 
-    tst  r2, #0x8000     // BFARVALID
-    bne  _HFBusFault     // BusFault
+    tst  r2, #0x8000     /* BFARVALID */
+    bne  _HFBusFault     /* BusFault */
 
-    tst  r2, #0x80       // MMARVALID
-    bne  _HFMemFault     // MemFault
+    tst  r2, #0x80       /* MMARVALID */
+    bne  _HFMemFault     /* MemFault */
 
     mov  r12,#0
     b    osHFExcCommonBMU
-    .fnend
+    FNEND
 
-    .type _HFBusFault, %function
-
+    FUNCLOCAL _HFBusFault
 _HFBusFault:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     ldr  r1, =OS_NVIC_BFAR
     ldr  r1, [r1]
     mov  r12, #FLAG_ADDR_VALID
     b    osHFExcCommonBMU
-    .fnend
+    FNEND
 
-    .type _HFMemFault, %function
-
+    FUNCLOCAL _HFMemFault
 _HFMemFault:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     ldr  r1, =OS_NVIC_MMAR
     ldr  r1, [r1]
     mov  r12, #FLAG_ADDR_VALID
-    .fnend
+    FNEND
 
-    .type osHFExcCommonBMU, %function
-    .global osHFExcCommonBMU
+    FUNC osHFExcCommonBMU
 osHFExcCommonBMU:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     clz  r2, r2
     ldr  r3, =g_uwExcTbl
     add  r3, r3, r2
@@ -166,13 +158,12 @@ osHFExcCommonBMU:
     orr  r0, r0, r2, LSL #0x8
     orr  r0, r0 ,r12
     b    osExcDispatch
-    .fnend
+    FNEND
 
-    .type HalExcSvcCall, %function
-    .global HalExcSvcCall
+    FUNC HalExcSvcCall
 HalExcSvcCall:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     tst   lr, #0x4
     ite   eq
     mrseq r1, msp
@@ -196,17 +187,16 @@ _svcCall:
     ldrb  r0, [r0,#-2]
     mov   r1, #0
     b     osExcDispatch
-    .fnend
+    FNEND
 
-    .type HalExcBusFault, %function
-    .global HalExcBusFault
+    FUNC HalExcBusFault
 HalExcBusFault:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     ldr  r0, =OS_NVIC_FSR
     ldr  r0, [r0]
 
-    tst  r0, #0x8000  // BFARVALID
+    tst  r0, #0x8000  /* BFARVALID */
     beq  _ExcBusNoADDR
     ldr  r1, =OS_NVIC_BFAR
     ldr  r1, [r1]
@@ -214,26 +204,24 @@ HalExcBusFault:
     and  r0, r0, #0x1F00
 
     b    osExcCommonBMU
-    .fnend
+    FNEND
 
-    .type _ExcBusNoADDR, %function
-    .global _ExcBusNoADDR
+    FUNC _ExcBusNoADDR
 _ExcBusNoADDR:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     mov  r12,#0
     b    osExcCommonBMU
-    .fnend
+    FNEND
 
-    .type HalExcMemFault, %function
-    .global HalExcMemFault
+    FUNC HalExcMemFault
 HalExcMemFault:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     ldr  r0, =OS_NVIC_FSR
     ldr  r0, [r0]
 
-    tst  r0, #0x80 // MMARVALID
+    tst  r0, #0x80 /* MMARVALID */
     beq  _ExcMemNoADDR
     ldr  r1, =OS_NVIC_MMAR
     ldr  r1, [r1]
@@ -241,22 +229,20 @@ HalExcMemFault:
     and  r0, r0, #0x1B
 
     b    osExcCommonBMU
-    .fnend
+    FNEND
 
-    .type _ExcMemNoADDR, %function
-    .global _ExcMemNoADDR
+    FUNC _ExcMemNoADDR
 _ExcMemNoADDR:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     mov  r12,#0
     b    osExcCommonBMU
-    .fnend
+    FNEND
 
-    .type HalExcUsageFault, %function
-    .global HalExcUsageFault
+    FUNC HalExcUsageFault
 HalExcUsageFault:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     ldr  r0, =OS_NVIC_FSR
     ldr  r0, [r0]
 
@@ -265,94 +251,74 @@ HalExcUsageFault:
     and  r0, r0, r1
     mov  r12, #0
 
-    .fnend
+    FNEND
 
-    .type osExcCommonBMU, %function
-    .global osExcCommonBMU
+    FUNC osExcCommonBMU
 osExcCommonBMU:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     clz  r0, r0
     ldr  r3, =g_uwExcTbl
     add  r3, r3, r0
     ldrb r0, [r3]
     orr  r0, r0, r12
-    .fnend
-// r0 -- EXCCAUSE(bit 16 is 1 if EXCADDR valid),  r1 -- EXCADDR
+    FNEND
+/* r0 -- EXCCAUSE(bit 16 is 1 if EXCADDR valid),  r1 -- EXCADDR */
 #endif /* !LOSCFG_ARCH_ARM_V6M */
 
 #ifdef LOSCFG_ARCH_ARM_V6M
-    /*
-     * ARMv6-M has no separate MemManage/Bus/Usage fault exceptions
-     * (all faults escalate to HardFault) and no CFSR/HFSR/BFAR/MMAR
-     * registers.  These stubs exist only because the shared NVIC driver
-     * (drivers/interrupt/arm_nvic.c HalHwiInit) installs them into the
-     * system vector slots unconditionally; on M0+ hardware the slots
-     * are Reserved and never taken.
-     */
-    .type HalExcMemFault, %function
-    .global HalExcMemFault
+    /* ARMv6-M has no separate MemManage/Bus/Usage faults (all escalate to
+     * HardFault); these stubs only satisfy the shared NVIC driver, which
+     * installs them unconditionally — the M0+ slots are Reserved. */
+    FUNC HalExcMemFault
 HalExcMemFault:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     b       HalExcHardFault
-    .fnend
+    FNEND
 
-    .type HalExcBusFault, %function
-    .global HalExcBusFault
+    FUNC HalExcBusFault
 HalExcBusFault:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     b       HalExcHardFault
-    .fnend
+    FNEND
 
-    .type HalExcUsageFault, %function
-    .global HalExcUsageFault
+    FUNC HalExcUsageFault
 HalExcUsageFault:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     b       HalExcHardFault
-    .fnend
+    FNEND
 
-    .type HalExcSvcCall, %function
-    .global HalExcSvcCall
+    FUNC HalExcSvcCall
 HalExcSvcCall:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     mrs     r1, psp
     ldr     r0, [r1, #24]
     subs    r0, r0, #2
     ldrb    r0, [r0]
     movs    r1, #0
     b       osExcDispatch
-    .fnend
+    FNEND
 #endif /* LOSCFG_ARCH_ARM_V6M */
 
-    .type osExcDispatch, %function
-    .global osExcDispatch
+    FUNC osExcDispatch
 osExcDispatch:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
 
 #ifdef LOSCFG_ARCH_ARM_V6M
-    /*
-     * Use EXC_RETURN (LR) to determine the fault context.
-     * Bit 2:  0 = msp  (handler mode or Thread+msp init)
-     *         1 = psp  (Thread mode — task)
-     *
-     * r2 and r3 are safe to clobber: their task values are preserved
-     * in the hardware frame and will be read from there.
-     */
+    /* EXC_RETURN bit 2 selects the fault context: 0 = msp, 1 = psp (task).
+     * r2/r3 are safe to clobber: task values live in the hardware frame. */
     mov     r2, lr
     movs    r3, #4
     tst     r2, r3
     bne     osExcFromTask
 
-    /* ===========================================================
-     * Fault from msp context (Handler mode or Thread+msp init).
-     * The hardware frame is already on msp, contiguous after our
-     * 40-byte save area — no copy needed.
-     * =========================================================== */
+    /* Fault from msp (handler mode): frame already contiguous after our
+     * 40-byte save area — no copy needed. */
     mov     r3, sp              /* r3 = msp after hardware push */
 
     /* Save r4-r11 + primask + sp on msp (10 words = 40 bytes) */
@@ -375,7 +341,7 @@ push_save_and_scan:
     adds    r3, #32             /* original sp before hardware push */
     str     r3, [sp, #36]
 
-    /* r4-r7 now free — check NVIC active registers for external IRQ */
+    /* r4-r7 now free — check NVIC active registers for EXTERNAL IRQ */
     ldr     r2, =OS_NVIC_ACT_BASE
     movs    r4, #0
 osExcIrqLoop:
@@ -386,7 +352,7 @@ osExcIrqLoop:
     cmp     r4, #32
     bne     osExcIrqLoop
 
-    /* Not in external IRQ — check if scheduler started */
+    /* Not in EXTERNAL IRQ — check if scheduler started */
     ldr     r2, =g_taskScheduled
     ldr     r2, [r2]
     movs    r5, #OS_FLG_BGD_ACTIVE
@@ -420,11 +386,8 @@ osExcIrqFound:
     mov     r1, r2              /* pid = IRQ number */
     b       osExcCallHandler
 
-    /* ===========================================================
-     * Fault from psp context (Thread mode — task).
-     * Hardware frame is on psp — must copy to msp for a
-     * contiguous EXC_CONTEXT_S layout.
-     * =========================================================== */
+    /* Fault from psp (task): copy the frame to msp for a
+     * contiguous EXC_CONTEXT_S layout. */
 osExcFromTask:
     mrs     r3, psp             /* r3 = psp (hardware frame start) */
 
@@ -449,11 +412,8 @@ osExcFromTask:
     adds    r4, #32
     str     r4, [sp, #36]
 
-    /*
-     * Copy the 8-word hardware frame from psp to sp+40 so that
-     * EXC_CONTEXT_S is fully contiguous on msp.
-     * r3 still points to psp.
-     */
+    /* Copy the 8-word hardware frame from psp (r3) to sp+40 so that
+     * EXC_CONTEXT_S is contiguous on msp. */
     ldmia   r3!, {r4-r7}        /* load r0, r1, r2, r3 from psp */
     mov     r2, sp
     adds    r2, #40             /* destination: sp + 40 */
@@ -472,137 +432,134 @@ osExcCallHandler:
     cpsid   i
     ldr     r4, =HalExcHandleEntry
     bx      r4
-    .fnend
+    FNEND
 #else
     ldr   r2, =OS_NVIC_ACT_BASE
-    mov   r12, #8                       // r12 is hwi check loop counter
-    .fnend
+    mov   r12, #8                       /* r12 is hwi check loop counter */
+    FNEND
 
-    .type _hwiActiveCheck, %function
-    .global _hwiActiveCheck
+    FUNC _hwiActiveCheck
 _hwiActiveCheck:
-    .fnstart
-    .cantunwind
-    ldr   r3, [r2]                      // r3 store active hwi register when exc
+    FNSTART
+    CANTUNWIND
+    ldr   r3, [r2]                      /* r3 store active hwi register when exc */
     cmp   r3, #0
     beq   _hwiActiveCheckNext
 
-    // exc occurred in IRQ
+    /* exc occurred in IRQ */
     orr   r0, r0, #FLAG_HWI_ACTIVE
     rbit  r2, r3
     clz   r2, r2
     and   r12, r12, #1
-    add   r2, r2, r12, LSL #5               // calculate r2 (hwi number) as pid
-    .fnend
+    add   r2, r2, r12, LSL #5               /* calculate r2 (hwi number) as pid */
+    FNEND
 
-    .type _ExcInMSP, %function
-    .global _ExcInMSP
+    FUNC _ExcInMSP
 _ExcInMSP:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     cmp   lr, #0xFFFFFFE9
     bne   _NoFloatInMsp
     add   r3, r13, #104
     push  {r3}
-    mrs   r12, primask                  // store message-->exc: disable int?
-    push {r4-r12}                       // store message-->exc: {r4-r12}
-    vpush {d8-d15}                      // FPU
+    mrs   r12, primask                  /* store message-->exc: disable int? */
+    push {r4-r12}                       /* store message-->exc: {r4-r12} */
+    vpush {d8-d15}                      /* FPU */
     b     _handleEntry
-    .fnend
+    FNEND
 
-    .type _NoFloatInMsp, %function
-    .global _NoFloatInMsp
+    FUNC _NoFloatInMsp
 _NoFloatInMsp:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
     add   r3, r13, #32
-    push  {r3}                           // store message-->exc: msp(r13)
+    push  {r3}                           /* store message-->exc: msp(r13) */
 
-    mrs   r12, primask                   // store message-->exc: disable int?
-    push {r4-r12}                        // store message-->exc: {r4-r12}
+    mrs   r12, primask                   /* store message-->exc: disable int? */
+    push {r4-r12}                        /* store message-->exc: {r4-r12} */
     orr   r0, r0, #FLAG_NO_FLOAT
     b     _handleEntry
-    .fnend
+    FNEND
 
-    .type _hwiActiveCheckNext, %function
-    .global _hwiActiveCheckNext
+    FUNC _hwiActiveCheckNext
 _hwiActiveCheckNext:
-    .fnstart
-    .cantunwind
-    add   r2, r2, #4                        // next NVIC ACT ADDR
+    FNSTART
+    CANTUNWIND
+    add   r2, r2, #4                        /* next NVIC ACT ADDR */
     subs  r12, r12, #1
     bne   _hwiActiveCheck
 
-    /*NMI interrupt excption*/
+    /* NMI interrupt excption */
     ldr   r2, =OS_NVIC_SHCSRS
     ldrh  r2,[r2]
     ldr   r3,=OS_NVIC_SHCSR_MASK
     and   r2, r2,r3
     cmp   r2,#0
     bne   _ExcInMSP
-    // exc occurred in Task or Init or exc
-    // reserved for register info from task stack
+    /* exc occurred in Task or Init or exc */
+    /* reserved for register info from task stack */
 
     ldr  r2, =g_taskScheduled
     ldr  r2, [r2]
     tst  r2, #OS_FLG_BGD_ACTIVE
-    beq  _ExcInMSP                      // if exc occurred in Init then branch
+    beq  _ExcInMSP                      /* if exc occurred in Init then branch */
 
-
-    cmp   lr, #0xFFFFFFED               //auto push floating registers
+    cmp   lr, #0xFFFFFFED               /* auto push floating registers */
     bne   _NoFloatInPsp
 
-    // exc occurred in Task
+    /* exc occurred in Task */
     mov   r2,  sp
-    sub   sp, #96                      // add 8 Bytes reg(for STMFD)
+    sub   sp, #96                       /* add 8 Bytes reg(for STMFD) */
 
     mrs   r3,  psp
     add   r12, r3, #104
-    push  {r12}                         // save task sp
+    push  {r12}                         /* save task sp */
 
     mrs   r12, primask
     push {r4-r12}
-    vpush {d8-d15}                      // FPU
+    vpush {d8-d15}                      /* FPU */
 
-    // copy auto saved task register
+    /* copy auto saved task register */
 
-    ldmfd r3!, {r4-r11}                 // r4-r11 store psp reg(auto push when exc in task)
-    vldmia  r3!, {d8-d15}               // FPU
-    vstmdb  r2!, {d8-d15}               // FPU
+    ldmfd r3!, {r4-r11}                 /* r4-r11 store psp reg(auto push when exc in task) */
+    vldmia  r3!, {d8-d15}               /* FPU */
+    vstmdb  r2!, {d8-d15}               /* FPU */
     stmfd r2!, {r4-r11}
     b     _handleEntry
-    .fnend
+    FNEND
 
-    .type _NoFloatInPsp, %function
-    .global _NoFloatInPsp
+    FUNC _NoFloatInPsp
 _NoFloatInPsp:
-    .fnstart
-    .cantunwind
-    mov   r2,  sp                      // no auto push floating registers
-    sub   sp, #32                      // add 8 Bytes reg(for STMFD)
+    FNSTART
+    CANTUNWIND
+    mov   r2,  sp                      /* no auto push floating registers */
+    sub   sp, #32                      /* add 8 Bytes reg(for STMFD) */
 
     mrs   r3,  psp
     add   r12, r3, #32
-    push  {r12}                         // save task sp
+    push  {r12}                         /* save task sp */
 
     mrs   r12, primask
     push {r4-r12}
 
-    ldmfd r3, {r4-r11}                  // r4-r11 store psp reg(auto push when exc in task)
+    ldmfd r3, {r4-r11}                  /* r4-r11 store psp reg(auto push when exc in task) */
     stmfd r2!, {r4-r11}
     orr   r0, r0, #FLAG_NO_FLOAT
-    .fnend
+    FNEND
 
-    .type _handleEntry, %function
-    .global _handleEntry
+    FUNC _handleEntry
 _handleEntry:
-    .fnstart
-    .cantunwind
-    mov r3, sp                         // sp:the 4th param
+    FNSTART
+    CANTUNWIND
+    mov r3, sp                         /* sp:the 4th param */
     cpsid I
     cpsid F
     b  HalExcHandleEntry
 
     nop
-    .fnend
+    FNEND
 #endif /* LOSCFG_ARCH_ARM_V6M */
+
+#ifdef __IASMARM__
+    END
+#endif

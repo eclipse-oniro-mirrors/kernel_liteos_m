@@ -33,10 +33,14 @@
 #include "los_arch_context.h"
 #include "los_arch_interrupt.h"
 #include "los_task.h"
+#include "los_task_pri.h"
 #include "los_sched.h"
 #include "los_sched_pri.h"
 #include "los_interrupt.h"
 #include "los_debug.h"
+
+LITE_OS_SEC_BSS LosTaskCB *g_runTask = NULL;
+LITE_OS_SEC_BSS LosTaskCB *g_oldTask = NULL;
 
 /* ****************************************************************************
  Function    : ArchInit
@@ -153,11 +157,3 @@ VOID *ArchSignalContextInit(VOID *stackPointer, VOID *stackTop, UINTPTR sigHandl
     return (VOID *)context;
 }
 #endif
-
-LITE_OS_SEC_TEXT_INIT UINT32 ArchStartSchedule(VOID)
-{
-    (VOID)LOS_IntLock();
-    OsSchedStart();
-    HalStartToRun();
-    return LOS_OK; /* never return */
-}

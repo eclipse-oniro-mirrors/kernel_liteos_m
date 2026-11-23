@@ -36,10 +36,9 @@
 #include "los_compiler.h"
 
 struct LosTaskCB;
-typedef struct LosTaskCB LosTaskCB;
 
-extern LosTaskCB *g_runTask;
-extern LosTaskCB *g_oldTask;
+extern struct LosTaskCB *g_runTask;
+extern struct LosTaskCB *g_oldTask;
 
 STATIC INLINE VOID *ArchCurrTaskGet(VOID)
 {
@@ -48,7 +47,7 @@ STATIC INLINE VOID *ArchCurrTaskGet(VOID)
 
 STATIC INLINE VOID ArchCurrTaskSet(VOID *val)
 {
-    g_runTask = (LosTaskCB *)val;
+    g_runTask = (struct LosTaskCB *)val;
 }
 
 STATIC INLINE UINT32 ArchCurrCpuid(VOID)
@@ -146,7 +145,7 @@ STATIC INLINE UINTPTR ArchGetTaskFp(const VOID *stackPointer)
  * <ul><li>los_config.h: the header file that contains the API declaration.</li></ul>
  * @see None.
  */
-extern VOID ArchStartToRun(LosTaskCB *newTask);
+extern VOID ArchStartToRun(struct LosTaskCB *newTask);
 
 #if (LOSCFG_SECURE == 1)
 /**

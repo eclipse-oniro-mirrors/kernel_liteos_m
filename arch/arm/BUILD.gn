@@ -35,12 +35,12 @@ config("arm_config") {
 
 module_group("arm") {
   modules = [ "common" ]
-  if (defined(LOSCFG_COMPILER_ICCARM)) {
+  if (defined(LOSCFG_ARCH_CORTEX_M_UNIFIED)) {
+    modules += [ "cortex_m" ]
+  } else if (defined(LOSCFG_COMPILER_ICCARM)) {
     modules += [ "$board_cpu/iar" ]
   } else if ("$board_cpu" == "cortex-a7") {
     modules += [ "cortex_a_r" ]
-  } else if (defined(LOSCFG_ARCH_CORTEX_M_UNIFIED)) {
-    modules += [ "cortex_m" ]
   } else {
     modules += [ "$board_cpu/gcc" ]
   }

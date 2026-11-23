@@ -343,6 +343,11 @@ typedef struct TagExcContext {
 } EXC_CONTEXT_S;
 
 typedef VOID (*EXC_PROC_FUNC)(UINT32, EXC_CONTEXT_S *);
+
+extern EXC_PROC_FUNC g_excRegHook;
+
+extern UINT32 ArchSetExcHook(EXC_PROC_FUNC excHook);
+
 VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, UINT32 pid, EXC_CONTEXT_S *excBufAddr);
 VOID HalExcNMI(VOID);
 VOID HalExcHardFault(VOID);

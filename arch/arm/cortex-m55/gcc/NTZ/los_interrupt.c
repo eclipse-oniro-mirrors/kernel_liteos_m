@@ -23,34 +23,34 @@
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
  * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdarg.h>
+
+/* Cortex-M55 (NTZ) exception handling; the NVIC driver moved to drivers/interrupt/arm_nvic.c. */
+
 #include "securec.h"
 #include "los_context.h"
 #include "los_arch_interrupt.h"
-#include "los_hook.h"
 #include "los_task_pri.h"
-#include "los_sched.h"
-#include "los_sched_pri.h"
 #include "los_memory.h"
 #include "los_membox.h"
-#include "los_hwi_pri.h"
 #ifdef LOSCFG_SHELL_EXCINFO_DUMP
 #include "los_exc_pri.h"
 #endif
+#include "los_hwi_pri.h"
+#include "los_arch.h"
+#include "los_hpl_pri.h"
 
-#define DEF_HANDLER_START_INDEX 2
+/* ArchIntLocked: read PRIMASK to report whether interrupts are masked. */
+UINT32 ArchIntLocked(VOID)
+{
+    return __get_PRIMASK() & 0x1;
+}
 
 #define FAULT_STATUS_REG_BIT            32
-#define USGFAULT                        (1 << 18)
-#define BUSFAULT                        (1 << 17)
-#define MEMFAULT                        (1 << 16)
-#define DIV0FAULT                       (1 << 4)
-#define UNALIGNFAULT                    (1 << 3)
-#define HARDFAULT_IRQN                  (-13)
+#define ARM_EXCEPTION_SYSTICK      15
 
 ExcInfo g_excInfo = {0};
 
@@ -234,10 +234,17 @@ STATIC VOID OsExcInfoDisplay(const ExcInfo *excInfo)
 #endif
 }
 
+LITE_OS_SEC_TEXT_INIT BOOL ArchExcActive(VOID)
+{
+    UINT32 ipsr = ArchGetIpsr();
+    /* 15: SysTick interrupt number and less than this number is exception. */
+    return (ipsr < ARM_EXCEPTION_SYSTICK) && (ipsr > 0);
+}
+
 LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, UINT32 pid, EXC_CONTEXT_S *excBufAddr)
 {
     UINT16 tmpFlag = (excType >> 16) & OS_NULL_SHORT; /* 16: Get Exception Type */
-    g_intCount++;
+    g_intCount[ArchCurrCpuid()]++;
     g_excInfo.nestCnt++;
 
     g_excInfo.type = excType & OS_NULL_SHORT;
@@ -247,13 +254,13 @@ LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, U
     } else {
         g_excInfo.faultAddr = OS_EXC_IMPRECISE_ACCESS_ADDR;
     }
-    if (g_losTask.runTask != NULL) {
+    if (g_runTask != NULL) {
         if (tmpFlag & OS_EXC_FLAG_IN_HWI) {
             g_excInfo.phase = OS_EXC_IN_HWI;
             g_excInfo.thrdPid = pid;
         } else {
             g_excInfo.phase = OS_EXC_IN_TASK;
-            g_excInfo.thrdPid = g_losTask.runTask->taskId;
+            g_excInfo.thrdPid = g_runTask->taskId;
         }
     } else {
         g_excInfo.phase = OS_EXC_IN_INIT;
@@ -265,7 +272,32 @@ LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, U
         g_excInfo.context = excBufAddr;
     }
 
-    OsDoExcHook(EXC_INTERRUPT);
-    OsExcInfoDisplay(&g_excInfo);
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+    LogReadWriteFunc dumpFunc = OsGetExcInfoRW();
+    if (dumpFunc != NULL) {
+        OsSetExcInfoOffset(0);
+    }
+#endif
+    if (g_excRegHook != NULL) {
+        g_excRegHook(excType, g_excInfo.context);
+    } else {
+        OsDoExcHook(EXC_INTERRUPT);
+        OsExcInfoDisplay(&g_excInfo);
+    }
+#ifdef LOSCFG_SHELL_EXCINFO_DUMP
+    if (dumpFunc != NULL) {
+        dumpFunc(OsGetExcInfoDumpAddr(), OsGetExcInfoLen(), 0, OsGetExcInfoBuf());
+    }
+#endif
     ArchTaskExit();
+}
+
+/* stack protector */
+WEAK UINT32 __stack_chk_guard = 0xd00a0dff;
+
+WEAK VOID __stack_chk_fail(VOID)
+{
+    /* __builtin_return_address is a builtin function, building in gcc */
+    LOS_Panic("stack-protector: Kernel stack is corrupted in: %p\n",
+              __builtin_return_address(0));
 }

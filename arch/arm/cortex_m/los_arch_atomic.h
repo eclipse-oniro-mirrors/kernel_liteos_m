@@ -47,6 +47,7 @@ extern "C" {
 #endif /* __cplusplus */
 #endif /* __cplusplus */
 
+#ifndef __ICCARM__
 STATIC INLINE INT32 ArchAtomicRead(const Atomic *v)
 {
     INT32 val;
@@ -104,26 +105,6 @@ STATIC INLINE INT32 ArchAtomicSub(Atomic *v, INT32 subVal)
     } while (__builtin_expect(status != 0, 0));
 
     return val;
-}
-
-STATIC INLINE VOID ArchAtomicInc(Atomic *v)
-{
-    (VOID)ArchAtomicAdd(v, 1);
-}
-
-STATIC INLINE VOID ArchAtomicDec(Atomic *v)
-{
-    (VOID)ArchAtomicSub(v, 1);
-}
-
-STATIC INLINE INT32 ArchAtomicIncRet(Atomic *v)
-{
-    return ArchAtomicAdd(v, 1);
-}
-
-STATIC INLINE INT32 ArchAtomicDecRet(Atomic *v)
-{
-    return ArchAtomicSub(v, 1);
 }
 
 /**
@@ -197,6 +178,93 @@ STATIC INLINE BOOL ArchAtomicCmpXchg32bits(Atomic *v, INT32 val, INT32 oldVal)
     } while (__builtin_expect(status != 0, 0));
 
     return prevVal != oldVal;
+}
+
+#else /* __ICCARM__ */
+
+STATIC INLINE INT32 ArchAtomicRead(const Atomic *v)
+{
+    return *v;
+}
+
+STATIC INLINE VOID ArchAtomicSet(Atomic *v, INT32 setVal)
+{
+    *v = setVal;
+}
+
+STATIC INLINE INT32 ArchAtomicAdd(Atomic *v, INT32 addVal)
+{
+    INT32 val;
+    UINT32 intSave;
+
+    intSave = LOS_IntLock();
+    *v += addVal;
+    val = *v;
+    LOS_IntRestore(intSave);
+
+    return val;
+}
+
+STATIC INLINE INT32 ArchAtomicSub(Atomic *v, INT32 subVal)
+{
+    INT32 val;
+    UINT32 intSave;
+
+    intSave = LOS_IntLock();
+    *v -= subVal;
+    val = *v;
+    LOS_IntRestore(intSave);
+
+    return val;
+}
+
+STATIC INLINE INT32 ArchAtomicXchg32bits(Atomic *v, INT32 val)
+{
+    INT32 prevVal;
+    UINT32 intSave;
+
+    intSave = LOS_IntLock();
+    prevVal = *v;
+    *v = val;
+    LOS_IntRestore(intSave);
+
+    return prevVal;
+}
+
+STATIC INLINE BOOL ArchAtomicCmpXchg32bits(Atomic *v, INT32 val, INT32 oldVal)
+{
+    INT32 prevVal;
+    UINT32 intSave;
+
+    intSave = LOS_IntLock();
+    prevVal = *v;
+    if (prevVal == oldVal) {
+        *v = val;
+    }
+    LOS_IntRestore(intSave);
+
+    return prevVal != oldVal;
+}
+#endif /* __ICCARM__ */
+
+STATIC INLINE VOID ArchAtomicInc(Atomic *v)
+{
+    (VOID)ArchAtomicAdd(v, 1);
+}
+
+STATIC INLINE VOID ArchAtomicDec(Atomic *v)
+{
+    (VOID)ArchAtomicSub(v, 1);
+}
+
+STATIC INLINE INT32 ArchAtomicIncRet(Atomic *v)
+{
+    return ArchAtomicAdd(v, 1);
+}
+
+STATIC INLINE INT32 ArchAtomicDecRet(Atomic *v)
+{
+    return ArchAtomicSub(v, 1);
 }
 
 STATIC INLINE INT64 ArchAtomic64Read(const Atomic64 *v)

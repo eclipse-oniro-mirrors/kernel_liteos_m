@@ -68,7 +68,13 @@ STATIC UINT32 SysTickStart(HWI_PROC_FUNC handler)
 #endif
 #endif
 
-    ret = SysTick_Config(LOSCFG_BASE_CORE_TICK_RESPONSE_MAX);
+    ret = SysTick_Config(
+#ifdef LOSCFG_KERNEL_TICK_PERIODIC
+        tick->freq / LOSCFG_BASE_CORE_TICK_PER_SECOND
+#else
+        LOSCFG_BASE_CORE_TICK_RESPONSE_MAX
+#endif
+    );
     if (ret == 1) {
         return LOS_ERRNO_TICK_PER_SEC_TOO_SMALL;
     }
@@ -81,7 +87,6 @@ STATIC UINT64 SysTickReload(UINT64 nextResponseTime)
     if (nextResponseTime > g_archTickTimer.periodMax) {
         nextResponseTime = g_archTickTimer.periodMax;
     }
-
     SysTick->CTRL &= ~SysTick_CTRL_ENABLE_Msk;
     SysTick->LOAD = (UINT32)(nextResponseTime - 1UL); /* set reload register */
     SysTick->VAL = 0UL; /* Load the SysTick Counter Value */
@@ -126,3 +131,4 @@ UINT32 ArchEnterSleep(VOID)
 
     return LOS_OK;
 }
+

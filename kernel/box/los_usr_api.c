@@ -106,21 +106,25 @@ LITE_OS_SEC_TEXT_USRSPACE __attribute__((noinline, used))
 UINT32 LOS_TaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam)
 {
     VOID *stack;
+    UINTPTR pool;          /* READ ONCE - see the comment below */
     UINT32 stackSize;
     UINT32 ret;
 
     if ((taskId == NULL) || (initParam == NULL)) {
         return LOS_ERRNO_TSK_PTR_NULL;
     }
+
+    pool = g_boxLocalPool[0];
+
     stackSize = ALIGN(initParam->uwStackSize, LOSCFG_STACK_POINT_ALIGN_SIZE);
-    stack = LOS_MemAllocAlign((VOID *)g_boxLocalPool[0], stackSize,
+    stack = LOS_MemAllocAlign((VOID *)pool, stackSize,
                               LOSCFG_STACK_POINT_ALIGN_SIZE);
     if (stack == NULL) {
         return LOS_ERRNO_TSK_NO_MEMORY;
     }
     ret = OsTaskCreateOnlyDynamic(taskId, initParam, stack);
     if (ret != LOS_OK) {
-        (VOID)LOS_MemFree((VOID *)g_boxLocalPool[0], stack);
+        (VOID)LOS_MemFree((VOID *)pool, stack);   /* same pool as the alloc */
         return ret;
     }
     return LOS_OK;
@@ -147,9 +151,16 @@ LITE_OS_SEC_TEXT_USRSPACE __attribute__((noinline, used))
 VOID LOS_TaskStackRecycle(VOID)
 {
     VOID *stack;
+    UINTPTR pool = g_boxLocalPool[0];   /* snapshot: same reason as above */
 
+    /*
+     * The pool is snapshotted once, outside the loop, on purpose. Draining
+     * pushes the task to the back of its ready queue, so the loop CAN be
+     * preempted between iterations - reading g_boxLocalPool[0] again after a
+     * switch would free a boxA stack into boxB's heap.
+     */
     while ((stack = OsTaskGetRecycleStack()) != NULL) {
-        (VOID)LOS_MemFree((VOID *)g_boxLocalPool[0], stack);
+        (VOID)LOS_MemFree((VOID *)pool, stack);
     }
 }
 

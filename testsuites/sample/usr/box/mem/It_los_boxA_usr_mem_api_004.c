@@ -50,20 +50,37 @@
  *    single cheapest "is the heap still sane" probe, so the case runs it after
  *    an alloc/free burst to prove the burst left the structure intact.
  *
- * 3) The two APIs that CANNOT be used from a box, asserted as such:
+ * 3) LOS_MemTaskIdGet(ptr) - resolves the owning task of a heap block.
  *
- *      LOS_MemTaskIdGet(ptr)  resolves the owner task of a heap block, but the
- *          implementation hard-codes `m_aucSysMem1` (the KERNEL system heap) as
- *          the pool to search - it has no pool argument. From a box the pointer
- *          is in the box heap, so the search misses and it returns OS_INVALID.
+ *    THIS API USED TO BE UNUSABLE FROM A BOX, and the case now proves it is not.
+ *    The old implementation hard-coded the pool it searched:
  *
- *      LOS_MemPoolList()      walks the kernel's global pool registry and prints
- *          every pool via OsMemInfoPrint; its own comment says "not box-callable".
+ *        LosMemPoolInfo *poolInfo = (LosMemPoolInfo *)(VOID *)m_aucSysMem1;
  *
- *    This case does NOT call LOS_MemPoolList - printing every kernel pool would
- *    flood the console and it is documented as unreachable from a box. It records
- *    the finding in the header instead, and checks only LOS_MemTaskIdGet's
- *    documented-from-a-box behaviour (refusal, no crash).
+ *    i.e. the KERNEL system heap, for every caller. A box pointer is never
+ *    inside it, so the range check always failed - and that failure path called
+ *    PRINT_ERR, which reaches LOS_CurTaskNameGet (kernel flash). Executing it
+ *    unprivileged is an IACCVIOL, so an out-of-range query did not return an
+ *    error, it DESTROYED THE BOX (measured: FaultAddr = __heap_start + 4,
+ *    PC = LOS_MemTaskIdGet+0x20).
+ *
+ *    The implementation now takes its registry from the CALLER's world
+ *    (kernel registry for kernel callers, the box's own registry inside a box)
+ *    and returns OS_INVALID instead of printing. This case asserts that:
+ *
+ *        (a) an allocated block reports a task id belonging to this box
+ *        (b) the answer is stable across repeated calls
+ *        (c) a pointer into a FREED node reports OS_INVALID (no owner)
+ *        (d) a wildly out-of-range pointer reports OS_INVALID and does not fault
+ *
+ *    (d) is the regression test for the crash: if someone reintroduces a
+ *    kernel-memory read or a PRINT_ERR on this path, (d) fails loudly.
+ *
+ * 4) LOS_MemPoolList() is still NOT called. It walks the kernel's global pool
+ *    registry (g_poolHead, hard-coded) rather than the caller's, so from a box
+ *    it would enumerate kernel pools and print them all. That is a separate
+ *    defect, tracked in the source, and calling it here would only flood the
+ *    console.
  *
  * ---------------------------------------------------------------------------
  * HOW TO USE / WHAT A FAILURE TELLS YOU
@@ -71,46 +88,28 @@
  *   - LastUsedGet outside the pool      the walk uses a wrong end-node formula
  *   - IntegrityCheck != LOS_OK          the heap is CORRUPT: stop and look at the
  *                                       case that ran just before this one
- *   - TaskIdGet returned a valid id     someone "fixed" it to search the current
- *                                       box pool; that would be a behaviour change
- *                                       worth reviewing, not silently accepted
+ *   - TaskIdGet(live) == OS_INVALID     the pool registry is kernel-only again, or
+ *                                       the caller-world dispatch broke
+ *   - TaskIdGet(bogus) != OS_INVALID    the range check stopped rejecting, or the
+ *                                       kernel-memory read / PRINT_ERR came back
+ *   - a FAULT in this case              the regression: this API must be
+ *                                       callable from user mode without faulting
  * ========================================================================== */
 
 #include "It_los_boxA_usr_mem_util.h"
 
 #define API004_SIZE  128U
 
-/* LOS_MemTaskIdGet must NOT be called from box user mode.
+/* A pointer that cannot belong to any pool this box can see. Used to exercise
+ * the out-of-range path, which used to fault instead of returning.
  *
- * Its implementation hard-codes the pool it searches:
- *
- *     LosMemPoolInfo *poolInfo = (LosMemPoolInfo *)(VOID *)m_aucSysMem1;
- *
- * i.e. the KERNEL system heap - the function has NO pool argument. The very
- * first thing it evaluates is
- *
- *     ptr < (VOID *)OS_MEM_FIRST_NODE(poolInfo)
- *
- * which READS the kernel heap head. Executing that from a box is an
- * unprivileged load from kernel memory: the MPU refuses it and the box dies
- * with a MemManage DACCVIOL, before any return value can be produced.
- *
- * Measured on hardware: FaultAddr = __heap_start + 4, PC = LOS_MemTaskIdGet+0x20,
- * caller = this case. So the earlier assumption "it returns OS_INVALID from a
- * box" was WRONG: it faults. The API is kernel-only in practice, and that is
- * worth recording rather than papering over.
- *
- * Kept as a named constant + comment so the knowledge lives in the source: if
- * the implementation ever becomes box-safe (e.g. gains a pool parameter), add a
- * real assertion here. */
-#define API004_NOT_CALLED  (0xFFFFFFFFU)
+ * Deliberately NOT 0 and NOT a plausible heap address: the goal is to be far
+ * outside every registered pool so the walk rejects it on the first range check. */
+#define API004_BOGUS_PTR   ((const VOID *)(UINTPTR)0x10000000U)
 
-static UINT32 MemApi004ProbeTaskIdGet(const VOID *ptr)
-{
-    /* Intentionally does not call LOS_MemTaskIdGet; see the note above. */
-    (VOID)ptr;
-    return API004_NOT_CALLED;
-}
+/* Box task ids are encoded as ((boxId + 1) << 16) | slot, so anything in
+ * 0x00010000..0x7FFFFFFF is a task id; OS_INVALID is (UINT32)-1. */
+#define API004_TASK_ID_VALID(id)  ((id) != (UINT32)OS_INVALID)
 
 static UINT32 MemApi004Case(VOID)
 {
@@ -189,13 +188,90 @@ static UINT32 MemApi004Case(VOID)
                                 s1.poolSize);
         }
 
-        /* ---- 3) LOS_MemTaskIdGet is NOT callable from a box - see below ----
-         * It is deliberately only REFERENCED, never called. */
-        owner = MemApi004ProbeTaskIdGet((const VOID *)p);
-        dprintf("[MEM] %s: TaskIdGet NOT called from usr mode (%s)\n",
-                caseName, (owner == API004_NOT_CALLED) ? "would fault" : "unexpected");
+        /* ---- 3) LOS_MemTaskIdGet: the API that used to fault from a box ----
+         *
+         * (a) a block allocated from THIS box's heap must resolve to a real
+         *     task id. Before the fix this always reported OS_INVALID, because
+         *     the implementation searched the kernel heap regardless of caller.
+         */
+        owner = LOS_MemTaskIdGet((const VOID *)p);
+        if (!API004_TASK_ID_VALID(owner)) {
+            fails += BoxMemFail(caseName,
+                                "TaskIdGet returned OS_INVALID for a live block "
+                                "in this box's own heap (pool lookup is wrong)",
+                                owner, LOS_OK);
+        } else {
+            dprintf("[MEM] %s: TaskIdGet(live block) = 0x%x\n", caseName, owner);
+
+            /* (b) the answer must not wobble between calls. */
+            {
+                UINT32 ownerAgain = LOS_MemTaskIdGet((const VOID *)p);
+
+                if (ownerAgain != owner) {
+                    fails += BoxMemFail(caseName, "TaskIdGet not stable across calls",
+                                        ownerAgain, owner);
+                }
+            }
+
+            /* (c) The task id must belong to THIS box.
+             *
+             * ONLY meaningful when the allocator actually RECORDS the owner:
+             * OsMemSetMagicNumAndTaskID is compiled only under
+             * LOSCFG_MEM_DEBUG or LOSCFG_MEM_TASK_STAT, and without either the
+             * taskId field is never written - a live block then legitimately
+             * reports 0. Asserting the box bits on that 0 would fail for the
+             * wrong reason (measured: it did, before this guard was added).
+             *
+             * When the field IS recorded, ids are ((boxId + 1) << 16) | slot,
+             * so bits 16..31 must equal LOS_BOXA_ID + 1. */
+#if defined(LOSCFG_MEM_DEBUG) || defined(LOSCFG_MEM_TASK_STAT)
+            if ((owner >> 16) != (((UINT32)LOS_BOXA_ID + 1U) & 0xFFFFU)) {
+                fails += BoxMemFail(caseName,
+                                    "TaskIdGet reported a task outside boxA",
+                                    owner, ((UINT32)LOS_BOXA_ID + 1U) << 16);
+            }
+#else
+            if ((owner >> 16) != (((UINT32)LOS_BOXA_ID + 1U) & 0xFFFFU)) {
+                dprintf("[MEM] %s: note: taskId 0x%x is unrecorded (0), because "
+                        "neither LOSCFG_MEM_DEBUG nor LOSCFG_MEM_TASK_STAT is on - "
+                        "the pool lookup succeeded, the owner field is just never "
+                        "written in this build\n", caseName, owner);
+            }
+#endif
+        }
 
         (VOID)LOS_MemFree((VOID *)pool, p);
+
+        /* (d) THE REGRESSION TEST for the crash.
+         *
+         * Query a pointer that is far outside every pool. The old code reached
+         * PRINT_ERR -> LOS_CurTaskNameGet (kernel flash) on this path and took
+         * an IACCVIOL, destroying the box. Now it must simply return OS_INVALID.
+         * If this case ever reports a fault or a non-OS_INVALID value here, the
+         * kernel-memory read or the print has come back. */
+        owner = LOS_MemTaskIdGet(API004_BOGUS_PTR);
+        if (API004_TASK_ID_VALID(owner)) {
+            fails += BoxMemFail(caseName,
+                                "TaskIdGet accepted an out-of-range pointer "
+                                "(expected OS_INVALID)",
+                                owner, OS_INVALID);
+        } else {
+            dprintf("[MEM] %s: TaskIdGet(bogus 0x%x) = OS_INVALID, no fault\n",
+                    caseName, (UINT32)(UINTPTR)API004_BOGUS_PTR);
+        }
+
+        /* The freed block must resolve to OS_INVALID too: it now lives in a free
+         * node, and a free node has no owning task. */
+        owner = LOS_MemTaskIdGet((const VOID *)p);
+        if (API004_TASK_ID_VALID(owner)) {
+            fails += BoxMemFail(caseName,
+                                "TaskIdGet reported an owner for a FREED block",
+                                owner, OS_INVALID);
+        } else {
+            dprintf("[MEM] %s: TaskIdGet(freed block) = OS_INVALID (no owner)\n",
+                    caseName);
+        }
+
         p = NULL;
     }
 

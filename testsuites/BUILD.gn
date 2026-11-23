@@ -294,7 +294,12 @@ group("testsuites") {
     # it, so ItSuiteLosBoxUsr must stay defined; with the usr phase off
     # (LOS_KERNEL_BOX_USR_TEST=0) the entry simply never runs.
     if (defined(LOSCFG_BOX)) {
-      deps += [ "sample/usr/box:test_box_usr" ]
+      deps += [
+        "sample/usr/box:test_box_usr",
+        # boxB suite: heap-only, runs in the second box. Same LOSCFG_BOX gate
+        # (both boxes exist under it); it costs boxB's reserved slots only.
+        "sample/usr/boxB:test_boxB_usr",
+      ]
     }
     # exc suite: osTest.h enables LOS_KERNEL_EXC_TEST when
     # SHELL_EXCINFO_DUMP or BACKTRACE_TYPE!=0 - align the BUILD dep with

@@ -193,6 +193,13 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_MemDeInit(VOID *pool)
     MEM_UNLOCK(pool, intSave);
 #endif
 
+#ifdef LOSCFG_BOX
+    if (ret == LOS_OK) {
+        (VOID)MemLockDelete(pool);
+        ((LosMemPoolInfo *)pool)->memMux = OS_INVALID;
+    }
+#endif
+
 	OsHookCall(LOS_HOOK_TYPE_MEM_DEINIT, pool);
 
     return ret;

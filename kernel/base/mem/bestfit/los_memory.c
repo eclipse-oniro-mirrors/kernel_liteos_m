@@ -2020,44 +2020,56 @@ LITE_OS_SEC_TEXT_MINOR UINT32 LOS_MemUsedBlksGet(VOID *pool)
     return blkNums;
 }
 
+STATIC LosMemPoolInfo *OsGetCurPoolInfo(VOID)
+{
+#ifdef LOSCFG_BOX
+    if (LOS_IN_KERNEL && (g_curBoxId == OS_KERNEL_BOX)) {
+        return (LosMemPoolInfo *)(VOID *)m_aucSysMem1;   /* system heap */
+    }
+    return (LosMemPoolInfo *)(VOID *)g_boxLocalPool[0];
+#else
+    return (LosMemPoolInfo *)(VOID *)m_aucSysMem1;
+#endif
+}
+
 LITE_OS_SEC_TEXT_MINOR UINT32 LOS_MemTaskIdGet(const VOID *ptr)
 {
     LosMemDynNode *tmpNode = NULL;
-    LosMemPoolInfo *poolInfo = (LosMemPoolInfo *)(VOID *)m_aucSysMem1;
+    LosMemPoolInfo *poolInfo = NULL;
     LosMemDynNode *endNode = NULL;
     UINT32 intSave;
-#ifdef LOSCFG_EXC_INTERACTION
-    if (ptr < (VOID *)m_aucSysMem1) {
-        poolInfo = (LosMemPoolInfo *)(VOID *)m_aucSysMem0;
-    }
-#endif
 
-    if ((ptr == NULL) || (ptr < (VOID *)OS_MEM_FIRST_NODE(poolInfo)) ||
-        (ptr > (VOID *)OS_MEM_END_NODE(poolInfo, poolInfo->poolSize))) {
-        PRINT_ERR("input ptr is out of system memory range\n");
-        PRINT_DEBUG("ptr %p is not in range[%p, %p]\n", ptr, OS_MEM_FIRST_NODE(poolInfo),
-                    OS_MEM_END_NODE(poolInfo, poolInfo->poolSize));
+    poolInfo = OsGetCurPoolInfo();
+    if (poolInfo == NULL) {
         return OS_INVALID;
     }
 
-    MEM_LOCK(intSave, poolInfo);
+    if ((ptr == NULL) || (ptr < (VOID *)OS_MEM_FIRST_NODE(poolInfo)) ||
+        (ptr > (VOID *)OS_MEM_END_NODE(poolInfo, poolInfo->poolSize))) {
+        return OS_INVALID;
+    }
+
+    if (MemLock(poolInfo, &intSave) != LOS_OK) {
+        return OS_ERROR;
+    }
 
     endNode = OS_MEM_END_NODE(poolInfo, poolInfo->poolSize);
-    for (tmpNode = OS_MEM_FIRST_NODE(poolInfo); tmpNode <= endNode; tmpNode = OS_MEM_NEXT_NODE(tmpNode)) {
+    for (tmpNode = OS_MEM_FIRST_NODE(poolInfo); tmpNode <= endNode;
+         tmpNode = OS_MEM_NEXT_NODE(tmpNode)) {
         if ((UINTPTR)ptr < (UINTPTR)tmpNode) {
-            if (OS_MEM_NODE_GET_USED_FLAG(tmpNode->selfNode.preNode->selfNode.sizeAndFlag)) {
-                MEM_UNLOCK(intSave, poolInfo);
-                return tmpNode->selfNode.preNode->selfNode.taskId;
-            } else {
-                MEM_UNLOCK(intSave, poolInfo);
-                PRINT_ERR("input ptr is belong to a free mem node\n");
-                PRINT_DEBUG("ptr address: %p\n", ptr);
-                return OS_INVALID;
+            UINT32 taskId;
+
+            if (!OS_MEM_NODE_GET_USED_FLAG(tmpNode->selfNode.preNode->selfNode.sizeAndFlag)) {
+                MemUnlock(poolInfo, intSave);
+                return OS_INVALID;      /* inside a free node: no owner */
             }
+            taskId = tmpNode->selfNode.preNode->selfNode.taskId;
+            MemUnlock(poolInfo, intSave);
+            return taskId;
         }
     }
 
-    MEM_UNLOCK(intSave, poolInfo);
+    MemUnlock(poolInfo, intSave);
     return OS_INVALID;
 }
 

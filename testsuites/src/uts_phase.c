@@ -35,3 +35,34 @@
  * routed into .COMMON_BSS (MPU R1, RW from both worlds) by the liteos.ld
  * file-name rules, and zeroed by the startup common_bss loop. */
 volatile UINT32 g_utsPhase = UTS_PHASE_IDLE;
+
+/* Set by the kernel coordinator before it releases boxA; see the comment on the
+ * declaration in uts_phase.h for why the box cannot answer this itself. */
+volatile UINT32 g_utsHasBoxB = 0;
+
+/* How many usr suites the kernel released; written once by the kernel. */
+volatile UINT32 g_utsBoxCount = 0;
+
+/* One completion flag per world - see the comment in uts_phase.h for why this
+ * is not a shared counter (no lock is available to a box). */
+volatile UINT32 g_utsDoneByWorld[UTS_DONE_WORLD_NUM] = {0};
+
+/* Sequential-mode baton (see UTS_CONCURRENT_MODE in uts_phase.h).
+ * Only boxA writes it; only boxB reads it. */
+volatile UINT32 g_utsTurnB = 0;
+
+/* Coordinator helper: TRUE when every released suite has set its flag.
+ * Reads only; the kernel is the single reader of these slots. */
+UINT32 ICunitUtsAllDone(UINT32 boxCount)
+{
+    UINT32 world;
+
+    /* World 0 is the kernel and is never expected here, so a release of N
+     * suites covers worlds 1..N. */
+    for (world = 1; (world <= boxCount) && (world < UTS_DONE_WORLD_NUM); world++) {
+        if (g_utsDoneByWorld[world] == 0U) {
+            return 0U;
+        }
+    }
+    return 1U;
+}

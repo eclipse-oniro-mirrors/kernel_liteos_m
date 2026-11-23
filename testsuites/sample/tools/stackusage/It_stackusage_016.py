@@ -13,8 +13,8 @@ def TestCase():
     checks = [("rc=0", "0", str(r.returncode), r.returncode == 0),
               ("架构识别 riscv", "riscv", "riscv" if "Architecture: riscv" in r.stderr else "其他",
                "Architecture: riscv" in r.stderr),
-              ("统计 total=5459", "5459", "在" if "total num = 5459" in r.stdout else "无",
-               "total num = 5459" in r.stdout),
+              ("统计 total=5471", "5471", "在" if "total num = 5471" in r.stdout else "无",
+               "total num = 5471" in r.stdout),
               ("TOP1 testOsMemMemcpy002 Max=6512", "testOsMemMemcpy002/6512",
                f"{top.get('FuncName')}/{top.get('MaxCost')}",
                top.get("FuncName") == "testOsMemMemcpy002" and top.get("MaxCost") == 6512)]

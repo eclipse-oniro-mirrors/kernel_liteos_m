@@ -2,6 +2,13 @@
 #define BOXES_CONF_H
 
 #include "los_typedef.h"
+/* LOS_BOX_BASE_ID / LOSCFG_BASE_BOX_MAX_LIMIT / OS_BOX_MEM_LAYOUT_NUM are
+ * declared in los_box_pri.h behind #ifndef, and LOS_BOXA_ID / LOS_BOXB_ID below
+ * use LOS_BOX_BASE_ID immediately. Including it here makes this header
+ * self-sufficient; relying on the includer to have pulled it first works only
+ * for a particular include order, and a new translation unit (the boxB test
+ * entry) broke on exactly that. */
+#include "los_box_pri.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -102,6 +102,13 @@ kernel_module("box_usr_demo") {
     # code is gc'd except what boxes.ld KEEP retains.
     sources += [ "tboxA/boxA_test_main.c" ]
 
+    # UTS: the test-build boxB entry. boxB is the second, otherwise-idle box;
+    # in test builds it runs the boxB heap suite instead of the "Hello boxB!"
+    # demo loop (which would interleave with the test output). Its resource
+    # tables are tiny (TASK 2 / MUX 1 / SEM 0), so the suite is heap-only -
+    # see testsuites/sample/usr/boxB/.
+    sources += [ "tboxB/boxB_test_main.c" ]
+
     # uts_phase.h (testsuites/include). Raw include dir only - NOT the
     # testsuites ":include" config (it chains the kernel rename root,
     # which must never reach box user TUs).

@@ -14,10 +14,20 @@
 #include "asm/memmap_config.h"
 
 #ifdef LOSCFG_KERNEL_TEST
-/* UTS test-build box entry (usr_demo/tboxA/boxA_test_main.c): boxA runs
- * the usr test phase through the shared iCunit copy; boxB stays down
- * (NULL entry, OsBoxInit skips it - see the override in boxes_auto.cfg). */
+/* UTS test-build box entries.
+ *
+ *   boxTestEntry   usr_demo/tboxA/boxA_test_main.c - boxA runs the usr test
+ *                  phase (functional + memory suites) through the shared
+ *                  iCunit copy.
+ *   boxBTestEntry  usr_demo/tboxB/boxB_test_main.c - boxB runs the heap suite.
+ *                  boxB used to stay down (NULL entry, OsBoxInit skipped it);
+ *                  it is enabled because its otherwise-idle heap is the only
+ *                  place a box pool may be destroyed and rebuilt.
+ *
+ * Both are declared here rather than in a header: boxes_auto.cfg is included
+ * into g_userBoxCBArr below, so the declarations must precede that include. */
 extern VOID boxTestEntry(VOID);
+extern VOID boxBTestEntry(VOID);
 #endif
 
 SysMemLayout g_sysMemLayoutArr[OS_BOX_MEM_LAYOUT_NUM] = {

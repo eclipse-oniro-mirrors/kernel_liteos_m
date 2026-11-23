@@ -46,12 +46,18 @@ VOID boxTestEntry(VOID)
         return;
     }
 
-    /* Wait for the kernel phase: poll with the usr delay syscall (veneer
-     * -> SVC). Delay granularity is ONE tick (this board's tick measures
-     * ~1s, see the calibrate line - a larger value would stall the usr
-     * phase for that long after GO). Unbounded on purpose - if the
-     * coordinator never sets GO (OsBoxInit failure path), the box parks
-     * here out of the way and the kernel run completes with its results. */
+    /* Wait for our turn: poll with the usr delay syscall (veneer -> SVC).
+     * Delay granularity is ONE tick (this board's tick measures ~1s, see the
+     * calibrate line - a larger value would stall the usr phase for that long
+     * after GO). Unbounded on purpose - if the coordinator never releases us
+     * (OsBoxInit failure path), the box parks here out of the way and the
+     * kernel run completes with its results.
+     *
+     * Why a token and not just g_utsPhase == GO: boxB also runs a usr suite in
+     * this build, and both boxes share ONE iCunit case slot plus the
+     * g_passResult/g_failResult counters. Waking two boxes on the same GO would
+     * interleave those counters and corrupt the unified report. The token makes
+     * them strictly sequential: boxA runs first, then hands the baton over. */
     while (g_utsPhase != UTS_PHASE_GO) {
         LOS_TaskDelay(1);
     }
@@ -78,7 +84,24 @@ VOID boxTestEntry(VOID)
     ItSuiteLosBoxUsr();
     PRINTK("--- UTS usr phase done ---\n");
 
-    g_utsPhase = UTS_PHASE_DONE;
+    /* Report completion. Both boxes run CONCURRENTLY in this build, so the
+     * coordinator needs a count, not a baton: it waits until as many suites have
+     * finished as it released.
+     *
+     * The increment is the only piece of shared state the entries touch, and it
+     * is done under the scheduler lock so two boxes finishing at the same moment
+     * cannot lose an update. */
+    /* Mark done by writing OUR OWN slot - no lock needed, and no lock is
+     * POSSIBLE here: SCHEDULER_LOCK expands to ArchIntLock, which is kernel
+     * flash and faults from user mode (measured, boxBTestEntry+0x65). A single
+     * aligned store has one writer, so it is atomic on this target. */
+    g_utsDoneByWorld[1] = 1U;
+#if (UTS_CONCURRENT_MODE == 0)
+    /* Sequential mode: hand the baton to boxB. Written AFTER the done flag so a
+     * reader of either sees a consistent pair. */
+    g_utsTurnB = 1U;
+#endif
+    PRINTK("UTS: boxA suite done (%u of %u)\n", 1U, g_utsBoxCount);
 
     /* Park: the entry task remains as the box anchor. */
     while (1) {

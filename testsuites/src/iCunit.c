@@ -63,8 +63,56 @@
  *    keeps extern-only declarations under BOX. */
 #define OsResLeakCheckBegin()       do {} while (0)
 #define OsResLeakCheckEnd(caseName) (VOID)(caseName)
-UINT32 g_failResult = 0;
-UINT32 g_passResult = 0;
+/*
+ * Pass/fail totals are PER WORLD and merged only when the final report prints.
+ *
+ * Two boxes running suites concurrently share ICunitRunF, so a single counter
+ * pair would be incremented from two contexts with no lock - lost updates on
+ * any preemption in between. Keeping one pair per world makes each increment
+ * single-writer; ICunitMergeWorldStat() folds them together at report time.
+ *
+ * The historical names stay usable through these macros, so the bodies of
+ * ICunitRunF and the report keep their spelling.
+ */
+UINT32 g_failResultByWorld[ICUNIT_WORLD_NUM] = {0};
+UINT32 g_passResultByWorld[ICUNIT_WORLD_NUM] = {0};
+
+#define g_failResult  (g_failResultByWorld[ICUNIT_WORLD_IDX()])
+#define g_passResult  (g_passResultByWorld[ICUNIT_WORLD_IDX()])
+
+/* Read-only views for the report (they must NOT use ICUNIT_WORLD_IDX(), which
+ * would resolve against whoever is printing). */
+UINT32 ICunitGetPassTotal(VOID)
+{
+    UINT32 sum = 0;
+    UINT32 i;
+
+    for (i = 0; i < ICUNIT_WORLD_NUM; i++) {
+        sum += g_passResultByWorld[i];
+    }
+    return sum;
+}
+
+UINT32 ICunitGetFailTotal(VOID)
+{
+    UINT32 sum = 0;
+    UINT32 i;
+
+    for (i = 0; i < ICUNIT_WORLD_NUM; i++) {
+        sum += g_failResultByWorld[i];
+    }
+    return sum;
+}
+
+UINT32 ICunitGetWorldPass(UINT32 world)
+{
+    return (world < ICUNIT_WORLD_NUM) ? g_passResultByWorld[world] : 0U;
+}
+
+UINT32 ICunitGetWorldFail(UINT32 world)
+{
+    return (world < ICUNIT_WORLD_NUM) ? g_failResultByWorld[world] : 0U;
+}
 #else
 extern UINT32 g_failResult;
 extern UINT32 g_passResult;
@@ -118,7 +166,22 @@ enum {
     MODULE_COUNT_DUMMY
 };
 #define MODULE_COUNT MODULE_COUNT_DUMMY
-ICUNIT_MODULE_STAT_S g_moduleStat[MODULE_COUNT];
+/*
+ * Per-module statistics, also per world.
+ *
+ * Same hazard as the totals: two boxes incrementing g_moduleStat[TEST_LOS_USR]
+ * without a lock lose updates, and the per-module table is what the final
+ * "Executed Model" lines are built from, so the loss would be visible as a
+ * short count rather than as an obvious failure.
+ *
+ * g_moduleStat is the name used in ICunitRunF and in the report; the macro
+ * keeps them unchanged.
+ */
+ICUNIT_MODULE_STAT_S g_moduleStatByWorld[ICUNIT_WORLD_NUM][MODULE_COUNT];
+
+#ifdef ICUNIT_WORLD_IDX
+#define g_moduleStat  (g_moduleStatByWorld[ICUNIT_WORLD_IDX()])
+#endif
 
 void ICunitSaveErr(iiUINT32 line, iiUINT32 retCode)
 {
@@ -162,8 +225,22 @@ iUINT32 ICunitAddCase(iCHAR *caseName, CASE_FUNCTION caseFunc, iUINT16 testcaseL
     return (iUINT32)ICUNIT_SUCCESS;
 }
 
+/*
+ * Reset the CALLING world's runner state only.
+ *
+ * The per-world macros above make the scalar fields automatically local, but
+ * the three memset_s calls need care: iCunit_CaseArray and g_moduleStat resolve
+ * through ICUNIT_WORLD_IDX() so they already hit only this world's copy, while
+ * g_failLogArray is still globally shared (one ring buffer for all worlds, its
+ * fill count is per-world). Wiping the whole ring from one world would erase
+ * another world's recorded failures, so the ring is only cleared when no other
+ * world has entries - otherwise this world just resets its own cursor.
+ */
 iUINT32 ICunitInit()
 {
+    UINT32 otherLogs = 0;
+    UINT32 i;
+
     iCunit_Init_Success = 0x0000;
     iCunit_Case_Cnt = 0x0000;
 
@@ -172,13 +249,24 @@ iUINT32 ICunitInit()
     iCunit_ErrLog_AddCase = 0;
 
     (void)memset_s(iCunit_CaseArray, sizeof(iCunit_CaseArray), 0, sizeof(iCunit_CaseArray));
-    (void)memset_s(g_failLogArray, sizeof(g_failLogArray), 0, sizeof(g_failLogArray));
+
+    /* Only clear the shared failure ring if no other world is using it. */
+    for (i = 0; i < ICUNIT_WORLD_NUM; i++) {
+        if (i != ICUNIT_WORLD_IDX()) {
+            otherLogs += g_failLogCountByWorld[i];
+        }
+    }
+    if (otherLogs == 0U) {
+        (void)memset_s(g_failLogArray, sizeof(g_failLogArray), 0, sizeof(g_failLogArray));
+    }
+
     (void)memset_s(g_moduleStat, sizeof(g_moduleStat), 0, sizeof(g_moduleStat));
 #if (ICUNIT_CASE_TIME_STAT == 1)
     (void)memset_s(g_caseTimeTop, sizeof(g_caseTimeTop), 0, sizeof(g_caseTimeTop));
     g_caseTimeTopCnt = 0;
 #endif
     g_failLogCount = 0;
+
     return (iUINT32)ICUNIT_SUCCESS;
 }
 
@@ -202,33 +290,68 @@ void ICunitRecordFailLog(iCHAR *caseID, iUINT16 layer, iUINT16 module, iUINT16 l
 
 void ICunitPrintFailLogs(void)
 {
-    iUINT32 i, j;
+    iUINT32 i, j, w;
     ICUNIT_FAIL_LOG_S *pLog;
-    ICUNIT_MODULE_STAT_S *pStat;
 
-    dprintf("\n========== Failed Case Logs (%d / %d) ==========\n", g_failLogCount, ICUNIT_FAIL_LOG_MAX);
+    dprintf("\n========== Failed Case Logs (%d / %d) ==========\n",
+            g_failLogCount, ICUNIT_FAIL_LOG_MAX);
+
     for (i = 0; i < MODULE_COUNT; i++) {
-        pStat = &g_moduleStat[i];
-        if (pStat->execCount == 0) {
+        iUINT32 execCount = 0;
+        iUINT32 passCount = 0;
+        iUINT32 failCount = 0;
+
+        /* MERGE ACROSS WORLDS.
+         *
+         * g_moduleStat is a per-world macro (see iCunit.inc), and this function
+         * runs in the KERNEL world. Reading g_moduleStat[i] directly would show
+         * only the kernel's share and silently drop every box's cases -- which
+         * is exactly what happened: the unified report listed TEST_LOS_USR under
+         * "Not Executed Model" while success count already contained boxA's 37
+         * and boxB's 5 cases. Summing over the worlds keeps the report honest
+         * whatever world happens to print it. */
+        for (w = 0; w < ICUNIT_WORLD_NUM; w++) {
+            execCount += g_moduleStatByWorld[w][i].execCount;
+            passCount += g_moduleStatByWorld[w][i].passCount;
+            failCount += g_moduleStatByWorld[w][i].failCount;
+        }
+
+        if (execCount == 0) {
             continue;
         }
-        dprintf("Executed Model: %s, Executed Model_Num: %d, failed_count: %d, success_count: %d\n",
-            ICunitModuleToStr((iUINT16)i), (iUINT32)i, pStat->failCount, pStat->passCount);
-        for (j = 0; j < g_failLogCount; j++) {
-            pLog = &g_failLogArray[j];
-            if (pLog->testcase_module != (iUINT16)i) {
-                continue;
+
+        /* execCount, NOT the module index: the previous version printed `i`,
+         * which is why "Executed Model_Num: 62" looked like a doubled count
+         * when 62 was simply TEST_LOS_USR's position in the enum. */
+        dprintf("Executed Model: %s, Executed Model_Num: %d, failed_count: %d, "
+                "success_count: %d\n",
+                ICunitModuleToStr((iUINT16)i), execCount, failCount, passCount);
+
+        for (w = 0; w < ICUNIT_WORLD_NUM; w++) {
+            for (j = 0; j < g_failLogCountByWorld[w]; j++) {
+                pLog = &g_failLogArray[j];
+                if (pLog->testcase_module != (iUINT16)i) {
+                    continue;
+                }
+                dprintf("  [Failed]-%s-%s-%s-%s-%s-[Errline: %d RetCode:0x%lx]\n",
+                    pLog->pcCaseID,
+                    ICunitLayerToStr(pLog->testcase_layer),
+                    ICunitModuleToStr(pLog->testcase_module),
+                    ICunitLevelToStr(pLog->testcase_level),
+                    ICunitTypeToStr(pLog->testcase_type),
+                    pLog->errLine, pLog->retCode);
             }
-            dprintf("  [Failed]-%s-%s-%s-%s-%s-[Errline: %d RetCode:0x%lx]\n", pLog->pcCaseID,
-                ICunitLayerToStr(pLog->testcase_layer), ICunitModuleToStr(pLog->testcase_module),
-                ICunitLevelToStr(pLog->testcase_level), ICunitTypeToStr(pLog->testcase_type),
-                pLog->errLine, pLog->retCode);
         }
     }
+
     dprintf("\n Not Executed Model: ");
     for (i = 0; i < MODULE_COUNT; i++) {
-        pStat = &g_moduleStat[i];
-        if (pStat->execCount != 0) {
+        iUINT32 execCount = 0;
+
+        for (w = 0; w < ICUNIT_WORLD_NUM; w++) {
+            execCount += g_moduleStatByWorld[w][i].execCount;
+        }
+        if (execCount != 0) {
             continue;
         }
         dprintf("%s    ", ICunitModuleToStr((iUINT16)i));

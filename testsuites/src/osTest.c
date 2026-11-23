@@ -86,10 +86,15 @@ UINT16 g_index;
 UINT32 g_loopCycle = 0xFFFFF;
 
 #ifdef LOSCFG_BOX
-/* UTS: the counters live with the shared iCunit copy (COMMON_RAM) so the
- * kernel phase and the usr phase accumulate into ONE pair. */
-extern UINT32 g_passResult;
-extern UINT32 g_failResult;
+/* UTS: with more than one world the counters can no longer be a single pair -
+ * boxA and boxB run suites CONCURRENTLY through the shared iCunit copy, so each
+ * world keeps its own pass/fail totals (see iCunit.inc) and the report asks for
+ * the merged sum. Definition lives in iCunit.c, which is compiled once into the
+ * COMMON sections. */
+extern UINT32 ICunitGetPassTotal(VOID);
+extern UINT32 ICunitGetFailTotal(VOID);
+extern UINT32 ICunitGetWorldPass(UINT32 world);
+extern UINT32 ICunitGetWorldFail(UINT32 world);
 #else
 UINT32 g_passResult = 0;
 UINT32 g_failResult = 0;
@@ -407,19 +412,88 @@ VOID TestTaskEntry(VOID)
      * run completes with the kernel results only. */
     if (utsBoxUp != 0) {
         UINT32 utsPoll;
+        UINT32 boxCount = 0;
+        UINT32 w;
+
+        /* Count how many usr suites this build will run. Only the kernel can do
+         * this: g_userBoxCBArr is KERNEL_RAM and a box reading it faults. */
+        {
+            extern LosBoxCB g_userBoxCBArr[];
+
+            for (w = 0; w < (UINT32)LOSCFG_BASE_BOX_MAX_LIMIT; w++) {
+                if (g_userBoxCBArr[w].boxEntryTask != NULL) {
+                    boxCount++;
+                }
+            }
+            g_utsHasBoxB = (boxCount > 1U) ? 1U : 0U;
+        }
+        g_utsBoxCount = boxCount;
+#if (UTS_CONCURRENT_MODE == 1)
+        dprintf("UTS: usr phase CONCURRENT, %u suite(s) released together\n", boxCount);
+
+        /* Broadcast: every box parked on g_utsPhase wakes and runs its suite at
+         * the same time. Safe because the iCunit runner keeps its state per
+         * world (iCunit.inc) - that isolation is what this run is testing. */
         g_utsPhase = UTS_PHASE_GO;
-        for (utsPoll = 0; (g_utsPhase != UTS_PHASE_DONE) &&
+#else
+        dprintf("UTS: usr phase SEQUENTIAL, %u suite(s) run one after another\n", boxCount);
+
+        /* Control run: only boxA is released now. boxB parks on g_utsTurnB and
+         * boxA raises it when its suite returns, so the two never overlap.
+         * Same suites, same counts - the only difference is overlap. */
+        g_utsTurnB = 0;
+        g_utsPhase = UTS_PHASE_GO;
+#endif
+
+        /* Wait for ALL of them. Each box sets its OWN completion flag (no shared
+         * counter, no lock - see uts_phase.h), and this loop scans them. The
+         * expected set is exact, so the timeout only guards a genuinely stuck
+         * box rather than papering over a race. */
+        for (utsPoll = 0; (ICunitUtsAllDone(boxCount) == 0U) &&
                           (utsPoll < UTS_USR_TIMEOUT_POLLS); utsPoll++) {
             LOS_TaskDelay(UTS_USR_POLL_TICKS);
         }
-        if (g_utsPhase != UTS_PHASE_DONE) {
-            dprintf("[UTS] usr phase HUNG (timeout), kernel results only\n");
+        if (ICunitUtsAllDone(boxCount) == 0U) {
+            UINT32 w;
+
+            dprintf("[UTS] usr phase HUNG (timeout):");
+            for (w = 1; w <= boxCount; w++) {
+                dprintf(" box%c=%u", (char)('A' + w - 1),
+                        (w < UTS_DONE_WORLD_NUM) ? g_utsDoneByWorld[w] : 0U);
+            }
+            dprintf("\n");
+        } else {
+            g_utsPhase = UTS_PHASE_DONE;
         }
     }
 #endif
 
     /* The log is used for testing entrance guard, please do not make any changes. */
+#ifdef LOSCFG_BOX
+    /* Merged across kernel + every box that ran. Printed per world first so a
+     * wrapper that only affects one world is visible in the log.
+     *
+     * ICUNIT_WORLD_NUM is private to iCunit.inc (which defines the per-world
+     * state); osTest.c only sees the accessors, so the bound is stated here as
+     * the number of worlds the box build can have: kernel + one per box, and
+     * LOSCFG_BASE_BOX_MAX_LIMIT is 2 in this tree. Kept as a local constant so a
+     * change in the box count shows up as a compile-time mismatch rather than a
+     * silently truncated loop. */
+    {
+        UINT32 w;
+        const UINT32 worldNum = (UINT32)LOSCFG_BASE_BOX_MAX_LIMIT + 1U;
+        static const char *worldName[] = { "kernel", "boxA", "boxB" };
+
+        for (w = 0; (w < worldNum) && (w < (sizeof(worldName) / sizeof(worldName[0]))); w++) {
+            dprintf("[UTS] world %u (%s): pass=%u fail=%u\n", w, worldName[w],
+                    ICunitGetWorldPass(w), ICunitGetWorldFail(w));
+        }
+    }
+    dprintf("\nfailed count:%d, success count:%d\n",
+            ICunitGetFailTotal(), ICunitGetPassTotal());
+#else
     dprintf("\nfailed count:%d, success count:%d\n", g_failResult, g_passResult);
+#endif
     dprintf("[Crash-Skip] count:%d\n", g_crashResult);
     dprintf("[ResLeak] total resource leak count: %u\n", OsResLeakGetTotalLeakCnt());
 #ifdef LOSCFG_KERNEL_FUZZ

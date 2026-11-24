@@ -81,8 +81,11 @@ case "$BUILD_DIR" in
     *ws63_m*)         BOARD=ws63 ;;
     *)                BOARD=$(basename "$BUILD_DIR") ;;
 esac
-HTML_DIR=${2:-"$REPO_ROOT/logs/coverage_html/lcov/$BOARD"}
-INFO_OUT=${3:-"$REPO_ROOT/logs/coverage_html/lcov/$BOARD.info"}
+# Reports go next to the build products in the out tree (the user
+# asked for this instead of a standalone logs/ directory):
+#   out/<board>/<product>/coverage_html/  (+ <product>.info)
+HTML_DIR=${2:-"$BUILD_DIR/coverage_html"}
+INFO_OUT=${3:-"$BUILD_DIR/coverage_html/$BOARD.info"}
 mkdir -p "$(dirname "$INFO_OUT")"
 
 if [ ! -x "$GCOV_TOOL" ]; then
@@ -98,12 +101,15 @@ lcov --capture \
      --output-file "$INFO_OUT" \
      --rc derive_function_end_line=0 \
      --rc lcov_branch_coverage=1 \
-     --ignore-errors mismatch,inconsistent,unused,empty,range,negative \
+     --ignore-errors gcov,source,graph \
+     # (fine-grained categories mismatch/.../negative need lcov >= 1.15;
+     #  this host has 1.14 where only gcov,source,graph are valid)
      2>&1 | tail -8
 
 echo "=== step 3: genhtml ==="
 if [ -d "$HTML_DIR" ]; then
-    find "$HTML_DIR" -mindepth 1 -delete
+    # the .info shares the HTML dir in the out-tree layout - keep it
+    find "$HTML_DIR" -mindepth 1 ! -name '*.info' -delete
 else
     mkdir -p "$HTML_DIR"
 fi
@@ -112,7 +118,6 @@ genhtml "$INFO_OUT" \
         --title "$BOARD coverage" \
         --branch-coverage \
         --prefix "$REPO_ROOT" \
-        --ignore-errors range,inconsistent,corrupt,unsupported \
         2>&1 | tail -8
 
 echo ""

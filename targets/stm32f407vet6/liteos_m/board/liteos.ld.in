@@ -41,10 +41,26 @@ SVC_IRQ_STACK_SIZE  = 4K;
 
 MEMORY
 {
+/* The only coverage-vs-stock difference in the whole script: the four FLASH
+ * slots. Under LOSCFG_TEST_KERNEL_COVERAGE (QEMU-only measurement image):
+ * KERNEL doubled so gcov counter code on suite-referenced kernel functions
+ * fits (the fixed 128K overflowed by 9204B), box slots and COMMON shift up;
+ * total 0x080A0000 (640K) inside the QEMU netduinoplus2 1MB flash - this
+ * image must NOT be flashed on the 512K board. GNU ld does not preprocess
+ * linker scripts, so board/BUILD.gn runs gen_liteos_ld.py over this template
+ * (single source; the stock arm is byte-identical to the historical
+ * liteos.ld). RAM slots are identical in both layouts. */
+#ifdef LOSCFG_TEST_KERNEL_COVERAGE
+   KERNEL_FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 256K
+   BOX_A_FLASH (rx)       : ORIGIN = 0x08040000, LENGTH = 128K
+   BOX_B_FLASH (rx)       : ORIGIN = 0x08060000, LENGTH = 128K
+   COMMON_FLASH (rx)      : ORIGIN = 0x08080000, LENGTH = 512K
+#else
    KERNEL_FLASH (rx)      : ORIGIN = 0x08000000, LENGTH = 128K
    BOX_A_FLASH (rx)       : ORIGIN = 0x08020000, LENGTH = 64K
    BOX_B_FLASH (rx)       : ORIGIN = 0x08030000, LENGTH = 64K
    COMMON_FLASH (rx)      : ORIGIN = 0x08040000, LENGTH = 256K
+#endif
    KERNEL_RAM (rwx)       : ORIGIN = 0x20000000, LENGTH = 64K
    COMMON_RAM (rw)        : ORIGIN = 0x20010000, LENGTH = 16K
    USER_READONLY_RAM (rw) : ORIGIN = 0x20014000, LENGTH = 16K

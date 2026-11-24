@@ -399,13 +399,36 @@ extern EVENT_CB_S g_exampleEvent;
 #define OS_TSK_TEST_STACK_SIZE 0x5000
 #else
 #ifdef LOSCFG_TEST_KERNEL_COVERAGE
+#if defined(LOSCFG_PLATFORM_STM32F407VET6)
+/* Small-heap board: the kernel heap is a fixed 64K slot and the gcov
+ * counters leave ~27K. The SPAWNED-case child stacks (this macro) must
+ * keep the same 0x1000 waterline as the non-coverage test build - the
+ * upstream 0x5000 headroom leaves no contiguous block and every spawning
+ * case fails at its FIRST task create (measured: 62 NO_MEMORY). The MAIN
+ * test task alone needs headroom for the gcov dump call chain; it is
+ * sized separately in los_TestInit. */
+#define OS_TSK_TEST_STACK_SIZE 0x1000
+#else
 /* ARM (-O0 instrumented) test task: measured waterline exceeds 0x1000
  * (deeper -O0 frames + the gcov dump call chain at test end), so use the
  * same 0x5000 headroom the -O0 build needs. */
 #define OS_TSK_TEST_STACK_SIZE 0x5000
+#endif
 #else
 #define OS_TSK_TEST_STACK_SIZE 0x1000
 #endif
+#endif
+/* MAIN test task (los_TestInit) stack, defined next to OS_TSK_TEST_STACK_SIZE.
+ * On the stm32f407vet6 coverage build it alone carries the gcov dump call
+ * chain at test end (deeper instrumented frames + the base64 streaming) and
+ * needs 0x2000, while the spawned children keep the 0x1000 waterline above -
+ * raising the shared macro instead starves the ~27K kernel heap and the
+ * child creations fail with NO_MEMORY (measured: 62). Everywhere else the
+ * main task keeps the upstream OS_TSK_TEST_STACK_SIZE. */
+#if defined(LOSCFG_TEST_KERNEL_COVERAGE) && defined(LOSCFG_PLATFORM_STM32F407VET6)
+#define OS_TSK_MAIN_TEST_STACK_SIZE 0x2000
+#else
+#define OS_TSK_MAIN_TEST_STACK_SIZE OS_TSK_TEST_STACK_SIZE
 #endif
 #define TASK_STACK_SIZE_TEST OS_TSK_TEST_STACK_SIZE
 #define TEST_TASK_STACK_SIZE OS_TSK_TEST_STACK_SIZE

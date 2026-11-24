@@ -29,13 +29,22 @@ extern "C" {
  * a fetch at 0x08080000 read erased flash, so bytes past 512K cannot be
  * programmed). Kernel content ~62K of its 128K; COMMON owns the 256K
  * tail for the growing suite set. Layout ends exactly at the boundary. */
-#define KERNEL_FLASH_BASE           0x08000000UL   /* 128K, no MPU region */
+#ifdef LOSCFG_TEST_KERNEL_COVERAGE
+/* Coverage measurement layout (QEMU-only image) - must mirror the
+ * LOSCFG_TEST_KERNEL_COVERAGE MEMORY block in liteos.ld.in. */
+#define KERNEL_FLASH_SIZE           0x00040000UL   /* 256K, no MPU region */
+#define BOX_A_CODE_SLOT_BASE        0x08040000UL   /* 128K, MPU R3 (dynamic) */
+#define BOX_B_CODE_SLOT_BASE        0x08060000UL
+#define COMMON_FLASH_BASE           0x08080000UL   /* 512K, MPU R0 - last region */
+#else
 #define KERNEL_FLASH_SIZE           0x00020000UL
 #define BOX_A_CODE_SLOT_BASE        0x08020000UL   /* 64K,  MPU R3 (dynamic) */
-#define BOX_A_CODE_SLOT_SIZE        0x00010000UL
 #define BOX_B_CODE_SLOT_BASE        0x08030000UL
-#define BOX_B_CODE_SLOT_SIZE        0x00010000UL
 #define COMMON_FLASH_BASE           0x08040000UL   /* 256K, MPU R0 - last region */
+#endif
+#define KERNEL_FLASH_BASE           0x08000000UL   /* no MPU region */
+#define BOX_A_CODE_SLOT_SIZE        0x00010000UL
+#define BOX_B_CODE_SLOT_SIZE        0x00010000UL
 #define COMMON_FLASH_SIZE           0x00040000UL
 
 /* SRAM 128KB @0x20000000 */
@@ -178,10 +187,18 @@ extern CHAR __boxB_heap_end;
 
 /* RASR = XN(28) | AP(26:24) | C(17) B(16) | SIZE(7:1) | EN(0).
  * Ready-made values for the fixed slots; bases from the *_SLOT macros. */
+#ifdef LOSCFG_TEST_KERNEL_COVERAGE
+/* Coverage measurement layout (QEMU-only): COMMON 512K, box slots 128K.
+ * SIZE field (bits [5:1]): 512K -> 18 -> 0x25; 128K -> 16 -> 0x21. */
+#define MPU_RASR_COMMON_TEXT        0x03020025UL   /* 512K AP=011 RO/RO, executable, WT */
+#define MPU_RASR_BOX_CODE           0x03020021UL   /* 128K AP=011 RO/RO, executable, WT */
+#else
 #define MPU_RASR_COMMON_TEXT        0x03020023UL   /* 256K AP=011 RO/RO, executable, WT */
+#define MPU_RASR_BOX_CODE           0x0302001FUL   /* 64K  AP=011 RO/RO, executable, WT */
+#endif
 #define MPU_RASR_COMMON_DATA        0x1303001BUL   /* 16K  AP=011 RW/RW, XN, WBWA */
 #define MPU_RASR_USER_READONLY      0x1203001BUL   /* 16K  AP=010 kernel RW / user RO, XN */
-#define MPU_RASR_BOX_CODE           0x0302001FUL   /* 64K  AP=011 RO/RO, executable, WT */
+
 #define MPU_RASR_BOX_DATA           0x1303001BUL   /* 16K  AP=011 RW/RW, XN, WBWA */
 
 #define MPU_CTRL_ENABLE_PRIVDEF     0x5UL          /* ENABLE | PRIVDEFENA */

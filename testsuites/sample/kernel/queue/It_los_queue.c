@@ -197,7 +197,7 @@ VOID ItSuiteLosQueue(VOID)
     ItLosQueue095();
     ItLosQueue110();
 #endif
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
     ItLosQueueStatic001();
     ItLosQueueStatic002();
     ItLosQueueStatic003();

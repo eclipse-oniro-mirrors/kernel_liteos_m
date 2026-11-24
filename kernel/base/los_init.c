@@ -37,6 +37,7 @@
 #include "los_mux.h"
 #include "los_mux_pri.h"
 #include "los_queue.h"
+#include "los_queue_pri.h"
 #include "los_sem.h"
 #include "los_sem_pri.h"
 #include "los_rwsem_pri.h"
@@ -221,7 +222,7 @@ LITE_OS_SEC_TEXT_INIT STATIC UINT32 OsIpcInit(VOID)
     }
 #endif
 
-#if (LOSCFG_BASE_IPC_QUEUE == 1)
+#ifdef LOSCFG_BASE_IPC_QUEUE
     ret = OsQueueInit();
     if (ret != LOS_OK) {
         PRINT_ERR("OsQueueInit error\n");

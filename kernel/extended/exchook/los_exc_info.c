@@ -216,7 +216,7 @@ STATIC UINT32 OsExcHookFunc(UINT32 type, UINT32 index, UINT32 loop, UINT32 len, 
     return LOS_OK;
 }
 
-#if (LOSCFG_BASE_IPC_QUEUE == 1)
+#ifdef LOSCFG_BASE_IPC_QUEUE
 STATIC UINT32 OsExcQueueMsgGet(UINT32 type, VOID *arg)
 {
     UINT32 len = sizeof(QUEUE_INFO_S);
@@ -304,13 +304,13 @@ STATIC VOID OsExcMsgDump(VOID)
 
 VOID OsExcMsgDumpInit(VOID)
 {
-    g_excQueueMaxNum = LOSCFG_BASE_IPC_QUEUE_LIMIT;
     g_excMemMaxNum = OS_SYS_MEM_NUM;
     g_excContent = (VOID *)g_excMsgArray;
 
     OsExcRegister(OS_EXC_TYPE_CONTEXT, OsExcContentGet, NULL);
     OsExcRegister(OS_EXC_TYPE_TSK, OsExcTaskMsgGet, &g_taskMaxNum);
-#if (LOSCFG_BASE_IPC_QUEUE == 1)
+#ifdef LOSCFG_BASE_IPC_QUEUE
+    g_excQueueMaxNum = LOSCFG_BASE_IPC_QUEUE_LIMIT;
     OsExcRegister(OS_EXC_TYPE_QUE, OsExcQueueMsgGet, &g_excQueueMaxNum);
 #endif
 #ifndef LOSCFG_ARCH_RISCV

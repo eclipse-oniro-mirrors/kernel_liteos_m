@@ -112,7 +112,7 @@ static UINT32 TestCmsis007(VOID)
     name = (CHAR *)osMessageQueueGetName(msgQueueId);
     ICUNIT_ASSERT_EQUAL(name, NULL, name);
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
     CHAR staticBuff[STATCI_BUFF_SIZE + sizeof(UINT32)] = {0};
     attr.mq_mem = staticBuff;
     attr.mq_size = STATCI_BUFF_SIZE + sizeof(UINT32);
@@ -139,7 +139,7 @@ EXIT:
     return LOS_OK;
 }
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
 static osMessageQueueId_t g_msgQueueId1;
 static osMessageQueueId_t g_msgQueueId2;
 
@@ -203,7 +203,7 @@ static INT32 ThreadReadWriteTest(VOID)
 
     osThreadJoin(threadId1);
 
-    ret = strcmp(g_staticBuff, "world");
+    ret = strcmp(g_staticBuff + sizeof(UINT32), "world");
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = osMessageQueueDelete(g_msgQueueId1);
@@ -270,7 +270,7 @@ static UINT32 TestCmsis005(VOID)
     ret = osMessageQueueGet(msgQueueId, &data, NULL, 0U);
     ICUNIT_GOTO_EQUAL(ret, osErrorParameter, ret, EXIT);
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
     /* static test */
     osMessageQueueAttr_t attr = {0};
     CHAR staticBuff[STATCI_BUFF_SIZE + sizeof(UINT32)] = {0};
@@ -333,7 +333,7 @@ static UINT32 TestCmsis004(VOID)
     ret = osMessageQueueDelete(msgQueueId);
     ICUNIT_ASSERT_EQUAL(ret, osOK, ret);
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
     /* static test */
     osMessageQueueAttr_t attr = {0};
     CHAR staticBuff[STATCI_BUFF_SIZE + sizeof(UINT32)] = {0};
@@ -351,7 +351,7 @@ static UINT32 TestCmsis004(VOID)
     ret = strcmp(data, strbuff);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
-    ret = strcmp(staticBuff, strbuff);
+    ret = strcmp(staticBuff + sizeof(UINT32), strbuff);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
 EXIT:
@@ -379,7 +379,7 @@ static UINT32 TestCmsis003(VOID)
     msgQueueId = osMessageQueueNew(1, 0xFFFFFFFF, NULL);
     ICUNIT_ASSERT_EQUAL(msgQueueId, NULL, msgQueueId);
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
     /* static test */
     osMessageQueueAttr_t attr = {0};
     CHAR staticBuff[STATCI_BUFF_SIZE + sizeof(UINT32)] = {0};
@@ -427,7 +427,7 @@ static UINT32 TestCmsis002(VOID)
     ret = osMessageQueueDelete(msgQueueId);
     ICUNIT_ASSERT_EQUAL(ret, osErrorParameter, ret);
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
     /* static test */
     osMessageQueueAttr_t attr = {0};
     CHAR staticBuff[STATCI_BUFF_SIZE + sizeof(UINT32)] = {0};
@@ -1247,7 +1247,7 @@ static UINT32 TestCmsisQueueAttr001(VOID)
     ret = osMessageQueueDelete(mq);
     ICUNIT_ASSERT_EQUAL(ret, osOK, ret);
 
-    /* Querying a deleted queue returns 0 (queueState == OS_QUEUE_UNUSED branch) */
+    /* Querying a deleted queue returns 0 (queueState == LOS_UNUSED branch) */
     ICUNIT_ASSERT_EQUAL(osMessageQueueGetCapacity(mq), 0, 0);
 
     return LOS_OK;
@@ -3210,7 +3210,7 @@ void CmsisFuncTestSuite(void)
     TEST_ADD_CASE("ItLosTestCmsis004", TestCmsis004, TEST_COMPAT, TEST_FN_COMPAT_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
     TEST_ADD_CASE("ItLosTestCmsis005", TestCmsis005, TEST_COMPAT, TEST_FN_COMPAT_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
     TEST_ADD_CASE("ItLosTestCmsis006", TestCmsis006, TEST_COMPAT, TEST_FN_COMPAT_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 #endif
 

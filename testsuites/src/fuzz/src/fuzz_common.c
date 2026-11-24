@@ -45,13 +45,14 @@
 #include "los_queue.h"
 #include "los_sem_pri.h"
 #include "los_mux_pri.h"
+#include "los_queue_pri.h"
 #include "los_swtmr_pri.h"
 
 /* 内核资源池数组（testsuites 既有惯例：osTest.c 同款 extern） */
 extern LosTaskCB *g_osTaskCBArray;
-extern LosSemCB *g_osAllSem;
-extern LosQueueCB *g_allQueue;
-extern LosMuxCB *g_osAllMux;
+extern LosSemCB *g_allSem;
+extern LosQueueCB *g_osAllQueue;
+extern LosMuxCB *g_allMux;
 extern SWTMR_CTRL_S *g_osSwtmrCBArray;
 
 S_ElementInit g_element[ELEMENT_LEN];
@@ -78,7 +79,7 @@ void FuzzGuardSnapshot(void)
         g_semBusy[i] = (((LosSemCB *)g_osAllSem)[i].semStat == LOS_UNUSED) ? 0 : 1;
     }
     for (i = 0; i < LOSCFG_BASE_IPC_QUEUE_LIMIT; i++) {
-        g_queueBusy[i] = (((LosQueueCB *)g_allQueue)[i].queueState == OS_QUEUE_INUSED) ? 0 : 1;
+        g_queueBusy[i] = (((LosQueueCB *)g_osAllQueue)[i].queueState == LOS_USED) ? 0 : 1;
     }
     for (i = 0; i < LOSCFG_BASE_IPC_MUX_LIMIT; i++) {
         g_muxBusy[i] = (((LosMuxCB *)g_osAllMux)[i].muxStat == LOS_USED) ? 1 : 0;

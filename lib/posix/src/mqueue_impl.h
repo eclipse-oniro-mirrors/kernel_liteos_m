@@ -43,22 +43,10 @@
 #include <limits.h>
 #include <sys/select.h>
 #include "los_queue.h"
+#include "los_queue_pri.h"
 #include "los_memory.h"
 #include "los_task.h"
 #include "los_compiler.h"
-
-#define OS_QUEUE_OPERATE_TYPE(ReadOrWrite, HeadOrTail, PointOrNot)  \
-                (((UINT32)(PointOrNot) << 2) | ((UINT32)(HeadOrTail) << 1) | (ReadOrWrite))
-#define OS_QUEUE_READ_WRITE_GET(type) ((type) & (0x01))
-#define OS_QUEUE_READ_HEAD     (OS_QUEUE_READ | (OS_QUEUE_HEAD << 1))
-#define OS_QUEUE_READ_TAIL     (OS_QUEUE_READ | (OS_QUEUE_TAIL << 1))
-#define OS_QUEUE_WRITE_HEAD    (OS_QUEUE_WRITE | (OS_QUEUE_HEAD << 1))
-#define OS_QUEUE_WRITE_TAIL    (OS_QUEUE_WRITE | (OS_QUEUE_TAIL << 1))
-#define OS_QUEUE_OPERATE_GET(type) ((type) & (0x03))
-#define OS_QUEUE_IS_POINT(type)    ((type) & (0x04))
-#define OS_QUEUE_IS_READ(type)     (OS_QUEUE_READ_WRITE_GET(type) == OS_QUEUE_READ)
-#define OS_QUEUE_IS_WRITE(type)    (OS_QUEUE_READ_WRITE_GET(type) == OS_QUEUE_WRITE)
-#define OS_READWRITE_LEN           2
 
 /**
  * @ingroup mqueue
@@ -81,29 +69,6 @@
 #ifndef FNONBLOCK
 #define FNONBLOCK   O_NONBLOCK
 #endif
-
-#define QUEUE_SPLIT_BIT        16
-
-#define SET_QUEUE_ID(count, queueID)    (((count) << QUEUE_SPLIT_BIT) | (queueID))
-
-/**
- * @ingroup los_queue
- * get the queue index
- */
-#define GET_QUEUE_INDEX(queueID)        ((queueID) & ((1U << QUEUE_SPLIT_BIT) - 1))
-
-/**
- * @ingroup los_queue
- * get the queue count
- */
-#define GET_QUEUE_COUNT(queueID)        ((queueID) >> QUEUE_SPLIT_BIT)
-
-
-/**
- * @ingroup los_queue
- * Obtain the head node in a queue doubly linked list.
- */
-#define GET_QUEUE_LIST(ptr) LOS_DL_LIST_ENTRY(ptr, LosQueueCB, readWriteList[OS_QUEUE_WRITE])
 
 #define STATIC static
 #define INLINE inline

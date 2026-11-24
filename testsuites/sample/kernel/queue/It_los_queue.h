@@ -31,6 +31,7 @@
 #ifndef IT_LOS_QUEUE_H
 #define IT_LOS_QUEUE_H
 #include "osTest.h"
+#include "los_queue_pri.h"
 
 #ifdef __cplusplus
 #if __cplusplus
@@ -210,7 +211,7 @@ extern VOID ItLosQueueHead301(VOID);
 extern VOID ItLosQueueHead302(VOID);
 extern VOID ItLosQueueIsr301(VOID);
 extern VOID ItLosQueueIsr302(VOID);
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
 extern VOID ItLosQueueStatic001(VOID);
 extern VOID ItLosQueueStatic002(VOID);
 extern VOID ItLosQueueStatic003(VOID);

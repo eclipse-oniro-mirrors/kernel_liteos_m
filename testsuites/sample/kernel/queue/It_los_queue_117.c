@@ -69,7 +69,7 @@ static UINT32 TestCase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     /* F-Inv: queueID 越界 */
-    ret = OsQueueMailFree(OS_ALL_IPC_QUEUE_LIMIT + 1, g_memboxPoolTC117, NULL);
+    ret = OsQueueMailFree(LOSCFG_BASE_IPC_QUEUE_LIMIT + 1, g_memboxPoolTC117, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_QUEUE_MAIL_HANDLE_INVALID, ret);
 
     /* F-Inv: mailPool NULL */

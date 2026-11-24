@@ -38,6 +38,7 @@
 #include "los_mux.h"
 #include "los_mux_pri.h"
 #include "los_queue.h"
+#include "los_queue_pri.h"
 #include "los_sem.h"
 #include "los_sem_pri.h"
 #include "los_swtmr_pri.h"
@@ -1286,7 +1287,7 @@ osStatus_t osSemaphoreDelete(osSemaphoreId_t semaphore_id)
 #endif
 
 //  ==== Message Queue Management Functions ====
-#if (LOSCFG_BASE_IPC_QUEUE == 1)
+#ifdef LOSCFG_BASE_IPC_QUEUE
 typedef enum {
     ATTR_CAPACITY = 0,
     ATTR_MSGSIZE = 1,
@@ -1301,7 +1302,7 @@ osMessageQueueId_t osMessageQueueNew(uint32_t msg_count, uint32_t msg_size, cons
     osMessageQueueId_t handle;
     const char *queueName = NULL;
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
     UINT32 queueSize = 0;
     UINT8 *staticMem = NULL;
 #endif
@@ -1313,7 +1314,7 @@ osMessageQueueId_t osMessageQueueNew(uint32_t msg_count, uint32_t msg_size, cons
 
     if (attr != NULL) {
         queueName = attr->name;
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
         queueSize = attr->mq_size;
         staticMem = attr->mq_mem;
         if (((queueSize == 0) && (staticMem != NULL)) || ((queueSize != 0) && (staticMem == NULL))) {
@@ -1322,7 +1323,7 @@ osMessageQueueId_t osMessageQueueNew(uint32_t msg_count, uint32_t msg_size, cons
 #endif
     }
 
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
     if (staticMem != NULL) {
         ret = LOS_QueueCreateStatic((const CHAR *)queueName, (UINT16)msg_count, &queueId, \
                                     0, (UINT16)msg_size, (VOID *)staticMem, (UINT16)queueSize);
@@ -1352,11 +1353,11 @@ STATIC osStatus_t osMessageQueueOp(osMessageQueueId_t mq_id, VOID *msg_ptr, UINT
         return osErrorParameter;
     }
 
-    bufferSize = (UINT32)(queueCB->queueSize - sizeof(UINT32));
+    bufferSize = (UINT32)(queueCB->queueSize);
     if (rw == OS_QUEUE_WRITE) {
-        ret = LOS_QueueWriteCopy(queueCB->queueID, msg_ptr, bufferSize, timeout);
+        ret = LOS_QueueWriteCopy(queueCB->queueId, msg_ptr, bufferSize, timeout);
     } else {
-        ret = LOS_QueueReadCopy(queueCB->queueID, msg_ptr, &bufferSize, timeout);
+        ret = LOS_QueueReadCopy(queueCB->queueId, msg_ptr, &bufferSize, timeout);
     }
 
     if (ret == LOS_OK) {
@@ -1391,7 +1392,7 @@ STATIC UINT16 osMessageQueueGetAttr(osMessageQueueId_t mq_id, QueueAttribute att
         return 0;
     }
 
-    if (queueCB->queueState == OS_QUEUE_UNUSED) {
+    if (queueCB->queueState == LOS_UNUSED) {
         return 0;
     }
 
@@ -1400,7 +1401,7 @@ STATIC UINT16 osMessageQueueGetAttr(osMessageQueueId_t mq_id, QueueAttribute att
             attrVal = queueCB->queueLen;
             break;
         case ATTR_MSGSIZE:
-            attrVal = queueCB->queueSize - sizeof(UINT32);
+            attrVal = queueCB->queueSize;
             break;
         case ATTR_COUNT:
             attrVal = queueCB->readWriteableCnt[OS_QUEUE_READ];
@@ -1448,7 +1449,7 @@ osStatus_t osMessageQueueDelete(osMessageQueueId_t mq_id)
         return osErrorISR;
     }
 
-    ret = LOS_QueueDelete((UINT32)pstQueue->queueID);
+    ret = LOS_QueueDelete((UINT32)pstQueue->queueId);
     if (ret == LOS_OK) {
         return osOK;
     } else if (ret == LOS_ERRNO_QUEUE_NOT_FOUND || ret == LOS_ERRNO_QUEUE_NOT_CREATE) {

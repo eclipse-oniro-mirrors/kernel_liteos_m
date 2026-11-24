@@ -49,6 +49,12 @@ extern "C" {
 
 /**
  * @ingroup los_queue
+ * Queue information block structure.
+ */
+typedef struct LosQueueCB LosQueueCB;
+
+/**
+ * @ingroup los_queue
  * Queue error code: The maximum number of queue resources is configured to 0.
  *
  * Value: 0x02000600
@@ -360,16 +366,25 @@ extern "C" {
  * Structure of the block for queue information query
  */
 typedef struct tagQueueInfo {
-    UINT32 queueID; /**< Queue ID */
-    UINT16 queueLen; /**< Queue length */
-    UINT16 queueSize; /**< Node size */
-    UINT16 queueHead; /**< Node head */
-    UINT16 queueTail; /**< Node tail */
-    UINT16 writableCnt; /**< Count of writable resources */
-    UINT16 readableCnt; /**< Count of readable resources */
-    UINT32 waitReadTask[OS_WAIT_TASK_ARRAY_LEN]; /**< Resource reading task*/
-    UINT32 waitWriteTask[OS_WAIT_TASK_ARRAY_LEN]; /**< Resource writing task */
-    UINT32 waitMemTask[OS_WAIT_TASK_ARRAY_LEN]; /**< Memory task */
+    union { UINT32 queueID;     UINT32 uwQueueID;     };  /**< Queue ID */
+    union { UINT16 queueLen;    UINT16 usQueueLen;    };  /**< Queue length */
+    union { UINT16 queueSize;   UINT16 usQueueSize;   };  /**< Node size */
+    union { UINT16 queueHead;   UINT16 usQueueHead;   };  /**< Node head */
+    union { UINT16 queueTail;   UINT16 usQueueTail;   };  /**< Node tail */
+    union { UINT16 writableCnt; UINT16 usWritableCnt; };  /**< Count of writable resources */
+    union { UINT16 readableCnt; UINT16 usReadableCnt; };  /**< Count of readable resources */
+    union {
+        UINT32 waitReadTask[OS_WAIT_TASK_ARRAY_LEN];      /**< Resource reading task */
+        UINT32 uwWaitReadTask[OS_WAIT_TASK_ARRAY_LEN];
+    };
+    union {
+        UINT32 waitWriteTask[OS_WAIT_TASK_ARRAY_LEN];     /**< Resource writing task */
+        UINT32 uwWaitWriteTask[OS_WAIT_TASK_ARRAY_LEN];
+    };
+    union {
+        UINT32 waitMemTask[OS_WAIT_TASK_ARRAY_LEN];       /**< Memory tasks */
+        UINT32 uwWaitMemTask[OS_WAIT_TASK_ARRAY_LEN];
+    };
 } QUEUE_INFO_S;
 
 /**
@@ -435,7 +450,7 @@ extern UINT32 LOS_QueueCreate(const CHAR *queueName,
  * <ul><li>los_queue.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_QueueDelete
  */
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
+#ifdef LOSCFG_QUEUE_STATIC_ALLOCATION
 extern UINT32 LOS_QueueCreateStatic(const CHAR *queueName,
                                     UINT16 len,
                                     UINT32 *queueID,
@@ -1040,209 +1055,8 @@ extern UINT32 LOS_QueueDelete(UINT32 queueID);
  */
 extern UINT32 LOS_QueueInfoGet(UINT32 queueID, QUEUE_INFO_S *queueInfo);
 
-typedef enum {
-    OS_QUEUE_READ,
-    OS_QUEUE_WRITE
-} QueueReadWrite;
-
-typedef enum {
-    OS_QUEUE_HEAD,
-    OS_QUEUE_TAIL
-} QueueHeadTail;
-
-typedef enum {
-    OS_QUEUE_NOT_POINT,
-    OS_QUEUE_POINT
-} QueuePointOrNot;
-
-#define OS_QUEUE_OPERATE_TYPE(ReadOrWrite, HeadOrTail, PointOrNot)  \
-                (((UINT32)(PointOrNot) << 2) | ((UINT32)(HeadOrTail) << 1) | (ReadOrWrite))
-#define OS_QUEUE_READ_WRITE_GET(type) ((type) & (0x01))
-#define OS_QUEUE_READ_HEAD     (OS_QUEUE_READ | (OS_QUEUE_HEAD << 1))
-#define OS_QUEUE_READ_TAIL     (OS_QUEUE_READ | (OS_QUEUE_TAIL << 1))
-#define OS_QUEUE_WRITE_HEAD    (OS_QUEUE_WRITE | (OS_QUEUE_HEAD << 1))
-#define OS_QUEUE_WRITE_TAIL    (OS_QUEUE_WRITE | (OS_QUEUE_TAIL << 1))
-#define OS_QUEUE_OPERATE_GET(type) ((type) & (0x03))
-#define OS_QUEUE_IS_POINT(type)    ((type) & (0x04))
-#define OS_QUEUE_IS_READ(type)     (OS_QUEUE_READ_WRITE_GET(type) == OS_QUEUE_READ)
-#define OS_QUEUE_IS_WRITE(type)    (OS_QUEUE_READ_WRITE_GET(type) == OS_QUEUE_WRITE)
-#define OS_READWRITE_LEN           2
-
-/**
-  * @ingroup los_queue
-  * Queue information block structure
-  */
-typedef struct {
-    UINT8 *queue;      /**< Pointer to a queue handle */
-    UINT8 *queueName;  /**< Queue name */
-    UINT16 queueState; /**< Queue state */
-    UINT16 queueLen;   /**< Queue length */
-    UINT16 queueSize;  /**< Node size */
-    UINT16 queueID;    /**< queueID */
-    UINT16 queueHead;  /**< Node head */
-    UINT16 queueTail;  /**< Node tail */
-    UINT16 readWriteableCnt[OS_READWRITE_LEN]; /**< Count of readable or writable resources, 0:readable, 1:writable */
-    LOS_DL_LIST readWriteList[OS_READWRITE_LEN]; /**< Pointer to the linked list to be read or written,
-                                                      0:readlist, 1:writelist */
-    LOS_DL_LIST memList; /**< Pointer to the memory linked list */
-} LosQueueCB;
-
-
-extern LosQueueCB *OsGetQueueHandle(UINT32 queueID);
-
-/* queue state */
-/**
-  *  @ingroup los_queue
-  *  Message queue state: not in use.
-  */
-#define OS_QUEUE_UNUSED        0
-
-/**
-  *  @ingroup los_queue
-  *  Message queue state: used.
-  */
-#define OS_QUEUE_INUSED        1
-
-/**
-  *  @ingroup los_queue
-  *  Not in use.
-  */
-#define OS_QUEUE_WAIT_FOR_POOL 1
-
-/**
-  *  @ingroup los_queue
-  *  Normal message queue.
-  */
-#define OS_QUEUE_NORMAL        0
-
-/**
-  *  @ingroup los_queue
-  *  Queue information control block
-  */
-extern LosQueueCB *g_allQueue;
-
-/**
-  *  @ingroup los_queue
-  *  Obtain a handle of the queue that has a specified ID.
-  */
-#define GET_QUEUE_HANDLE(QueueID) OsGetQueueHandle(QueueID)
-
-/**
-  *  @ingroup los_queue
-  *  Obtain the head node in a queue doubly linked list.
-  */
-#define GET_QUEUE_LIST(ptr) LOS_DL_LIST_ENTRY(ptr, LosQueueCB, readWriteList[OS_QUEUE_WRITE])
-
-/**
-  *  @ingroup los_queue
-  *  Maximum number of queues
-  */
-#if (LOSCFG_QUEUE_STATIC_ALLOCATION == 1)
-#define OS_ALL_IPC_QUEUE_LIMIT                     LOSCFG_BASE_IPC_QUEUE_LIMIT + LOSCFG_BASE_IPC_STATIC_QUEUE_LIMIT
-#else
-#define OS_ALL_IPC_QUEUE_LIMIT                     LOSCFG_BASE_IPC_QUEUE_LIMIT
-#endif
-
-/**
- * @ingroup los_queue
- * @brief Alloc a stationary memory for a mail.
- *
- * @par Description:
- * This API is used to alloc a stationary memory for a mail according to queueID.
- * @attention
- * <ul>
- * <li>Do not alloc memory in unblocking modes such as interrupt.</li>
- * <li>This API cannot be called before the kernel is initialized.</li>
- * <li>The argument timeOut is a relative time.</li>
- * </ul>
- *
- * @param queueID        [IN]        Queue ID. The value range is [1,LOSCFG_BASE_IPC_QUEUE_LIMIT].
- * @param mailPool       [IN]        The memory poll that stores the mail.
- * @param timeOut        [IN]        Expiry time. The value range is [0,LOS_WAIT_FOREVER].
- *
- * @retval   #NULL                    The memory allocation is failed.
- * @retval   #mem                     The address of alloc memory.
- * @par Dependency:
- * <ul><li>los_queue.h: the header file that contains the API declaration.</li></ul>
- * @see OsQueueMailFree
- */
-extern VOID *OsQueueMailAlloc(UINT32 queueID, VOID *mailPool, UINT32 timeOut);
-
-/**
- * @ingroup los_queue
- * @brief Free a stationary memory of a mail.
- *
- * @par Description:
- * This API is used to free a stationary memory for a mail according to queueID.
- * @attention
- * <ul>
- * <li>This API cannot be called before the kernel is initialized.</li>
- * </ul>
- *
- * @param queueID         [IN]        Queue ID. The value range is [1,LOSCFG_BASE_IPC_QUEUE_LIMIT].
- * @param mailPool        [IN]        The mail memory poll address.
- * @param mailMem         [IN]        The mail memory block address.
- *
- * @retval   #LOS_OK                                 0x00000000: The memory free successfully.
- * @retval   #OS_ERRNO_QUEUE_MAIL_HANDLE_INVALID     0x02000619: The handle of the queue passed-in when the memory for
-                                                                 the queue is being freed is invalid.
- * @retval   #OS_ERRNO_QUEUE_MAIL_PTR_INVALID        0x0200061a: The pointer to the memory to be freed is null.
- * @retval   #OS_ERRNO_QUEUE_MAIL_FREE_ERROR         0x0200061b: The memory for the queue fails to be freed.
- * @par Dependency:
- * <ul><li>los_queue.h: the header file that contains the API declaration.</li></ul>
- * @see OsQueueMailAlloc
- */
-extern UINT32 OsQueueMailFree(UINT32 queueID, VOID *mailPool, VOID *mailMem);
-
-/**
- * @ingroup los_queue
- * @brief Initialization queue.
- *
- * @par Description:
- * This API is used to initialization queue.
- * @attention
- * <ul>
- * <li>None.</li>
- * </ul>
- *
- * @param None.
- *
- * @retval   UINT32  Initialization result.
- * @par Dependency:
- * <ul><li>los_queue.h: the header file that contains the API declaration.</li></ul>
- * @see None.
- */
-extern UINT32 OsQueueInit(VOID);
-
-/**
- * @ingroup los_queue
- * @brief Handle when read or write queue.
- *
- * @par Description:
- * This API is used to handle when read or write queue.
- * @attention
- * <ul>
- * <li>None.</li>
- * </ul>
- *
- * @param queueID        [IN]       Queue id.
- * @param operateType    [IN]       Operate type
- * @param bufferAddr     [IN]       Buffer address.
- * @param bufferSize     [IN]       Buffer size.
- * @param timeOut        [IN]       Timeout.
- *
- * @retval   UINT32  Handle result.
- * @par Dependency:
- * <ul><li>los_queue.h: the header file that contains the API declaration.</li></ul>
- * @see None.
- */
-extern UINT32 OsQueueOperate(UINT32 queueID, UINT32 operateType, VOID *bufferAddr, UINT32 *bufferSize,
-                             UINT32 timeOut);
-
 #ifdef __cplusplus
-#if __cplusplus
 }
-#endif /* __cplusplus */
 #endif /* __cplusplus */
 
 #endif /* _LOS_QUEUE_H */

@@ -7,6 +7,11 @@
 #               (静态符号 + 栈 + 动态申请 + 节点开销, 堆池不计入)
 #         ROM = 本目录 gen_flash_size.py nm 符号级 text+rodata
 #               (活产物 obj/ 逐 .o 扫描 + map 汇编兜底, ws63 flash 512KB, 不含 .data)
+# WS63 ROM 跟踪: 本目录 flash_stat_ws63.sh 按 vendor/hihope/ws63_m/kernel_configs/debug_flash_stat.config
+#               构建 ws63_m 产品(LOSCFG_TEST_KERNEL_FLASH_STAT=y: 测试套不编入, flash_link_ref.c 引用
+#               全部内核对外 API 防链接裁剪, 固件≈纯内核), ROM=链接 map .startup 输出段(.text*/.rodata*
+#               归并入)=.text+.rodata 口径; 历史持久化 testresult/ws63_rom_hist.json 每轮追加,
+#               Excel "WS63 ROM" 页签持续跟踪(首条=基线, 后续每轮记与基线偏差); 失败不阻断主流程
 # 数据源: tier_meas/ws63_{tiny,small,standard}/ 归档齐备 → 自动复用(footprint 现场重测, ROM 取构建期产物);
 #         缺失/--fresh → 现场构建(仅测量守卫 → 挡位纯净 config → 物理清理全量构建 → gen_flash_size → 还原)
 # 规避可见: 守卫2生效(缺陷在位)时写 tier_meas/workaround.marker → Excel 测量说明/夜间摘要/WeLink 推送
@@ -39,6 +44,9 @@ WV=$ROOT/vendor/hihope/ws63_m_testsuits/kernel_configs/debug.config
 WBL=$RUN/backup/ws63_debug.config.baseline
 WOUT=$ROOT/out/ws63_m/ws63_m_testsuits
 WPRE=$ROOT/out/preloader/ws63_m_testsuits
+FSS=$HERE/flash_stat_ws63.sh                        # WS63 ROM 测量工具(debug_flash_stat.config 构建 + map .text+.rodata 解析)
+FS_OUT=$ROOT/out/ws63_m/ws63_m                       # flash_stat 构建产物目录(flash_stat_ws63.sh 口径)
+FS_DIR=$TM/ws63_flash_stat                           # flash_stat 测量归档(map + rom.txt)
 LOG=$RUN/ws63_tier_compare.log
 XLSX=$PWD/ws63挡位预期对比.xlsx   # 默认输出到执行时所在目录(当前目录), --out 可覆盖
 FRESH=0
@@ -82,6 +90,33 @@ artifacts_complete() {
   done
   return 0
 }
+
+flash_stat_complete() {
+  [ "$FRESH" = 1 ] && return 1
+  [ -f "$FS_DIR/OHOS_Image.map" ] || return 1
+  [ -s "$FS_DIR/rom.txt" ] && [ "$(cat "$FS_DIR/rom.txt" 2>/dev/null)" -gt 0 ] 2>/dev/null || return 1
+  return 0
+}
+
+# ---------------- WS63 ROM 测量(debug_flash_stat.config, rom=.text+.rodata)→ 历史跟踪 ----------------
+# 在挡位守卫施加前执行(镜像纯净无守卫); 工具自备 vendor config 换装/还原 trap + board-test-runner
+# resource 全局锁; 产物归档 tier_meas/ws63_flash_stat/ 供 reuse 复用, Excel "WS63 ROM" 页签基线跟踪
+if [ ! -f "$FSS" ]; then
+  log "WARNING: 缺少 $FSS, 本轮跳过 WS63 ROM 跟踪测量"
+elif flash_stat_complete; then
+  log "WS63 ROM 数据源: 复用 $FS_DIR 归档(rom 取构建期 map 解析产物)"
+else
+  log "== 构建 ws63 flash_stat 镜像(debug_flash_stat.config, rom=.text+.rodata) =="
+  if ( cd "$ROOT" && bash "$FSS" ) >>"$LOG" 2>&1 && \
+     [ -s "$FS_OUT/rom_text_rodata.txt" ] && [ -f "$FS_OUT/OHOS_Image.map" ]; then
+    rm -rf "$FS_DIR"; mkdir -p "$FS_DIR"
+    cp "$FS_OUT/OHOS_Image.map" "$FS_DIR/"
+    cp "$FS_OUT/rom_text_rodata.txt" "$FS_DIR/rom.txt"
+    log "WS63 ROM 实测(.text+.rodata): $(cat "$FS_DIR/rom.txt")B (config=vendor/hihope/ws63_m/kernel_configs/debug_flash_stat.config)"
+  else
+    log "WARNING: ws63 flash_stat 构建/解析失败(详见 $LOG), 本轮跳过 WS63 ROM 跟踪新增"
+  fi
+fi
 
 BUILD_MODE=0
 TCFG=$KLM/targets/ws63_m/liteos_m/board/target_config.h
@@ -318,8 +353,43 @@ head = subprocess.run(["git", "-C", KLM, "log", "--oneline", "-1", "--format=%h 
                       capture_output=True, text=True).stdout.strip()
 WM = f"{TM}/workaround.marker"
 workaround = open(WM).read().strip() if os.path.exists(WM) else None
-data = {"mode": MODE, "generated": datetime.datetime.now().strftime("%F %H:%M"),
-        "git_head": head, "workaround": workaround, "nominal": nominal, "helps": helps, "rows": rows}
+
+gen_time = datetime.datetime.now().strftime("%F %H:%M")
+
+# ---- WS63 ROM 持续跟踪历史(持久化于 testresult 根: nightly 每轮清 tier_meas, 不清此处) ----
+# 条目: {"time","mtime","head","rom","config"}; 首条=基线; 追加去重键=(rom,mtime,head) 防 reuse 重复记
+HISTF = f"{ROOT}/testresult/ws63_rom_hist.json"
+hist = []
+if os.path.exists(HISTF):
+    try:
+        h = json.load(open(HISTF))
+        if isinstance(h, list):
+            hist = h
+    except ValueError:
+        hist = []
+fs_rom, fs_mtime = None, None
+if os.path.exists(f"{TM}/ws63_flash_stat/rom.txt"):
+    v = open(f"{TM}/ws63_flash_stat/rom.txt").read().strip()
+    if v.isdigit() and int(v) > 0:
+        fs_rom = int(v)
+        if os.path.exists(f"{TM}/ws63_flash_stat/OHOS_Image.map"):
+            fs_mtime = datetime.datetime.fromtimestamp(
+                os.path.getmtime(f"{TM}/ws63_flash_stat/OHOS_Image.map")).strftime("%F %H:%M")
+fs_appended = False
+if fs_rom is not None:
+    last = hist[-1] if hist else None
+    if not (last and last.get("rom") == fs_rom and last.get("mtime") == fs_mtime
+            and last.get("head") == head):
+        hist.append({"time": gen_time, "mtime": fs_mtime, "head": head, "rom": fs_rom,
+                     "config": "debug_flash_stat.config"})
+        fs_appended = True
+        json.dump(hist, open(HISTF, "w"), ensure_ascii=False, indent=2)
+fs_base = hist[0]["rom"] if hist else None
+
+data = {"mode": MODE, "generated": gen_time,
+        "git_head": head, "workaround": workaround, "nominal": nominal, "helps": helps, "rows": rows,
+        "ws63_rom": {"rom": fs_rom, "mtime": fs_mtime, "baseline": fs_base,
+                     "history_len": len(hist), "appended": fs_appended}}
 json.dump(data, open(f"{TM}/ws63_cmp_data.json", "w"), ensure_ascii=False, indent=2)
 
 for row in rows:
@@ -436,7 +506,31 @@ for i, row in enumerate(rows, 2):
     put(ws, i, 6, "一致" if ok else "⚠ 偏差",
         font=OK_FONT if ok else WARN_FONT, fill=OK_FILL if ok else WARN_FILL)
 
-# ---- Sheet4 测量说明 ----
+# ---- Sheet4 WS63 ROM 持续跟踪(debug_flash_stat.config 构建, rom=.text+.rodata) ----
+# 记录内容: WS63 ROM 基线(首条=基线锚定) / 最新数据 / 和基线偏差; 偏差>0 → 判定列 ⚠ warning
+ws = put_sheet("WS63 ROM",
+               ["测量时间", "代码版本", "WS63 ROM 基线(B)", "WS63 ROM 最新数据(B)", "和基线偏差(B)", "判定"],
+               [17, 46, 18, 20, 15, 16])
+if not hist:
+    put(ws, 2, 1, "暂无 WS63 ROM 测量数据(构建失败或前置缺失, 见 ws63_tier_compare.log)",
+        align=LEFT, font=NA_FONT)
+else:
+    for i, e in enumerate(hist):
+        ri = 2 + i
+        rom_, dev = e["rom"], e["rom"] - fs_base
+        put(ws, ri, 1, e.get("time", "?"))
+        put(ws, ri, 2, e.get("head", "?"), align=LEFT, font=BODY)
+        put(ws, ri, 3, fs_base, NUM)
+        put(ws, ri, 4, rom_, NUM,
+            font=WARN_FONT if dev > 0 else BODY, fill=WARN_FILL if dev > 0 else None)
+        put(ws, ri, 5, dev, DEV,
+            font=WARN_FONT if dev > 0 else (OK_FONT if dev < 0 else NA_FONT),
+            fill=WARN_FILL if dev > 0 else (OK_FILL if dev < 0 else None))
+        put(ws, ri, 6, "⚠ warning 超出基线" if dev > 0 else ("低于基线" if dev < 0 else "持平"),
+            font=WARN_FONT if dev > 0 else (OK_FONT if dev < 0 else NA_FONT),
+            fill=WARN_FILL if dev > 0 else (OK_FILL if dev < 0 else None))
+
+# ---- Sheet5 测量说明 ----
 ws = put_sheet("测量说明", ["项", "内容"], [22, 100])
 notes = [
     ("生成时间", f"{data['generated']}  (数据来源: {'复用 tier_meas 现场归档' if MODE == 'reuse' else '本脚本现场构建'})"),
@@ -449,6 +543,11 @@ notes = [
     ("ROM 实测方法", "gen_flash_size.py(与本脚本同目录): nm -S 符号级 text+rodata(逐 .o 扫描+map 汇编兜底), "
                    "flash 512KB, 不含 .data; 须在活产物(含 obj/)上运行, 复用模式取构建期产物"),
     ("ROM 无标称说明", "实现与挡位说明均未定义 ROM 标称 → 不作符合性判定(判定列 N/A)"),
+    ("WS63 ROM 跟踪方法", "flash_stat_ws63.sh(与本脚本同目录): vendor/hihope/ws63_m/kernel_configs/"
+     "debug_flash_stat.config 构建 ws63_m 产品(LOSCFG_TEST_KERNEL_FLASH_STAT=y: 测试套不编入, "
+     "flash_link_ref.c 引用全部内核对外 API 防链接裁剪, 固件≈纯内核); ROM=链接 map .startup 输出段"
+     "(.text*/.rodata* 归并入, 含对齐填充)=.text+.rodata 口径; 历史持久化 testresult/ws63_rom_hist.json"
+     " 每轮追加(按 rom+mtime+head 去重), 'WS63 ROM' 页签持续跟踪, 首条=基线"),
     ("测量口径", "挡位纯净内核镜像: itp002 挡位 config 仅保留平台/架构/挡位行, KERNEL_TEST=n + NET_LWIP=n, "
                "非挡位管理组件交回 Kconfig 默认(含 TINY 下 IPC 全关/MUX=n, 符合挡位说明 §7.3; ws63 printf 走内核"
                " los_printf, 无 musl stdio 依赖, 不需 qemu 线的 MUX 拐杖)"),
@@ -474,6 +573,12 @@ for row in rows:
     mark = "⚠ warning" if a > n else "符合"
     print(f"  {t.upper():<9} RAM {n:>6} → {a:>6} B ({a - n:+5}, {a / n:.1f}×) {mark}"
           f" | ROM {row['rom']:>6} B [{row['rom_src']}] N/A")
+if fs_rom is not None and fs_base is not None:
+    print(f"  WS63 ROM (flash_stat .text+.rodata): 基线 {fs_base}B → 本轮 {fs_rom}B"
+          f" (较基线 {fs_rom - fs_base:+d}B), 历史已记 {len(hist)} 条 [config=debug_flash_stat.config]"
+          + (" ⚠warning 超出基线" if fs_rom - fs_base > 0 else ""))
+else:
+    print("  WS63 ROM (flash_stat .text+.rodata): 暂无测量数据")
 print("=" * 60)
 if data.get("workaround"):
     print(f"规避备注(仅测量守卫生效, 数据为守卫口径实测): {data['workaround']}")

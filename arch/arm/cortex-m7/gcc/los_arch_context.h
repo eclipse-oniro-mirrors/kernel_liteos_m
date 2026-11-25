@@ -35,6 +35,27 @@
 #include "los_config.h"
 #include "los_compiler.h"
 
+struct LosTaskCB;
+typedef struct LosTaskCB LosTaskCB;
+
+extern LosTaskCB *g_runTask;
+extern LosTaskCB *g_oldTask;
+
+STATIC INLINE VOID *ArchCurrTaskGet(VOID)
+{
+    return (VOID *)g_runTask;
+}
+
+STATIC INLINE VOID ArchCurrTaskSet(VOID *val)
+{
+    g_runTask = (LosTaskCB *)val;
+}
+
+STATIC INLINE UINT32 ArchCurrCpuid(VOID)
+{
+    return 0;
+}
+
 #ifdef __cplusplus
 #if __cplusplus
 extern "C" {
@@ -101,6 +122,12 @@ typedef struct TagTskContext {
 #endif
 } TaskContext;
 
+/* Extract the frame pointer (uwR11, ARM EABI fp) from a suspended task's saved context. */
+STATIC INLINE UINTPTR ArchGetTaskFp(const VOID *stackPointer)
+{
+    return (UINTPTR)(((TaskContext *)stackPointer)->uwR11);
+}
+
 /**
  * @ingroup  los_config
  * @brief: Task start running function.
@@ -119,7 +146,30 @@ typedef struct TagTskContext {
  * <ul><li>los_config.h: the header file that contains the API declaration.</li></ul>
  * @see None.
  */
-extern VOID HalStartToRun(VOID);
+extern VOID ArchStartToRun(LosTaskCB *newTask);
+
+#if (LOSCFG_SECURE == 1)
+/**
+ * @ingroup  los_config
+ * @brief: User Task Stack Initialize.
+ *
+ * @par Description:
+ * This API is used to init a user task stack.
+ *
+ * @attention:
+ * <ul><li>None.</li></ul>
+ *
+ * @param: context      [IN] Task context.
+ * @param: taskEntry    [IN] Task entry function address.
+ * @param: stack        [IN] Task stack address.
+ *
+ * @retval None.
+ *
+ * @par Dependency: <ul><li>los_config.h: the header file that contains the API declaration.</li></ul>
+ * @see None.
+ */
+extern VOID HalUserTaskStackInit(TaskContext *context, UINTPTR taskEntry, UINTPTR stack);
+#endif
 
 #ifdef __cplusplus
 #if __cplusplus

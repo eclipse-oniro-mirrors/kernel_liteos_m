@@ -28,18 +28,24 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+.syntax unified
+.arch armv7e-m
+.fpu fpv5-d16
+.thumb
 
- .syntax unified
- .arch armv7e-m
- .thumb
- .fpu fpv5-d16
-//;.arch_extension sec
-
+.equ    OS_FPU_CPACR,                0xE000ED88
+.equ    OS_FPU_CPACR_ENABLE,         0x00F00000
 .equ    OS_NVIC_INT_CTRL,            0xE000ED04
 .equ    OS_NVIC_SYSPRI2,             0xE000ED20
 .equ    OS_NVIC_PENDSV_PRI,          0xF0F00000
 .equ    OS_NVIC_PENDSVSET,           0x10000000
 .equ    OS_TASK_STATUS_RUNNING,      0x0010
+.equ    OS_CONTROL_FPCA_ENABLE,      0x4
+.equ    OS_CONTROL_KERNEL_MODE,      0x2
+#if (LOSCFG_SECURE == 1)
+.equ    OS_CONTROL_USER_MODE,        0x3
+.equ    OS_TASK_FLAG_USER_TASK,      0x0200
+#endif
 
     .section .text
     .thumb
@@ -53,9 +59,9 @@
     bne     SignalContextRestore
 .endm
 
-    .type HalStartToRun, %function
-    .global HalStartToRun
-HalStartToRun:
+    .type ArchStartToRun, %function
+    .global ArchStartToRun
+ArchStartToRun:
     .fnstart
     .cantunwind
 
@@ -63,35 +69,40 @@ HalStartToRun:
     ldr     r5, =OS_NVIC_PENDSV_PRI
     str     r5, [r4]
 
-    mov     r0, #2
-    msr     CONTROL, r0
+    mov     r2, #OS_CONTROL_KERNEL_MODE
+    msr     CONTROL, r2
 
-    ldr     r1, =g_losTask
-    ldr     r0, [r1, #4]
+    ldr     r1, =g_oldTask
+    str     r0, [r1]
+
     ldr     r12, [r0]
-#if ((defined(__FPU_PRESENT) && (__FPU_PRESENT == 1U)) && \
-     (defined(__FPU_USED) && (__FPU_USED == 1U)))
+
+    ldr.w   r1, =OS_FPU_CPACR
+    ldr     r1, [r1]
+    and     r1, r1, #OS_FPU_CPACR_ENABLE
+    cmp     r1, #OS_FPU_CPACR_ENABLE
+    bne     __DisabledFPU
     add     r12, r12, #100
 
-    ldmfd   r12!, {r0-r7}
+    ldmfd   r12!, {R0-R7}
     add     r12, r12, #72
     msr     psp, r12
-    vpush   {S0}
-    vpop    {S0}
-#else
+    vpush   {s0}
+    vpop    {s0}
+    mov     lr, r5
+    cpsie   i
+    bx      r6
+
+__DisabledFPU:
     add     r12, r12, #36
 
     ldmfd   r12!, {r0-r7}
     msr     psp, r12
-#endif
     mov     lr, r5
-    //MSR     xPSR, R7
-
     cpsie   I
     bx      r6
 
     .fnend
-
 
     .type ArchIntLock, %function
     .global ArchIntLock
@@ -134,8 +145,13 @@ ArchTaskSchedule:
     ldr     r0, =OS_NVIC_INT_CTRL
     ldr     r1, =OS_NVIC_PENDSVSET
     str     r1, [r0]
-    dsb
+    mrs     r2, IPSR
+    cbnz    r2, ArchTaskScheduleExit
+    mrs     r0, PRIMASK
+    cpsie   i
     isb
+    msr     PRIMASK, r0
+ArchTaskScheduleExit:
     bx      lr
     .fnend
 
@@ -151,42 +167,61 @@ HalPendSV:
 HalTaskSwitch:
     SIGNAL_CONTEXT_RESTORE
 
-    push    {r12, lr}
-    blx     OsSchedTaskSwitch
-    pop     {r12, lr}
-    cmp     r0, #0
-    mov     r0, lr
-    bne     TaskContextSwitch
-    msr     PRIMASK, r12
-    bx      lr
+HalPendSVSwitch:
+    /* Check if actual switch needed: g_runTask != g_oldTask */
+    ldr     r0, =g_runTask
+    ldr     r1, [r0]
+    ldr     r2, =g_oldTask
+    ldr     r3, [r2]
+    cmp     r1, r3
+    beq     HalPendSVNoSwitch
 
-TaskContextSwitch:
-    mov     lr, r0
+    /* Context switch: save old, load new */
     mrs     r0, psp
 
     stmfd   r0!, {r4-r12}
+    ldr.w   r3, =OS_FPU_CPACR
+    ldr     r3, [r3]
+    and     r3, r3, #OS_FPU_CPACR_ENABLE
+    cmp     r3, #OS_FPU_CPACR_ENABLE
+    bne     __DisabledFPU1
+    vstmdb  r0!, {d8-d15}
 
-#if ((defined(__FPU_PRESENT) && (__FPU_PRESENT == 1U)) && \
-     (defined(__FPU_USED) && (__FPU_USED == 1U)))
-    vstmdb   r0!, {d8-d15}
-#endif
-    ldr     r5, =g_losTask
+__DisabledFPU1:
+    ldr     r5, =g_oldTask
     ldr     r6, [r5]
-    str     r0, [r6]
+    str     r0, [r6]            /* save SP to oldTask */
 
-    ldr     r0, [r5, #4]
-    str     r0, [r5]
-    ldr     r1, [r0]
+    ldr     r0, =g_runTask
+    ldr     r0, [r0]
+    str     r0, [r5]             /* g_oldTask = g_runTask */
+    ldr     r1, [r0]             /* newTask stackPointer */
 
 SignalContextRestore:
-#if ((defined(__FPU_PRESENT) && (__FPU_PRESENT == 1U)) && \
-     (defined(__FPU_USED) && (__FPU_USED == 1U)))
-    vldmia   r1!, {d8-d15}
+    ldr.w   r3, =OS_FPU_CPACR
+    ldr     r3, [r3]
+    and     r3, r3, #OS_FPU_CPACR_ENABLE
+    cmp     r3, #OS_FPU_CPACR_ENABLE
+    bne     __DisabledFPU2
+    vldmia  r1!, {d8-d15}
+
+__DisabledFPU2:
+#if (LOSCFG_SECURE == 1)
+    ldrh    r7, [r0, #4]
+    tst     r7, #OS_TASK_FLAG_USER_TASK
+    ite     eq
+    moveq   r3, #OS_CONTROL_KERNEL_MODE
+    movne   r3, #OS_CONTROL_USER_MODE
+    msr     CONTROL, r3
 #endif
     ldmfd   r1!, {r4-r12}
     msr     psp,  r1
 
     msr     PRIMASK, r12
 
+    bx      lr
+
+HalPendSVNoSwitch:
+    msr     PRIMASK, r12
     bx      lr
     .fnend

@@ -431,6 +431,7 @@ config SECURE_TRUSTZONE
     default n
     depends on ARCH_ARM
     depends on ARCH_ARM_V8M
+    depends on !ARCH_CORTEX_M_UNIFIED
 config SECURE_HEAP_SIZE
     int "TrustZone Heap Size (bytes)"
     default 2048
@@ -438,10 +439,14 @@ config SECURE_HEAP_SIZE
 config SECURE
     bool "Enable Security"
     default n
+    depends on ARCH_ARM
+    depends on ARCH_ARM_V7M
     select MPU_ENABLE
 config MPU_ENABLE
     bool "Enable MPU"
     default n
+    depends on ARCH_ARM
+    depends on ARCH_ARM_V7M
 endmenu
 
 orsource "testsuites/Kconfig"

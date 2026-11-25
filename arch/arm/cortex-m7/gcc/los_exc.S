@@ -31,8 +31,8 @@
 
 .syntax unified
 .arch armv7e-m
-.thumb
 .fpu fpv5-d16
+.thumb
 .section .text
 
 
@@ -57,15 +57,15 @@
 
 .equ FLAG_ADDR_VALID,   0x10000
 .equ FLAG_HWI_ACTIVE,   0x20000
-.equ FLAG_NO_FLOAT,   0x10000000
+.equ FLAG_NO_FLOAT,     0x10000000
 
-.equ OS_NVIC_FSR                 ,   0xE000ED28      //include BusFault/MemFault/UsageFault State Register
-.equ OS_NVIC_HFSR                ,   0xE000ED2C      //HardFault State Register
-.equ OS_NVIC_BFAR                ,   0xE000ED38
-.equ OS_NVIC_MMAR                ,   0xE000ED34
-.equ OS_NVIC_ACT_BASE            ,   0xE000E300
-.equ OS_NVIC_SHCSRS              ,   0xE000ED24
-.equ OS_NVIC_SHCSR_MASK          ,   0xC00
+.equ OS_NVIC_FSR,           0xE000ED28      //include BusFault/MemFault/UsageFault State Register
+.equ OS_NVIC_HFSR,          0xE000ED2C      //HardFault State Register
+.equ OS_NVIC_BFAR,          0xE000ED38
+.equ OS_NVIC_MMAR,          0xE000ED34
+.equ OS_NVIC_ACT_BASE,      0xE000E300
+.equ OS_NVIC_SHCSRS,        0xE000ED24
+.equ OS_NVIC_SHCSR_MASK,    0xC00
 
     .type HalExcNMI, %function
     .global HalExcNMI
@@ -155,10 +155,25 @@ HalExcSvcCall:
     .cantunwind
     TST   LR, #0x4
     ITE   EQ
-    MRSEQ R0, MSP
-    MRSNE R0, PSP
-    LDR   R1, [R0,#24]
-    LDRB  R0, [R1,#-2]
+    MRSEQ R1, MSP
+    BNE   _svcCallFromPsp
+    B     _svcCall
+_svcCallFromPsp:
+#ifdef LOSCFG_SECURE
+    PUSH  {R0-R12, LR}
+    MOV   R0, SP
+    CPSIE I
+    BL    OsSyscallHandle
+    CPSID I
+    MRS   R12, PSP
+    STM   R12, {R0-R1}
+    POP   {R0-R12, LR}
+    BX    LR
+#endif
+    MRS   R1, PSP
+_svcCall:
+    LDR   R0, [R1,#24]
+    LDRB  R0, [R0,#-2]
     MOV   R1, #0
     B     osExcDispatch
     .fnend
@@ -225,7 +240,7 @@ HalExcUsageFault:
     LDR  R0, =OS_NVIC_FSR
     LDR  R0, [R0]
 
-    MOVW  R1, #0x030F
+    MOVW R1, #0x030F
     LSL  R1, R1, #16
     AND  R0, R0, R1
     MOV  R12, #0
@@ -282,7 +297,7 @@ _ExcInMSP:
     PUSH  {R3}
     MRS   R12, PRIMASK                  // store message-->exc: disable int?
     PUSH {R4-R12}                       // store message-->exc: {R4-R12}
-    VPUSH {D8-D15}
+    VPUSH {D8-D15}                      // FPU
     B     _handleEntry
     .fnend
 
@@ -292,10 +307,10 @@ _NoFloatInMsp:
     .fnstart
     .cantunwind
     ADD   R3, R13, #32
-    PUSH  {R3} // save IRQ SP            // store message-->exc: MSP(R13)
+    PUSH  {R3}                           // store message-->exc: MSP(R13)
 
-    MRS   R12, PRIMASK                  // store message-->exc: disable int?
-    PUSH {R4-R12}                       // store message-->exc: {R4-R12}
+    MRS   R12, PRIMASK                   // store message-->exc: disable int?
+    PUSH {R4-R12}                        // store message-->exc: {R4-R12}
     ORR   R0, R0, #FLAG_NO_FLOAT
     B     _handleEntry
     .fnend
@@ -338,13 +353,13 @@ _hwiActiveCheckNext:
 
     MRS   R12, PRIMASK
     PUSH {R4-R12}
-    VPUSH {D8-D15}
+    VPUSH {D8-D15}                      // FPU
 
     // copy auto saved task register
 
-    LDMFD R3!, {R4-R11}                  // R4-R11 store PSP reg(auto push when exc in task)
-    VLDMIA  R3!, {D8-D15}
-    VSTMDB  R2!, {D8-D15}
+    LDMFD R3!, {R4-R11}                 // R4-R11 store PSP reg(auto push when exc in task)
+    VLDMIA  R3!, {D8-D15}               // FPU
+    VSTMDB  R2!, {D8-D15}               // FPU
     STMFD R2!, {R4-R11}
     B     _handleEntry
     .fnend
@@ -381,4 +396,3 @@ _handleEntry:
 
     NOP
     .fnend
-

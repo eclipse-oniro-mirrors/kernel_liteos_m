@@ -39,8 +39,7 @@ kernel_module(module_name) {
     "los_mpu.c",
   ]
 
-  # The arch default timer is replaced by a vendor timer when
-  # ARCH_TIMER_VENDOR is selected (same mechanism as riscv32).
+  # Vendor timer replaces the arch default when ARCH_TIMER_VENDOR is selected.
   if (!defined(LOSCFG_ARCH_TIMER_VENDOR)) {
     sources += [ "los_timer.c" ]
   }

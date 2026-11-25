@@ -50,9 +50,9 @@
     bne     SignalContextRestore
 .endm
 
-    .type HalStartToRun, %function
-    .global HalStartToRun
-HalStartToRun:
+    .type ArchStartToRun, %function
+    .global ArchStartToRun
+ArchStartToRun:
     .fnstart
     .cantunwind
 
@@ -60,11 +60,12 @@ HalStartToRun:
     ldr     r5, =OS_NVIC_PENDSV_PRI
     str     r5, [r4]
 
-    mov     r0, #2
-    msr     CONTROL, r0
+    mov     r2, #2
+    msr     CONTROL, r2
 
-    ldr     r1, =g_losTask
-    ldr     r0, [r1, #4]
+    ldr     r1, =g_oldTask
+    str     r0, [r1]
+
     ldr     r12, [r0]
 
     ldr     r2, [r12, #4]
@@ -134,8 +135,13 @@ ArchTaskSchedule:
     ldr     r0, =OS_NVIC_INT_CTRL
     ldr     r1, =OS_NVIC_PENDSVSET
     str     r1, [r0]
-    dsb
+    mrs     r2, IPSR
+    cbnz    r2, ArchTaskScheduleExit
+    mrs     r0, PRIMASK
+    cpsie   i
     isb
+    msr     PRIMASK, r0
+ArchTaskScheduleExit:
     bx      lr
    .fnend
 
@@ -151,17 +157,16 @@ HalPendSV:
 HalTaskSwitch:
     SIGNAL_CONTEXT_RESTORE
 
-    push    {r12, lr}
-    blx     OsSchedTaskSwitch
-    pop     {r12, lr}
-    cmp     r0, #0
-    mov     r0, lr
-    bne     TaskContextSwitch
-    msr     PRIMASK, r12
-    bx      lr
+HalPendSVSwitch:
+    /* Check if actual switch needed: g_runTask != g_oldTask */
+    ldr     r0, =g_runTask
+    ldr     r1, [r0]
+    ldr     r2, =g_oldTask
+    ldr     r3, [r2]
+    cmp     r1, r3
+    beq     HalPendSVNoSwitch
 
 TaskContextSwitch:
-    mov      lr, r0
     mrs      r0, psp
     tst      lr, #0x10
     it       eq
@@ -170,13 +175,14 @@ TaskContextSwitch:
     mov      r3, lr
     stmfd    r0!, {r2-r12}
 
-    ldr      r5, =g_losTask
+    ldr      r5, =g_oldTask
     ldr      r6, [r5]
-    str      r0, [r6]
+    str      r0, [r6]            /* save SP to oldTask */
 
-    ldr      r0, [r5, #4]
-    str      r0, [r5]
-    ldr      r1, [r0]
+    ldr      r0, =g_runTask
+    ldr      r0, [r0]
+    str      r0, [r5]            /* g_oldTask = g_runTask */
+    ldr      r1, [r0]            /* newTask stackPointer */
 
 SignalContextRestore:
     ldmfd    r1!, {r2-r12}
@@ -188,4 +194,8 @@ SignalContextRestore:
     msr      PRIMASK, r12
 
     bx       lr
+
+HalPendSVNoSwitch:
+    msr     PRIMASK, r12
+    bx      lr
     .fnend

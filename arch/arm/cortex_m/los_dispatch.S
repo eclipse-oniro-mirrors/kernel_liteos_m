@@ -8,8 +8,8 @@
  * 1. Redistributions of source code must retain the above copyright notice, this list of
  *    conditions and the following disclaimer.
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list of
- *    conditions and the following disclaimer in the documentation and/or other materials
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
+ *    of conditions and the following disclaimer in the documentation and/or other materials
  *    provided with the distribution.
  *
  * 3. Neither the name of the copyright holder nor the names of its contributors may be used
@@ -30,10 +30,22 @@
  *
  * Cortex-M task dispatch and context switch.
  *
- * M0+ (ARMv6-M, Thumb-1): no FPU, no IT blocks, movs only, push/pop R0-R7.
- * M4 (ARMv7-M, Thumb-2): optional FPU, Secure support.
+ * Single source for GNU as and IAR iasmarm: pseudo-ops go through
+ * los_arch_macro.h, compiler detected via __GNUC__/__IASMARM__.
+ *
+ * ARMv6-M: Thumb-1 only (no FPU/IT, movs, push/pop R0-R7).
+ * ARMv7-M: optional FPU, LOSCFG_SECURE user tasks.
+ * IAR: no ARMv6-M and no LOSCFG_SECURE (macros undefined for iasmarm).
  */
 
+#include "los_arch_macro.h"
+
+#ifdef __IASMARM__
+    PRESERVE8
+    SECTION .text:CODE(2)
+    THUMB
+    REQUIRE8
+#else /* __GNUC__ */
 .syntax unified
 #ifdef LOSCFG_ARCH_ARM_V6M
 .arch armv6-m
@@ -42,52 +54,31 @@
 .fpu fpv4-sp-d16
 #endif
 .thumb
-
-.equ    OS_FPU_CPACR,                0xE000ED88
-.equ    OS_FPU_CPACR_ENABLE,         0x00F00000
-.equ    OS_NVIC_INT_CTRL,            0xE000ED04
-.equ    OS_NVIC_SYSPRI2,             0xE000ED20
-.equ    OS_NVIC_PENDSV_PRI,          0xF0F00000
-.equ    OS_NVIC_PENDSVSET,           0x10000000
-.equ    OS_TASK_STATUS_RUNNING,      0x0010
-.equ    OS_CONTROL_FPCA_ENABLE,      0x4
-.equ    OS_CONTROL_KERNEL_MODE,      0x2
-#if (LOSCFG_SECURE == 1)
-.equ    OS_CONTROL_USER_MODE,        0x3
-.equ    OS_TASK_FLAG_USER_TASK,      0x0200
+.section .text
 #endif
 
-    .section .text
-    .thumb
-
-#ifndef LOSCFG_ARCH_ARM_V6M
-.macro SIGNAL_CONTEXT_RESTORE
-    push    {r12, lr}
-    blx     OsSignalTaskContextRestore
-    pop     {r12, lr}
-    cmp     r0, #0
-    beq     1f
-    mov     r1, r0
-#if (LOSCFG_SECURE == 1)
-    /* r0 = task owning the restored signal context (same task the C
-     * helper checked: g_oldTask under LOSCFG_SCHED_LATENCY, else g_runTask) */
-#ifdef LOSCFG_SCHED_LATENCY
-    ldr     r0, =g_oldTask
-#else
-    ldr     r0, =g_runTask
-#endif
-    ldr     r0, [r0]
-#endif
-    b       SignalContextRestore
-1:
-.endm
+    EQUAL OS_FPU_CPACR,                0xE000ED88
+    EQUAL OS_FPU_CPACR_ENABLE,         0x00F00000
+    EQUAL OS_NVIC_INT_CTRL,            0xE000ED04
+    EQUAL OS_NVIC_SYSPRI2,             0xE000ED20
+    EQUAL OS_NVIC_PENDSV_PRI,          0xF0F00000
+    EQUAL OS_NVIC_PENDSVSET,           0x10000000
+    EQUAL OS_TASK_STATUS_RUNNING,      0x0010
+    EQUAL OS_CONTROL_FPCA_ENABLE,      0x4
+    EQUAL OS_CONTROL_KERNEL_MODE,      0x2
+#ifdef LOSCFG_SECURE
+    EQUAL OS_CONTROL_USER_MODE,        0x3
+    EQUAL OS_TASK_FLAG_USER_TASK,      0x0200
 #endif
 
-    .type ArchStartToRun, %function
-    .global ArchStartToRun
+    EXTERNAL OsSignalTaskContextRestore
+    EXTERNAL g_runTask
+    EXTERNAL g_oldTask
+
+    FUNC ArchStartToRun
 ArchStartToRun:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
 
     ldr     r4, =OS_NVIC_SYSPRI2
     ldr     r5, =OS_NVIC_PENDSV_PRI
@@ -105,18 +96,12 @@ ArchStartToRun:
     /* r1 = newTask->stackPointer (offset 0) */
     ldr     r1, [r0]
 
-    /* Set PSP past the entire TaskContext (36 bytes).
-     * Future stack pushes grow downward from here. */
+    /* Set PSP past the entire TaskContext (36 bytes). */
     adds    r1, #36
     msr     psp, r1
 
-    /* Load R0 (taskID), LR (ArchTaskExit), PC (OsTaskEntry) from context.
-     *
-     * We CANNOT use exception return (bx 0xFFFFFFFD) from Thread mode:
-     * on ARMv6-M this is UNPREDICTABLE — the core treats it as a regular
-     * branch to 0xFFFFFFFC, causing a HardFault.
-     * Instead, we branch directly to OsTaskEntry, matching the M7 port.
-     */
+    /* Branch straight to OsTaskEntry (M7-port style): exception return
+     * (bx 0xFFFFFFFD) from Thread mode is UNPREDICTABLE on ARMv6-M. */
     ldr     r1, [r0]          /* r1 = context_base */
     ldr     r0, [r1, #36]     /* r0 = uwR0 = taskID (first arg) */
     ldr     r5, [r1, #56]     /* r5 = uwLR = ArchTaskExit */
@@ -126,7 +111,6 @@ ArchStartToRun:
     bx      r6
 #else
     ldr     r12, [r0]
-
     ldr.w   r1, =OS_FPU_CPACR
     ldr     r1, [r1]
     and     r1, r1, #OS_FPU_CPACR_ENABLE
@@ -153,45 +137,41 @@ __DisabledFPU:
     bx      r6
 #endif
 
-    .fnend
+    FNEND
 
-    .type ArchIntLock, %function
-    .global ArchIntLock
+    FUNC ArchIntLock
 ArchIntLock:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
 
     mrs     r0, primask
     cpsid   i
     bx      lr
-    .fnend
+    FNEND
 
-    .type ArchIntUnLock, %function
-    .global ArchIntUnLock
+    FUNC ArchIntUnLock
 ArchIntUnLock:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
 
     mrs     r0, primask
     cpsie   i
     bx      lr
-    .fnend
+    FNEND
 
-    .type ArchIntRestore, %function
-    .global ArchIntRestore
+    FUNC ArchIntRestore
 ArchIntRestore:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
 
     msr     primask, r0
     bx      lr
-    .fnend
+    FNEND
 
-    .type ArchTaskSchedule, %function
-    .global ArchTaskSchedule
+    FUNC ArchTaskSchedule
 ArchTaskSchedule:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
 
     ldr     r0, =OS_NVIC_INT_CTRL
     ldr     r1, =OS_NVIC_PENDSVSET
@@ -201,16 +181,16 @@ ArchTaskSchedule:
     bne     ArchTaskScheduleExit
     mrs     r0, primask
     cpsie   i
+    isb
     msr     primask, r0
 ArchTaskScheduleExit:
     bx      lr
-    .fnend
+    FNEND
 
-    .type HalPendSV, %function
-    .global HalPendSV
+    FUNC HalPendSV
 HalPendSV:
-    .fnstart
-    .cantunwind
+    FNSTART
+    CANTUNWIND
 
 #ifdef LOSCFG_ARCH_ARM_V6M
     mrs     r1, primask
@@ -220,7 +200,27 @@ HalPendSV:
     cpsid   i
 
 HalTaskSwitch:
-    SIGNAL_CONTEXT_RESTORE
+    /* SIGNAL_CONTEXT_RESTORE, expanded: R0 != 0 = switch to that saved
+     * context instead of the run task. */
+    push    {r12, lr}
+    blx     OsSignalTaskContextRestore
+    pop     {r12, lr}
+    cmp     r0, #0
+    beq     SignalRestoreNotNeeded
+    mov     r1, r0
+#ifdef LOSCFG_SECURE
+    /* r0 = task owning the restored signal context (same task the C
+     * helper checked: g_oldTask under LOSCFG_SCHED_LATENCY, else g_runTask) */
+#ifdef LOSCFG_SCHED_LATENCY
+    ldr     r0, =g_oldTask
+#else
+    ldr     r0, =g_runTask
+#endif
+    ldr     r0, [r0]
+#endif
+    b       SignalContextRestore
+
+SignalRestoreNotNeeded:
 #endif
 
     /* Check if actual switch needed: g_runTask != g_oldTask */
@@ -308,7 +308,7 @@ SignalContextRestore:
     vldmia  r1!, {d8-d15}
 
 __DisabledFPU2:
-#if (LOSCFG_SECURE == 1)
+#ifdef LOSCFG_SECURE
     ldrh    r7, [r0, #4]
     tst     r7, #OS_TASK_FLAG_USER_TASK
     ite     eq
@@ -331,4 +331,7 @@ HalPendSVNoSwitch:
 #endif
     bx      lr
 
-    .fnend
+    FNEND
+#ifdef __IASMARM__
+    END
+#endif

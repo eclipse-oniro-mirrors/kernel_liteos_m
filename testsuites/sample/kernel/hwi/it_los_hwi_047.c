@@ -63,7 +63,7 @@ static UINT32 Testcase(VOID)
     irqParam.pDevId = 0;
 
     /* F-Pos: 合法创建 */
-    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF047, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF047, NULL);
     #ifdef LOSCFG_KERNEL_SMP
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
     #endif
@@ -71,7 +71,7 @@ static UINT32 Testcase(VOID)
     created = 1;
 
     /* F-Inv: 同号重复创建 -> LOS_ERRNO_HWI_ALREADY_CREATED(两架构均断言既有钩子) */
-    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF047, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF047, NULL);
     #ifdef LOSCFG_KERNEL_SMP
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
     #endif
@@ -82,7 +82,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     created = 0;
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF047, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF047, NULL);
     #ifdef LOSCFG_KERNEL_SMP
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
     #endif

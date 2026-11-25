@@ -74,14 +74,11 @@ static UINT32 Testcase(VOID)
     HWI_PRIOR_T hwiPrio = 3;
     HWI_MODE_T mode = 0;
     
-    HwiIrqParam irqParam;
 
     ret = LOS_QueueCreate("Q1", QUEUE_BASE_NUM, &g_testQueueID01, 0, QUEUE_BASE_MSGSIZE);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    (VOID)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
-    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, NULL);
 #ifdef LOSCFG_KERNEL_SMP
         (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif

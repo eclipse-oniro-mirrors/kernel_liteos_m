@@ -77,7 +77,7 @@ static UINT32 Testcase(void)
 
     g_testCount = 0;
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     TestDumpCpuid();

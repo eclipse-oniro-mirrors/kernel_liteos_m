@@ -60,7 +60,7 @@ static VOID TaskF01(void)
 
     TestDumpCpuid();
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, NULL);
 #ifndef LOSCFG_NO_SHARED_IRQ
     ICUNIT_ASSERT_EQUAL_VOID(ret, OS_ERRNO_HWI_SHARED_ERROR, ret);
 #else
@@ -84,7 +84,7 @@ static UINT32 Testcase(void)
 
     g_testCount = 0;
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     currCpuid = (ArchCurrCpuid() + 1) % (LOSCFG_KERNEL_CORE_NUM);

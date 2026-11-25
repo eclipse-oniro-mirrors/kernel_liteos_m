@@ -63,18 +63,15 @@ static VOID SubTask008(VOID)
     UINT32 ret;
     sigset_t set;
     siginfo_t info;
-    HwiIrqParam irqParam;
     UINT32 loop;
 
     /* 1 置位 sigSetFlag, 使发送合法(handler 计数用于断言快速路径不派发) */
     (VOID)LOS_SignalSet(SIGUSR1, SigHandler008);
 
     /* 2 HWI 中自发信号(中断上下文仅置 pendFlag, 不即时处理) */
-    (VOID)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
     g_hwiDone008 = 0;
     g_hwiSendRet008 = 0xFF;
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 2, 0, (HWI_PROC_FUNC)HwiHandler008, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 2, 0, (HWI_PROC_FUNC)HwiHandler008, NULL);
 #ifdef LOSCFG_KERNEL_SMP
         (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif

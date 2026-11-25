@@ -134,19 +134,19 @@ static UINT32 Testcase(void)
     ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_szId[1], 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid())); // curret cpu
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST1, 1, 0, (HWI_PROC_FUNC)HwiF02, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST1, 1, 0, (HWI_PROC_FUNC)HwiF02, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST1, CPUID_TO_AFFI_MASK((ArchCurrCpuid() + 1) % LOSCFG_KERNEL_CORE_NUM)); // other cpu
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST2, 1, 0, (HWI_PROC_FUNC)HwiF03, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST2, 1, 0, (HWI_PROC_FUNC)HwiF03, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST2, CPUID_TO_AFFI_MASK(ArchCurrCpuid())); // curret cpu
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST3, 1, 0, (HWI_PROC_FUNC)HwiF04, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST3, 1, 0, (HWI_PROC_FUNC)HwiF04, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST3, CPUID_TO_AFFI_MASK((ArchCurrCpuid() + 1) % LOSCFG_KERNEL_CORE_NUM)); // other cpu
 

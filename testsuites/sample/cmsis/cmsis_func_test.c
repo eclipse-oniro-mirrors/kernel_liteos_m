@@ -1496,7 +1496,6 @@ static UINT32 TestCmsisIsr001(VOID)
     char rbuf[8] = {0};
     HWI_PRIOR_T hwiPrio = 3;
     HWI_MODE_T mode = 0;
-    HwiIrqParam irqParam;
 
     dprintf("--- TestCmsisIsr001 begin ---\n");
 
@@ -1516,9 +1515,7 @@ static UINT32 TestCmsisIsr001(VOID)
     g_isrThrId = osThreadGetId(); /* 本任务作为被 Set 标志对象 */
 
     /* 注册并触发 ISR,回调内依次执行 5 个 F-ISR 场景 */
-    (VOID)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
-    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiFIsr001, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiFIsr001, NULL);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     TestHwiTrigger(HWI_NUM_TEST);
@@ -2817,7 +2814,6 @@ static UINT32 TestCmsisIsr002(VOID)
     uint32_t ret;
     HWI_PRIOR_T hwiPrio = 3;
     HWI_MODE_T mode = 0;
-    HwiIrqParam irqParam;
 
     /* 资源准备(任务上下文) */
     g_isr2EfId = osEventFlagsNew(NULL);
@@ -2836,9 +2832,7 @@ static UINT32 TestCmsisIsr002(VOID)
     ICUNIT_ASSERT_EQUAL((g_isr2MqId != NULL), 1, (uint32_t)(UINTPTR)g_isr2MqId);
     g_isr2ThrId = osThreadGetId();
 
-    (VOID)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
-    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiFIsr002, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiFIsr002, NULL);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     TestHwiTrigger(HWI_NUM_TEST);

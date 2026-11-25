@@ -59,7 +59,7 @@ static VOID HwiF01(void)
     ret = LOS_MuxPend(g_mutexTest, LOS_WAIT_FOREVER);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_ERRNO_MUX_PEND_INTERR, ret);
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST0, 1, 0, (HWI_PROC_FUNC)HwiF02, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST0, 1, 0, (HWI_PROC_FUNC)HwiF02, NULL);
 #ifdef LOSCFG_KERNEL_SMP
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST0, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif
@@ -81,7 +81,7 @@ static UINT32 Testcase(VOID)
     ret = LOS_MuxCreate(&g_mutexTest);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, NULL);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT_MUX);
 
     TestHwiTrigger(HWI_NUM_TEST);

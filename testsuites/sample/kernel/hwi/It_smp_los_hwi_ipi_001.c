@@ -79,7 +79,7 @@ static UINT32 Testcase(void)
 
     LOS_HwiEnable(HWI_NUM_INT11);
 
-    ret = LOS_HwiCreate(HWI_NUM_INT11, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+    ret = LOS_HwiCreate(HWI_NUM_INT11, 1, 0, (HWI_PROC_FUNC)HwiF01, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     for (i = 0; i < LOSCFG_KERNEL_CORE_NUM; i++) {

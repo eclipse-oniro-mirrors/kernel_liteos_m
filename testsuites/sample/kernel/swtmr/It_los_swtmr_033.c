@@ -86,7 +86,7 @@ static UINT32 Testcase(VOID)
     ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case2, &swtmrId2, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
-    ret = LOS_HwiCreate(HWI_NUM_INT11, 1, 0, (HWI_PROC_FUNC)Case1, 0);
+    ret = LOS_HwiCreate(HWI_NUM_INT11, 1, 0, (HWI_PROC_FUNC)Case1, NULL);
 #ifdef LOSCFG_KERNEL_SMP
         (VOID)LOS_HwiSetAffinity(HWI_NUM_INT11, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif

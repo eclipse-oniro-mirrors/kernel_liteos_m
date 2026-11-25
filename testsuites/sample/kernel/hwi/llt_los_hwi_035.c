@@ -49,9 +49,6 @@ static UINT32 Testcase(VOID)
     UINT32           ret;
     HWI_PRIOR_T      hwiPrio = 2;
     HWI_MODE_T       mode    = 0;
-    HwiIrqParam irqParam;
-    (void)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
 
     TSK_INIT_PARAM_S task1 = {0};
 #ifdef LOSCFG_KERNEL_SMP
@@ -67,7 +64,7 @@ static UINT32 Testcase(VOID)
     ret = LOS_TaskCreate(&g_testTaskIdHwi, &task1);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_HwiCreate(HWI_NUM_INT0, hwiPrio, mode, (HWI_PROC_FUNC)ItHwiM3B001F001, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_INT0, hwiPrio, mode, (HWI_PROC_FUNC)ItHwiM3B001F001, NULL);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     return LOS_OK;

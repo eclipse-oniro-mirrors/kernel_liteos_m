@@ -46,11 +46,8 @@ static UINT32 Testcase(VOID)
     HWI_HANDLE_T hwiNum = OS_HWI_MAX_NUM + 1;
     HWI_PRIOR_T hwiPrio = 3;
     HWI_MODE_T mode = 0;
-    HwiIrqParam irqParam;
-    (void)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
 
-    ret = LOS_HwiCreate(hwiNum, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    ret = LOS_HwiCreate(hwiNum, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, NULL);
     ICUNIT_ASSERT_EQUAL(ret, OS_ERRNO_HWI_NUM_INVALID, ret);
 
     return LOS_OK;

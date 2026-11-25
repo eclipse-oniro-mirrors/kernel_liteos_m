@@ -74,9 +74,8 @@ BOOL HalBackTraceFpCheck(UINT32 value)
     return FALSE;
 }
 
-VOID HalPlicIrqDispatch(VOID *arg)
+VOID HalPlicIrqDispatch(VOID)
 {
-    (VOID)arg;
     UINT32 irq = HalCurIrqGet();   /* claim pending IRQ from PLIC; 0 if none */
     if (irq == 0 || irq >= OS_HWI_MAX_NUM) {
         return;
@@ -97,7 +96,7 @@ VOID HalPlicInit(VOID)
      * calls HalHwiInterruptDone(cause) — for external IRQs that is 11, NOT
      * the real PLIC IRQ number (e.g. TIMER_1_IRQN). This handler claims the
      * real IRQ from the PLIC, dispatches it, and completes the PLIC. */
-    (VOID)LOS_HwiCreate(RISCV_MACH_EXT_IRQ, 0x1, 0, HalPlicIrqDispatch, NULL);
+    (VOID)LOS_HwiCreate(RISCV_MACH_EXT_IRQ, 0x1, 0, (HWI_PROC_FUNC)HalPlicIrqDispatch, NULL);
 }
 
 #ifdef __cplusplus

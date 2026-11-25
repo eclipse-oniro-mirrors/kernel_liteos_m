@@ -82,9 +82,6 @@ static UINT32 Testcase(VOID)
     UINT32 semCount = 1;
     HWI_PRIOR_T hwiPrio = OS_HWI_PRIO_LOWEST;
     HWI_MODE_T mode = 0;
-    HwiIrqParam irqParam;
-    (void)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
-    irqParam.pDevId = 0;
 
     TSK_INIT_PARAM_S task = {0};
 #ifdef LOSCFG_KERNEL_SMP
@@ -105,7 +102,7 @@ static UINT32 Testcase(VOID)
     ret = LOS_SemPend(g_usSemID, LOS_NO_WAIT);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
-    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, NULL);
     #ifdef LOSCFG_KERNEL_SMP
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
     #endif

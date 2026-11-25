@@ -100,10 +100,8 @@ extern VOID HalIrqDisable(UINT32 vector);
 
 STATIC HWI_PROC_FUNC g_sysTickHandler = (HWI_PROC_FUNC)NULL;
 
-STATIC VOID DwApbTickIrqHandler(VOID *arg)
+STATIC VOID DwApbTickIrqHandler(VOID)
 {
-    (VOID)arg;
-
     /* EOI re-arms the raw-interrupt (edge source) first; the pending bit is
      * already cleared by HalHwiInterruptDone. Do NOT clear it again here:
      * an expiry landing between the two would stick raw_intr high and the
@@ -120,15 +118,9 @@ STATIC VOID DwApbTickIrqHandler(VOID *arg)
 
 STATIC UINT32 DwApbTickStart(HWI_PROC_FUNC handler)
 {
-    HwiIrqParam irqParam = {
-        .swIrq = DW_APB_TIMER_IRQ,
-        .pDevId = NULL,
-        .pName = "dw_apb_timer",
-    };
-
     g_sysTickHandler = handler;
 
-    UINT32 ret = LOS_HwiCreate(DW_APB_TIMER_IRQ, DW_APB_TIMER_IRQ_PRIO, 0, DwApbTickIrqHandler, &irqParam);
+    UINT32 ret = LOS_HwiCreate(DW_APB_TIMER_IRQ, DW_APB_TIMER_IRQ_PRIO, 0, (HWI_PROC_FUNC)DwApbTickIrqHandler, NULL);
     if (ret != LOS_OK) {
         PRINT_ERR("DW APB timer HwiCreate failed: 0x%x\n", ret);
         return ret;

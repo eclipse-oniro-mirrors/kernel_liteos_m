@@ -125,19 +125,19 @@ static UINT32 TestCase(VOID)
     for (loop = 0; loop < IT_TASK_LOOP; loop++) {
         g_testCount = 0;
 
-        ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+        ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, NULL);
 #ifdef LOSCFG_KERNEL_SMP
             (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-        ret = LOS_HwiCreate(HWI_NUM_TEST1, 1, 0, (HWI_PROC_FUNC)HwiF02, 0);
+        ret = LOS_HwiCreate(HWI_NUM_TEST1, 1, 0, (HWI_PROC_FUNC)HwiF02, NULL);
 #ifdef LOSCFG_KERNEL_SMP
             (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST1, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-        ret = LOS_HwiCreate(HWI_NUM_TEST2, 1, 0, (HWI_PROC_FUNC)HwiF03, 0);
+        ret = LOS_HwiCreate(HWI_NUM_TEST2, 1, 0, (HWI_PROC_FUNC)HwiF03, NULL);
 #ifdef LOSCFG_KERNEL_SMP
             (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST2, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif

@@ -66,6 +66,13 @@ config KERNEL_TEST_FULL
     default n
     depends on KERNEL_TEST
 
+config TEST_BOXB_READ_BOXA_RAM
+    bool "Probe boxA private RAM from boxB (expected MPU fault)"
+    depends on TEST_BOX_USR && BOX
+    default n
+    help
+      Destructive diagnostic. Do not enable in normal regression runs.
+
 config KERNEL_TEST_MANUAL
     bool "Manual Kernel Test"
     default n

@@ -81,6 +81,12 @@ VOID boxTestEntry(VOID)
 #endif
 
     PRINTK("\t\n --- UTS usr phase (boxA, user mode) --- \n\n");
+#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+    while (g_utsProbeDestroyed == 0U) {
+        LOS_TaskDelay(1);
+    }
+    dprintf("[BOXA] scheduled after boxB destruction\n");
+#endif
     ItSuiteLosBoxUsr();
     PRINTK("--- UTS usr phase done ---\n");
 

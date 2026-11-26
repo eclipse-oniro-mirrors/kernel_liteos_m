@@ -533,7 +533,13 @@ VOID OsTaskDestroy(LosBoxCB *boxCB)
     }
     while (!LOS_ListEmpty(&boxCB->taskCBList)) {
         delTask = LOS_DL_LIST_ENTRY(boxCB->taskCBList.pstNext, LosTaskCB, boxTaskList);
-        (VOID)OsTaskDelete(delTask->taskId, 0);
+        /* Joinable zombies and already deferred deletions cannot be reaped
+         * through this interface. A corrupt lifecycle must never resume. */
+        if (delTask->boxCB != boxCB || OS_TASK_IS_JOINABLE(delTask) ||
+            OsTaskDelete(delTask->taskId, 0) != LOS_OK ||
+            boxCB->taskCBList.pstNext == &delTask->boxTaskList) {
+            LOS_Panic("BOX: task teardown made no progress");
+        }
     }
 }
 

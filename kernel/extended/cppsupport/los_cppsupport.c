@@ -29,19 +29,33 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "los_cppsupport.h"
+#include "los_cppsupport_pri.h"
 
 typedef VOID (*InitFunc)(VOID);
 
-INT32 LOS_CppSystemInit(UINTPTR initArrayStart, UINTPTR initArrayEnd)
+LITE_OS_SEC_TEXT_MINOR INT32 LOS_CppSystemInit(UINTPTR initArrayStart, UINTPTR initArrayEnd, INT32 flag)
 {
-    UINTPTR *start;
-    InitFunc initFunc = NULL;
+    UINTPTR fastEnd    = (UINTPTR)&__fast_end;
+    UINTPTR *start     = (UINTPTR *)initArrayStart;
+    InitFunc initFunc   = NULL;
 
-    for (start = (UINTPTR *)initArrayStart; start < (UINTPTR *)initArrayEnd; start++) {
+#ifdef LOSCFG_AARCH64
+    __register_frame((VOID *)&__eh_frame_begin);
+#endif
+    if (initArrayEnd < initArrayStart) {
+        return LOS_NOK;
+    }
+
+    for (; start != (UINTPTR *)initArrayEnd; ++start) {
+        if ((flag == BEFORE_SCATTER) && ((UINTPTR)*start > fastEnd)) {
+            continue;
+        } else if ((flag == AFTER_SCATTER) && ((UINTPTR)*start <= fastEnd)) {
+            continue;
+        }
+
         initFunc = (InitFunc)(*start);
         initFunc();
     }
 
-    return 0;
+    return LOS_OK;
 }

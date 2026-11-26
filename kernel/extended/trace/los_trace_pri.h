@@ -154,7 +154,10 @@ extern VOID OsTraceRecordDump(BOOL toClient);
 #endif
 
 #if (LOSCFG_SHELL == 1)
+extern UINT32 OsShellCmdTraceStart(INT32 argc, const CHAR **argv);
+extern UINT32 OsShellCmdTraceStop(INT32 argc, const CHAR **argv);
 extern UINT32 OsShellCmdTraceSetMask(INT32 argc, const CHAR **argv);
+extern UINT32 OsShellCmdTraceReset(INT32 argc, const CHAR **argv);
 extern UINT32 OsShellCmdTraceDump(INT32 argc, const CHAR **argv);
 #endif
 

@@ -119,7 +119,7 @@ STATIC UINT32 GicTickStart(HWI_PROC_FUNC handler)
     tick->freq = OS_SYS_CLOCK;
 
     tick->tickHandler = handler;
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
     OsSetVector((UINT32)tick->irqNum, HalTickEntry, NULL);
 #else
     OsSetVector((UINT32)tick->irqNum, HalTickEntry);

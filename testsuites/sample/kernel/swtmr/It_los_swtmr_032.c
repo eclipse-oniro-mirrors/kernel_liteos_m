@@ -80,6 +80,9 @@ static UINT32 Testcase(VOID)
 
     LOS_TaskLock();
 
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
@@ -101,6 +104,6 @@ EXIT:
 
 VOID ItLosSwtmr032(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosSwtmr032", Testcase, TEST_LOS, TEST_SWTMR, TEST_LEVEL3, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSwtmr032", Testcase, TEST_LOS, TEST_FN_KERNEL_SWTMR, TEST_LEVEL3, TEST_FUNCTION);
 }
 

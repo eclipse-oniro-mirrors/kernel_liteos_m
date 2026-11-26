@@ -113,7 +113,7 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsReadEACCES, Function | MediumTest | L
 
 void PosixFsReadTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsReadOK);
-    RUN_ONE_TESTCASE(TestFsReadEFAULT);
-    RUN_ONE_TESTCASE(TestFsReadEACCES);
+    RUN_ONE_TESTCASE_M(TestFsReadOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsReadEFAULT, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsReadEACCES, TEST_FN_FS_VFS);
 }

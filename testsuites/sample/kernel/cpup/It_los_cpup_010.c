@@ -56,7 +56,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_CPUP
+ * @ingroup TEST_FN_KERNEL_CPUP
  * @par TestCase_Number
  * ItLosCpup010
  * @par TestCase_TestCase_Type
@@ -80,7 +80,7 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosCpup010(VOID)
 {
-    TEST_ADD_CASE("ItLosCpup010", TestCase, TEST_LOS, TEST_CPUP, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosCpup010", TestCase, TEST_LOS, TEST_FN_KERNEL_CPUP, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

@@ -1,5 +1,29 @@
 /*
  * Copyright (c) 2026 Huawei Device Co., Ltd.
+ *
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright notice, this list of
+ *    conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
+ *    of conditions and the following disclaimer in the documentation and/or other materials
+ *    provided with the distribution.
+ *
+ * 3. Neither the name of the copyright holder nor the names of its contributors may be used
+ *    to endorse or promote products derived from this software without specific prior written
+ *    permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS
+ * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
  * AArch64 arch interrupt header (GICv3, EL1 non-secure view),
  * implementing the liteos_m los_hwi contract (see gic-v2/interrupt.c).
  */
@@ -225,6 +249,9 @@ STATIC INLINE VOID GiccSetSgi1r(UINT64 val)
 #define MPIDR_AFF_LEVEL_MASK                  0xFFULL
 #define MPIDR_AFF_LEVEL(mpidr, level)         \
     (((mpidr) >> MPIDR_AFF_LEVEL##level##_SHIFT) & MPIDR_AFF_LEVEL_MASK)
+/* MPIDR_EL1 bit 24 (MT): when set, aff0 selects the hardware thread
+ * within a core and the core id is in aff1. */
+#define MPIDR_MT_MASK                         (0x1ULL << 24)
 
 /* GICR_TYPER affinity fields (GICv3: Aff2 [23:16], Aff3 [31:24],
  * Aff1 [39:32], Aff0 [47:40]). */
@@ -246,7 +273,10 @@ STATIC INLINE VOID GiccSetSgi1r(UINT64 val)
 STATIC INLINE INT32 GicrSlotProbe(VOID)
 {
     UINT64 mpidr;
-    UINT32 aff0, aff1, aff2, aff3;
+    UINT32 aff0;
+    UINT32 aff1;
+    UINT32 aff2;
+    UINT32 aff3;
     INT32 i;
 
     __asm__ volatile("mrs %0, mpidr_el1" : "=r"(mpidr));

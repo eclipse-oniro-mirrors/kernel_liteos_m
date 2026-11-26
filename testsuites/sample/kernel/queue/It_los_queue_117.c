@@ -98,6 +98,9 @@ static UINT32 TestCase(VOID)
     taskParam.pcName = "TaskTC117";
     taskParam.uwStackSize = TASK_STACK_SIZE_TEST;
     taskParam.uwResved = LOS_TASK_ATTR_JOINABLE;
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_testTaskID01, &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
@@ -156,7 +159,7 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosQueue117(VOID)
 {
-    TEST_ADD_CASE("ItLosQueue117", TestCase, TEST_LOS, TEST_QUE, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosQueue117", TestCase, TEST_LOS, TEST_FN_KERNEL_MSGQUEUE, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

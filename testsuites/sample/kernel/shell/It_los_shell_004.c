@@ -68,6 +68,9 @@ static UINT32 Testcase(VOID)
     UINT32 i;
     UINT32 expected;
     TSK_INIT_PARAM_S task = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_totalCalls = 0;
     ret = LOS_SemCreate(0, &g_semId);
@@ -136,7 +139,7 @@ EXIT:
  */
 VOID ItLosShell004(VOID)
 {
-    TEST_ADD_CASE("ItLosShell004", Testcase, TEST_LOS, TEST_SHELL_MOD, TEST_LEVEL2, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosShell004", Testcase, TEST_LOS, TEST_FN_KERNELEXT_SHELL, TEST_LEVEL2, TEST_FUNCTION);
 }
 
 #endif /* LOSCFG_SHELL_LK */

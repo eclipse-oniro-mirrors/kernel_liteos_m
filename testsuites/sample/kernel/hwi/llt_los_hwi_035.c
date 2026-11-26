@@ -54,6 +54,9 @@ static UINT32 Testcase(VOID)
     irqParam.pDevId = 0;
 
     TSK_INIT_PARAM_S task1 = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task1.pcName       = "HWI_035";
@@ -77,6 +80,6 @@ Testcase brief in English
 
 VOID LltLosHwi035(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("LltLosHwi035", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL3, TEST_PRESSURE);
+    TEST_ADD_CASE("LltLosHwi035", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL3, TEST_PRESSURE);
 }
 

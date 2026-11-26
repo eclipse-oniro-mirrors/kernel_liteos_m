@@ -554,25 +554,25 @@ RUN_TEST_SUITE(PosixMathFuncTestSuite);
 void PosixMathFuncTest()
 {
     LOG("begin PosixMathFuncTest....");
-    RUN_ONE_TESTCASE(testMathAbs001);
-    RUN_ONE_TESTCASE(testMathAbs002);
+    RUN_ONE_TESTCASE_M(testMathAbs001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testMathAbs002, TEST_FN_LIB_MISC);
 #if !defined(LOSCFG_ARCH_FPU_DISABLE)
-    RUN_ONE_TESTCASE(testMathLog001);
-    RUN_ONE_TESTCASE(testMathLog002);
-    RUN_ONE_TESTCASE(testMathSqrt001);
-    RUN_ONE_TESTCASE(testMathSqrt002);
-    RUN_ONE_TESTCASE(testMathPow001);
-    RUN_ONE_TESTCASE(testMathPow002);
-    RUN_ONE_TESTCASE(testMathPow003);
-    RUN_ONE_TESTCASE(testMathRound001);
-    RUN_ONE_TESTCASE(testMathRound002);
-    RUN_ONE_TESTCASE(testMathPowExtreme001);
-    RUN_ONE_TESTCASE(testMathPowDomain001);
-    RUN_ONE_TESTCASE(testMathFmodEdge001);
-    RUN_ONE_TESTCASE(testMathLogEdge001);
-    RUN_ONE_TESTCASE(testMathSqrtSubnormal001);
-    RUN_ONE_TESTCASE(testMathScalbnFrexp001);
-    RUN_ONE_TESTCASE(testMathRoundHalf001);
+    RUN_ONE_TESTCASE_M(testMathLog001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathLog002, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathSqrt001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathSqrt002, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathPow001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathPow002, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathPow003, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathRound001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathRound002, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathPowExtreme001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathPowDomain001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathFmodEdge001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathLogEdge001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathSqrtSubnormal001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathScalbnFrexp001, TEST_FN_LIB_MATH);
+    RUN_ONE_TESTCASE_M(testMathRoundHalf001, TEST_FN_LIB_MATH);
 #endif
 
     return;

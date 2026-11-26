@@ -39,6 +39,9 @@ static UINT32 TestCase(VOID)
     UINTPTR retval = 0;
     UINT32 loop;
     TSK_INIT_PARAM_S taskParam = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     /* T: joinable, CreateOnly 创建即挂起(不运行), 优先级低于本任务 */
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskT310;
@@ -99,7 +102,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_TASK
+ * @ingroup TEST_FN_KERNEL_TASKMGMT
  * @par TestCase_Number
  * ItLosTask310
  * @par TestCase_TestCase_Type
@@ -124,5 +127,5 @@ EXIT:
 
 VOID ItLosTask310(VOID)
 {
-    TEST_ADD_CASE("ItLosTask310", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTask310", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL1, TEST_FUNCTION);
 }

@@ -57,7 +57,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_HWI
+ * @ingroup TEST_FN_KERNEL_IRQ
  * @par TestCase_Number
  * ItLosHwi056
  * @par TestCase_TestCase_Type
@@ -81,5 +81,5 @@ EXIT:
 VOID ItLosHwi056(VOID)
 {
     /* 页表池往返零消耗 */
-    TEST_ADD_CASE("ItLosHwi056", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHwi056", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL1, TEST_FUNCTION);
 }

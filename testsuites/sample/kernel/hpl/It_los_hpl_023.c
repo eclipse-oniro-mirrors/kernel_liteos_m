@@ -61,6 +61,9 @@ static UINT32 TestCase(VOID)
     UINT32 argsBefore;
     UINT32 argsNow;
     TSK_INIT_PARAM_S taskParam = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     TestHplPrepare();
     argsBefore = g_hplArgsEntryCnt;
@@ -124,5 +127,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosHpl023(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosHpl023", TestCase, TEST_LOS, TEST_HPL, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHpl023", TestCase, TEST_LOS, TEST_FN_KERNELEXT_HPL, TEST_LEVEL0, TEST_FUNCTION);
 }

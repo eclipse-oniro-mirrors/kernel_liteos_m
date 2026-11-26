@@ -191,11 +191,11 @@ RUN_TEST_SUITE(PosixRegexFuncTestSuite);
 void PosixRegexFuncTest()
 {
     LOG("begin PosixRegexFuncTest....");
-    RUN_ONE_TESTCASE(testRegexExtended001);
-    RUN_ONE_TESTCASE(testRegexIcase001);
-    RUN_ONE_TESTCASE(testRegexNewline001);
-    RUN_ONE_TESTCASE(testRegexNosub001);
-    RUN_ONE_TESTCASE(testRegcomp001);
+    RUN_ONE_TESTCASE_M(testRegexExtended001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testRegexIcase001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testRegexNewline001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testRegexNosub001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testRegcomp001, TEST_FN_LIB_MISC);
 
     return;
 }

@@ -63,6 +63,9 @@ static UINT32 TestCase001(VOID)
     UINT32 ret;
     UINT32 taskId;
     TSK_INIT_PARAM_S param = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    param.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_HistorySysCpuUsage(CPUP_IN_10S);
     ICUNIT_ASSERT_NOT_EQUAL(ret, LOS_ERRNO_CPUP_NO_INIT, ret);
@@ -111,6 +114,6 @@ static UINT32 TestCase001(VOID)
 
 VOID ItLosCpup001(VOID)
 {
-    TEST_ADD_CASE("ItLosCpup001", TestCase001, TEST_LOS, TEST_CPUP, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosCpup001", TestCase001, TEST_LOS, TEST_FN_KERNEL_CPUP, TEST_LEVEL1, TEST_FUNCTION);
 }
 #endif

@@ -55,6 +55,13 @@ static void *ThreadFunc(void* arg)
 LITE_TEST_CASE(ProcessApiTestSuite, testPthreadSetnameNp1000, Function | MediumTest | Level1) {
     pthread_t thisThread;
     int returnVal = pthread_create(&thisThread, NULL, ThreadFunc, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)thisThread, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_GOTO_EQUAL(returnVal, 0, returnVal, EXIT_NO_THREAD);
 
     returnVal = pthread_setname_np(thisThread, "funcThreadNamelongName");
@@ -74,6 +81,6 @@ RUN_TEST_SUITE(ProcessApiTestSuite);
 
 void ActsProcessApiTest(void)
 {
-    RUN_ONE_TESTCASE(testPthreadSetnameNp1000);
+    RUN_ONE_TESTCASE_M(testPthreadSetnameNp1000, TEST_FN_COMPAT_POSIX);
 }
 

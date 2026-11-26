@@ -54,17 +54,13 @@ kernel_module(module_name) {
   include_dirs = [
     "include",
     "../extended/backtrace",
-    "../extended/trace",
-    "../extended/trace/cnv" ]
+    "../extended/trace" ]
 
   if (defined(LOSCFG_BASE_IPC_EVENT)) {
     sources += [ "los_event.c" ]
   }
   if (defined(LOSCFG_BASE_CORE_SWTMR)) {
-    sources += [
-      "los_swtmr.c",
-      "debug/los_swtmr_debug.c",
-    ]
+    sources += [ "los_swtmr.c" ]
   }
   if (defined(LOSCFG_BASE_IPC_SEM)) {
     sources += [ "los_sem.c" ]
@@ -80,10 +76,12 @@ kernel_module(module_name) {
     sources += [ "los_rwsem.c" ]
   }
 
-  if (defined(LOSCFG_BASE_IPC_RINGBUF)) {
+  if (defined(LOSCFG_KERNEL_RINGBUF)) {
     sources += [ "los_ringbuf.c" ]
   }
-
+  if (defined(LOSCFG_DEBUG_SWTMR)) {
+    sources += [ "debug/los_swtmr_debug.c" ]
+  }
   if (defined(LOSCFG_DEBUG_MUTEX)) {
     sources += [ "debug/los_mux_debug.c" ]
   }
@@ -98,6 +96,7 @@ kernel_module(module_name) {
   }
   if (defined(LOSCFG_KERNEL_MEM_TLSF)) {
     sources += [ "mem/tlsf/los_memory.c" ]
+    include_dirs += [ "mem/tlsf" ]
   }
   if (defined(LOSCFG_KERNEL_MEM_BESTFIT)) {
     sources += [

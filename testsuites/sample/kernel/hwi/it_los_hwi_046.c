@@ -54,6 +54,9 @@ static UINT32 Testcase(VOID)
 
     /* 2) Create and trigger an interrupt. */
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, 0);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     g_isrActive = 0;
@@ -76,5 +79,5 @@ EXIT:
 
 VOID ItLosHwi046(VOID)
 {
-    TEST_ADD_CASE("ItLosHwi046", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL3, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHwi046", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL3, TEST_FUNCTION);
 }

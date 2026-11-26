@@ -225,17 +225,17 @@ RUN_TEST_SUITE(PosixStdlibAtolTest);
 void PosixStdlibAtolFuncTest()
 {
     LOG("begin PosixStdlibAtolFuncTest....");
-    RUN_ONE_TESTCASE(testStdlibAtol001);
-    RUN_ONE_TESTCASE(testStdlibAtol002);
-    RUN_ONE_TESTCASE(testStdlibAtol003);
+    RUN_ONE_TESTCASE_M(testStdlibAtol001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtol002, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtol003, TEST_FN_LIB_MISC);
 #if (LOSCFG_LIBC_MUSL == 1)
-    RUN_ONE_TESTCASE(testStdlibAtol004);
-    RUN_ONE_TESTCASE(testStdlibAtol005);
+    RUN_ONE_TESTCASE_M(testStdlibAtol004, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtol005, TEST_FN_LIB_MISC);
 #endif
-    RUN_ONE_TESTCASE(testStdlibAtol006);
-    RUN_ONE_TESTCASE(testStdlibAtol007);
-    RUN_ONE_TESTCASE(testStdlibAtol008);
-    RUN_ONE_TESTCASE(testStdlibAtol009);
+    RUN_ONE_TESTCASE_M(testStdlibAtol006, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtol007, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtol008, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtol009, TEST_FN_LIB_MISC);
 
     return;
 }

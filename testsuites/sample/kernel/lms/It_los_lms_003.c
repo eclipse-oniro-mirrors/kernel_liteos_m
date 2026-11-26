@@ -55,6 +55,6 @@ static UINT32 TestCase(VOID)
 /* LmsTestMemAlignOverflow_Not4Align */
 VOID ItLosLms003(void)
 {
-    TEST_ADD_CASE("ItLosLms003", TestCase, TEST_LOS, TEST_LMS, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosLms003", TestCase, TEST_LOS, TEST_FN_KERNELEXT_LMS, TEST_LEVEL1, TEST_FUNCTION);
 }
 

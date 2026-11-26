@@ -61,7 +61,7 @@ typedef VOID (**HWI_VECTOR_FUNC)(VOID);
 #define OS_HWI_MAX_NUM                        LOSCFG_PLATFORM_HWI_LIMIT
 #endif
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 typedef struct {
     HWI_PROC_FUNC pfnHandler;
     VOID *pParm;
@@ -109,6 +109,10 @@ extern VOID HalHwiDefaultHandler(VOID);
 
 VOID *ArchGetHwiFrom(VOID);
 VOID *HalGetHandleForm(HWI_HANDLE_T hwiNum);
+
+#if defined(LOSCFG_KERNEL_RUNSTOP) || defined(LOSCFG_KERNEL_DEEPSLEEP_RETENTION)
+VOID OsResumeInterruptSystem(VOID);
+#endif
 
 #ifdef __cplusplus
 #if __cplusplus

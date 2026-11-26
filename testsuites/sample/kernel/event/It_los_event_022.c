@@ -80,6 +80,10 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
     LOS_EventInit(&g_pevent);
 
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
+
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
@@ -92,6 +96,10 @@ static UINT32 Testcase(VOID)
     task1.uwStackSize = TASK_STACK_SIZE_TEST;
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_TaskCreate(&g_testTaskID02, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
@@ -117,5 +125,5 @@ EXIT:
 
 VOID ItLosEvent022(VOID)
 {
-    TEST_ADD_CASE("ItLosEvent022", Testcase, TEST_LOS, TEST_EVENT, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosEvent022", Testcase, TEST_LOS, TEST_FN_KERNEL_EVENT, TEST_LEVEL0, TEST_FUNCTION);
 }

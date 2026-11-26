@@ -115,7 +115,7 @@ BOOL OsHwiIsCreated(UINT32 index)
 }
 #endif
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 
 /* *
  * @ingroup los_hwi
@@ -261,7 +261,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 ArchHwiCreate(HWI_HANDLE_T hwiNum, HWI_PRIOR_T hwiP
 
     HWI_LOCK(intSave);
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
     if (irqParam != NULL) {
         OsSetVector(hwiNum, hwiHandler, irqParam->pDevId);
     } else {
@@ -276,12 +276,14 @@ LITE_OS_SEC_TEXT_INIT UINT32 ArchHwiCreate(HWI_HANDLE_T hwiNum, HWI_PRIOR_T hwiP
      * per-IRQ HwiHandleInfo table, now the sole dispatch table).
      */
     g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].hook = hwiHandler;
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
     g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].registerInfo = (irqParam != NULL) ? (HWI_ARG_T)(UINTPTR)irqParam->pDevId : 0;
 #else
     g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].registerInfo = 0;
 #endif
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
     g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].respCount = 0;
+#endif
     g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].next = NULL;
 
 #if (LOSCFG_DEBUG_TOOLS == 1)
@@ -336,7 +338,9 @@ LITE_OS_SEC_TEXT_INIT UINT32 ArchHwiDelete(HWI_HANDLE_T hwiNum, HwiIrqParam *irq
 
     g_hwiForm[hwiNum + OS_SYS_VECTOR_CNT] = (HWI_PROC_FUNC)HalHwiDefaultHandler;
     g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].hook = NULL;
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
     g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].respCount = 0;
+#endif
     g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].shareMode = 0;
     g_hwiHandleForm[hwiNum + OS_SYS_VECTOR_CNT].next = NULL;
 

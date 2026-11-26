@@ -87,6 +87,9 @@ static VOID HwiF01(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task1 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task1.usTaskPrio = TASK_PRIO_TEST - 1;
     task1.pcName = "Tsk084A";
@@ -123,12 +126,21 @@ static UINT32 TestCase(VOID)
         g_testCount = 0;
 
         ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+#ifdef LOSCFG_KERNEL_SMP
+            (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
         ret = LOS_HwiCreate(HWI_NUM_TEST1, 1, 0, (HWI_PROC_FUNC)HwiF02, 0);
+#ifdef LOSCFG_KERNEL_SMP
+            (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST1, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
         ret = LOS_HwiCreate(HWI_NUM_TEST2, 1, 0, (HWI_PROC_FUNC)HwiF03, 0);
+#ifdef LOSCFG_KERNEL_SMP
+            (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST2, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
         TestHwiTrigger(HWI_NUM_TEST1);
@@ -145,7 +157,7 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosTask084(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosTask084", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL2, TEST_PRESSURE);
+    TEST_ADD_CASE("ItLosTask084", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL2, TEST_PRESSURE);
 }
 #endif
 

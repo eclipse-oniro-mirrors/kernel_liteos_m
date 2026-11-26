@@ -34,6 +34,24 @@
 #include "los_config.h"
 #include "los_memory.h"
 
+/*
+ * libc heap selection hook.
+ *
+ * The weak definition returns the system heap, matching upstream behaviour exactly;
+ * a board (or the port layer) may provide a strong definition pointing the libc heap
+ * at another pool (e.g. the extend heap living in PSRAM). The free path must map a
+ * pointer back to its pool by the same rule, so the hook also receives the pointer
+ * being freed.
+ */
+VOID *OsLibcHeapPool(const VOID *ptr);
+__attribute__((__weak__)) VOID *OsLibcHeapPool(const VOID *ptr)
+{
+    (VOID)ptr;
+    return OS_SYS_MEM_ADDR;
+}
+
+#define LibcPoolFor(ptr)    OsLibcHeapPool(ptr)
+
 #if (LOSCFG_LIBC_NEWLIB == 1)
 void *__wrap__calloc_r(struct _reent *reent, size_t nitems, size_t size)
 #else
@@ -51,7 +69,7 @@ void *calloc(size_t nitems, size_t size)
     }
 
     real_size = (size_t)(nitems * size);
-    ptr = LOS_MemAlloc(OS_SYS_MEM_ADDR, real_size);
+    ptr = LOS_MemAlloc(LibcPoolFor(NULL), real_size);
     if (ptr != NULL) {
         (void)memset_s(ptr, real_size, 0, real_size);
     }
@@ -71,7 +89,7 @@ void free(void *ptr)
         return;
     }
 
-    LOS_MemFree(OS_SYS_MEM_ADDR, ptr);
+    LOS_MemFree(LibcPoolFor(ptr), ptr);
 }
 
 #if (LOSCFG_LIBC_NEWLIB == 1)
@@ -96,7 +114,7 @@ void *malloc(size_t size)
         return NULL;
     }
 
-    return LOS_MemAlloc(OS_SYS_MEM_ADDR, size);
+    return LOS_MemAlloc(LibcPoolFor(NULL), size);
 }
 
 void *zalloc(size_t size)
@@ -107,7 +125,7 @@ void *zalloc(size_t size)
         return NULL;
     }
 
-    ptr = LOS_MemAlloc(OS_SYS_MEM_ADDR, size);
+    ptr = LOS_MemAlloc(LibcPoolFor(NULL), size);
     if (ptr != NULL) {
         (void)memset_s(ptr, size, 0, size);
     }
@@ -127,7 +145,7 @@ void *memalign(size_t boundary, size_t size)
         return NULL;
     }
 
-    return LOS_MemAllocAlign(OS_SYS_MEM_ADDR, size, boundary);
+    return LOS_MemAllocAlign(LibcPoolFor(NULL), size, boundary);
 }
 
 #if (LOSCFG_LIBC_NEWLIB == 1)
@@ -148,5 +166,5 @@ void *realloc(void *ptr, size_t size)
         return NULL;
     }
 
-    return LOS_MemRealloc(OS_SYS_MEM_ADDR, ptr, size);
+    return LOS_MemRealloc(LibcPoolFor(ptr), ptr, size);
 }

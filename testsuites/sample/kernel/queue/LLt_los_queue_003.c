@@ -76,7 +76,13 @@ static UINT32 Testcase(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task1221 = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task1221.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     TSK_INIT_PARAM_S task1222 = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task1222.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     UINT32 taskID1221, taskID1222;
     QUEUE_INFO_S queueInfo;
     VOID *memBox = NULL;
@@ -136,5 +142,5 @@ EXIT:
 
 VOID LltLosQueue003(VOID)
 {
-    TEST_ADD_CASE("LltLosQueue003", Testcase, TEST_LOS, TEST_QUE, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("LltLosQueue003", Testcase, TEST_LOS, TEST_FN_KERNEL_MSGQUEUE, TEST_LEVEL1, TEST_FUNCTION);
 }

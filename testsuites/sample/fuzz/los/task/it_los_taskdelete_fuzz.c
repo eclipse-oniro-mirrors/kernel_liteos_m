@@ -47,6 +47,9 @@ static UINT32 TestCase(VOID)
     UINT32 tid = 0;
     UINT32 ret;
     TSK_INIT_PARAM_S param = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    param.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     param.pcName = "FzT";
     param.pfnTaskEntry = (TSK_ENTRY_FUNC)FzTaskEntry;
     param.uwStackSize = 0x400;
@@ -77,5 +80,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItFuzzLosTaskDelete(VOID)
 {
-    TEST_ADD_CASE("ItFuzzLosTaskDelete", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItFuzzLosTaskDelete", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL0, TEST_FUNCTION);
 }

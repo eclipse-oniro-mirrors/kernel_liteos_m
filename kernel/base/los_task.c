@@ -35,6 +35,7 @@
 #include "los_task_base.h"
 #include "securec.h"
 #include "los_config.h"
+#include "los_trace.h"
 #include "los_debug.h"
 #include "los_hook.h"
 #include "los_interrupt.h"
@@ -120,15 +121,8 @@ STATIC VOID OsTaskStackFree(LosTaskCB *taskCB)
     }
 #endif
     taskCB->topOfStack = 0;
-    UINT32 taskId = taskCB->taskId;
-#ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
-    VOID *hplHandle = taskCB->hpl;
-#endif
-    (VOID)memset_s(taskCB, sizeof(LosTaskCB), 0, sizeof(LosTaskCB));
-    taskCB->taskId = taskId;
     taskCB->taskStatus = OS_TASK_STATUS_UNUSED;
 #ifdef LOSCFG_KERNEL_HPL_TASK_LOCK_FREE
-    taskCB->hpl = hplHandle;
     if (taskCB->hpl != NULL) {
         OsHplPreDelete(taskCB->hpl);
     }
@@ -1267,6 +1261,7 @@ STATIC VOID OsTaskCBInit(LosTaskCB *taskCB, const TSK_INIT_PARAM_S *initParam, V
     taskCB->taskSem         = NULL;
     taskCB->taskMux         = NULL;
     taskCB->priority        = initParam->usTaskPrio;
+    taskCB->priBitMap       = 0;
     taskCB->taskEntry       = initParam->pfnTaskEntry;
 #if (LOSCFG_BASE_IPC_EVENT == 1)
     taskCB->event.uwEventID = OS_NULL_INT;
@@ -1407,6 +1402,7 @@ STATIC UINT32 OsTaskCreateOnly(UINT32 *taskId, TSK_INIT_PARAM_S *initParam, VOID
 #endif
     *taskId = taskCB->taskId;
     OsHookCall(LOS_HOOK_TYPE_TASK_CREATE, taskCB);
+    LOS_TRACE(TASK_CREATE, taskCB->taskId, taskCB->taskStatus, taskCB->priority);
     return LOS_OK;
 
 LOS_ERREND_REWIND_TCB:
@@ -1517,6 +1513,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 OsTaskDelete(UINT32 taskId, UINTPTR retVal)
     }
 
     OsHookCall(LOS_HOOK_TYPE_TASK_DELETE, taskCB);
+    LOS_TRACE(TASK_DELETE, taskCB->taskId, taskCB->taskStatus, (UINTPTR)taskCB->stackPointer);
 
     if (tempStatus & OS_TASK_STATUS_READY) {
         (VOID)OsSchedReadyTaskRemove(taskCB);
@@ -1704,6 +1701,7 @@ LITE_OS_SEC_TEXT UINT32 LOS_TaskDelay(UINT32 tick)
         return LOS_ERRNO_TSK_DELAY_IN_LOCK;
     }
     OsHookCall(LOS_HOOK_TYPE_TASK_DELAY, tick);
+    LOS_TRACE(TASK_DELAY, runTask->taskId, tick);
     if (tick == 0) {
         return LOS_TaskYield();
     } else {

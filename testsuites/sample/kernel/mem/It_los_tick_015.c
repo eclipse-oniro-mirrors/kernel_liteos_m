@@ -80,6 +80,9 @@ static UINT32 TestCase(VOID)
     taskParam.usTaskPrio = 10; /* 高于主测试任务 */
     taskParam.pcName = "TaskTC015";
     taskParam.uwStackSize = TASK_STACK_SIZE_TEST;
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&auxTid, &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
@@ -132,7 +135,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_MEM
+ * @ingroup TEST_FN_KERNEL_TASKSCHED
  * @par TestCase_Number
  * ItLosTick015
  * @par TestCase_TestCase_Type
@@ -157,7 +160,7 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosTick015(VOID)
 {
-    TEST_ADD_CASE("ItLosTick015", TestCase, TEST_LOS, TEST_MEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTick015", TestCase, TEST_LOS, TEST_FN_KERNEL_TIME, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

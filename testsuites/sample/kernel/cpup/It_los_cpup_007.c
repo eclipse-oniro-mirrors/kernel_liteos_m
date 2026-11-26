@@ -55,6 +55,9 @@ static UINT32 TestCase007(VOID)
     UINT32 taskId;
     UINT32 sz;
     TSK_INIT_PARAM_S param = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    param.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     CPUP_INFO_S *cpupInfo;
 
     param.pfnTaskEntry = (TSK_ENTRY_FUNC)ItCpupLifeTaskEntry;
@@ -91,6 +94,6 @@ static UINT32 TestCase007(VOID)
 
 VOID ItLosCpup007(VOID)
 {
-    TEST_ADD_CASE("ItLosCpup007", TestCase007, TEST_LOS, TEST_CPUP, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosCpup007", TestCase007, TEST_LOS, TEST_FN_KERNEL_CPUP, TEST_LEVEL1, TEST_FUNCTION);
 }
 #endif

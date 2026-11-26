@@ -69,6 +69,22 @@ extern iUINT32 IcResumeHit(const iCHAR *caseName);
  */
 extern void IcResumeReport(void);
 
+/*
+ * 用例屏蔽（skip 组件）判定：命中跳过表的用例跳过（遍历但不进入）。
+ * 返回 TRUE  = 执行该用例；
+ * 返回 FALSE = 跳过该用例。
+ * 跳过表为空时永远返回 TRUE。建议调用序：IcFilterHit -> IcResumeHit -> IcSkipHit
+ * （续跑未达恢复点前 IcResumeHit 已拦下全部用例，恢复点后本表照常生效）。
+ */
+extern iUINT32 IcSkipHit(const iCHAR *caseName);
+
+/*
+ * 在所有用例跑完后调用，打印跳过表中"未找到"的条目——名字写错、用例未
+ * 编译进来、或在前置检查中被拦下（包含表过滤/续跑点之前）未到达 skip
+ * 判定。跳过表为空时为 no-op。
+ */
+extern void IcSkipReport(void);
+
 extern iUINT32 g_crashResult;
 
 #ifdef __cplusplus

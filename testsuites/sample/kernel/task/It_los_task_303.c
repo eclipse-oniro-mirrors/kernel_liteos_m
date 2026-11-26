@@ -60,6 +60,9 @@ static UINT32 TestCase(VOID)
     UINT32 ret;
     UINT32 status = 0;
     TSK_INIT_PARAM_S task1 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task1.uwStackSize = sizeof(g_stack303);
     task1.pcName = "Tsk303A";
@@ -95,7 +98,7 @@ EXIT:
 
 VOID ItLosTask303(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosTask303", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTask303", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL1, TEST_FUNCTION);
 }
 #endif
 #endif

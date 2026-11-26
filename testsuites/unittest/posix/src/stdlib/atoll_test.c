@@ -227,17 +227,17 @@ RUN_TEST_SUITE(PosixStdlibAtollTest);
 void PosixStdlibAtollFuncTest()
 {
     LOG("begin PosixStdlibAtollFuncTest....");
-    RUN_ONE_TESTCASE(testStdlibAtoll001);
-    RUN_ONE_TESTCASE(testStdlibAtoll002);
-    RUN_ONE_TESTCASE(testStdlibAtoll003);
+    RUN_ONE_TESTCASE_M(testStdlibAtoll001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoll002, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoll003, TEST_FN_LIB_MISC);
 #if (LOSCFG_LIBC_MUSL == 1)
-    RUN_ONE_TESTCASE(testStdlibAtoll004);
-    RUN_ONE_TESTCASE(testStdlibAtoll005);
+    RUN_ONE_TESTCASE_M(testStdlibAtoll004, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoll005, TEST_FN_LIB_MISC);
 #endif
-    RUN_ONE_TESTCASE(testStdlibAtoll006);
-    RUN_ONE_TESTCASE(testStdlibAtoll007);
-    RUN_ONE_TESTCASE(testStdlibAtoll008);
-    RUN_ONE_TESTCASE(testStdlibAtoll009);
+    RUN_ONE_TESTCASE_M(testStdlibAtoll006, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoll007, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoll008, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibAtoll009, TEST_FN_LIB_MISC);
 
     return;
 }

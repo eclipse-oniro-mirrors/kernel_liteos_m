@@ -43,11 +43,18 @@
 #include "soc.h"
 #include "clic.h"
 
-/* clicintattr: non-vectored (bit0=0), edge-triggered (bit1=1), M-mode ([7:6]=3).
- * Edge-triggered is required so that software can set clicintip[i] by writing 1
- * (per CLIC spec, level-triggered mode ignores software writes when the hardware
- * source is not asserting). This enables TestHwiTrigger / LOS_HwiTrigger. */
-#define CLIC_ATTR_MMODE      (CLIC_ATTR_MODE_M | CLIC_ATTR_EDGE_TRIG)
+/* clicintattr: non-vectored (bit0=0), M-mode ([7:6]=3). Trigger mode is a board
+ * property, so it stays overridable:
+ *   - default: edge (bit1=1) — required so a software write to clicintip latches
+ *     (LOS_HwiTrigger / the hwi testsuites depend on it, see clic.h), and it is
+ *     the upstream behaviour;
+ *   - a board needing level-triggered delivery defines
+ *     CLIC_DEFAULT_TRIG_MODE = 0 in its target_config.h instead of patching this
+ *     driver, and re-selects edge per-vector where a software trigger is needed. */
+#ifndef CLIC_DEFAULT_TRIG_MODE
+#define CLIC_DEFAULT_TRIG_MODE  CLIC_ATTR_EDGE_TRIG
+#endif
+#define CLIC_ATTR_MMODE      (CLIC_ATTR_MODE_M | CLIC_DEFAULT_TRIG_MODE)
 
 /* cliccfg: nlbits=4, bit0=0 (non-vector global) */
 #define CLIC_CFG_VALUE       (4u << 1)
@@ -153,6 +160,19 @@ STATIC UINT32 HalCurIrqGet(VOID)
         return 0;
     }
     return mcause & MCAUSE_INT_ID_MASK;
+}
+
+/* 
+ * Raw write of clicintattr[i]: vectored[0], trig[1], polarity[2], mode[7:6].
+ * Compose from the CLIC_ATTR_* macros; board-facing API, declared in clic.h.
+ */
+UINT32 HalIrqSetClicIntAttr(UINT32 hwiNum, UINT8 clicintattr)
+{
+    if (hwiNum >= OS_HWI_MAX_NUM) {
+        return LOS_ERRNO_HWI_NUM_INVALID;
+    }
+    clic_w8(&CLIC_REG->intCtrl[hwiNum].attr, clicintattr);
+    return LOS_OK;
 }
 
 /* Driver-owned ops table (arm_nvic.c pattern): the selected driver owns

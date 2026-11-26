@@ -56,17 +56,18 @@
 /* Kernel initialization state */
 static osKernelState_t g_kernelState;
 
-/* LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO <---> osPriorityNormal
+/* LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO <---> CMSIS_DEFAULT
  * LOS_PRIORITY: CMSIS priority → LOS priority. */
-#define LOS_PRIORITY(cmsisPriority) (LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO - ((cmsisPriority) - osPriorityNormal))
-#define CMSIS_PRIORITY(losPriority) (osPriorityNormal + (LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO - (losPriority)))
+#define CMSIS_DEFAULT  (osPriorityNormal + LOSCFG_CMSIS_THREAD_DEFAULT_OFFSET)
+#define LOS_PRIORITY(cmsisPriority) (LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO - ((cmsisPriority) - CMSIS_DEFAULT))
+#define CMSIS_PRIORITY(losPriority) (CMSIS_DEFAULT + (LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO - (losPriority)))
 
 /* Saturate CMSIS→LOS mapping: clamp values below 1 to 1 (high CMSIS priorities like
  * osPriorityHigh map to highest valid LOS priority). Values above 30 are left as-is
  * to be rejected by ISVALID_LOS_PRIORITY (preserves directory1 low-end rejection). */
 static inline UINT16 CmsisPriorityToLos(osPriority_t cmsisPriority)
 {
-    INT32 los = (INT32)LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO - ((INT32)cmsisPriority - (INT32)osPriorityNormal);
+    INT32 los = (INT32)LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO - ((INT32)cmsisPriority - (INT32)CMSIS_DEFAULT);
     if (los < 1) {
         return 1;
     }
@@ -282,7 +283,7 @@ osThreadId_t osThreadNewExt(osThreadFunc_t func, void *argument, const osThreadA
     }
 
     if (attr == NULL) {
-        attrTemp.priority = osPriorityNormal,
+        attrTemp.priority = CMSIS_DEFAULT,
         attr = &attrTemp;
     }
 
@@ -1778,6 +1779,10 @@ uint32_t osThreadFlagsSet(osThreadId_t thread_id, uint32_t flags)
 
     if (taskCB == NULL) {
         return (uint32_t)osFlagsErrorParameter;
+    }
+
+    if (taskCB->taskStatus & OS_TASK_STATUS_UNUSED) {
+        return (uint32_t)osFlagsErrorResource;
     }
 
     eventCB = &(taskCB->event);

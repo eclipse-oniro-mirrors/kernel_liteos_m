@@ -42,6 +42,9 @@ static UINT32 TestCase(VOID)
     UINT32 ret;
     UINT32 taskId;
     TSK_INIT_PARAM_S osTaskInitParam = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    osTaskInitParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
 
@@ -66,6 +69,6 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosTask123(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosTask123", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTask123", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL0, TEST_FUNCTION);
 }
 

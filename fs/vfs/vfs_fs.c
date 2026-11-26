@@ -728,6 +728,41 @@ int stat(const char *path, struct stat *stat)
 FUNC_ALIAS(stat, _stat, (const char *path, struct stat *stat), int);
 #endif
 
+int chmod(const char *path, mode_t mode)
+{
+    struct MountPoint *mp = NULL;
+    const char *pathInMp = NULL;
+    int ret;
+
+    if (VfsPathCheck(path, FALSE) != LOS_OK) {
+        return MapToPosixRet((int)LOS_NOK);
+    }
+    if (LOS_FsLock() != LOS_OK) {
+        VFS_ERRNO_SET(EAGAIN);
+        return MapToPosixRet((int)LOS_NOK);
+    }
+    mp = VfsMpFind(path, &pathInMp);
+    if ((mp == NULL) || (pathInMp == NULL) || (*pathInMp == '\0') ||
+        (mp->mFs == NULL) || (mp->mFs->fsFops == NULL)) {
+        VFS_ERRNO_SET(ENOENT);
+        LOS_FsUnlock();
+        return MapToPosixRet((int)LOS_NOK);
+    }
+    if (!mp->mWriteEnable) {
+        VFS_ERRNO_SET(EROFS);
+        LOS_FsUnlock();
+        return MapToPosixRet((int)LOS_NOK);
+    }
+    if (mp->mFs->fsFops->chmod == NULL) {
+        VFS_ERRNO_SET(ENOTSUP);
+        LOS_FsUnlock();
+        return MapToPosixRet((int)LOS_NOK);
+    }
+    ret = mp->mFs->fsFops->chmod(mp, pathInMp, mode);
+    LOS_FsUnlock();
+    return MapToPosixRet(ret);
+}
+
 int statfs(const char *path, struct statfs *buf)
 {
     struct MountPoint *mp = NULL;

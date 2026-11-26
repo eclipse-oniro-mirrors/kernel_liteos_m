@@ -163,7 +163,7 @@ config KERNEL_CPUP
 
 config CPUP_INCLUDE_IRQ
     bool "Enable Cpup include irq"
-    default y
+    default n
     depends on KERNEL_CPUP
     help
       If you wish to include irq usage for cpup.
@@ -277,6 +277,15 @@ config KERNEL_PM_IDLE
       Configuration item for low power frame tailoring.
       If you wish to build LiteOS with support for power management idle.
 
+config KERNEL_PM_FORCED_SLEEP_NO_TIMER
+    bool "Forced Sleep Without Tick Timer"
+    default n
+    depends on KERNEL_PM
+    help
+      Enter the configured sleep mode without a timer to reduce power and overhead. 
+      Use only when timekeeping is not required: the tick count stops during sleep, 
+      so tick-based counting and delays do not work across sleep.
+
 config KERNEL_PM_DEBUG
     bool "Power Management Debug"
     default n
@@ -284,9 +293,25 @@ config KERNEL_PM_DEBUG
     help
       Configuration item for low power frame debug tailoring.
 
+config KERNEL_RUNSTOP
+    bool "Enable Runstop (flash snapshot hibernate)"
+    default n
+    depends on KERNEL_PM
+    help
+      If you wish to build LiteOS with support for run-stop.
+
+config KERNEL_DEEPSLEEP_RETENTION
+    bool "Enable layered DeepSleep implementation"
+    default n
+    depends on KERNEL_PM
+    help
+      If you wish to build LiteOS with support for deepsleep retention.
+
 config PLATFORM_EXC
     bool "Enable Platform Exc Hook"
-    default y if KERNEL_RAM_PRESET_STANDARD
+    default n if KERNEL_RAM_PRESET_TINY
+    default n if KERNEL_RAM_PRESET_SMALL
+    default n if KERNEL_RAM_PRESET_STANDARD
     default n
     depends on KERNEL_EXTKERNEL
 
@@ -387,7 +412,7 @@ config DEBUG_HPL_EMULATION
     bool "Enable HPL On-Board Decompression Emulation"
     default n
     depends on KERNEL_HPL
-    select BASE_IPC_RINGBUF
+    select KERNEL_RINGBUF
     help
       Decompress the compressed log on board and print readable log
       directly (uses the generic ringbuf component). Debug-only feature:
@@ -418,10 +443,17 @@ config ARCH_INTERRUPT_PREEMPTION
 config HWI_PRE_POST_PROCESS
     bool "Enable Interrupt pre/post-processing"
 
-config PLATFORM_HWI_WITH_ARG
+config HWI_WITH_ARG
     bool "Enable Interrupt Create With Args"
     depends on KERNEL_MEM_ALLOC
     default y
+
+config IRQ_RESP_COUNT
+    bool "Enable resp count"
+    default y
+    help
+      Count interrupt dispatches per IRQ line (read via LOS_HwiRespCntGet).
+      Turn off to save 4 bytes per IRQ form entry and one increment per dispatch.
 
 menuconfig HWI_BOTTOM_HALF
     bool "Enable Interrupt Bottom Half"
@@ -447,6 +479,27 @@ config HWI_PRIO_LIMIT
       This parameter indicates the total number of interrupt priorities.
 
 endif # ARCH_INTERRUPT_TAKEOVER
+
+config PLATFORM_HWI_LIMIT
+    int "Max hardware interrupt number"
+    default 24 if KERNEL_RAM_PRESET_TINY
+    default 48 if KERNEL_RAM_PRESET_SMALL
+    default 72 if KERNEL_RAM_PRESET_STANDARD
+    help
+      Maximum number of hardware interrupts the system can register.
+      On Cortex-M the hardware vector table size is fixed by the chip;
+      this limits the software registration table only.
+
+config HWI_STACK_SIZE
+    int "Interrupt stack size (bytes)"
+    default 512 if KERNEL_RAM_PRESET_TINY
+    default 512 if KERNEL_RAM_PRESET_SMALL
+    default 1024 if KERNEL_RAM_PRESET_STANDARD
+    default 1024
+    help
+      Stack size for the interrupt context. Boards with a fixed-size
+      interrupt stack in the linker script ignore this value unless
+      the script honors __HWI_STACK_SIZE via -defsym.
 
 endmenu
 
@@ -531,7 +584,7 @@ config BASE_CORE_TSK_IDLE_STACK_SIZE
     int "Idle Task Stack Size"
     default 128   if KERNEL_RAM_PRESET_TINY
     default 512   if KERNEL_RAM_PRESET_SMALL
-    default 1024  if KERNEL_RAM_PRESET_STANDARD
+    default 512   if KERNEL_RAM_PRESET_STANDARD
     default 384
     help
       This represents the idle task stack size.
@@ -569,10 +622,10 @@ config BASE_CORE_TSK_DEFAULT_STACK_SIZE
 
 config BASE_CORE_TSK_SWTMR_STACK_SIZE
     int "Swtmr Task Stack Size"
-    default BASE_CORE_TSK_DEFAULT_STACK_SIZE
     default 0     if KERNEL_RAM_PRESET_TINY
     default 512   if KERNEL_RAM_PRESET_SMALL
-    default 1024  if KERNEL_RAM_PRESET_STANDARD
+    default 512   if KERNEL_RAM_PRESET_STANDARD
+    default BASE_CORE_TSK_DEFAULT_STACK_SIZE
     help
       This represents the swtmr task stack size. Defaults to the task
       default stack size if not overridden. Not used when swtmr runs in
@@ -641,6 +694,14 @@ config BASE_CORE_SWTMR_IN_ISR
     help
       When enabled, timeout handlers execute inline in the tick interrupt
       context. No swtmr task/stack needed. Callbacks must not block.
+
+config BASE_CORE_SWTMR_ALIGN
+    bool "Software timer alignment"
+    default n
+    help
+      Align periodic swtmr expirations to reduce wakeups. When off,
+      LOS_SwtmrCreate rejects LOS_SWTMR_ALIGN_FLAG with MODE_INVALID.
+      Invisible (undefined) when the software timer module is off.
 
 endif # BASE_CORE_SWTMR
 
@@ -732,6 +793,7 @@ if BASE_IPC_QUEUE
 
 config BASE_IPC_QUEUE_LIMIT
     int "Max Queue Number"
+    default 16  if KERNEL_RAM_PRESET_STANDARD
     default 6
     help
       This represents the maximum number of queues.
@@ -774,7 +836,7 @@ config BASE_IPC_RWSEM_LIMIT
 
 endif # BASE_IPC_RWSEM
 
-config BASE_IPC_RINGBUF
+config KERNEL_RINGBUF
     bool "Enable Ringbuf"
     default n
     help
@@ -821,6 +883,15 @@ menu "Debug"
         depends on BASE_IPC_QUEUE
         help
           Answer Y to enable queue leak detection and creator tracking.
+
+    config DEBUG_SWTMR
+        bool "Enable Swtmr Debugging"
+        default n
+        depends on DEBUG_KERNEL
+        depends on BASE_CORE_SWTMR
+        help
+          Answer Y to enable software timer debugging: the swtmr shell command
+          prints timer id/state/mode/interval/arg/handler for all created timers.
 
     config DEBUG_SCHED_STATISTICS
         bool "Enable Schedule Statistics"

@@ -47,6 +47,21 @@
 #endif
 #include "map_error.h"
 
+/*
+ * LOSCFG_POSIX_MUTEX_LAZY_INIT: let a mutex that lives in static storage but never
+ * went through pthread_mutex_init initialize lazily on first use (magic == 0 counts
+ * as uninitialized rather than as an invalid object).
+ *
+ * Default 1: POSIX requires a statically initialized mutex (including the all-zero
+ * .bss form) to be directly usable, and the C++ runtime (libc++abi's
+ * __cxa_guard_acquire) never initializes its guard lock either. Set to 0 to return
+ * to the strict implementation (any magic != _MUX_MAGIC is EINVAL); that is for
+ * comparison only, do not turn it off in a production config.
+ */
+#ifndef LOSCFG_POSIX_MUTEX_LAZY_INIT
+#define LOSCFG_POSIX_MUTEX_LAZY_INIT    1
+#endif
+
 #define MUTEXATTR_TYPE_MASK   0x0FU
 #define OS_SYS_NS_PER_MSECOND 1000000
 #define OS_SYS_NS_PER_SECOND  1000000000
@@ -297,9 +312,69 @@ STATIC UINT32 CheckMutexAttr(const pthread_mutexattr_t *attr)
     return LOS_OK;
 }
 
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+/* Lazy initialization of a mutex that lives in static storage but never went
+ * through pthread_mutex_init.
+ *
+ * The typical source is the C++ runtime: libc++abi's __cxa_guard_acquire uses
+ * GlobalStatic<LibcppMutex>::instance as the guard's protect lock, and that object
+ * is value-initialized static storage (lands in .bss, all zero) that never passes
+ * through pthread_mutex_init, so magic stays 0. The previous implementation judged
+ * any magic != _MUX_MAGIC as EINVAL, so the first construction of every C++
+ * function-local static failed to take the lock inside __cxa_guard_acquire and hit
+ * abort_message("... failed to acquire mutex") -> abort -> LOS_Panic, freezing the
+ * whole system in system_init_array. POSIX semantics require a statically
+ * initialized (including all-zero) mutex to be directly usable; complete the
+ * initialization once here.
+ */
+STATIC UINT32 OsMuxEnsureInit(pthread_mutex_t *mutex)
+{
+    UINT32 ret;
+    pthread_mutexattr_t useAttr;
+
+    /*
+     * Already initialized by pthread_mutex_init or PTHREAD_MUTEX_INITIALIZER, and the
+     * kernel mux exists
+     */
+    if ((mutex->magic == _MUX_MAGIC) && (mutex->handle != _MUX_INVALID_HANDLE)) {
+        return 0;
+    }
+
+    /* 
+     * All-zero static object: the attributes are all zero too, fill in the POSIX
+     * defaults (a normal lock)
+     */
+    if (mutex->magic != _MUX_MAGIC) {
+        (VOID)pthread_mutexattr_init(&useAttr);
+        mutex->stAttr = useAttr;
+        mutex->magic = _MUX_MAGIC;
+    }
+
+    /* 
+     * magic is set but handle is still _MUX_INVALID_HANDLE: the
+     * PTHREAD_MUTEX_INITIALIZER case, the attributes are usable and only the kernel
+     * mux is missing. */
+    ret = LOS_MuxCreate(&mutex->handle);
+    if (ret != LOS_OK) {
+        return MapError(ret);
+    }
+
+    return 0;
+}
+#endif
+
 STATIC UINT32 OsMuxPreCheck(const pthread_mutex_t *mutex, const LosTaskCB *runTask)
 {
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+    /* 
+     * magic == 0 means "not initialized yet" and OsMuxEnsureInit completes it, so it
+     * is not rejected here; any other value besides _MUX_MAGIC is still treated as an
+     * invalid object.
+     */
+    if ((mutex == NULL) || ((mutex->magic != 0) && (mutex->magic != _MUX_MAGIC)) ||
+#else
     if ((mutex == NULL) || (mutex->magic != _MUX_MAGIC) ||
+#endif
         ((mutex->handle != _MUX_INVALID_HANDLE) && (GET_MUX_INDEX(mutex->handle) >= (UINT32)LOSCFG_BASE_IPC_MUX_LIMIT))) {
         return EINVAL;
     }
@@ -478,21 +553,17 @@ int pthread_mutex_timedlock(pthread_mutex_t *mutex, const struct timespec *absTi
     if ((absTimeout == NULL) || (absTimeout->tv_nsec < 0) || (absTimeout->tv_nsec >= OS_SYS_NS_PER_SECOND)) {
         return EINVAL;
     }
-    if (mutex->handle == _MUX_INVALID_HANDLE) {
-        ret = LOS_MuxCreate(&mutex->handle);
-        if (ret != LOS_OK) {
-            return MapError(ret);
-        }
-#if (LOSCFG_MUTEX_CREATE_TRACE == 1)
-        OsSetMutexCreateInfo(GET_MUX(mutex->handle), regLR);
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+    ret = OsMuxEnsureInit(mutex);
+    if (ret != 0) {
+        return (INT32)ret;
+    }
 #endif
-    } else {
-        muxPended = GET_MUX(mutex->handle);
-        if ((mutex->stAttr.type == PTHREAD_MUTEX_ERRORCHECK) &&
-            (muxPended->muxCount != 0) &&
-            (muxPended->owner == OS_TCB_FROM_TID(LOS_CurTaskIDGet()))) {
-            return EDEADLK;
-        }
+    muxPended = GET_MUX(mutex->handle);
+    if ((mutex->stAttr.type == PTHREAD_MUTEX_ERRORCHECK) &&
+        (muxPended->muxCount != 0) &&
+        (muxPended->owner == OS_TCB_FROM_TID(LOS_CurTaskIDGet()))) {
+        return EDEADLK;
     }
     ret = clock_gettime(CLOCK_REALTIME, &curTime);
     if (ret != LOS_OK) {
@@ -525,21 +596,17 @@ int pthread_mutex_lock(pthread_mutex_t *mutex)
         return (INT32)ret;
     }
 
-    if (mutex->handle == _MUX_INVALID_HANDLE) {
-        ret = LOS_MuxCreate(&mutex->handle);
-        if (ret != LOS_OK) {
-            return MapError(ret);
-        }
-#if (LOSCFG_MUTEX_CREATE_TRACE == 1)
-        OsSetMutexCreateInfo(GET_MUX(mutex->handle), regLR);
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+    ret = OsMuxEnsureInit(mutex);
+    if (ret != 0) {
+        return (INT32)ret;
+    }
 #endif
-    } else {
-        muxPended = GET_MUX(mutex->handle);
-        if ((mutex->stAttr.type == PTHREAD_MUTEX_ERRORCHECK) &&
-            (muxPended->muxCount != 0) &&
-            (muxPended->owner == runTask)) {
-            return EDEADLK;
-        }
+    muxPended = GET_MUX(mutex->handle);
+    if ((mutex->stAttr.type == PTHREAD_MUTEX_ERRORCHECK) &&
+        (muxPended->muxCount != 0) &&
+        (muxPended->owner == runTask)) {
+        return EDEADLK;
     }
     ret = OsMuxPendForPosix(mutex, LOS_WAIT_FOREVER);
 
@@ -560,19 +627,15 @@ int pthread_mutex_trylock(pthread_mutex_t *mutex)
         return (INT32)ret;
     }
 
-    if (mutex->handle == _MUX_INVALID_HANDLE) {
-        ret = LOS_MuxCreate(&mutex->handle);
-        if (ret != LOS_OK) {
-            return MapError(ret);
-        }
-#if (LOSCFG_MUTEX_CREATE_TRACE == 1)
-        OsSetMutexCreateInfo(GET_MUX(mutex->handle), regLR);
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+    ret = OsMuxEnsureInit(mutex);
+    if (ret != 0) {
+        return (INT32)ret;
+    }
 #endif
-    } else {
-        muxPended = GET_MUX(mutex->handle);
-        if ((mutex->stAttr.type != PTHREAD_MUTEX_RECURSIVE) && (muxPended->muxCount != 0)) {
-            return EBUSY;
-        }
+    muxPended = GET_MUX(mutex->handle);
+    if ((mutex->stAttr.type != PTHREAD_MUTEX_RECURSIVE) && (muxPended->muxCount != 0)) {
+        return EBUSY;
     }
     ret = OsMuxPendForPosix(mutex, 0);
 
@@ -587,9 +650,15 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex)
         return (INT32)ret;
     }
 
-    if (mutex->handle == _MUX_INVALID_HANDLE) {
+#if (LOSCFG_POSIX_MUTEX_LAZY_INIT == 1)
+    /* 
+     * magic unset means the object never locked successfully (so there is nothing to
+     * unlock); treat it as uninitialized.
+     */
+    if ((mutex->magic != _MUX_MAGIC) || (mutex->handle == _MUX_INVALID_HANDLE)) {
         return EINVAL;
     }
+#endif
 
     ret = OsMuxPostForPosix(mutex);
 

@@ -77,6 +77,9 @@ static UINT32 TestCase(VOID)
     UINT16 snapStatus = 0;
     UINT32 verifyRet = 0;
     TSK_INIT_PARAM_S param = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    param.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     param.pfnTaskEntry = (TSK_ENTRY_FUNC)TcbVerify008Task;
     param.uwStackSize = TASK_STACK_SIZE_TEST;
@@ -126,5 +129,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosTcbVerify008(VOID)
 {
-    TEST_ADD_CASE("ItLosTcbVerify008", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTcbVerify008", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL1, TEST_FUNCTION);
 }

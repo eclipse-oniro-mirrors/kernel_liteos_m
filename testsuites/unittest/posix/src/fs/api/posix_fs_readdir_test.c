@@ -54,5 +54,5 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsReaddirOK, Function | MediumTest | Le
 
 void PosixFsReaddirTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsReaddirOK);
+    RUN_ONE_TESTCASE_M(TestFsReaddirOK, TEST_FN_FS_VFS);
 }

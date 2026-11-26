@@ -46,7 +46,7 @@ extern "C" {
 #endif /* __cplusplus */
 #endif /* __cplusplus */
 
-/* TODO：待在arch下补充相关函数 */
+/* 相关函数待在arch目录下补充 */
 extern const CHAR *ArchCpuInfo(VOID);
 
 /**

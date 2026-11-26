@@ -29,6 +29,9 @@
 #define MEMMANAGE_IRQN              (-12)  /* ARMv7-M only; reserved slot on ARMv6-M */
 #define BUSFAULT_IRQN               (-11)  /* ARMv7-M only; reserved slot on ARMv6-M */
 #define USAGEFAULT_IRQN             (-10)  /* ARMv7-M only; reserved slot on ARMv6-M */
+#ifndef SVCall_IRQn
+#define SVCall_IRQn                 SVC_IRQn  /* some vendor CMSIS spells it SVCall_IRQn */
+#endif
 
 /* ---- HwiControllerOps callbacks ----
  * All callbacks receive EXTERNAL irq numbers (0-based). Range-check against

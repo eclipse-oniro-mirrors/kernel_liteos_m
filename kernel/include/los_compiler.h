@@ -92,13 +92,9 @@ static inline void maybe_release_fence(int model)
 {
     switch (model) {
         case __ATOMIC_RELEASE:
-            __atomic_thread_fence (__ATOMIC_RELEASE);
-            break;
         case __ATOMIC_ACQ_REL:
-            __atomic_thread_fence (__ATOMIC_ACQ_REL);
-            break;
         case __ATOMIC_SEQ_CST:
-            __atomic_thread_fence (__ATOMIC_SEQ_CST);
+            __atomic_thread_fence (model);
             break;
         default:
             break;
@@ -109,13 +105,9 @@ static inline void maybe_acquire_fence(int model)
 {
     switch (model) {
         case __ATOMIC_ACQUIRE:
-            __atomic_thread_fence (__ATOMIC_ACQUIRE);
-            break;
         case __ATOMIC_ACQ_REL:
-            __atomic_thread_fence (__ATOMIC_ACQ_REL);
-            break;
         case __ATOMIC_SEQ_CST:
-            __atomic_thread_fence (__ATOMIC_SEQ_CST);
+            __atomic_thread_fence (model);
             break;
         default:
             break;
@@ -145,7 +137,6 @@ static inline void get_lock(void *addr, int model)
 
     maybe_release_fence (model);
     while (__atomic_test_and_set (lock_ptr, __ATOMIC_ACQUIRE) == 1) {
-        ;
     }
 }
 

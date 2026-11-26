@@ -59,5 +59,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItFuzzLosMemAllocAlign(VOID)
 {
-    TEST_ADD_CASE("ItFuzzLosMemAllocAlign", TestCase, TEST_LOS, TEST_MEM, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItFuzzLosMemAllocAlign", TestCase, TEST_LOS, TEST_FN_KERNEL_DYNMEM, TEST_LEVEL0, TEST_FUNCTION);
 }

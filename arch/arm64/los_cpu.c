@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2026 Huawei Device Co., Ltd.
- * AArch64 CPU identification. Ported from hs-fbb arch_lite/arm64/src/cpu.c.
+ * AArch64 CPU identification.
  */
 
 #include "los_typedef.h"

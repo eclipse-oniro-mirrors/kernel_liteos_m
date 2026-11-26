@@ -62,6 +62,9 @@ static UINT32 Testcase(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     task.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task.pcName = "SemTsk23";
@@ -78,6 +81,9 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(g_testCount, 1, g_testCount, EXIT2);
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT2);
 
     TestHwiTrigger(HWI_NUM_TEST);
@@ -101,6 +107,6 @@ EXIT2:
 
 VOID ItLosSem023(void)
 {
-    TEST_ADD_CASE("ItLosSem023", Testcase, TEST_LOS, TEST_SEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSem023", Testcase, TEST_LOS, TEST_FN_KERNEL_SEM, TEST_LEVEL1, TEST_FUNCTION);
 }
 

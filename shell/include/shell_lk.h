@@ -69,7 +69,6 @@ extern "C" {
  * @par Dependency:
  * shell_lk.h: the header file that contains the API declaration.
  * @see None.
- * @since Huawei LiteOS V200R001C00
  */
 typedef VOID (*LK_FUNC)(INT32 level, const CHAR *func, INT32 line, const CHAR *fmt, va_list ap);
 
@@ -90,7 +89,6 @@ typedef VOID (*LK_FUNC)(INT32 level, const CHAR *func, INT32 line, const CHAR *f
  * @retval NONE
  * @par Dependency:
  * <ul><li>shell_lk.h: the header file that contains the API declaration.</li></ul>
- * @since Huawei LiteOS V200R001C00
  */
 extern VOID LOS_LkPrint(INT32 level, const CHAR *func, INT32 line, const CHAR *fmt, ...);
 
@@ -108,7 +106,6 @@ extern VOID LOS_LkPrint(INT32 level, const CHAR *func, INT32 line, const CHAR *f
  * @retval NONE
  * @par Dependency:
  * <ul><li>shell_lk.h: the header file that contains the API declaration.</li></ul>
- * @since Huawei LiteOS V200R001C00
  */
 extern VOID LOS_LkRegHook(LK_FUNC hook);
 

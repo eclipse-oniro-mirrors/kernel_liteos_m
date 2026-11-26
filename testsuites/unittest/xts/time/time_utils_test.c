@@ -76,5 +76,5 @@ RUN_TEST_SUITE(TimeUtilsTestSuite);
 
 void TimeUtilsTest(void)
 {
-    RUN_ONE_TESTCASE(testMktime);
+    RUN_ONE_TESTCASE_M(testMktime, TEST_FN_COMPAT_POSIX);
 }

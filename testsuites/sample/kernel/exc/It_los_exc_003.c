@@ -48,6 +48,9 @@ static UINT32 Testcase(VOID)
     UINT32 semId = 0;
     UINT32 taskCreated = 0;
     TSK_INIT_PARAM_S taskParam = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_excBlockedFlag = 0;
     ret = LOS_SemCreate(0, &semId);
@@ -92,7 +95,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_EXC
+ * @ingroup TEST_FN_KERNEL_SEM
  * @par TestCase_Number
  * ItLosExc003
  * @par TestCase_TestCase_Type
@@ -117,6 +120,6 @@ EXIT:
  */
 VOID ItLosExc003(VOID)
 {
-    TEST_ADD_CASE("ItLosExc003", Testcase, TEST_LOS, TEST_EXC, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosExc003", Testcase, TEST_LOS, TEST_FN_KERNEL_SEM, TEST_LEVEL0, TEST_FUNCTION);
 }
 #endif /* LOSCFG_BACKTRACE_TYPE != 0 */

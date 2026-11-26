@@ -356,20 +356,20 @@ RUN_TEST_SUITE(IoStringApiTestSuite);
 
 void XtsIoStringFuncTest(void)
 {
-    RUN_ONE_TESTCASE(testStrcmp);
-    RUN_ONE_TESTCASE(testStrncmp);
-    RUN_ONE_TESTCASE(testStpcpy);
-    RUN_ONE_TESTCASE(testStpncpy);
-    RUN_ONE_TESTCASE(testStrcpy);
-    RUN_ONE_TESTCASE(testStrncpy);
-    RUN_ONE_TESTCASE(testStrcat);
-    RUN_ONE_TESTCASE(testStrncat);
-    RUN_ONE_TESTCASE(testStrchr);
-    RUN_ONE_TESTCASE(testStrrchr);
-    RUN_ONE_TESTCASE(testStrnlen);
-    RUN_ONE_TESTCASE(testStrtok);
-    RUN_ONE_TESTCASE(testStrdup);
-    RUN_ONE_TESTCASE(testStrcspn);
-    RUN_ONE_TESTCASE(testStrspn);
-    RUN_ONE_TESTCASE(testStrstr);
+    RUN_ONE_TESTCASE_M(testStrcmp, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrncmp, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStpcpy, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStpncpy, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrcpy, TEST_FN_LIB_SAFEC);
+    RUN_ONE_TESTCASE_M(testStrncpy, TEST_FN_LIB_SAFEC);
+    RUN_ONE_TESTCASE_M(testStrcat, TEST_FN_LIB_SAFEC);
+    RUN_ONE_TESTCASE_M(testStrncat, TEST_FN_LIB_SAFEC);
+    RUN_ONE_TESTCASE_M(testStrchr, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrrchr, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrnlen, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrtok, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrdup, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrcspn, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrspn, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStrstr, TEST_FN_LIB_STRING);
 }

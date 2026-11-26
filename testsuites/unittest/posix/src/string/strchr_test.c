@@ -178,12 +178,12 @@ RUN_TEST_SUITE(PosixStringStrchrTest);
 void PosixStringStrchrTest()
 {
     LOG("begin PosixStringStrchrTest....");
-    RUN_ONE_TESTCASE(testStringStrchr001);
-    RUN_ONE_TESTCASE(testStringStrchr002);
-    RUN_ONE_TESTCASE(testStringStrchr003);
-    RUN_ONE_TESTCASE(testStringStrchr004);
-    RUN_ONE_TESTCASE(testStringStrchr005);
-    RUN_ONE_TESTCASE(testStringStrchr006);
+    RUN_ONE_TESTCASE_M(testStringStrchr001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrchr002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrchr003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrchr004, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrchr005, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrchr006, TEST_FN_LIB_STRING);
 
     return;
 }

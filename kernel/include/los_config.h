@@ -199,6 +199,22 @@ extern "C" {
 #define LOSCFG_PLATFORM_HWI_LIMIT                           32
 #endif
 
+#ifndef LOSCFG_HWI_STACK_SIZE
+#define LOSCFG_HWI_STACK_SIZE                              1024
+#endif
+
+#ifndef LOSCFG_EXC_STACK_SIZE
+#define LOSCFG_EXC_STACK_SIZE                              1024
+#endif
+
+#ifndef LOSCFG_NMI_STACK_SIZE
+#define LOSCFG_NMI_STACK_SIZE                              1024
+#endif
+
+#ifndef LOSCFG_IRQ_STACK_SIZE
+#define LOSCFG_IRQ_STACK_SIZE                              2048
+#endif
+
 /* =============================================================================
                                        Task module configuration
 ============================================================================= */
@@ -649,15 +665,6 @@ extern UINTPTR g_sys_mem_addr_end;
 #define LOSCFG_KERNEL_PRINTF                                1
 #endif
 
-/* Dynamic buffer extension for long outputs (>256 bytes).
- * Default ON, matching self_src. When OsVprintf buffer is not enough,
- * LOS_MemAlloc doubles the buffer. NULL guard prevents infinite loop
- * if LOS_MemAlloc fails (e.g. during early boot before OsMemSystemInit). 
- */
-#ifndef LOSCFG_KERNEL_PRINTF_SIZE_EXTEND
-/* #define LOSCFG_KERNEL_PRINTF_SIZE_EXTEND  -- default off; enable in target_config.h if needed */
-#endif
-
 /* =============================================================================
                                        misc configuration
 ============================================================================= */
@@ -734,7 +741,7 @@ extern UINTPTR g_sys_mem_addr_end;
 #endif
 
 /*
- * TODO: Temporary‌ use only. When all boards support initcall, we can delete it.
+ * Temporary use only. When all boards support initcall, we can delete it.
  * Set to 1 to use initcall mechanism (OsMain), 0 to use flat LOS_KernelInit
  */
 #ifndef LOSCFG_KERNEL_INITCALL

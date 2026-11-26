@@ -70,7 +70,6 @@ extern "C" {
  * @par Dependency:
  * <ul><li>dmesg.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_DmesgMemSet
- * @since Huawei LiteOS V200R001C10
  */
 extern UINT32 LOS_DmesgMemSet(VOID *addr, UINT32 size);
 
@@ -95,7 +94,6 @@ extern UINT32 LOS_DmesgMemSet(VOID *addr, UINT32 size);
  * @par Dependency:
  * <ul><li>dmesg.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_DmesgRead
- * @since Huawei LiteOS V200R001C10
  */
 extern INT32 LOS_DmesgRead(CHAR *buf, UINT32 len);
 
@@ -114,7 +112,6 @@ extern INT32 LOS_DmesgRead(CHAR *buf, UINT32 len);
  * @par Dependency:
  * <ul><li>dmesg.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_DmesgClear
- * @since Huawei LiteOS V200R001C10
  */
 extern VOID LOS_DmesgClear(VOID);
 
@@ -138,7 +135,6 @@ extern VOID LOS_DmesgClear(VOID);
  * @par Dependency:
  * <ul><li>dmesg.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_DmesgToFile
- * @since Huawei LiteOS V200R001C10
  */
 extern INT32 LOS_DmesgToFile(CHAR *filename);
 
@@ -161,7 +157,6 @@ extern INT32 LOS_DmesgToFile(CHAR *filename);
  * @par Dependency:
  * <ul><li>dmesg.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_DmesgLvSet
- * @since Huawei LiteOS V200R001C10
  */
 extern UINT32 LOS_DmesgLvSet(UINT32 level);
 

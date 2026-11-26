@@ -31,6 +31,8 @@
 #include "osTest.h"
 #include "it_los_hwi.h"
 
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
+
 static UINT32 g_hwiRespCntBefore;
 static UINT32 g_hwiRespCntAfter;
 
@@ -53,6 +55,9 @@ static UINT32 Testcase(VOID)
 
     g_testCount = 0;
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     /* Response count should be 0 before any dispatch (reset on create). */
@@ -88,5 +93,6 @@ EXIT:
 
 VOID ItLosHwi041(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosHwi041", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL3, TEST_PRESSURE);
+    TEST_ADD_CASE("ItLosHwi041", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL3, TEST_PRESSURE);
 }
+#endif

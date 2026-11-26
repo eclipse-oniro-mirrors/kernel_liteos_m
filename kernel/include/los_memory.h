@@ -189,16 +189,18 @@ typedef struct {
  *
  * @attention
  * <ul>
- * <li>If the starting address of a memory pool is specified, the start address of the non-continuous memory regions should be
- *  greater than the end address of the memory pool.</li>
+ * <li>If the starting address of a memory pool is specified, the start address of the non-continuous memory regions
+ *  should be greater than the end address of the memory pool.</li>
  * <li>The multiple non-continuous memory regions shouldn't conflict with each other.</li>
  * </ul>
  *
- * @param pool           [IN] The memory pool address. If NULL is specified, the start address of first memory region will be
- *                            initialized as the memory pool address. If not NULL, it should be a valid address of a memory pool.
- * @param memRegions     [IN] The LosMemRegion array that contains multiple non-continuous memory regions. The start address
- *                           of the memory regions are placed in ascending order.
- * @param memRegionCount [IN] The count of non-continuous memory regions, and it should be the length of the LosMemRegion array.
+ * @param pool           [IN] The memory pool address. If NULL is specified, the start address of first memory region
+ *                            will be initialized as the memory pool address. If not NULL, it should be a valid address
+ *                            of a memory pool.
+ * @param memRegions     [IN] The LosMemRegion array that contains multiple non-continuous memory regions. The start
+ *                           address of the memory regions are placed in ascending order.
+ * @param memRegionCount [IN] The count of non-continuous memory regions, and it should be the length of the
+ *                           LosMemRegion array.
  *
  * @retval #LOS_NOK    The multiple non-continuous memory regions fails to be initialized.
  * @retval #LOS_OK     The multiple non-continuous memory regions is initialized successfully.
@@ -239,7 +241,7 @@ typedef struct {
  * <li>The size parameter value should match the following two conditions :
  * 1) Be less than or equal to the Memory pool size;
  * 2) Be greater than the size of OS_MEM_MIN_POOL_SIZE.</li>
- * <li>Call this API when dynamic memory needs to be initialized during the startup of Huawei LiteOS.</li>
+ * <li>Call this API when dynamic memory needs to be initialized during the startup of LiteOS.</li>
  * <li>The parameter input must be four byte-aligned.</li>
  * <li>The init area [pool, pool + size] should not conflict with other pools.</li>
  * </ul>
@@ -516,72 +518,6 @@ extern UINT32 LOS_MemIntegrityCheck(const VOID *pool);
  * </ul>
  * @see None.
  */
-
-/* Supposing a Second Level Index: SLI = 3. */
-#define OS_MEM_SLI                      3
-/* Giving 1 free list for each small bucket: 4, 8, 12, up to 124. */
-#define OS_MEM_SMALL_BUCKET_COUNT       31
-#define OS_MEM_SMALL_BUCKET_MAX_SIZE    128
-/* Giving 2^OS_MEM_SLI free lists for each large bucket. */
-#define OS_MEM_LARGE_BUCKET_COUNT       24
-/* OS_MEM_SMALL_BUCKET_MAX_SIZE to the power of 2 is 7. */
-#define OS_MEM_LARGE_START_BUCKET       7
-
-/* The count of free list. */
-#define OS_MEM_FREE_LIST_COUNT  (OS_MEM_SMALL_BUCKET_COUNT + (OS_MEM_LARGE_BUCKET_COUNT << OS_MEM_SLI))
-/* The bitmap is used to indicate whether the free list is empty, 1: not empty, 0: empty. */
-#define OS_MEM_BITMAP_WORDS     ((OS_MEM_FREE_LIST_COUNT >> 5) + 1)
-
-struct OsMemNodeHead {
-#if (LOSCFG_BASE_MEM_NODE_INTEGRITY_CHECK == 1)
-    UINT32 magic;
-#endif
-#if (LOSCFG_MEM_LEAKCHECK == 1)
-    UINTPTR linkReg[LOSCFG_MEM_RECORD_LR_CNT];
-#endif
-    union {
-        struct OsMemNodeHead *prev; /* The prev is used for current node points to the previous node */
-        struct OsMemNodeHead *next; /* The next is used for sentinel node points to the expand node */
-    } ptr;
-#if (LOSCFG_TASK_MEM_USED == 1)
-    UINT32 taskId;
-    UINT32 sizeAndFlag;
-#elif (LOSCFG_MEM_FREE_BY_TASKID == 1)
-    UINT32 taskId : 6;
-    UINT32 sizeAndFlag : 26;
-#else
-    UINT32 sizeAndFlag;
-#endif
-};
-
-struct OsMemFreeNodeHead {
-    struct OsMemNodeHead header;
-    struct OsMemFreeNodeHead *prev;
-    struct OsMemFreeNodeHead *next;
-};
-
-struct OsMemPoolInfo {
-    VOID *pool;
-    UINT32 totalSize;
-    UINT32 attr;
-#if (LOSCFG_MEM_WATERLINE == 1)
-    UINT32 waterLine;   /* Maximum usage size in a memory pool */
-    UINT32 curUsedSize; /* Current usage size in a memory pool */
-#endif
-#if (LOSCFG_MEM_MUL_REGIONS == 1)
-    UINT32 totalGapSize;
-#endif
-};
-
-struct OsMemPoolHead {
-    struct OsMemPoolInfo info;
-    UINT32 freeListBitmap[OS_MEM_BITMAP_WORDS];
-    struct OsMemFreeNodeHead *freeList[OS_MEM_FREE_LIST_COUNT];
-#if (LOSCFG_MEM_MUL_POOL == 1)
-    VOID *nextPool;
-#endif
-};
-
 extern VOID LOS_MemUnlockEnable(VOID *pool);
 
 #if (LOSCFG_MEM_MUL_MODULE == 1)
@@ -740,7 +676,7 @@ extern UINT32 LOS_MemMusedGet(UINT32 moduleId);
  * <li>The size parameter value should match the following two conditions :
  * 1) Be less than or equal to the Memory pool size;
  * 2) Be greater than the size of OS_MEM_MIN_POOL_SIZE.</li>
- * <li>Call this API when dynamic memory needs to be initialized during the startup of Huawei LiteOS.</li>
+ * <li>Call this API when dynamic memory needs to be initialized during the startup of LiteOS.</li>
  * <li>The parameter input must be OS_MEM_ALIGN_SIZE byte-aligned.</li>
  * <li>The init area [pool, pool + size] should not conflict with other pools.</li>
  * </ul>

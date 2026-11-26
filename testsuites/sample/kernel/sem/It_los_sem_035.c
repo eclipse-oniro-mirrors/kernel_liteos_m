@@ -50,6 +50,9 @@ static UINT32 Testcase(VOID)
     UINT32 created;
     CHAR   acName[10] = {0};
     TSK_INIT_PARAM_S task = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     UINT32 puwTaskID[LOSCFG_BASE_CORE_TSK_LIMIT] = {0};
 
     UINT32 actTaskused = 0;
@@ -93,6 +96,6 @@ static UINT32 Testcase(VOID)
 
 VOID ItLosSem035(void)
 {
-    TEST_ADD_CASE("ItLosSem035", Testcase, TEST_LOS, TEST_SEM, TEST_LEVEL2, TEST_PRESSURE);
+    TEST_ADD_CASE("ItLosSem035", Testcase, TEST_LOS, TEST_FN_KERNEL_SEM, TEST_LEVEL2, TEST_PRESSURE);
 }
 

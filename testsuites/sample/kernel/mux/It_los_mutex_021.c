@@ -57,6 +57,9 @@ VOID TaskF02(void)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task1 = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount++;
 
@@ -84,6 +87,9 @@ static UINT32 Testcase(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
 
@@ -115,6 +121,6 @@ static UINT32 Testcase(VOID)
 
 VOID ItLosMux021(void)
 {
-    TEST_ADD_CASE("ItLosMux021", Testcase, TEST_LOS, TEST_MUX, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosMux021", Testcase, TEST_LOS, TEST_FN_KERNEL_MUTEX, TEST_LEVEL1, TEST_FUNCTION);
 }
 

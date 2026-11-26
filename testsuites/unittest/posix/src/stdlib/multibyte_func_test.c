@@ -41,6 +41,12 @@
  * - wcrtomb.c：s 为 NULL 返回 1 表示处于初始移位态（:8）、按码点区间输出
  *   1/2/3/4 字节（:9-:33）、代理区与超出 0x10FFFF 的码点返回 (size_t)-1 并置
  *   EILSEQ（:35）；UTF-8 无状态，st 参数不被使用（wctomb 传 0 亦合法）。
+ * - mbrtowc.c（apigap 批次 20261119 补齐）：src 为 NULL 且状态初始返回 0、
+ *   状态非零走 ilseq（:19-21）、n 为 0 返回 -2（:24）、ASCII/!! 归一（:26）、
+ *   多字节按 bittab/续字节 OOB 界定（:27-:33）、截断序列保留状态返回 -2
+ *   （:49-:51 tail）、完成时清零状态并返回消费字节数（:38-:42）；
+ * - mbsinit.c（apigap 批次 20261119 补齐）：!st || !*(unsigned *)st（:34-35），
+ *   NULL 与零状态返回非 0，状态字非零返回 0。
  */
 
 #include <stdlib.h>
@@ -277,16 +283,130 @@ LITE_TEST_CASE(PosixStdlibMultibyteTest, testStdlibMbCurMax001, Function | Mediu
     return 0;
 }
 
+/* 用例简要描述: mbrtowc 契约一揽子:ASCII/NUL/NULL/零长/UTF-8 多字节/非法序列 EILSEQ/截断状态机续收 */
+/* *
+ * @tc.number    : TEST_STDLIB_MBRTOWC_001
+ * @tc.name      : mbrtowc contract on ASCII, NUL, NULL args, UTF-8 widths, EILSEQ and split-sequence state machine
+ * @tc.desc      : [C- SOFTWARE -0200]
+ * 覆盖 mbrtowc.c:26 的 ASCII 单字节分支（返回 1 且出参为该字符；'\0' 经 !!
+ * 归一返回 0）、:19-21 的 src==NULL 且状态初始返回 0 分支、:22 的 wc==NULL 仍完成
+ * 解析分支、:24 的 n==0 返回 -2 分支、:27-:33 的 2/3/4 字节 UTF-8 编码分支、
+ * :28/:35 的非法序列 EILSEQ 分支、:49-:51 的截断序列保留状态返回 -2 与
+ * :38-:42 的续收完成清零状态分支。
+ */
+LITE_TEST_CASE(PosixStdlibMultibyteTest, testStdlibMbrtowc001, Function | MediumTest | Level1)
+{
+    wchar_t wc = 0;
+    mbstate_t st;
+    size_t ret;
+
+    memset(&st, 0, sizeof(st));
+
+    /* ASCII 单字节：返回 1，出参为该字符 */
+    ret = mbrtowc(&wc, "A", 1, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)1, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)wc, 'A', (int)wc);
+
+    /* 终止符：*s < 0x80 分支中 !!(*wc = '\0') 归一为 0 */
+    ret = mbrtowc(&wc, "\0", 1, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)0, (int)ret);
+
+    /* src 为 NULL 且状态初始：返回 0 */
+    ret = mbrtowc(&wc, NULL, 4, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)0, (int)ret);
+
+    /* wc 出参为 NULL：仍解析首字符并返回其长度 */
+    ret = mbrtowc(NULL, "AB", 2, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)1, (int)ret);
+
+    /* n 为 0：返回 (size_t)-2，状态不前进 */
+    ret = mbrtowc(&wc, "A", 0, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)-2, (int)ret);
+
+    /* 2 字节 UTF-8：U+00A9 */
+    ret = mbrtowc(&wc, "\xC2\xA9", 2, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)2, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)wc, 0xA9, (int)wc);
+
+    /* 3 字节 UTF-8：U+4E2D（"中"） */
+    ret = mbrtowc(&wc, "\xE4\xB8\xAD", 3, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)3, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)wc, 0x4E2D, (int)wc);
+
+    /* 4 字节 UTF-8：U+1F600 */
+    ret = mbrtowc(&wc, "\xF0\x9F\x98\x80", 4, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)4, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)wc, 0x1F600, (int)wc);
+
+    /* 非法首字节 0xFF：超出 SA/SB 界定，返回 -1 并置 EILSEQ */
+    errno = 0;
+    ret = mbrtowc(&wc, "\xFF", 1, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)-1, (int)ret);
+    ICUNIT_ASSERT_EQUAL(errno, EILSEQ, errno);
+
+    /* 状态机：3 字节序列截断 2 字节 -> -2 且状态保留；续收 1 字节 -> 返回 1、
+     * 码点正确且状态清零（完成路径 *(unsigned *)st = 0） */
+    memset(&st, 0, sizeof(st));
+    ret = mbrtowc(&wc, "\xE4\xB8", 2, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)-2, (int)ret);
+    ret = mbrtowc(&wc, "\xAD", 1, &st);
+    ICUNIT_ASSERT_EQUAL(ret, (size_t)1, (int)ret);
+    ICUNIT_ASSERT_EQUAL((int)wc, 0x4E2D, (int)wc);
+
+    return 0;
+}
+
+/* 用例简要描述: mbsinit 契约一揽子:NULL/初始态非 0 分支与截断后非初始 0 分支(与 mbrtowc 状态机互证) */
+/* *
+ * @tc.number    : TEST_STDLIB_MBSINIT_001
+ * @tc.name      : mbsinit contract on NULL, zeroed state and in-progress conversion state
+ * @tc.desc      : [C- SOFTWARE -0200]
+ * 覆盖 mbsinit.c:34-35 的 !st 短路非 0 分支、*(unsigned *)st 为 0 的初始态
+ * 非 0 分支、状态字非零（mbrtowc 截断后）的 0 分支、续收完成状态清零后
+ * 回到非 0 分支（与 mbrtowc 状态机互证，不留非初始残留）。
+ */
+LITE_TEST_CASE(PosixStdlibMultibyteTest, testStdlibMbsinit001, Function | MediumTest | Level1)
+{
+    wchar_t wc = 0;
+    mbstate_t st;
+    int ret;
+
+    /* st 为 NULL：初始移位态，返回非 0 */
+    ret = mbsinit(NULL);
+    ICUNIT_ASSERT_EQUAL(ret, 1, ret);
+
+    /* 零初始化状态：初始移位态，返回非 0 */
+    memset(&st, 0, sizeof(st));
+    ret = mbsinit(&st);
+    ICUNIT_ASSERT_EQUAL(ret, 1, ret);
+
+    /* 截断序列置状态后：非初始移位态，返回 0 */
+    ret = (int)mbrtowc(&wc, "\xE4\xB8", 2, &st);
+    ICUNIT_ASSERT_EQUAL(ret, -2, ret);
+    ret = mbsinit(&st);
+    ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+
+    /* 续收完成状态清零：回到初始移位态，返回非 0 */
+    ret = (int)mbrtowc(&wc, "\xAD", 1, &st);
+    ICUNIT_ASSERT_EQUAL(ret, 1, ret);
+    ret = mbsinit(&st);
+    ICUNIT_ASSERT_EQUAL(ret, 1, ret);
+
+    return 0;
+}
+
 RUN_TEST_SUITE(PosixStdlibMultibyteTest);
 
 void PosixStdlibMultibyteFuncTest(void)
 {
     LOG("begin PosixStdlibMultibyteFuncTest....");
-    RUN_ONE_TESTCASE(testStdlibMbtowc001);
-    RUN_ONE_TESTCASE(testStdlibMbtowcUtf8001);
-    RUN_ONE_TESTCASE(testStdlibWctomb001);
-    RUN_ONE_TESTCASE(testStdlibWcrtomb001);
-    RUN_ONE_TESTCASE(testStdlibMbCurMax001);
+    RUN_ONE_TESTCASE_M(testStdlibMbtowc001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibMbtowcUtf8001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibWctomb001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibWcrtomb001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibMbCurMax001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibMbrtowc001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdlibMbsinit001, TEST_FN_LIB_MISC);
 
     return;
 }

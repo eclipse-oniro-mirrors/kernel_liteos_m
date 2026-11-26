@@ -102,7 +102,7 @@ LITE_TEST_CASE(PosixSysFuncTestSuite, testOsSysStrerror001, Function | MediumTes
 void PosixStrerrorTest()
 {
     LOG("begin PosixStrerrorTest....");
-    RUN_ONE_TESTCASE(testOsSysStrerror001);
+    RUN_ONE_TESTCASE_M(testOsSysStrerror001, TEST_FN_LIB_MISC);
 
     return;
 }

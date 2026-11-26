@@ -69,6 +69,7 @@ struct FileOps {
     int     (*closedir)(struct Dir *);
     int     (*mkdir)(struct MountPoint *, const char *);
     int     (*rmdir)(struct MountPoint *, const char *);
+    int     (*chmod)(struct MountPoint *, const char *, mode_t);
 };
 
 struct File {

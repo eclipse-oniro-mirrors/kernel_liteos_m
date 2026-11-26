@@ -54,5 +54,5 @@ static UINT32 TestCase(VOID)
 /* LmsTestMemmoveOverflow */
 VOID ItLosLms015(void)
 {
-    TEST_ADD_CASE("ItLosLms015", TestCase, TEST_LOS, TEST_LMS, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosLms015", TestCase, TEST_LOS, TEST_FN_KERNELEXT_LMS, TEST_LEVEL1, TEST_FUNCTION);
 }

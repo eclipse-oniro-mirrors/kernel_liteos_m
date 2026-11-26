@@ -1,8 +1,7 @@
 /*
  * Copyright (c) 2026 morpheus
  * GICv3 interrupt controller driver (liteos_m los_hwi contract),
- * ported from hs-fbb drivers/interrupt/arm_gic_v3.c and adapted for the
- * RK3568 AMP deployment:
+ * adapted for the RK3568 AMP deployment:
  *
  *  - CPU3 runs liteos_m at EL1 (non-secure) while Linux owns CPU0-2;
  *  - the GICD is shared with Linux: it is NOT re-initialized here. Per the

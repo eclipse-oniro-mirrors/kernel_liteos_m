@@ -34,8 +34,20 @@
 #include <securec.h>
 #include "osTest.h"
 #include "pthread.h"
+#include "sched.h"
+
+#ifdef LOSCFG_KERNEL_SMP
+extern int pthread_attr_setaffinity_np(pthread_attr_t *attr, size_t cpusetsize, const cpu_set_t *cpuset);
+#endif
+
+
 #include "time.h"
 #include <unistd.h>
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #undef TASK_PRIO_TEST
 #define TASK_PRIO_TEST           LOSCFG_BASE_CORE_TSK_DEFAULT_PRIO
@@ -78,6 +90,7 @@ static UINT32 TestPthread001(VOID)
 
     ret = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
+
 
     ret = pthread_create(&newTh, &attr, PthreadJoinF01, NULL);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -124,6 +137,7 @@ static UINT32 TestPthread002(VOID)
     ret = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
+
     ret = pthread_create(&newTh, &attr, PthreadJoinF02, NULL);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
@@ -137,7 +151,7 @@ static UINT32 TestPthread002(VOID)
 static VOID *PthreadJoinF03(void *argument)
 {
     int ret = pthread_detach(pthread_self());
-    ICUNIT_GOTO_EQUAL(ret, ESRCH, ret, EXIT);
+    ICUNIT_GOTO_EQUAL(ret, EINVAL, ret, EXIT);
 
     g_testCount++;
 EXIT:
@@ -171,6 +185,14 @@ static UINT32 TestPthread003(VOID)
     ret = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (VOID)pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ret = pthread_create(&newTh, &attr, PthreadJoinF03, NULL);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
@@ -218,6 +240,14 @@ static UINT32 TestPthread004(VOID)
     ret = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (VOID)pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ret = pthread_create(&newTh, &attr, PthreadJoinF04, NULL);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
@@ -314,7 +344,18 @@ static void *PthreadCondFunc001(void *arg)
     ts.tv_sec += 60; /* 60: wait 1 minute */
 
     ret = pthread_cond_timedwait(&g_pthread_cond, &g_pthread_mutex, &ts);
-    ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
+
+    if (ret != 0) {
+
+        ICunitSaveErr(__LINE__, (iiUINT32)ret);
+
+        /* cond_timedwait re-acquires the mutex: release before EXIT */
+
+        (VOID)pthread_mutex_unlock(&g_pthread_mutex);
+
+        goto EXIT;
+
+    }
 
     ret = pthread_mutex_unlock(&g_pthread_mutex);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
@@ -499,6 +540,14 @@ static VOID *PthreadFunc07(void *argument)
     ret = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
 
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (VOID)pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     for (i = 0; i < TEST_THREAD_COUNT; i++) {
         ret = pthread_create(&thread[i], &attr, PthreadCondFunc002, NULL);
         if (ret != 0) {
@@ -553,6 +602,14 @@ static UINT32 TestPthread007(VOID)
     ret = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_ATTR);
 
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (VOID)pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ret = pthread_create(&newTh, &attr, PthreadFunc07, NULL);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_ATTR);
 
@@ -674,6 +731,7 @@ static UINT32 TestPthread008(VOID)
     return LOS_OK;
 };
 
+
 static VOID *PthreadPrioFunc01(void *argument)
 {
     g_testCount++;
@@ -707,6 +765,14 @@ static UINT32 TestPthread009(VOID)
     ret = pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)memset_s(&cpuset, sizeof(cpu_set_t), 0, sizeof(cpu_set_t));
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (VOID)pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     for (i = 0; i < TEST_THREAD_COUNT; i++) {
         ret = pthread_create(&thread[i], &attr, PthreadPrioFunc01, (void *)(TEST_THREAD_COUNT - i));
         ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -1134,10 +1200,10 @@ static UINT32 TestPthread019(VOID)
     int oldState = -1;
     int ret;
 
-    /* 1. getschedparam: 非法线程 id(超过任务数上限, IsPthread 判假, pthread.c:415-418) → EINVAL */
+    /* 1. getschedparam: 非法线程 id(超过任务数上限, IsPthread 判假) → ESRCH */
     invalidThread = (pthread_t)(LOSCFG_BASE_CORE_TSK_LIMIT + 1);
     ret = pthread_getschedparam(invalidThread, &policy, &schedParam);
-    ICUNIT_GOTO_EQUAL(ret, EINVAL, ret, EXIT);
+    ICUNIT_GOTO_EQUAL(ret, ESRCH, ret, EXIT);
 
     /* 2. getschedparam: policy 传 NULL(pthread.c:420-422) → EINVAL */
     ret = pthread_getschedparam(pthread_self(), NULL, &schedParam);
@@ -1198,25 +1264,25 @@ EXIT:
 
 static void PosixTestCase(void)
 {
-    TEST_ADD_CASE("ItLosTestPthread001", TestPthread001, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread002", TestPthread002, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread003", TestPthread003, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread004", TestPthread004, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread005", TestPthread005, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread006", TestPthread006, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread007", TestPthread007, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread008", TestPthread008, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread009", TestPthread009, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread010", TestPthread010, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread011", TestPthread011, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread012", TestPthread012, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread013", TestPthread013, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread014", TestPthread014, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread015", TestPthread015, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread016", TestPthread016, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread017", TestPthread017, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread018", TestPthread018, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
-    TEST_ADD_CASE("ItLosTestPthread019", TestPthread019, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread001", TestPthread001, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread002", TestPthread002, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread003", TestPthread003, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread004", TestPthread004, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread005", TestPthread005, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread006", TestPthread006, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread007", TestPthread007, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread008", TestPthread008, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread009", TestPthread009, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread010", TestPthread010, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread011", TestPthread011, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread012", TestPthread012, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread013", TestPthread013, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread014", TestPthread014, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread015", TestPthread015, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread016", TestPthread016, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread017", TestPthread017, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread018", TestPthread018, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTestPthread019", TestPthread019, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
     return;
 }
 

@@ -76,12 +76,6 @@ extern "C" {
 
 /* *
  * @ingroup los_arch_interrupt
- * Boot interrupt vector table.
- */
-extern UINT32 _BootVectors[];
-
-/* *
- * @ingroup los_arch_interrupt
  * SysTick control and status register.
  */
 #define OS_SYSTICK_CONTROL_REG                0xE000E010

@@ -43,6 +43,9 @@ static UINT32 TestCase(VOID)
     UINT32 ret;
     UINT32 taskId;
     TSK_INIT_PARAM_S osTaskInitParam = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    osTaskInitParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     VOID *taskStack = NULL;
     g_testCount = 0;
 
@@ -52,7 +55,11 @@ static UINT32 TestCase(VOID)
     osTaskInitParam.uwResved = LOS_TASK_ATTR_JOINABLE;
 
     osTaskInitParam.uwStackSize = 0x1000;
-    taskStack = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, osTaskInitParam.uwStackSize, 8);
+    /* LOS_TaskCreateStatic checks topStack against LOSCFG_STACK_POINT_ALIGN_SIZE
+     * (los_task.c): the previous hardcoded 8 only passed on archs requiring 8 —
+     * on 16-byte archs it relied on the allocator luckily returning a 16-aligned
+     * block. Align with the exact macro the kernel checks. */
+    taskStack = LOS_MemAllocAlign(OS_TASK_STACK_ADDR, osTaskInitParam.uwStackSize, LOSCFG_STACK_POINT_ALIGN_SIZE);
     ICUNIT_ASSERT_NOT_EQUAL((UINTPTR)taskStack, 0, (UINTPTR)taskStack);
 
     ret = LOS_TaskCreateStatic(&taskId, &osTaskInitParam, taskStack);
@@ -81,6 +88,6 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosTask129(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosTask129", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTask129", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL0, TEST_FUNCTION);
 }
 #endif

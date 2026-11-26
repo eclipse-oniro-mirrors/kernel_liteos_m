@@ -71,6 +71,9 @@ static UINT32 Testcase(VOID)
     UINT32 loop;
     QUEUE_INFO_S queueInfo = {0};
     TSK_INIT_PARAM_S task = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_wDone = 0;
     g_rDone = 0;
@@ -160,5 +163,5 @@ EXIT:
 
 VOID ItLosQueue115(VOID)
 {
-    TEST_ADD_CASE("ItLosQueue115", Testcase, TEST_LOS, TEST_QUE, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosQueue115", Testcase, TEST_LOS, TEST_FN_KERNEL_MSGQUEUE, TEST_LEVEL1, TEST_FUNCTION);
 }

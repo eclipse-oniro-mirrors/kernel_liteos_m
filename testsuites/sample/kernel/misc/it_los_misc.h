@@ -69,6 +69,7 @@ extern VOID ItLosBacktrace001(VOID);
 extern VOID ItLosInit001(VOID);
 extern VOID ItLosSysClock001(VOID);
 extern VOID ItLosPrintf004(VOID);
+extern VOID ItLosHw001(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

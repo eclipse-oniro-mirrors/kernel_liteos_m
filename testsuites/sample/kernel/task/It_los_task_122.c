@@ -53,7 +53,6 @@ static UINT32 TestCase(VOID)
     UINT32 ret;
     UINTPTR temp = 0;
     TSK_INIT_PARAM_S osTaskInitParam = { 0 };
-
     g_testCount = 0;
 
     osTaskInitParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskJoinf01;
@@ -61,6 +60,9 @@ static UINT32 TestCase(VOID)
     osTaskInitParam.pcName = "Join";
     osTaskInitParam.usTaskPrio = TASK_PRIO_TEST + 1;
     osTaskInitParam.uwResved = LOS_TASK_ATTR_JOINABLE;
+#ifdef LOSCFG_KERNEL_SMP
+    osTaskInitParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_TaskCreate(&g_joinTaskID, &osTaskInitParam);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT);
@@ -72,6 +74,9 @@ static UINT32 TestCase(VOID)
     /* 清掉复用参数残留的 JOINABLE 属性：否则 "deatch" 任务退出后变为无人 join 的
      * 僵尸任务，TCB 永久占用，ResLeak 误报 task leak（本用例只 join "Join" 任务） */
     osTaskInitParam.uwResved = 0;
+#ifdef LOSCFG_KERNEL_SMP
+    osTaskInitParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_TaskCreate(&taskId, &osTaskInitParam);
     ICUNIT_GOTO_EQUAL(ret, 0, ret, EXIT_JOIN);
@@ -90,6 +95,6 @@ EXIT:
 
 VOID ItLosTask122(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosTask122", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTask122", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL0, TEST_FUNCTION);
 }
 

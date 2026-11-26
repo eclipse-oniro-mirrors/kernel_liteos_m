@@ -66,5 +66,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItFuzzOsKernelGetters(VOID)
 {
-    TEST_ADD_CASE("ItFuzzOsKernelGetters", TestCase, TEST_COMPAT, TEST_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItFuzzOsKernelGetters", TestCase, TEST_COMPAT, TEST_FN_COMPAT_CMSIS, TEST_LEVEL0, TEST_FUNCTION);
 }

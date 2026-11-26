@@ -92,7 +92,7 @@ static UINT32 TestCase(VOID)
 }
 
 /**
- * @ingroup TEST_MISC
+ * @ingroup TEST_FN_KERNEL_PRINTF
  * @par TestCase_Number
  * ItLosBacktrace001
  * @par TestCase_TestCase_Type
@@ -121,7 +121,7 @@ static UINT32 TestCase(VOID)
 VOID ItLosBacktrace001(VOID)
 {
 #ifdef LOSCFG_KERNEL_BACKTRACE
-    TEST_ADD_CASE("ItLosBacktrace001", TestCase, TEST_LOS, TEST_MISC, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosBacktrace001", TestCase, TEST_LOS, TEST_FN_KERNEL_PRINTF, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 

@@ -75,6 +75,9 @@ static UINT32 Testcase(VOID)
     UINT32 index;
     UINT32 i;
     TSK_INIT_PARAM_S task = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     LosSemCB *semNode = NULL;
 
@@ -130,6 +133,6 @@ static UINT32 Testcase(VOID)
 
 VOID ItLosSem040(void)
 {
-    TEST_ADD_CASE("ItLosSem040", Testcase, TEST_LOS, TEST_SEM, TEST_LEVEL2, TEST_PRESSURE);
+    TEST_ADD_CASE("ItLosSem040", Testcase, TEST_LOS, TEST_FN_KERNEL_SEM, TEST_LEVEL2, TEST_PRESSURE);
 }
 

@@ -329,19 +329,19 @@ RUN_TEST_SUITE(PosixStringStrStrTest);
 void PosixStringStrstrTest(void)
 {
     LOG("begin PosixStringStrstrTest....");
-    RUN_ONE_TESTCASE(testStringStrStr001);
-    RUN_ONE_TESTCASE(testStringStrStr002);
-    RUN_ONE_TESTCASE(testStringStrStr003);
-    RUN_ONE_TESTCASE(testStringStrStr004);
-    RUN_ONE_TESTCASE(testStringStrStr005);
-    RUN_ONE_TESTCASE(testStringStrStr006);
-    RUN_ONE_TESTCASE(testStringStrStr007);
-    RUN_ONE_TESTCASE(testStringStrStr008);
-    RUN_ONE_TESTCASE(testStringStrStr009);
-    RUN_ONE_TESTCASE(testStringStrStr010);
-    RUN_ONE_TESTCASE(testStringStrStr011);
-    RUN_ONE_TESTCASE(testStringStrStr012);
-    RUN_ONE_TESTCASE(testStringStrStr013);
+    RUN_ONE_TESTCASE_M(testStringStrStr001, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr002, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr003, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr004, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr005, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr006, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr007, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr008, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr009, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr010, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr011, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr012, TEST_FN_LIB_STRING);
+    RUN_ONE_TESTCASE_M(testStringStrStr013, TEST_FN_LIB_STRING);
 
     return;
 }

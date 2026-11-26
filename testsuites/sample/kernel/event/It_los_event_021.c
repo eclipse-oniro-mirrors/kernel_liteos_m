@@ -54,6 +54,10 @@ static VOID TaskF01(VOID)
 
     g_testCount++;
 
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
+
     ret = LOS_TaskCreate(&g_testTaskID02, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     TEST_DELAY(g_testCount, 3, TEST_WAIT_TIMEOUT);
@@ -85,6 +89,10 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
     LOS_EventInit(&g_pevent);
 
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
+
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
@@ -98,5 +106,5 @@ static UINT32 Testcase(VOID)
 
 VOID ItLosEvent021(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosEvent021", Testcase, TEST_LOS, TEST_EVENT, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosEvent021", Testcase, TEST_LOS, TEST_FN_KERNEL_EVENT, TEST_LEVEL0, TEST_FUNCTION);
 }

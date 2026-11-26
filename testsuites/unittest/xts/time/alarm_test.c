@@ -63,7 +63,7 @@ RUN_TEST_SUITE(TimeAlarmTestSuite);
 
 void AlarmTest(void)
 {
-    RUN_ONE_TESTCASE(testTimerCreateEINVAL);
+    RUN_ONE_TESTCASE_M(testTimerCreateEINVAL, TEST_FN_COMPAT_POSIX);
 }
 
 void TimeFuncTest(void)

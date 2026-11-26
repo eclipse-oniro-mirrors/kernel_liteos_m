@@ -48,6 +48,9 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     UINT32 loop;
     TSK_INIT_PARAM_S task = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     for (loop = 0; loop < LOSCFG_BASE_IPC_SEM_LIMIT - 1; loop++) {
         task.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
@@ -94,5 +97,5 @@ EXIT:
 
 VOID ItLosSem043(void)
 {
-    TEST_ADD_CASE("ItLosSem043", Testcase, TEST_LOS, TEST_SEM, TEST_LEVEL2, TEST_PRESSURE);
+    TEST_ADD_CASE("ItLosSem043", Testcase, TEST_LOS, TEST_FN_KERNEL_SEM, TEST_LEVEL2, TEST_PRESSURE);
 }

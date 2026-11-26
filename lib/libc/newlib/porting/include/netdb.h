@@ -99,10 +99,10 @@ struct addrinfo {
 };
 
 int getaddrinfo(const char *__restrict nodename, const char *__restrict servname, \
-                 const struct addrinfo *__restrict hints, struct addrinfo **__restrict res);
+                const struct addrinfo *__restrict hints, struct addrinfo **__restrict res);
 void freeaddrinfo(struct addrinfo *res);
-int getnameinfo(const struct sockaddr * __restrict sa, socklen_t salen, char * __restrict host, \
-                socklen_t hostlen, char * __restrict serv, socklen_t servlen, int flags);
+int getnameinfo(const struct sockaddr *__restrict sa, socklen_t salen, char *__restrict host, \
+                socklen_t hostlen, char *__restrict serv, socklen_t servlen, int flags);
 const char *gai_strerror(int errcode);
 
 struct netent {
@@ -168,17 +168,17 @@ int *__h_errno_location(void);
 #if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
 void herror(const char *str);
 const char *hstrerror(int errnum);
-int gethostbyname_r(const char * name, struct hostent * ret, char * buf, size_t buflen, \
-                    struct hostent ** result, int * h_errnop);
-int gethostbyname2_r(const char * __restrict name, int af, struct hostent * __restrict result_buf, \
-                     char * __restrict buf, size_t buflen, struct hostent ** __restrict result, \
-                     int * __restrict h_errnop);
+int gethostbyname_r(const char *name, struct hostent *ret, char *buf, size_t buflen, \
+                    struct hostent **result, int *h_errnop);
+int gethostbyname2_r(const char *__restrict name, int af, struct hostent *__restrict result_buf, \
+                     char *__restrict buf, size_t buflen, struct hostent **__restrict result, \
+                     int *__restrict h_errnop);
 struct hostent *gethostbyname2(const char *name, int af);
-int gethostbyaddr_r(const void * __restrict addr, __socklen_t len, int type, struct hostent * __restrict result_buf, \
-                    char * __restrict buf, size_t buflen, struct hostent ** __restrict result, \
-                    int * __restrict h_errnop);
-int getservbyport_r(int port, const char * __restrict proto, struct servent * __restrict result_buf, \
-                    char * __restrict buf, size_t buflen, struct servent ** __restrict result);
+int gethostbyaddr_r(const void *__restrict addr, __socklen_t len, int type, struct hostent *__restrict result_buf, \
+                    char *__restrict buf, size_t buflen, struct hostent **__restrict result, \
+                    int *__restrict h_errnop);
+int getservbyport_r(int port, const char *__restrict proto, struct servent *__restrict result_buf, \
+                    char *__restrict buf, size_t buflen, struct servent **__restrict result);
 int getservbyname_r(const char *name, const char *proto, struct servent *result_buf, char *buf, size_t buflen, \
                     struct servent **result);
 #endif

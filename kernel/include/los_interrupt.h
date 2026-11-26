@@ -262,11 +262,11 @@ extern size_t IntActive(VOID);
 
 /**
  * @ingroup los_interrupt
- * Hardware interrupt error code: create hwi with arg when LOSCFG_PLATFORM_HWI_WITH_ARG not enabled.
+ * Hardware interrupt error code: create hwi with arg when LOSCFG_HWI_WITH_ARG not enabled.
  *
  * Value: 0x0200090f.
  *
- * Solution: Pass NULL to the last parameter of LOS_HwiCreate or enable LOSCFG_PLATFORM_HWI_WITH_ARG.
+ * Solution: Pass NULL to the last parameter of LOS_HwiCreate or enable LOSCFG_HWI_WITH_ARG.
  * @attention
  * <ul><li>None.</li></ul>
  */
@@ -322,14 +322,14 @@ typedef UINTPTR HWI_ARG_T;
  * None.
  *
  * @param parm [IN] Type #VOID *. Parameter passed to the interrupt handler
- *                  (only available when LOSCFG_PLATFORM_HWI_WITH_ARG is 1).
+ *                  (only available when LOSCFG_HWI_WITH_ARG is 1).
  *
  * @retval None.
  * @par Dependency:
  * <ul><li>los_interrupt.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_HwiCreate
  */
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 typedef VOID (*HWI_PROC_FUNC)(VOID *parm);
 #else
 typedef VOID (*HWI_PROC_FUNC)(void);
@@ -487,17 +487,17 @@ extern BOOL OsHwiIsCreated(UINT32 index);
  * @retval #LOS_ERRNO_HWI_SHARED_ERROR        The interrupt can not be shared. The interrupt number has been
  *                                            registered as a non-shared interrupt, or a shared interrupt is
  *                                            specified to be created, but the device ID is empty.
- * @retval #LOS_ERRNO_HWI_ARG_NOT_ENABLED     Passed non-NULL to irqParam and LOSCFG_PLATFORM_HWI_WITH_ARG not enabled.
+ * @retval #LOS_ERRNO_HWI_ARG_NOT_ENABLED     Passed non-NULL to irqParam and LOSCFG_HWI_WITH_ARG not enabled.
  * @retval #LOS_OK                            The interrupt is successfully created.
  * @par Dependency:
  * <ul><li>los_interrupt.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_HwiDelete
  */
 extern UINT32 LOS_HwiCreate(HWI_HANDLE_T hwiNum,
-					        HWI_PRIOR_T hwiPrio,
-					        HWI_MODE_T hwiMode,
-					        HWI_PROC_FUNC handler,
-					        HWI_IRQ_PARAM_S *irqParam);
+                            HWI_PRIOR_T hwiPrio,
+                            HWI_MODE_T hwiMode,
+                            HWI_PROC_FUNC handler,
+                            HWI_IRQ_PARAM_S *irqParam);
 /**
  * @ingroup  los_interrupt
  * @brief delete a hardware interrupt.
@@ -609,6 +609,7 @@ extern UINT32 LOS_HwiSendIpi(HWI_HANDLE_T hwiNum, UINT32 cpuMask);
 extern UINT32 LOS_HwiSetAffinity(HWI_HANDLE_T hwiNum, UINT32 cpuMask);
 #endif
 
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
 /**
  * @ingroup los_interrupt
  * @brief Get the number of interrupt responses.
@@ -619,6 +620,7 @@ extern UINT32 LOS_HwiSetAffinity(HWI_HANDLE_T hwiNum, UINT32 cpuMask);
  * <ul>
  * <li>The number of interrupt responses is always changed, so this API just provides a reference value.</li>
  * <li>The type of interrupt response is UINT32, which may cause data overflow.</li>
+ * <li>Only available when LOSCFG_IRQ_RESP_COUNT is 1.</li>
  * </ul>
  *
  * @param hwiNum     [IN] Type #HWI_HANDLE_T. Hardware interrupt number.
@@ -632,6 +634,7 @@ extern UINT32 LOS_HwiSetAffinity(HWI_HANDLE_T hwiNum, UINT32 cpuMask);
  * @see None.
  */
 extern UINT32 LOS_HwiRespCntGet(HWI_HANDLE_T hwiNum, UINT32 *respCount);
+#endif
 extern UINT32 LOS_HwiTrigger(HWI_HANDLE_T hwiNum);
 extern UINT32 LOS_HwiEnable(HWI_HANDLE_T hwiNum);
 extern UINT32 LOS_HwiDisable(HWI_HANDLE_T hwiNum);

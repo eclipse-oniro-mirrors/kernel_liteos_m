@@ -376,6 +376,9 @@ static UINT32 TestCase(VOID)
         auxParam.usTaskPrio = 10;
         auxParam.pcName = "PmAux005";
         auxParam.uwStackSize = TASK_STACK_SIZE_TEST;
+#ifdef LOSCFG_KERNEL_SMP
+        auxParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
         ret = LOS_TaskCreate(&auxTid, &auxParam);
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
         /* 高优先级任务创建即抢占并自挂延时, 返回本任务时已在延时链 */
@@ -454,7 +457,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_PM
+ * @ingroup TEST_FN_KERNELEXT_POWER
  * @par TestCase_Number
  * ItLosPm005
  * @par TestCase_TestCase_Type
@@ -480,7 +483,7 @@ EXIT:
 VOID ItLosPm005(VOID)
 {
 #if (LOSCFG_KERNEL_PM == 1)
-    TEST_ADD_CASE("ItLosPm005", TestCase, TEST_LOS, TEST_PM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosPm005", TestCase, TEST_LOS, TEST_FN_KERNELEXT_POWER, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }
 

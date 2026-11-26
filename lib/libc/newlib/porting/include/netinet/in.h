@@ -91,9 +91,6 @@ extern "C" {
 #define IPPROTO_RAW      255
 #define IPPROTO_MAX      256
 
-#define __ARE_4_EQUAL(a,b) \
-    (!( (0[a] - 0[b]) | (1[a] - 1[b]) | (2[a] - 2[b]) | (3[a] - 3[b]) ))
-
 #define    IN_CLASSA(a)         ((((in_addr_t)(a)) & 0x80000000) == 0)
 #define    IN_CLASSA_NET        0xff000000
 #define    IN_CLASSA_NSHIFT     24

@@ -58,13 +58,19 @@ static UINT32 TestCase002(VOID)
     ICUNIT_ASSERT_WITHIN_EQUAL(idleCpup, 0, LOS_CPUP_PRECISION, idleCpup);
 
     sum = sysCpup + idleCpup;
+#ifdef LOSCFG_KERNEL_SMP
+    /* On SMP, SysCpuUsage accounts for all cores but TaskCpuUsage(idle)
+     * queries one idle task. The sum may deviate by the other core's idle. */
+    ICUNIT_ASSERT_WITHIN_EQUAL(sum, LOS_CPUP_PRECISION - 100, LOS_CPUP_PRECISION + 100, sum);
+#else
     ICUNIT_ASSERT_WITHIN_EQUAL(sum, LOS_CPUP_PRECISION - 10, LOS_CPUP_PRECISION + 10, sum);
+#endif
 
     return LOS_OK;
 }
 
 VOID ItLosCpup002(VOID)
 {
-    TEST_ADD_CASE("ItLosCpup002", TestCase002, TEST_LOS, TEST_CPUP, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosCpup002", TestCase002, TEST_LOS, TEST_FN_KERNEL_CPUP, TEST_LEVEL1, TEST_FUNCTION);
 }
 #endif

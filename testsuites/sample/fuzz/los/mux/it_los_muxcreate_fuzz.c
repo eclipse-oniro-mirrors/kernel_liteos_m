@@ -57,5 +57,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItFuzzLosMuxCreate(VOID)
 {
-    TEST_ADD_CASE("ItFuzzLosMuxCreate", TestCase, TEST_LOS, TEST_MUX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItFuzzLosMuxCreate", TestCase, TEST_LOS, TEST_FN_KERNEL_MUTEX, TEST_LEVEL0, TEST_FUNCTION);
 }

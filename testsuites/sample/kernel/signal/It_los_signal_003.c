@@ -71,6 +71,9 @@ STATIC VOID TaskF02(VOID)
 STATIC UINT32 Testcase(VOID)
 {
     TSK_INIT_PARAM_S task = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     UINT32 taskID1, taskID2;
     UINT32 ret;
 
@@ -107,5 +110,5 @@ STATIC UINT32 Testcase(VOID)
 
 VOID ItLosSignal003(VOID)
 {
-    TEST_ADD_CASE("ItLosSignal003", Testcase, TEST_LOS, TEST_SIGNAL, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSignal003", Testcase, TEST_LOS, TEST_FN_KERNEL_SIGNAL, TEST_LEVEL0, TEST_FUNCTION);
 }

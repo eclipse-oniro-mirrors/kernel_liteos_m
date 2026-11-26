@@ -59,12 +59,18 @@ static UINT32 TestCase(VOID)
         task1.usTaskPrio = index % OS_TASK_PRIORITY_LOWEST;
         task1.pcName = acName;
         task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
         ret = LOS_TaskCreate(&testTaskID[index], &task1);
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     }
 
     task1.pcName = "TskA";
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&testTaskID[index], &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_TSK_TCB_UNAVAILABLE, ret, EXIT);
 EXIT:
@@ -81,6 +87,6 @@ EXIT:
 
 VOID ItLosTask039(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosTask039", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTask039", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL1, TEST_FUNCTION);
 }
 

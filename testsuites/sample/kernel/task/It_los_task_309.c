@@ -27,6 +27,9 @@ static UINT32 TestCase(VOID)
     UINT32 loop;
     UINTPTR retval = 0;
     TSK_INIT_PARAM_S taskParam = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     taskParam.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF309;
     taskParam.uwStackSize = TASK_STACK_SIZE_TEST;
@@ -77,7 +80,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_TASK
+ * @ingroup TEST_FN_KERNEL_TASKMGMT
  * @par TestCase_Number
  * ItLosTask309
  * @par TestCase_TestCase_Type
@@ -101,5 +104,5 @@ EXIT:
 
 VOID ItLosTask309(VOID)
 {
-    TEST_ADD_CASE("ItLosTask309", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTask309", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL1, TEST_FUNCTION);
 }

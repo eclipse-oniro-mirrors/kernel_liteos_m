@@ -31,7 +31,7 @@
 #include "osTest.h"
 #include "it_los_hwi.h"
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 
 static volatile UINT32 g_withArgHit;
 static volatile VOID *g_withArgDevId;
@@ -60,6 +60,9 @@ static UINT32 Testcase(VOID)
 
     /* 1) Create interrupt with irqParam (WITH_ARG path). */
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01WithArg, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     /* 2) Trigger and verify handler received the device ID. */
@@ -84,6 +87,6 @@ EXIT:
 
 VOID ItLosHwi045(VOID)
 {
-    TEST_ADD_CASE("ItLosHwi045", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL3, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHwi045", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL3, TEST_FUNCTION);
 }
 #endif

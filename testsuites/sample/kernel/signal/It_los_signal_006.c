@@ -112,6 +112,9 @@ static VOID SubTask006(VOID)
     g_hwiDone006 = 0;
     g_sigRetInHwi006 = 0;
     ret = LOS_HwiCreate(HWI_NUM_TEST, 2, 0, (HWI_PROC_FUNC)HwiHandler006, &irqParam);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     if (ret != LOS_OK) {
         goto OUT;
     }
@@ -156,6 +159,9 @@ static UINT32 Testcase(VOID)
     taskParam.pcName = "TaskTC006";
     taskParam.uwStackSize = TASK_STACK_SIZE_TEST;
     taskParam.uwResved = LOS_TASK_ATTR_JOINABLE;
+#ifdef LOSCFG_KERNEL_SMP
+    taskParam.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&auxTid, &taskParam);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
@@ -176,7 +182,7 @@ static UINT32 Testcase(VOID)
 }
 
 /**
- * @ingroup TEST_SIGNAL
+ * @ingroup TEST_FN_KERNEL_SIGNAL
  * @par TestCase_Number
  * ItLosSignal006
  * @par TestCase_TestCase_Type
@@ -202,7 +208,7 @@ static UINT32 Testcase(VOID)
 
 VOID ItLosSignal006(VOID)
 {
-    TEST_ADD_CASE("ItLosSignal006", Testcase, TEST_LOS, TEST_SIGNAL, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSignal006", Testcase, TEST_LOS, TEST_FN_KERNEL_SIGNAL, TEST_LEVEL1, TEST_FUNCTION);
 }
 
 #ifdef __cplusplus

@@ -119,6 +119,17 @@ static_library("test_mem") {
     "It_los_mem_315.c",
     "it_los_mem.c",
   ]
+  if (defined(LOSCFG_KERNEL_SMP)) {
+    sources += [
+      "It_smp_los_mem_001.c",
+      "It_smp_los_mem_002.c",
+      "It_smp_los_mem_003.c",
+      "It_smp_los_mem_005.c",
+      "It_smp_los_mem_006.c",
+      "It_smp_los_mem_007.c",
+    ]
+  }
+
 
   configs += [ "$LITEOSTOPDIR/testsuites:include" ]
 }

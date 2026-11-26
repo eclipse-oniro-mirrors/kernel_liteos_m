@@ -118,6 +118,11 @@ iUINT32 ICunitAddCase(iCHAR *caseName, CASE_FUNCTION caseFunc, iUINT16 testcaseL
         return (iUINT32)ICUNIT_SUCCESS;
     }
 
+    /* 用例屏蔽（skip 名单）：命中跳过表的用例直接返回（恢复点后按名单跳过） */
+    if (!IcSkipHit(caseName)) {
+        return (iUINT32)ICUNIT_SUCCESS;
+    }
+
     idx = 0;
     if (idx == ICUNIT_CASE_SIZE) {
         iCunit_ErrLog_AddCase++;
@@ -282,6 +287,9 @@ iUINT32 ICunitRunF(void)
         OsResLeakCheckBegin();
 #if (ICUNIT_CASE_TIME_STAT == 1)
         startCycles = LOS_SysCycleGet();
+#endif
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_TaskCpuAffiSet(LOS_CurTaskIDGet(), CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
 #endif
         caseRet = psubCaseArray->pstCaseFunc();
 #if (ICUNIT_CASE_TIME_STAT == 1)

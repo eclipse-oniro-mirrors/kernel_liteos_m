@@ -29,6 +29,11 @@
  */
 
 #include "It_posix_pthread.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 static void *ThreadF01(void *arg)
 {
@@ -50,6 +55,13 @@ static UINT32 Testcase(VOID)
         uart_printf_func("Error creating thread\n");
         ICUNIT_ASSERT_EQUAL(1, 0, errno);
     }
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)newTh, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
 
     LOS_TaskDelay(1);
     /* Try to cancel the newly created thread.  If an error is returned,
@@ -75,5 +87,5 @@ static UINT32 Testcase(VOID)
 
 VOID ItPosixPthread001(VOID)
 {
-    TEST_ADD_CASE("ItPosixPthread001", Testcase, TEST_LIB, TEST_POSIX, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItPosixPthread001", Testcase, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL0, TEST_FUNCTION);
 }

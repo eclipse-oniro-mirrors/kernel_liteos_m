@@ -56,6 +56,9 @@ static UINT32 Testcase(VOID)
 
     for (loop = 0; loop < HWI_LOOP_NUM; loop++) {
         ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+        #ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+        #endif
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
         TestHwiTrigger(HWI_NUM_TEST);
@@ -75,5 +78,5 @@ EXIT:
 
 VOID ItLosHwi031(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosHwi031", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL3, TEST_PRESSURE);
+    TEST_ADD_CASE("ItLosHwi031", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL3, TEST_PRESSURE);
 }

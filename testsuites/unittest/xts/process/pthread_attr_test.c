@@ -29,6 +29,11 @@
  */
 
 #include "pthread_test.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 LITE_TEST_SUIT(PROCESS, PthreadAttr, PthreadAttrTestSuite);
 
@@ -61,6 +66,13 @@ LITE_TEST_CASE(PthreadAttrTestSuite, testPthreadAttrSetdetachstate, Function | M
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ICUNIT_ASSERT_EQUAL(param, PTHREAD_CREATE_DETACHED, param);
     ret = pthread_create(&tid, &attr, ThreadPublic, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ret = pthread_attr_destroy(&attr);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -75,6 +87,13 @@ LITE_TEST_CASE(PthreadAttrTestSuite, testPthreadAttrSetdetachstate, Function | M
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ICUNIT_ASSERT_EQUAL(param, PTHREAD_CREATE_JOINABLE, param);
     ret = pthread_create(&tid, &attr, ThreadPublic, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t cpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+        (void)sched_setaffinity((pid_t)tid, sizeof(cpu_set_t), &cpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
     ret = pthread_attr_destroy(&attr);
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
@@ -110,7 +129,7 @@ RUN_TEST_SUITE(PthreadAttrTestSuite);
 
 void PthreadAttrTest(void)
 {
-    RUN_ONE_TESTCASE(testPthreadAttrSetdetachstate);
-    RUN_ONE_TESTCASE(testPthreadAttrSetstacksizeEINVAL);
+    RUN_ONE_TESTCASE_M(testPthreadAttrSetdetachstate, TEST_FN_COMPAT_POSIX);
+    RUN_ONE_TESTCASE_M(testPthreadAttrSetstacksizeEINVAL, TEST_FN_COMPAT_POSIX);
 }
 

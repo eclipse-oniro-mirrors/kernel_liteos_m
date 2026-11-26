@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
  * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
- * Copyright (c) 2026-2026 HiSilicon (Shanghai) Technologies Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -80,6 +79,8 @@ struct ClicRegs {
 #define CLIC_ATTR_MODE_M         (3U << CLIC_ATTR_MODE_SHIFT)  /* machine mode */
 
 extern VOID HalIrqInit(VOID);
+/* Raw per-IRQ clicintattr[i] write; compose from the CLIC_ATTR_* macros. */
+extern UINT32 HalIrqSetClicIntAttr(UINT32 hwiNum, UINT8 clicintattr);
 
 #ifdef __cplusplus
 #if __cplusplus

@@ -83,16 +83,21 @@ static UINT32 Testcase(VOID)
     irqParam.pDevId = 0;
 
     TSK_INIT_PARAM_S task = {0};
-
     task.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task.pcName = "HwiTsk019A";
     task.uwStackSize = TASK_STACK_SIZE_TEST;
     task.usTaskPrio = TASK_PRIO_TEST - 1;
     task.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_TaskCreate(&g_testTaskID01, &task);
@@ -118,5 +123,5 @@ EXIT1:
 
 VOID ItLosHwi019(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosHwi019", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL2, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHwi019", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL2, TEST_FUNCTION);
 }

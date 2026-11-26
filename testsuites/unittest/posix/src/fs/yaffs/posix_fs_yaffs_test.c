@@ -174,9 +174,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsOpenRdonlyNoent, Function | Med
     errno = 0;
     fd = open(YAFFS_FILE0, O_RDONLY, YAFFS_MODE);
     ICUNIT_ASSERT_EQUAL(fd, -1, fd);
-    /* 板测 2026-10-12：fbb 库失败路径 yaffsfs_GetLastError()=0 → 适配层
-     * 回退 EIO（vfs_yaffs2.c:60-65 设计行为），POSIX 的 ENOENT 不可达 */
-    ICUNIT_ASSERT_EQUAL(errno, EIO, errno);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
     return 0;
 }
 
@@ -592,8 +590,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsStatNoent, Function | MediumTes
     (void)remove(YAFFS_FILE0);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(YAFFS_FILE0, &st), -1, errno);
-    /* 板测 2026-10-12：失败路径适配层回退 EIO（同 TC-YFF-003 注） */
-    ICUNIT_ASSERT_EQUAL(errno, EIO, errno);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
 
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(NULL, &st), -1, errno);
@@ -665,8 +662,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsMkdirNoParent, Function | Mediu
     (void)rmdir(YAFFS_DIR1);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(mkdir(YAFFS_DIR0"/missing/yaffs_api_x", YAFFS_MODE), -1, errno);
-    /* 板测 2026-10-12：失败路径适配层回退 EIO（同 TC-YFF-003 注） */
-    ICUNIT_ASSERT_EQUAL(errno, EIO, errno);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
     return 0;
 }
 
@@ -866,8 +862,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsRenameFile, Function | MediumTe
     ICUNIT_ASSERT_EQUAL(rename(YAFFS_FILE_REN_SRC, YAFFS_FILE_REN_DST), 0, errno);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(YAFFS_FILE_REN_SRC, &st), -1, errno);
-    /* 板测 2026-10-12：失败路径适配层回退 EIO（同 TC-YFF-003 注） */
-    ICUNIT_ASSERT_EQUAL(errno, EIO, errno);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
 
     fd = open(YAFFS_FILE_REN_DST, O_RDONLY, YAFFS_MODE);
     ICUNIT_ASSERT_NOT_EQUAL(fd, -1, fd);
@@ -945,8 +940,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsUnlinkFile, Function | MediumTe
     ICUNIT_ASSERT_EQUAL(unlink(YAFFS_FILE0), 0, errno);
     errno = 0;
     ICUNIT_ASSERT_EQUAL(stat(YAFFS_FILE0, &st), -1, errno);
-    /* 板测 2026-10-12：失败路径适配层回退 EIO（同 TC-YFF-003 注） */
-    ICUNIT_ASSERT_EQUAL(errno, EIO, errno);
+    ICUNIT_ASSERT_EQUAL(errno, ENOENT, errno);
     return 0;
 }
 
@@ -985,7 +979,7 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsRemoveBoth, Function | MediumTe
 
     (void)rmdir(YAFFS_DIR0);
     ICUNIT_ASSERT_EQUAL(mkdir(YAFFS_DIR0, YAFFS_MODE), 0, errno);
-    /* 板测 2026-10-12：remove(空目录) 失败（-1+EIO）——VFS remove 的
+    /* 板测 2026-10-12：remove(空目录) 失败（-1，errno 见 printf 行）——VFS remove 的
      * "-EISDIR → rmdir" 转发在 liteos_m 上失效（unlink 已 POSIX 化为 -1，
      * vfs_fs.c:1258-1266 比较永假，littlefs 同受影响，存量缺陷），删目录
      * 应直接用 rmdir。行为记录，不作为 yaffs 缺陷 */
@@ -1312,92 +1306,92 @@ LITE_TEST_CASE(PosixYaffsFuncTestSuite, testYaffsStatfsCapacity, Function | Medi
 
 static void PosixYaffsOpenTest(void)
 {
-    RUN_ONE_TESTCASE(testYaffsOpenCreateClose);
-    RUN_ONE_TESTCASE(testYaffsOpenExclExist);
-    RUN_ONE_TESTCASE(testYaffsOpenRdonlyNoent);
-    RUN_ONE_TESTCASE(testYaffsOpenBadPath);
-    RUN_ONE_TESTCASE(testYaffsOpenDir);
-    RUN_ONE_TESTCASE(testYaffsOpenDualFd);
-    RUN_ONE_TESTCASE(testYaffsCloseTwice);
+    RUN_ONE_TESTCASE_M(testYaffsOpenCreateClose, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testYaffsOpenExclExist, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testYaffsOpenRdonlyNoent, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testYaffsOpenBadPath, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsOpenDir, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsOpenDualFd, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsCloseTwice, TEST_FN_FS_VFS);
 }
 
 static void PosixYaffsRwTest(void)
 {
-    RUN_ONE_TESTCASE(testYaffsRwPattern);
-    RUN_ONE_TESTCASE(testYaffsRwZeroLen);
-    RUN_ONE_TESTCASE(testYaffsRwNullBuf);
-    RUN_ONE_TESTCASE(testYaffsRwEof);
-    RUN_ONE_TESTCASE(testYaffsRwAppend);
-    RUN_ONE_TESTCASE(testYaffsRwCrossBlock);
+    RUN_ONE_TESTCASE_M(testYaffsRwPattern, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRwZeroLen, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRwNullBuf, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRwEof, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testYaffsRwAppend, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRwCrossBlock, TEST_FN_FS_VFS);
 }
 
 static void PosixYaffsLseekTest(void)
 {
-    RUN_ONE_TESTCASE(testYaffsLseekModes);
-    RUN_ONE_TESTCASE(testYaffsLseekNegative);
-    RUN_ONE_TESTCASE(testYaffsLseekBeyond);
-    RUN_ONE_TESTCASE(testYaffsSparseHole);
+    RUN_ONE_TESTCASE_M(testYaffsLseekModes, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsLseekNegative, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testYaffsLseekBeyond, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsSparseHole, TEST_FN_FS_VFS);
 }
 
 static void PosixYaffsStatTest(void)
 {
-    RUN_ONE_TESTCASE(testYaffsStatFile);
-    RUN_ONE_TESTCASE(testYaffsStatDir);
-    RUN_ONE_TESTCASE(testYaffsStatNoent);
-    RUN_ONE_TESTCASE(testYaffsFstatLstat);
-    RUN_ONE_TESTCASE(testYaffsStatMountRoot);
+    RUN_ONE_TESTCASE_M(testYaffsStatFile, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testYaffsStatDir, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsStatNoent, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsFstatLstat, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsStatMountRoot, TEST_FN_FS_VFS);
 }
 
 static void PosixYaffsDirTest(void)
 {
-    RUN_ONE_TESTCASE(testYaffsMkdirRmdir);
-    RUN_ONE_TESTCASE(testYaffsMkdirExist);
-    RUN_ONE_TESTCASE(testYaffsMkdirNoParent);
-    RUN_ONE_TESTCASE(testYaffsRmdirNonEmpty);
-    RUN_ONE_TESTCASE(testYaffsRmdirRoot);
-    RUN_ONE_TESTCASE(testYaffsReaddirCount);
-    RUN_ONE_TESTCASE(testYaffsDirEmptyEof);
-    RUN_ONE_TESTCASE(testYaffsClosedirTwice);
-    RUN_ONE_TESTCASE(testYaffsLongName);
+    RUN_ONE_TESTCASE_M(testYaffsMkdirRmdir, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsMkdirExist, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsMkdirNoParent, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRmdirNonEmpty, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRmdirRoot, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsReaddirCount, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsDirEmptyEof, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsClosedirTwice, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsLongName, TEST_FN_FS_VFS);
 }
 
 static void PosixYaffsRenameTest(void)
 {
-    RUN_ONE_TESTCASE(testYaffsRenameFile);
-    RUN_ONE_TESTCASE(testYaffsRenameOverwrite);
-    RUN_ONE_TESTCASE(testYaffsRenameDir);
-    RUN_ONE_TESTCASE(testYaffsRenameBad);
+    RUN_ONE_TESTCASE_M(testYaffsRenameFile, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRenameOverwrite, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testYaffsRenameDir, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRenameBad, TEST_FN_FS_VFS);
 }
 
 static void PosixYaffsUnlinkTest(void)
 {
-    RUN_ONE_TESTCASE(testYaffsUnlinkFile);
-    RUN_ONE_TESTCASE(testYaffsUnlinkBad);
-    RUN_ONE_TESTCASE(testYaffsRemoveBoth);
-    RUN_ONE_TESTCASE(testYaffsRemoveNonEmpty);
-    RUN_ONE_TESTCASE(testYaffsAccess);
+    RUN_ONE_TESTCASE_M(testYaffsUnlinkFile, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsUnlinkBad, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRemoveBoth, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testYaffsRemoveNonEmpty, TEST_FN_LIB_STDIO);
+    RUN_ONE_TESTCASE_M(testYaffsAccess, TEST_FN_FS_VFS);
 }
 
 static void PosixYaffsSyncTest(void)
 {
-    RUN_ONE_TESTCASE(testYaffsFsync);
-    RUN_ONE_TESTCASE(testYaffsFtruncateShrink);
-    RUN_ONE_TESTCASE(testYaffsFtruncateGrow);
-    RUN_ONE_TESTCASE(testYaffsFtruncateBad);
+    RUN_ONE_TESTCASE_M(testYaffsFsync, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsFtruncateShrink, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsFtruncateGrow, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsFtruncateBad, TEST_FN_FS_VFS);
 }
 
 static void PosixYaffsPioTest(void)
 {
-    RUN_ONE_TESTCASE(testYaffsPreadOffset);
-    RUN_ONE_TESTCASE(testYaffsPwriteOffset);
-    RUN_ONE_TESTCASE(testYaffsRwv);
-    RUN_ONE_TESTCASE(testYaffsRwvBad);
+    RUN_ONE_TESTCASE_M(testYaffsPreadOffset, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsPwriteOffset, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRwv, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsRwvBad, TEST_FN_FS_VFS);
 }
 
 static void PosixYaffsStatfsTest(void)
 {
-    RUN_ONE_TESTCASE(testYaffsStatfsBasic);
-    RUN_ONE_TESTCASE(testYaffsStatfsCapacity);
+    RUN_ONE_TESTCASE_M(testYaffsStatfsBasic, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testYaffsStatfsCapacity, TEST_FN_FS_VFS);
 }
 
 void PosixFsYaffsTest(void)

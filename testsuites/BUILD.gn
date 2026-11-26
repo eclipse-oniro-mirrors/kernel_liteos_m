@@ -139,6 +139,10 @@ kernel_module("test_init") {
 group("testsuites") {
   deps = [ ":test_init" ]
 
+  if (defined(LOSCFG_TEST_KERNEL_FLASH_STAT)) {
+    deps += [ "src/memstat/src:flash_link_ref" ]
+  }
+
   # mutually exclusive build modes (Kconfig): normal suites vs fuzz-only
   if (defined(LOSCFG_KERNEL_TEST)) {
     # Per-directory selection (Kconfig TEST_ICUNIT_* / TEST_UNI_*): block
@@ -237,6 +241,9 @@ group("testsuites") {
   }
   if (defined(LOSCFG_KERNEL_HPL) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/hpl:test_hpl" ]
+  }
+  if (defined(LOSCFG_KERNEL_CPPSUPPORT) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
+    deps += [ "sample/kernel/cpp:test_cppsupport" ]
   }
   if (defined(LOSCFG_KERNEL_TRACE) && defined(LOSCFG_TEST_ICUNIT_KERNEL)) {
     deps += [ "sample/kernel/trace:test_trace" ]

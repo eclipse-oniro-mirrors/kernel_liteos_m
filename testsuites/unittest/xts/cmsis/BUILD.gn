@@ -31,7 +31,7 @@ import("//kernel/liteos_m/liteos.gni")
 static_library("cmsis_test") {
   defines = [
     "XTS_CASE_LAYER=TEST_COMPAT",
-    "XTS_CASE_MODULE=TEST_CMSIS",
+    "XTS_CASE_MODULE=TEST_FN_COMPAT_CMSIS",
     "XTS_CASE_LEVEL=TEST_LEVEL0",
   ]
 

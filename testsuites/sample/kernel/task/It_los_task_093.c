@@ -58,6 +58,9 @@ static UINT32 TestCase(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task1 = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     ret = LOS_QueueCreate("Q1", QUEUE_SIZE, &g_testQueueID01, 0, QUEUE_BUF_SIZE);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
@@ -86,6 +89,6 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosTask093(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosTask093", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTask093", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL0, TEST_FUNCTION);
 }
 

@@ -88,6 +88,9 @@ static UINT32 TestCase(VOID)
         task[i].uwResved     = LOS_TASK_STATUS_DETACHED;
     }
     for (i = 0; i < uLoop; i++) {
+        #ifdef LOSCFG_KERNEL_SMP
+        task[i].usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
         ret = LOS_TaskCreate(&taskId[i], &task[i]);
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     }
@@ -103,7 +106,7 @@ EXIT:
 }
 
  /**
- * @ingroup TEST_ATO
+ * @ingroup TEST_FN_KERNEL_DATASTRUCT
  * @par TestCase_Number
  * ItLosAtomic009
  * @par TestCase_TestCase_Type
@@ -126,5 +129,5 @@ EXIT:
 
 VOID ItLosAtomic009(VOID)
 {
-    TEST_ADD_CASE("ItLosAtomic009", TestCase, TEST_LOS, TEST_ATO, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosAtomic009", TestCase, TEST_LOS, TEST_FN_KERNEL_DATASTRUCT, TEST_LEVEL0, TEST_FUNCTION);
 }

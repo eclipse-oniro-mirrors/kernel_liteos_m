@@ -39,6 +39,9 @@ static UINT32 Testcase(VOID)
     (VOID)memset_s(&irqParam, sizeof(HwiIrqParam), 0, sizeof(HwiIrqParam));
     irqParam.pDevId = 0;
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF01, &irqParam);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     TestHwiTrigger(HWI_NUM_TEST);
@@ -55,6 +58,6 @@ EXIT:
 
 VOID ItLosQueueIsr002(VOID)
 {
-    TEST_ADD_CASE("ItLosQueueIsr002", Testcase, TEST_LOS, TEST_QUE, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosQueueIsr002", Testcase, TEST_LOS, TEST_FN_KERNEL_MSGQUEUE, TEST_LEVEL1, TEST_FUNCTION);
 }
 

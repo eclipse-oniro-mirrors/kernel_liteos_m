@@ -63,6 +63,7 @@ VOID ItSuiteLosEvent()
     ItLosEvent041();
     ItLosEvent042();
     ItLosEvent043();
+    ItLosEvent044(); /* LOS_EventCondWrite 契约一揽子(用例内 extern 声明,见文件头注) */
 #if (LOS_KERNEL_TEST_FULL == 1)
     ItLosEvent002();
     ItLosEvent011();

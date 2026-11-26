@@ -1,7 +1,6 @@
 /* ----------------------------------------------------------------------------
  * Copyright (c) Huawei Device Co., Ltd. 2020-2026. All rights reserved.
  * Description: Los_printf HeadFile
- * Author: Huawei LiteOS Team
  * Create: 2013-01-01
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:

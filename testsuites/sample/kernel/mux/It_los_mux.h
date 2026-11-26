@@ -42,6 +42,42 @@ extern "C" {
 
 extern UINT32 g_mutexTest1;
 extern UINT32 g_mutexTest2;
+#ifdef LOSCFG_KERNEL_SMP
+extern UINT32 g_mutexkernelTest;
+extern VOID ItSmpLosMux001(VOID);
+extern VOID ItSmpLosMux002(VOID);
+extern VOID ItSmpLosMux003(VOID);
+extern VOID ItSmpLosMux004(VOID);
+extern VOID ItSmpLosMux005(VOID);
+extern VOID ItSmpLosMux006(VOID);
+extern VOID ItSmpLosMux007(VOID);
+extern VOID ItSmpLosMux2001(VOID);
+extern VOID ItSmpLosMux2002(VOID);
+extern VOID ItSmpLosMux2003(VOID);
+extern VOID ItSmpLosMux2004(VOID);
+extern VOID ItSmpLosMux2005(VOID);
+extern VOID ItSmpLosMux2006(VOID);
+extern VOID ItSmpLosMux2007(VOID);
+extern VOID ItSmpLosMux2008(VOID);
+extern VOID ItSmpLosMux2009(VOID);
+extern VOID ItSmpLosMux2010(VOID);
+extern VOID ItSmpLosMux2011(VOID);
+extern VOID ItSmpLosMux2012(VOID);
+extern VOID ItSmpLosMux2013(VOID);
+extern VOID ItSmpLosMux2014(VOID);
+extern VOID ItSmpLosMux2015(VOID);
+extern VOID ItSmpLosMux2016(VOID);
+extern VOID ItSmpLosMux2017(VOID);
+extern VOID ItSmpLosMux2018(VOID);
+extern VOID ItSmpLosMux2021(VOID);
+extern VOID ItSmpLosMux2022(VOID);
+extern VOID ItSmpLosMux2024(VOID);
+extern VOID ItSmpLosMux2025(VOID);
+extern VOID ItSmpLosMux2026(VOID);
+extern VOID ItSmpLosMux2027(VOID);
+extern VOID ItSmpLosMux2028(VOID);
+extern VOID ItSmpLosMux2029(VOID);
+#endif /* LOSCFG_KERNEL_SMP */
 
 VOID ItLosMux001(void);
 VOID ItLosMux002(void);

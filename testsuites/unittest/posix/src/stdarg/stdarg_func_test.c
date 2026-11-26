@@ -150,10 +150,10 @@ RUN_TEST_SUITE(PosixStdargFuncTestSuite);
 void PosixStdargFuncTest()
 {
     LOG("begin PosixStdargFuncTest....");
-    RUN_ONE_TESTCASE(testStdarg001);
-    RUN_ONE_TESTCASE(testStdarg002);
-    RUN_ONE_TESTCASE(testStdarg003);
-    RUN_ONE_TESTCASE(testStdarg004);
+    RUN_ONE_TESTCASE_M(testStdarg001, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdarg002, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdarg003, TEST_FN_LIB_MISC);
+    RUN_ONE_TESTCASE_M(testStdarg004, TEST_FN_LIB_MISC);
 
     return;
 }

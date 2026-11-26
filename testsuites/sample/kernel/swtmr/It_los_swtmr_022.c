@@ -75,6 +75,9 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     ret = LOS_HwiCreate(hwiNum, 1, 0, (HWI_PROC_FUNC)Case2, 0);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(hwiNum, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     TestHwiTrigger(hwiNum);
@@ -98,6 +101,6 @@ EXIT:
 
 VOID ItLosSwtmr022(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosSwtmr022", Testcase, TEST_LOS, TEST_SWTMR, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSwtmr022", Testcase, TEST_LOS, TEST_FN_KERNEL_SWTMR, TEST_LEVEL1, TEST_FUNCTION);
 }
 

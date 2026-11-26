@@ -65,6 +65,9 @@ static UINT32 Testcase(VOID)
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_HwiCreate(HWI_NUM_TEST, 1, 0, (HWI_PROC_FUNC)HwiF01, 0);
+#ifdef LOSCFG_KERNEL_SMP
+        (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+#endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     TestHwiTrigger(HWI_NUM_TEST);
@@ -81,7 +84,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_RWSEM
+ * @ingroup TEST_FN_KERNEL_RWSEM
  * @par TestCase_Number
  * ItLosRwsem015
  * @par TestCase_TestCase_Type
@@ -105,5 +108,5 @@ EXIT:
  */
 VOID ItLosRwsem015(VOID)
 {
-    TEST_ADD_CASE("ItLosRwsem015", Testcase, TEST_LOS, TEST_RWSEM, TEST_LEVEL2, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosRwsem015", Testcase, TEST_LOS, TEST_FN_KERNEL_RWSEM, TEST_LEVEL2, TEST_FUNCTION);
 }

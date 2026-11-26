@@ -171,25 +171,24 @@ typedef struct LosMuxCB LosMuxCB;
 
 /**
  * @ingroup los_mux
- * Mutex error code: The mutex is being locked in system-level task.
- *        old usage: The mutex is being locked in software timer task(LOS_ERRNO_MUX_PEND_IN_SWTMR_TSK).
- *
- * Value: 0x02001d0C.
- *
- * Solution: Pend the mutex in a valid task.
- * @deprecated This error code is obsolete since LiteOS 5.0.0.
- */
-#define LOS_ERRNO_MUX_PEND_IN_SYSTEM_TASK   LOS_ERRNO_OS_ERROR(LOS_MOD_MUX, 0x0C)
-
-/**
- * @ingroup los_mux
  *
  * Mutex error code: LOS_ERRNO_MUX_MAXNUM_ZERO is zero.
- * Value: 0x02001d0E
+ * Value: 0x02001d0C
  *
  * Solution: LOS_ERRNO_MUX_MAXNUM_ZERO should not be zero.
  */
-#define LOS_ERRNO_MUX_MAXNUM_ZERO   LOS_ERRNO_OS_ERROR(LOS_MOD_MUX, 0x0E)
+#define LOS_ERRNO_MUX_MAXNUM_ZERO   LOS_ERRNO_OS_ERROR(LOS_MOD_MUX, 0x0C)
+
+/**
+ * @ingroup los_mux
+ * Mutex error code: The mutex is being locked in system-level task.
+ *        old usage: The mutex is being locked in software timer task(LOS_ERRNO_MUX_PEND_IN_SWTMR_TSK).
+ *
+ * Value: 0x02001d0D
+ *
+ * Solution: Pend the mutex in a valid task.
+ */
+#define LOS_ERRNO_MUX_PEND_IN_SYSTEM_TASK   LOS_ERRNO_OS_ERROR(LOS_MOD_MUX, 0x0D)
 
 /**
  * @ingroup los_mux

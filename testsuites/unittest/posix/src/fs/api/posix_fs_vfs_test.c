@@ -1175,21 +1175,21 @@ LITE_TEST_CASE(PosixFsFuncTestSuite, TestFsVfsSocketFd, Function | MediumTest | 
 void PosixFsVfsTest(void)
 {
 #ifdef LOSCFG_NET_LWIP_SACK
-    RUN_ONE_TESTCASE(TestFsVfsSocketFd);
+    RUN_ONE_TESTCASE_M(TestFsVfsSocketFd, TEST_FN_FS_VFS);
 #endif
-    RUN_ONE_TESTCASE(TestFsVfsRegister);
-    RUN_ONE_TESTCASE(TestFsVfsMountUmount);
-    RUN_ONE_TESTCASE(TestFsVfsUmount2);
-    RUN_ONE_TESTCASE(TestFsVfsUmountSubPath);
-    RUN_ONE_TESTCASE(TestFsVfsFsRefsSymmetric);
-    RUN_ONE_TESTCASE(TestFsVfsRemountStatfs);
-    RUN_ONE_TESTCASE(TestFsVfsFileOps);
-    RUN_ONE_TESTCASE(TestFsVfsRdonlyMp);
-    RUN_ONE_TESTCASE(TestFsVfsEnfile);
-    RUN_ONE_TESTCASE(TestFsVfsNullOps);
-    RUN_ONE_TESTCASE(TestFsVfsRenameCross);
-    RUN_ONE_TESTCASE(TestFsVfsPreadErr);
-    RUN_ONE_TESTCASE(TestFsVfsUmountNullOp);
-    RUN_ONE_TESTCASE(TestFsVfsUmount2Force);
-    RUN_ONE_TESTCASE(TestFsVfsFdiskCustom);
+    RUN_ONE_TESTCASE_M(TestFsVfsRegister, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsMountUmount, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsUmount2, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsUmountSubPath, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsFsRefsSymmetric, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsRemountStatfs, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsFileOps, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsRdonlyMp, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsEnfile, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsNullOps, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsRenameCross, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsPreadErr, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsUmountNullOp, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsUmount2Force, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsVfsFdiskCustom, TEST_FN_FS_VFS);
 }

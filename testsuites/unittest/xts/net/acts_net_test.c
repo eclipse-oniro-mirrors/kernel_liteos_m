@@ -401,19 +401,19 @@ RUN_TEST_SUITE(ActsNetTestSuite);
 
 void ActsNetTest(void)
 {
-    RUN_ONE_TESTCASE(testIoctlIfhwAddr);
-    RUN_ONE_TESTCASE(testSocketOpt);
-    RUN_ONE_TESTCASE(testGetSocketNameInvalidInput);
-    RUN_ONE_TESTCASE(testHostToNetwork);
-    RUN_ONE_TESTCASE(testNetworkToHost);
-    RUN_ONE_TESTCASE(testInetPtonIpv4Normal);
-    RUN_ONE_TESTCASE(testInetPtonInvalidFamily);
-    RUN_ONE_TESTCASE(testInetNtopIpv4Normal);
-    RUN_ONE_TESTCASE(testInetNtopIpv4Abnormal);
+    RUN_ONE_TESTCASE_M(testIoctlIfhwAddr, TEST_FN_NET_LWIPPORT);
+    RUN_ONE_TESTCASE_M(testSocketOpt, TEST_FN_NET_LWIPPORT);
+    RUN_ONE_TESTCASE_M(testGetSocketNameInvalidInput, TEST_FN_NET_LWIPPORT);
+    RUN_ONE_TESTCASE_M(testHostToNetwork, TEST_FN_NET_LWIPPORT);
+    RUN_ONE_TESTCASE_M(testNetworkToHost, TEST_FN_NET_LWIPPORT);
+    RUN_ONE_TESTCASE_M(testInetPtonIpv4Normal, TEST_FN_NET_LWIPPORT);
+    RUN_ONE_TESTCASE_M(testInetPtonInvalidFamily, TEST_FN_NET_LWIPPORT);
+    RUN_ONE_TESTCASE_M(testInetNtopIpv4Normal, TEST_FN_NET_LWIPPORT);
+    RUN_ONE_TESTCASE_M(testInetNtopIpv4Abnormal, TEST_FN_NET_LWIPPORT);
 #if (LWIP_IPV6 == 1)
-    RUN_ONE_TESTCASE(testInetPtonIpv6Normal);
-    RUN_ONE_TESTCASE(testInetPtonIpv6Abnormal);
-    RUN_ONE_TESTCASE(testInetNtopInvalidFamily);
+    RUN_ONE_TESTCASE_M(testInetPtonIpv6Normal, TEST_FN_NET_LWIPPORT);
+    RUN_ONE_TESTCASE_M(testInetPtonIpv6Abnormal, TEST_FN_NET_LWIPPORT);
+    RUN_ONE_TESTCASE_M(testInetNtopInvalidFamily, TEST_FN_NET_LWIPPORT);
 #endif
 }
 

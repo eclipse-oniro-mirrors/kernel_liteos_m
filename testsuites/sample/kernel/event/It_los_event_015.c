@@ -74,6 +74,10 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
     LOS_EventInit(&g_pevent);
 
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
+
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     ICUNIT_GOTO_EQUAL(g_testCount, 1, g_testCount, EXIT);
@@ -100,5 +104,5 @@ EXIT:
 
 VOID ItLosEvent015(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosEvent015", Testcase, TEST_LOS, TEST_EVENT, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosEvent015", Testcase, TEST_LOS, TEST_FN_KERNEL_EVENT, TEST_LEVEL0, TEST_FUNCTION);
 }

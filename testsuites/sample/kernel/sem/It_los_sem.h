@@ -35,6 +35,45 @@
 #ifndef IT_LOS_SEM_H
 #define IT_LOS_SEM_H
 
+#ifdef LOSCFG_KERNEL_SMP
+extern VOID ItSmpLosSem001(VOID);
+extern VOID ItSmpLosSem002(VOID);
+extern VOID ItSmpLosSem003(VOID);
+extern VOID ItSmpLosSem004(VOID);
+extern VOID ItSmpLosSem005(VOID);
+extern VOID ItSmpLosSem006(VOID);
+extern VOID ItSmpLosSem007(VOID);
+extern VOID ItSmpLosSem008(VOID);
+extern VOID ItSmpLosSem009(VOID);
+extern VOID ItSmpLosSem010(VOID);
+extern VOID ItSmpLosSem011(VOID);
+extern VOID ItSmpLosSem012(VOID);
+extern VOID ItSmpLosSem013(VOID);
+extern VOID ItSmpLosSem014(VOID);
+extern VOID ItSmpLosSem015(VOID);
+extern VOID ItSmpLosSem016(VOID);
+extern VOID ItSmpLosSem017(VOID);
+extern VOID ItSmpLosSem018(VOID);
+extern VOID ItSmpLosSem019(VOID);
+extern VOID ItSmpLosSem020(VOID);
+extern VOID ItSmpLosSem021(VOID);
+extern VOID ItSmpLosSem022(VOID);
+extern VOID ItSmpLosSem023(VOID);
+extern VOID ItSmpLosSem024(VOID);
+extern VOID ItSmpLosSem025(VOID);
+extern VOID ItSmpLosSem026(VOID);
+extern VOID ItSmpLosSem027(VOID);
+extern VOID ItSmpLosSem028(VOID);
+extern VOID ItSmpLosSem029(VOID);
+extern VOID ItSmpLosSem030(VOID);
+extern VOID ItSmpLosSem031(VOID);
+extern VOID ItSmpLosSem032(VOID);
+extern VOID ItSmpLosSem033(VOID);
+extern VOID ItSmpLosSem034(VOID);
+extern VOID ItSmpLosSem036(VOID);
+extern VOID ItSmpLosSem035(VOID);
+#endif /* LOSCFG_KERNEL_SMP */
+
 #ifdef __cplusplus
 #if __cplusplus
 extern "C" {

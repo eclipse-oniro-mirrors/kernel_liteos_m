@@ -52,6 +52,9 @@ static UINT32 TestCase(VOID)
     g_testCount = 0;
 
     TSK_INIT_PARAM_S stTask1 = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    stTask1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     stTask1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     stTask1.pcName       = "Atomic_010";
     stTask1.uwStackSize  = LOSCFG_BASE_CORE_TSK_DEFAULT_STACK_SIZE;
@@ -70,5 +73,5 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosAtomic010(VOID)
 {
-    TEST_ADD_CASE("ItLosAtomic010", TestCase, TEST_LOS, TEST_ATO, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosAtomic010", TestCase, TEST_LOS, TEST_FN_KERNEL_DATASTRUCT, TEST_LEVEL0, TEST_FUNCTION);
 }

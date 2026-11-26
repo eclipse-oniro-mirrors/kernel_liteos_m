@@ -49,6 +49,9 @@ static UINT32 Testcase(VOID)
 
     /* F-Pos: 真实 ops 表(不换桩)下创建中断 */
     ret = LOS_HwiCreate(HWI_NUM_TEST, hwiPrio, mode, (HWI_PROC_FUNC)HwiF052, NULL);
+    #ifdef LOSCFG_KERNEL_SMP
+    (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK(ArchCurrCpuid()));
+    #endif
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     /* F-Pos: 使能后软触发 -> Cortex-M pending 位立即派发, ISR 计数一次
@@ -94,7 +97,7 @@ EXIT:
 #endif /* LOSCFG_ARCH_ARM && LOSCFG_CORTEX_M_NVIC */
 
 /**
- * @ingroup TEST_HWI
+ * @ingroup TEST_FN_KERNEL_IRQ
  * @par TestCase_Number
  * ItLosHwi052
  * @par TestCase_TestCase_Type
@@ -121,6 +124,6 @@ EXIT:
 VOID ItLosHwi052(VOID) // IT_Layer_ModuleORFeature_No
 {
 #if defined(LOSCFG_ARCH_ARM) && defined(LOSCFG_CORTEX_M_NVIC)
-    TEST_ADD_CASE("ItLosHwi052", Testcase, TEST_LOS, TEST_HWI, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosHwi052", Testcase, TEST_LOS, TEST_FN_KERNEL_IRQ, TEST_LEVEL0, TEST_FUNCTION);
 #endif
 }

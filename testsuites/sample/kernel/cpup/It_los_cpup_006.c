@@ -64,6 +64,9 @@ static UINT32 TestCase006(VOID)
     UINT32 busyCpup;
     UINT32 lightCpup;
     TSK_INIT_PARAM_S param = {0};
+#ifdef LOSCFG_KERNEL_SMP
+    param.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     param.uwStackSize = OS_TSK_TEST_STACK_SIZE;
 
@@ -100,6 +103,6 @@ static UINT32 TestCase006(VOID)
 
 VOID ItLosCpup006(VOID)
 {
-    TEST_ADD_CASE("ItLosCpup006", TestCase006, TEST_LOS, TEST_CPUP, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosCpup006", TestCase006, TEST_LOS, TEST_FN_KERNEL_CPUP, TEST_LEVEL1, TEST_FUNCTION);
 }
 #endif

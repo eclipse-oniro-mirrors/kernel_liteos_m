@@ -50,7 +50,7 @@ VOID ItSuiteLosHwi()
     ItLosHwi022();
     ItLosHwi023();
     ItLosHwi024();
-#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1) && !defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR)
+#if (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1) && !defined(LOSCFG_BASE_CORE_SWTMR_IN_ISR) && !defined(LOSCFG_KERNEL_SMP)
 /**
  * 026: swtmr callback runs in tick-interrupt context with LOSCFG_BASE_CORE_SWTMR_IN_ISR,
  * so the HwiCreate -> TestHwiTrigger -> TestHwiDelete sequence in SwtmrF01 pends the
@@ -86,7 +86,9 @@ VOID ItSuiteLosHwi()
     ItLosHwi039();
     ItLosHwi040();
 #endif
+#if (LOSCFG_IRQ_RESP_COUNT == 1)
     ItLosHwi041();
+#endif
 #if (LOSCFG_HWI_BOTTOM_HALF == 1)
     ItLosHwi042();
     ItLosHwi048();
@@ -94,7 +96,7 @@ VOID ItSuiteLosHwi()
 #if (LOSCFG_HWI_PRE_POST_PROCESS == 1)
     ItLosHwi044();
 #endif
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 1)
+#if (LOSCFG_HWI_WITH_ARG == 1)
 #ifndef LOSCFG_PLATFORM_WS63_M  /* 045: WITH_ARG handler path crashes on ws63 when ISR runs (port incomplete). Skip. */
     ItLosHwi045();
 #endif
@@ -131,6 +133,8 @@ VOID ItSuiteLosHwi()
     /* 053: 高段向量(32..95) LOCIEN0/1 与 LOCIPRI reg1-8, 仅 ws63(himideerv200 PLIC) */
     ItLosHwi053();
 #endif
+    /* 058: LOS_IntUnLock 返回值三架构分叉契约 + 解锁后 tick 恢复投递, 全板 */
+    ItLosHwi058();
 #if defined(LOSCFG_ARM_GIC_V3) && defined(LOSCFG_MCS)
     /* 054-057: GICD MMU 访问开关(AMP 中断隔离), 仅 rk3568 AMP slave.
      * 054: 状态机往返/ALREADY 语义/压力循环; 055: 锁定期间中断投递独立性;
@@ -139,6 +143,7 @@ VOID ItSuiteLosHwi()
     ItLosHwi054();
     ItLosHwi055();
     ItLosHwi056();
-    ItLosHwi057();
+    /* 057 移至 osTest.c 序列终位(其契约要求全套件最后执行, 聚合尾部中段调用
+     * 会关核杀掉其后所有套件); 本块 GICv3+MCS 双门控仅 AMP 从核生效 */
 #endif
 }

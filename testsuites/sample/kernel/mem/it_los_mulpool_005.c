@@ -113,7 +113,7 @@ EXIT:
 }
 
 /**
- * @ingroup TEST_MISC
+ * @ingroup TEST_FN_KERNEL_DYNMEM
  * @par TestCase_Number
  * ItLosMulPool005
  * @par TestCase_TestCase_Type
@@ -142,7 +142,7 @@ EXIT:
 VOID ItLosMulPool005(VOID)
 {
 #ifdef LOSCFG_MEM_MUL_POOL_ALLOC
-    TEST_ADD_CASE("ItLosMulPool005", TestCase, TEST_LOS, TEST_MEM, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosMulPool005", TestCase, TEST_LOS, TEST_FN_KERNEL_DYNMEM, TEST_LEVEL0, TEST_FUNCTION);
 #endif
 }
 

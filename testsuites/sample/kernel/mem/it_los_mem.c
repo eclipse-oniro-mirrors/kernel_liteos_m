@@ -153,6 +153,16 @@ VOID TEST_MulPoolUnRegister(VOID)
 
 VOID ItSuiteLosMem(void)
 {
+#ifdef LOSCFG_KERNEL_SMP
+    ItSmpLosMem001();
+    ItSmpLosMem002();
+    ItSmpLosMem003();
+    ItSmpLosMem005();
+#if defined(LOSCFG_KERNEL_SMP) && (LOSCFG_MEM_FREE_BY_TASKID == 1)
+    ItSmpLosMem006();
+#endif
+    ItSmpLosMem007();
+#endif
     MemStart();
 
     ItLosMem001();
@@ -169,7 +179,10 @@ VOID ItSuiteLosMem(void)
     ItLosMem011();
 #ifndef LOSCFG_MEM_DEBUG
     ItLosMem012();
+#if defined(KERNEL_BUG_25_MEMFREE_WILD_DEREF) && KERNEL_BUG_25_MEMFREE_WILD_DEREF == 1
+    /* BUG 宏见 bug_isolate.h: 修复前隔离(不注册不执行), 修复后置 1 恢复 */
     ItLosMem013();
+#endif
 #endif
 #if !defined(LOSCFG_MEM_HEAD_BACKUP) && !defined(LOSCFG_MEM_TASK_STAT)
     /* When LOSCFG_MEM_HEAD_BACKUP is enabled, the TEST_MEM_SIZE is not enough. */

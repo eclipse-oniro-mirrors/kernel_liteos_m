@@ -57,4 +57,7 @@ VOID ItSuiteLosMisc(VOID)
 #if defined(LOSCFG_PLATFORM_QEMU_ARM_VIRT_CM4)
     ItLosPrintf004(); /* qemu 板级 dprintf.c printf 错误分支 */
 #endif
+#if defined(LOSCFG_ARCH_ARM_AARCH64) || defined(LOSCFG_ARCH_ARM_V7A)
+    ItLosHw001(); /* LOS_CpuInfo: ArchCpuInfo 仅 aarch64/v7a 实现(rk3568_m 等 AMP 从核执行) */
+#endif
 }

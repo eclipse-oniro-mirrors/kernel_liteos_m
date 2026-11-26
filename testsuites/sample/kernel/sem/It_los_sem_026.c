@@ -69,6 +69,9 @@ static UINT32 Testcase(VOID)
 {
     UINT32 ret;
     TSK_INIT_PARAM_S task = { 0 };
+#ifdef LOSCFG_KERNEL_SMP
+    task.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     task.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task.pcName = "SemTsk26";
@@ -129,6 +132,6 @@ EXIT2:
 
 VOID ItLosSem026(void)
 {
-    TEST_ADD_CASE("ItLosSem026", Testcase, TEST_LOS, TEST_SEM, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosSem026", Testcase, TEST_LOS, TEST_FN_KERNEL_SEM, TEST_LEVEL1, TEST_FUNCTION);
 }
 

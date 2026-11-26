@@ -68,6 +68,9 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk062A";
     task1.usTaskPrio = TASK_PRIO_TEST - 1; // TASK_PRIO_TEST - 1
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     g_testCount = 0;
     ret = LOS_TaskCreate(&g_testTaskID01, &task1);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
@@ -79,6 +82,9 @@ static UINT32 TestCase(VOID)
     task1.pcName = "Tsk062B";
     task1.usTaskPrio = TASK_PRIO_TEST - 1; // TASK_PRIO_TEST - 3
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     ret = LOS_TaskCreate(&g_testTaskID02, &task1);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
@@ -91,6 +97,6 @@ static UINT32 TestCase(VOID)
 
 VOID ItLosTask062(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosTask062", TestCase, TEST_LOS, TEST_TASK, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosTask062", TestCase, TEST_LOS, TEST_FN_KERNEL_TASKMGMT, TEST_LEVEL1, TEST_FUNCTION);
 }
 

@@ -34,6 +34,7 @@
 #include "los_task_pri.h"
 #include "securec.h"
 #include "los_config.h"
+#include "los_trace.h"
 #include "los_debug.h"
 #include "los_hook.h"
 #include "los_interrupt.h"
@@ -215,6 +216,8 @@ static UINT32 OsQueueCreate(const CHAR *queueName,
     *queueID = queueCB->queueID;
 
     OsHookCall(LOS_HOOK_TYPE_QUEUE_CREATE, queueCB);
+    LOS_TRACE(QUEUE_CREATE, queueCB->queueID, queueCB->queueLen, queueCB->queueSize - sizeof(UINT32),
+        (UINTPTR)queueCB->queue, 0);
 
     return LOS_OK;
 }
@@ -426,6 +429,9 @@ UINT32 OsQueueOperate(UINT32 queueID, UINT32 operateType, VOID *bufferAddr, UINT
     if (ret != LOS_OK) {
         goto QUEUE_END;
     }
+
+    LOS_TRACE(QUEUE_RW, queueCB->queueID, queueCB->queueSize, *bufferSize, operateType,
+        queueCB->readWriteableCnt[OS_QUEUE_READ], queueCB->readWriteableCnt[OS_QUEUE_WRITE], timeOut);
 
     if (queueCB->readWriteableCnt[readWrite] == 0) {
         if (timeOut == LOS_NO_WAIT) {
@@ -764,6 +770,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_QueueDelete(UINT32 queueID)
 
     OsQueueDbgUpdateHook(queueCB->queueID, NULL);
     OsHookCall(LOS_HOOK_TYPE_QUEUE_DELETE, queueCB);
+    LOS_TRACE(QUEUE_DELETE, queueCB->queueID, queueCB->queueState, queueCB->readWriteableCnt[OS_QUEUE_READ]);
 
     ret = LOS_MemFree(m_aucSysMem0, (VOID *)queue);
     return ret;

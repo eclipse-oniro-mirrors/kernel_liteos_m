@@ -181,10 +181,10 @@ void PosixIoPollFuncTest(void)
 {
     LOG("begin PosixIoPollFuncTest....");
 #if (LOSCFG_POSIX_PIPE_API == 1)
-    RUN_ONE_TESTCASE(testIoPoll001);
-    RUN_ONE_TESTCASE(testIoPoll002);
-    RUN_ONE_TESTCASE(testIoPoll003);
+    RUN_ONE_TESTCASE_M(testIoPoll001, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testIoPoll002, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(testIoPoll003, TEST_FN_FS_VFS);
 #endif
-    RUN_ONE_TESTCASE(testIoPoll004);
+    RUN_ONE_TESTCASE_M(testIoPoll004, TEST_FN_COMPAT_POSIX);
     return;
 }

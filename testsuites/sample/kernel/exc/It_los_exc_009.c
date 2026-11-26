@@ -40,7 +40,7 @@ static UINT32 Testcase(VOID)
 }
 
 /**
- * @ingroup TEST_EXC
+ * @ingroup TEST_FN_KERNEL_INIT
  * @par TestCase_Number
  * ItLosExc009
  * @par TestCase_TestCase_Type
@@ -61,6 +61,6 @@ static UINT32 Testcase(VOID)
  */
 VOID ItLosExc009(VOID)
 {
-    TEST_ADD_CASE("ItLosExc009", Testcase, TEST_LOS, TEST_EXC, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosExc009", Testcase, TEST_LOS, TEST_FN_KERNEL_INIT, TEST_LEVEL0, TEST_FUNCTION);
 }
 #endif /* LOS_KERNEL_TEST_MANUAL */

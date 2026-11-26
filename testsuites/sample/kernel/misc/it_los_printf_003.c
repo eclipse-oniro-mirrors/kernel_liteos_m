@@ -44,7 +44,7 @@ static UINT32 TestCase(VOID)
 #endif /* LOS_KERNEL_TEST_MANUAL == 1 */
 
 /**
- * @ingroup TEST_MISC
+ * @ingroup TEST_FN_KERNEL_INIT
  * @par TestCase_Number
  * ItLosPrintf003
  * @par TestCase_TestCase_Type
@@ -69,6 +69,6 @@ static UINT32 TestCase(VOID)
 VOID ItLosPrintf003(VOID)
 {
 #if (LOS_KERNEL_TEST_MANUAL == 1)
-    TEST_ADD_CASE("ItLosPrintf003", TestCase, TEST_LOS, TEST_MISC, TEST_LEVEL1, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosPrintf003", TestCase, TEST_LOS, TEST_FN_KERNEL_INIT, TEST_LEVEL1, TEST_FUNCTION);
 #endif
 }

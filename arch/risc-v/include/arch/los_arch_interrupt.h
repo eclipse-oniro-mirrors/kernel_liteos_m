@@ -39,8 +39,8 @@ extern "C" {
 #endif /* __cplusplus */
 #endif /* __cplusplus */
 
-#if (LOSCFG_PLATFORM_HWI_WITH_ARG == 0)
-#error "LOSCFG_PLATFORM_HWI_WITH_ARG must be set to 1 !!!"
+#if (LOSCFG_HWI_WITH_ARG == 0)
+#error "LOSCFG_HWI_WITH_ARG must be set to 1 !!!"
 #endif
 
 /**
@@ -78,15 +78,18 @@ extern UINT32 ArchSetExcHook(EXC_PROC_FUNC excHook);
 
 /**
  * @ingroup los_arch_interrupt
- * Highest priority of a hardware interrupt.
+ * Highest priority of a hardware interrupt. A smaller value means a higher
+ * priority; PLIC/ECLIC count upwards, so setIrqPriority handlers must invert
+ * the value before writing registers.
  */
-#define OS_HWI_PRIO_HIGHEST        7
+#define OS_HWI_PRIO_HIGHEST        0
 
 /**
  * @ingroup los_arch_interrupt
- * Lowest priority of a hardware interrupt.
+ * Lowest priority of a hardware interrupt. Hardware level 0 never triggers,
+ * so the 7-level PLIC/ECLIC range [1, 7] maps to the logical domain [0, 6].
  */
-#define OS_HWI_PRIO_LOWEST         1
+#define OS_HWI_PRIO_LOWEST         6
 
 /**
  * @ingroup los_arch_interrupt
@@ -126,9 +129,14 @@ extern UINT32 ArchSetExcHook(EXC_PROC_FUNC excHook);
 
 /**
  * Maximum number of supported hardware devices that generate hardware interrupts.
- * The maximum number of hardware devices that generate hardware interrupts supported by hi3518ev200 is 32.
+ * LOSCFG_PLATFORM_HWI_LIMIT (Kconfig RAM preset) caps the dispatch table to
+ * the actual IRQ count; OS_RISCV_VECTOR_CNT remains the architectural upper bound.
  */
+#ifdef LOSCFG_PLATFORM_HWI_LIMIT
+#define OS_HWI_MAX_NUM        LOSCFG_PLATFORM_HWI_LIMIT
+#else
 #define OS_HWI_MAX_NUM        OS_RISCV_VECTOR_CNT
+#endif
 
 /**
  * Maximum interrupt number.

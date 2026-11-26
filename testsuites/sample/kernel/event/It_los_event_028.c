@@ -110,6 +110,9 @@ static UINT32 Testcase(VOID)
     task1.uwStackSize = TASK_STACK_SIZE_TEST;
     task1.usTaskPrio = TASK_PRIO_TEST - 2; // 2, set new task priority, it is higher than the test task.
     task1.uwResved = LOS_TASK_STATUS_DETACHED;
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
 
     g_testCount = 0;
 
@@ -147,5 +150,5 @@ EXIT:
 
 VOID ItLosEvent028(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosEvent028", Testcase, TEST_LOS, TEST_EVENT, TEST_LEVEL3, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosEvent028", Testcase, TEST_LOS, TEST_FN_KERNEL_EVENT, TEST_LEVEL3, TEST_FUNCTION);
 }

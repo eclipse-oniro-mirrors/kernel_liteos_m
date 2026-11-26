@@ -188,7 +188,7 @@ EXIT1:
 
 void PosixFsWritevTest(void)
 {
-    RUN_ONE_TESTCASE(TestFsWritevOK);
-    RUN_ONE_TESTCASE(TestFsWritevZeroLen);
-    RUN_ONE_TESTCASE(TestFsWritevEINVAL);
+    RUN_ONE_TESTCASE_M(TestFsWritevOK, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsWritevZeroLen, TEST_FN_FS_VFS);
+    RUN_ONE_TESTCASE_M(TestFsWritevEINVAL, TEST_FN_FS_VFS);
 }

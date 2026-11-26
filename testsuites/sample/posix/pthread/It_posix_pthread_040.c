@@ -49,6 +49,11 @@
 
 /* 用例简要描述: 线程 key 上限析构与回写 */
 #include "It_posix_pthread.h"
+#ifdef LOSCFG_KERNEL_SMP
+#include <sched.h>
+extern int sched_getaffinity(pid_t, size_t, cpu_set_t *);
+extern int sched_setaffinity(pid_t, size_t, const cpu_set_t *);
+#endif
 
 #define PTHREAD040_KEY_VALUE ((void *)0x4040)
 
@@ -146,6 +151,13 @@ static UINT32 Testcase(VOID)
     g_pthread040DtorValue = NULL;
 
     ret = pthread_create(&thread, NULL, Pthread040KeyThread, NULL);
+#ifdef LOSCFG_KERNEL_SMP
+    {
+        cpu_set_t inheritCpuset;
+        (void)sched_getaffinity(0, sizeof(cpu_set_t), &inheritCpuset);
+        (void)sched_setaffinity((pid_t)(UINTPTR)thread, sizeof(cpu_set_t), &inheritCpuset);
+    }
+#endif
     ICUNIT_ASSERT_EQUAL(ret, 0, ret);
 
     ret = pthread_join(thread, NULL);
@@ -156,5 +168,5 @@ static UINT32 Testcase(VOID)
 
 VOID ItPosixPthread040(VOID)
 {
-    TEST_ADD_CASE("ItPosixPthread040", Testcase, TEST_LIB, TEST_POSIX, TEST_LEVEL2, TEST_FUNCTION);
+    TEST_ADD_CASE("ItPosixPthread040", Testcase, TEST_LIB, TEST_FN_COMPAT_POSIX, TEST_LEVEL2, TEST_FUNCTION);
 }

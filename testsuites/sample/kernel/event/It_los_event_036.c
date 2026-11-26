@@ -57,6 +57,9 @@ static UINT32 Testcase(VOID)
     LOS_EventInit(&g_pevent);
 
     (void)memset_s(&task1, sizeof(TSK_INIT_PARAM_S), 0, sizeof(TSK_INIT_PARAM_S));
+#ifdef LOSCFG_KERNEL_SMP
+    task1.usCpuAffiMask = CPUID_TO_AFFI_MASK(ArchCurrCpuid());
+#endif
     task1.pfnTaskEntry = (TSK_ENTRY_FUNC)TaskF01;
     task1.pcName = "EventTsk36";
     task1.uwStackSize = TASK_STACK_SIZE_TEST;
@@ -96,5 +99,5 @@ EXIT:
 
 VOID ItLosEvent036(VOID) // IT_Layer_ModuleORFeature_No
 {
-    TEST_ADD_CASE("ItLosEvent036", Testcase, TEST_LOS, TEST_EVENT, TEST_LEVEL0, TEST_FUNCTION);
+    TEST_ADD_CASE("ItLosEvent036", Testcase, TEST_LOS, TEST_FN_KERNEL_EVENT, TEST_LEVEL0, TEST_FUNCTION);
 }

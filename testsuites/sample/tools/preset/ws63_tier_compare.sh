@@ -25,7 +25,8 @@
 # 输出:   当前目录/ws63挡位预期对比.xlsx(默认落在脚本执行时的 $PWD, --out 可覆盖; 超出标称 → ⚠ warning 红底标识)
 # 用法:   bash ws63_tier_compare.sh [--out 路径.xlsx] [--fresh]    # --fresh 强制现场构建
 #         SKIP_REBUILD=1 bash ws63_tier_compare.sh                 # 构建后不重建 ws63 基线镜像
-# 前置:   backup/ws63_debug.config.baseline(骨架回退源, nightly 阶段2 刷新);
+# 前置:   backup/ws63_debug.config.baseline(骨架回退源; 缺失时本脚本自动从 vendor 源自举,
+#         不依赖 nightly 阶段2 刷新);
 #         itp002 挡位 config 可选(ItPreset002 产物, 阶段3 未跑时自动回退基线骨架白名单自生成);
 #         ws63 riscv SDK 工具链; backup/ws63_debug.config.baseline; openpyxl
 
@@ -74,9 +75,17 @@ else
   flock -w 7200 9 || die "任务锁等待超时(nightly 仍在运行?)"
 fi
 
-for f in "$FP" "$GFS" "$WV" "$WBL"; do
+for f in "$FP" "$GFS" "$WV"; do
   [ -f "$f" ] || die "缺少前置文件 $f"
 done
+# baseline 自举: backup/ws63_debug.config.baseline 缺失时从 vendor 源现补, 解除对 nightly
+# 阶段2 刷新动作的硬性依赖; 仅缺失时补、不覆盖 —— baseline 是 restore_all 的还原基准,
+# 每次覆盖会把测量态 vendor config 固化污染还原链; 源 $WV 已由上方前置检查把关
+if [ ! -f "$WBL" ]; then
+  log "baseline 缺失, 从 vendor 源自举: $WV → $WBL"
+  mkdir -p "$(dirname "$WBL")"
+  cp "$WV" "$WBL" || die "baseline 自举失败(拷贝 $WV → $WBL)"
+fi
 # itp002 挡位 config 非硬性前置: 缺失(阶段3 未跑)时自动回退 vendor 基线骨架白名单自生成
 [ -d "$RV_BIN" ] || die "缺少 ws63 riscv SDK 工具链 $RV_BIN"
 python3 -c "import openpyxl" 2>/dev/null || die "缺少 openpyxl"

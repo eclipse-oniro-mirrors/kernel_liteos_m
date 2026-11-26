@@ -173,6 +173,16 @@ extern "C" {
 #define LOSCFG_PLATFORM_HWI                                 1
 #endif
 
+/* *
+ * @ingroup los_interrupt
+ * Configuration item for interrupt with argument
+ */
+#ifndef LOSCFG_HWI_WITH_ARG
+#define LOSCFG_HWI_WITH_ARG                                 0
+/* Legacy macro */
+#define LOSCFG_PLATFORM_HWI_WITH_ARG                        0
+#endif
+
 /**
  * @ingroup los_config
  * Configuration item for using system defined vector base address and interrupt handlers.
@@ -390,6 +400,17 @@ extern "C" {
 #ifndef LOSCFG_BASE_IPC_MUX_LIMIT
 #define LOSCFG_BASE_IPC_MUX_LIMIT                           6
 #endif
+
+/* =============================================================================
+                                       Queue module configuration
+============================================================================= */
+
+/**
+ * @ingroup los_config
+ * Maximum supported number of static queues rather than the number of usable queues
+ * This macro is no longer used, LOSCFG_BASE_IPC_QUEUE_LIMIT will contain dynamic and static queues.
+ */
+#define LOSCFG_BASE_IPC_STATIC_QUEUE_LIMIT                  0
 
 /* =============================================================================
                                        Software timer module configuration

@@ -4,7 +4,7 @@ config DRIVERS
     help
       Answer Y to enable LiteOS support driver.
 
-source "../../drivers/hdf_core/adapter/khdf/liteos/Kconfig"
+source "../../drivers/hdf_core/adapter/khdf/liteos_m/Kconfig"
 
 source "drivers/interrupt/Kconfig"
 

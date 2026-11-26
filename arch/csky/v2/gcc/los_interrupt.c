@@ -203,9 +203,7 @@ LITE_OS_SEC_TEXT VOID HalInterrupt(VOID)
 
     hwiIndex = HwiNumGet();
     OsIntHandle(hwiIndex, &g_hwiHandleForm[hwiIndex]);
-#ifndef CPU_CK804
-    HalIrqEndCheckNeedSched();
-#endif
+    OsSchedProcSchedFlag();
 }
 
 ExcInfo g_excInfo = {0};
@@ -350,13 +348,14 @@ LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(EXC_CONTEXT_S *excBufAddr, UINT32 f
 
     g_excInfo.faultAddr = faultAddr;
 
-    if (g_losTask.runTask != NULL) {
+    LosTaskCB *runTask = OsCurrTaskGet();
+    if (runTask != NULL) {
         if (tmpFlag > 0) {
             g_excInfo.phase = OS_EXC_IN_HWI;
             g_excInfo.thrdPid = tmpFlag;
         } else {
             g_excInfo.phase = OS_EXC_IN_TASK;
-            g_excInfo.thrdPid = g_losTask.runTask->taskId;
+            g_excInfo.thrdPid = runTask->taskId;
         }
     } else {
         g_excInfo.phase = OS_EXC_IN_INIT;

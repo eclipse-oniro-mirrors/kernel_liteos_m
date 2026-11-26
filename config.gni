@@ -159,7 +159,7 @@ warn_config_cflags += [
 if (ohos_build_compiler == "clang") {
   warn_config_cflags += [ "-Wno-unused-function" ]
 }
-if (!defined(LOSCFG_ARCH_RISCV)) {
+if (!defined(LOSCFG_ARCH_RISCV) && !defined(LOSCFG_ARCH_CSKY)) {
   warn_config_cflags += [ "-Wno-address-of-packed-member" ]
 }
 warn_config_asmflags += warn_config_cflags

@@ -39,9 +39,7 @@
 #include "los_interrupt.h"
 #include "los_debug.h"
 
-#ifndef CPU_CK804
-STATIC UINT32 g_sysNeedSched = FALSE;
-#endif
+LITE_OS_SEC_BSS LosTaskCB *g_newTask = NULL;
 
 /* ****************************************************************************
  Function    : ArchInit
@@ -123,44 +121,4 @@ LITE_OS_SEC_TEXT_INIT VOID *ArchTaskStackInit(UINT32 taskId, UINT32 stackSize, V
     return (VOID *)context;
 }
 
-LITE_OS_SEC_TEXT_INIT UINT32 ArchStartSchedule(VOID)
-{
-    (VOID)LOS_IntLock();
-    OsSchedStart();
-    HalStartToRun();
-    return LOS_OK; /* never return */
-}
-
-#ifndef CPU_CK804
-VOID HalIrqEndCheckNeedSched(VOID)
-{
-    if (g_sysNeedSched && g_taskScheduled && LOS_CHECK_SCHEDULE) {
-        ArchTaskSchedule();
-    }
-}
-
-VOID ArchTaskSchedule(VOID)
-{
-    UINT32 intSave;
-
-    if (OS_INT_ACTIVE) {
-        g_sysNeedSched = TRUE;
-        return;
-    }
-
-    intSave = LOS_IntLock();
-    g_sysNeedSched = FALSE;
-    BOOL isSwitch = OsSchedTaskSwitch();
-    if (isSwitch) {
-        HalTaskContextSwitch();
-    }
-    LOS_IntRestore(intSave);
-    return;
-}
-#else
-VOID ArchTaskSchedule(VOID)
-{
-    HalTaskContextSwitch();
-}
-#endif
 

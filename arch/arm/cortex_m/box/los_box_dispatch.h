@@ -121,7 +121,7 @@
     ldr     r5, =g_curBoxId
     str     r4, [r5]
     ldr     r2, [r0, #TASK_CB_BOX_CB]
-    ldr     r3, [r6, #TASK_CB_BOX_CB]
+    /* r3: previous boxCB, or NULL when discarding a faulted BOX. */
     cmp     r2, r3
     beq     9\@f
     cbz     r2, 8\@f

@@ -243,6 +243,24 @@ __DisabledFPU1:
     BOX_PENDSV_SAVE
     str     r0, [r6]
 
+    ldr     r3, [r6, #TASK_CB_BOX_CB]
+    b       .LrestoreSelected
+
+    /* Called only from the contained MemManage path, with both masks set.
+     * The outgoing TCB has been released. Never save its PSP or consult a
+     * user-provided frame for either the target PC or EXC_RETURN. */
+    .global ArchBoxFaultSwitch
+    .thumb_func
+ArchBoxFaultSwitch:
+    ldr     r0, =g_boxFaultMsp
+    ldr     r0, [r0]
+    msr     msp, r0
+    ldr     r0, =g_boxFaultReturn
+    ldr     lr, [r0]
+    ldr     r5, =g_oldTask
+    movs    r3, #0         /* No outgoing BOX to reuse after teardown. */
+    cpsie   f              /* PRIMASK remains set until the incoming PSP is ready */
+.LrestoreSelected:
     /* g_oldTask = g_runTask */
     ldr     r0, =g_runTask
     ldr     r0, [r0]

@@ -164,6 +164,13 @@ extern volatile UINT32 g_utsTurnB;
 #define UTS_CONCURRENT_MODE  1
 #endif
 
+#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+#define UTS_PROBE_ARMED 1U
+#define UTS_PROBE_RETURNED 2U
+extern volatile UINT32 g_utsProbeState;       /* boxB writes */
+extern volatile UINT32 g_utsProbeDestroyed;   /* kernel releases boxA */
+#endif
+
 #define UTS_DONE_WORLD_NUM  3
 extern volatile UINT32 g_utsDoneByWorld[UTS_DONE_WORLD_NUM];
 

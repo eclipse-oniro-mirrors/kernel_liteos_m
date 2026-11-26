@@ -362,6 +362,13 @@ HalExcSvcCall:
     .type osExcDispatch, %function
     .global osExcDispatch
 osExcDispatch:
+#ifdef LOSCFG_BOX
+    /* Preserve architectural provenance before the diagnostic frame uses MSP. */
+    ldr r2, =g_boxFaultMsp
+    str sp, [r2]
+    ldr r2, =g_boxFaultReturn
+    str lr, [r2]
+#endif
     .fnstart
     .cantunwind
 

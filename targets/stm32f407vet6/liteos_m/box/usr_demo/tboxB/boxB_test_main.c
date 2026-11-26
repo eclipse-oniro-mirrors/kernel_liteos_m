@@ -104,7 +104,7 @@ VOID boxBTestEntry(VOID)
      * boxes never interleave inside the shared iCunit counters. Same unbounded
      * poll as boxA, same rationale: if the kernel phase reports HUNG we stay
      * parked out of the way instead of corrupting its results. */
-#if (UTS_CONCURRENT_MODE == 1)
+#if (UTS_CONCURRENT_MODE == 1) || defined(LOSCFG_TEST_BOXB_READ_BOXA_RAM)
     /* Same broadcast as boxA: the kernel sets GO once and every box starts at
      * the same time. Concurrency is the point of this build. */
     while (g_utsPhase != UTS_PHASE_GO) {
@@ -145,6 +145,17 @@ VOID boxBTestEntry(VOID)
     dprintf("[BOXB] entering boxB suite: heap=0x%x size=%u\n",
             (UINT32)OS_BOXB_POOL_ADDR, (UINT32)BOXB_HEAP_SIZE);
     ItSuiteLosBoxBUsr();
+#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+    /* This diagnostic must fault on the load. Never expose the loaded value. */
+    dprintf("[BOXB] MPU probe: reading boxA private RAM at 0x%x\n", (UINT32)OS_BOXA_POOL_ADDR);
+    g_utsProbeState = UTS_PROBE_ARMED;
+    (void)*(volatile const UINT32 *)OS_BOXA_POOL_ADDR;
+    g_utsProbeState = UTS_PROBE_RETURNED;
+    dprintf("[BOXB] FAIL: boxA private RAM read returned\n");
+    for (;;) {
+        LOS_TaskDelay(0xFFFF);
+    }
+#endif
     dprintf("[BOXB] boxB suite finished\n");
     PRINTK("================ UTS usr phase (boxB) done ================\n");
 

@@ -41,6 +41,9 @@
 /* UTS: shared iCunit phase handshake (COMMON_RAM) + box bring-up */
 #include "uts_phase.h"
 #include "los_box_pri.h"
+#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+#include "los_arch_interrupt.h"
+#endif
 #endif
 #if (LITEOS_CMSIS_TEST == 1)
 #include "cmsis_os.h"
@@ -308,8 +311,56 @@ void TestCmsis2(void)
 }
 #endif
 
+#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+/* Single-core coordinator: called before GO, then sleeps between observations. */
+static UINT32 UtsCheckIsolation(UINT32 count)
+{
+    UINT32 i;
+    if (count != 2U || g_boxCBArr == NULL || !BOX_IS_INIT(g_boxCBArr[0].boxStatus) ||
+        !BOX_IS_INIT(g_boxCBArr[1].boxStatus)) {
+        return 0U;
+    }
+    g_utsPhase = UTS_PHASE_GO;
+    for (i = 0; i < UTS_USR_TIMEOUT_POLLS; ++i) {
+        LOS_TaskDelay(UTS_USR_POLL_TICKS);
+        if (g_utsProbeState == UTS_PROBE_RETURNED || g_utsDoneByWorld[2] != 0U ||
+            !BOX_IS_INIT(g_boxCBArr[0].boxStatus)) {
+            return 0U;
+        }
+        if (!BOX_IS_UNINIT(g_boxCBArr[1].boxStatus)) {
+            continue;
+        }
+        if (g_utsProbeState != UTS_PROBE_ARMED || g_excInfo.type != OS_EXC_MF_DACCVIOL ||
+            g_excInfo.phase != OS_EXC_IN_TASK || OS_BOX_GET_BID(g_excInfo.thrdPid) != 1U ||
+            g_excInfo.faultAddr != (UINTPTR)g_boxCBArr[0].layout[0].boxMemPoolAddr) {
+            return 0U;
+        }
+        dprintf("[UTS] boxB destroyed: task=%u fault=0x%x; releasing boxA\n",
+                g_excInfo.thrdPid, g_excInfo.faultAddr);
+        g_utsProbeDestroyed = 1U;
+        break;
+    }
+    if (g_utsProbeDestroyed == 0U) {
+        return 0U;
+    }
+    for (i = 0; i < UTS_USR_TIMEOUT_POLLS; ++i) {
+        LOS_TaskDelay(UTS_USR_POLL_TICKS);
+        if (!BOX_IS_INIT(g_boxCBArr[0].boxStatus) || !BOX_IS_UNINIT(g_boxCBArr[1].boxStatus)) {
+            return 0U;
+        }
+        if (g_utsDoneByWorld[1] != 0U) {
+            return 1U;
+        }
+    }
+    return 0U;
+}
+#endif
+
 VOID TestTaskEntry(VOID)
 {
+#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+    UINT32 isolationPassed = 0U;
+#endif
 #if defined(LOSCFG_BOX) && (LOS_KERNEL_BOX_USR_TEST == 1)
     /* UTS usr phase bring-up: initialize the boxes (boxA runs the test
      * entry usr_demo/tboxA/boxA_test_main.c, boxB stays down - entry
@@ -411,7 +462,9 @@ VOID TestTaskEntry(VOID)
      * UNIFIED one (kernel + usr). A hung usr phase reports HUNG and the
      * run completes with the kernel results only. */
     if (utsBoxUp != 0) {
+#ifndef LOSCFG_TEST_BOXB_READ_BOXA_RAM
         UINT32 utsPoll;
+#endif
         UINT32 boxCount = 0;
         UINT32 w;
 
@@ -428,6 +481,12 @@ VOID TestTaskEntry(VOID)
             g_utsHasBoxB = (boxCount > 1U) ? 1U : 0U;
         }
         g_utsBoxCount = boxCount;
+#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+        isolationPassed = UtsCheckIsolation(boxCount);
+        if (isolationPassed != 0U) {
+            g_utsPhase = UTS_PHASE_DONE;
+        }
+#else
 #if (UTS_CONCURRENT_MODE == 1)
         dprintf("UTS: usr phase CONCURRENT, %u suite(s) released together\n", boxCount);
 
@@ -465,6 +524,7 @@ VOID TestTaskEntry(VOID)
         } else {
             g_utsPhase = UTS_PHASE_DONE;
         }
+#endif
     }
 #endif
 
@@ -489,8 +549,14 @@ VOID TestTaskEntry(VOID)
                     ICunitGetWorldPass(w), ICunitGetWorldFail(w));
         }
     }
+#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+    dprintf("[UTS] boxB isolation: %s\n", isolationPassed ? "PASS" : "FAIL");
+    dprintf("\nfailed count:%d, success count:%d\n", ICunitGetFailTotal() + (1U - isolationPassed),
+            ICunitGetPassTotal() + isolationPassed);
+#else
     dprintf("\nfailed count:%d, success count:%d\n",
             ICunitGetFailTotal(), ICunitGetPassTotal());
+#endif
 #else
     dprintf("\nfailed count:%d, success count:%d\n", g_failResult, g_passResult);
 #endif

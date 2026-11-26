@@ -53,6 +53,15 @@
 #include "los_hpl_pri.h"
 #endif
 
+#ifdef LOSCFG_BOX
+#include "los_box_pri.h"
+#include "los_sched_pri.h"
+
+UINT32 g_boxFaultMsp;
+UINT32 g_boxFaultReturn;
+extern VOID ArchBoxFaultSwitch(VOID) __attribute__((noreturn));
+#endif
+
 #define ARM_EXCEPTION_SYSTICK      15
 
 /* ArchIntLocked: read PRIMASK to report whether interrupts are masked.
@@ -315,6 +324,64 @@ _Static_assert((sizeof(EXC_CONTEXT_S) == 72) &&
                "non-FP build needs the short EXC_CONTEXT_S (no S16-S31 prefix)");
 #endif
 
+#if defined(LOSCFG_BOX) && !defined(LOSCFG_KERNEL_SMP)
+STATIC VOID OsContainBoxDataFault(VOID)
+{
+    const UINT32 faultBits = SCB_CFSR_DACCVIOL_Msk | SCB_CFSR_MMARVALID_Msk;
+    LosTaskCB *task = OsCurrTaskGet();
+    LosBoxCB *box;
+    LosTaskCB *member;
+    LOS_DL_LIST *node;
+    UINT32 id = g_curBoxId;
+    UINT32 intSave;
+
+    /* Exact fault class and a first-level, unmasked, unprivileged PSP thread.
+     * Reject escalations, stacking faults, pending switches and syscalls. */
+    if (ArchGetIpsr() != 4U || SCB->CFSR != faultBits || SCB->HFSR != 0U ||
+        (g_boxFaultReturn != 0xFFFFFFEDU && g_boxFaultReturn != 0xFFFFFFFDU) ||
+        ((SCB->CPACR & (0xFU << 20)) == (0xFU << 20)) != (g_boxFaultReturn == 0xFFFFFFEDU) ||
+        (__get_CONTROL() & 1U) == 0U || __get_BASEPRI() != 0U ||
+        g_excInfo.nestCnt != 1U || g_intCount[ArchCurrCpuid()] != 1U ||
+        g_excInfo.context->uwPriMask != 0U || g_excInfo.phase != OS_EXC_IN_TASK ||
+        g_excInfo.type != OS_EXC_MF_DACCVIOL || g_excInfo.faultAddr != SCB->MMFAR ||
+        id >= LOSCFG_BASE_BOX_MAX_LIMIT || g_boxCBArr == NULL || task == NULL ||
+        task != g_oldTask || task != g_runTask || OsPercpuGet()->taskLockCnt != 0U ||
+        OS_BOX_GET_BID(task->taskId) != id || task->curBoxId != id ||
+        (task->taskStatus & (OS_TASK_STATUS_RUNNING | OS_TASK_STATUS_INUSER)) !=
+            (OS_TASK_STATUS_RUNNING | OS_TASK_STATUS_INUSER)) {
+        return;
+    }
+    box = &g_boxCBArr[id];
+    if (task->boxCB != box || box->boxId != id || !BOX_IS_INIT(box->boxStatus)) {
+        return;
+    }
+
+    /* MSP and the exception masks protect the transaction. Remove only the
+     * doomed box from eligibility; leave the old stack valid for switch hooks. */
+    g_sysMode = 0U;
+    PRINT_ERR("BOX_EXC: destroying box %u (fault in its task)\n", id);
+    SCHEDULER_LOCK(intSave);
+    LOS_DL_LIST_FOR_EACH(node, &box->taskCBList) {
+        member = LOS_DL_LIST_ENTRY(node, LosTaskCB, boxTaskList);
+        OsSchedTaskDeQueue(member);
+    }
+    OsSchedResched();
+    SCHEDULER_UNLOCK(intSave);
+    if (g_runTask == task || g_runTask->boxCB == box) {
+        ArchTaskExit();
+    }
+    OsBoxDestroy((UINT16)id);
+    SCB->CFSR = faultBits;                 /* W1C only the checked cause */
+    SCB->ICSR = SCB_ICSR_PENDSVCLR_Msk;    /* perform the selected switch here */
+    __DSB();
+    __ISB();
+    g_excInfo.context = NULL;
+    g_excInfo.nestCnt--;
+    g_intCount[ArchCurrCpuid()]--;
+    ArchBoxFaultSwitch();
+}
+#endif
+
 LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, UINT32 pid, EXC_CONTEXT_S *excBufAddr)
 {
     UINT16 tmpFlag = (excType >> 16) & OS_NULL_SHORT; /* 16: Get Exception Type */
@@ -365,6 +432,9 @@ LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, U
 #endif
 #ifdef LOSCFG_KERNEL_HPL
     OsHplExceptionHandle();
+#endif
+#if defined(LOSCFG_BOX) && !defined(LOSCFG_KERNEL_SMP)
+    OsContainBoxDataFault();
 #endif
     ArchTaskExit();
 }

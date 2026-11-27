@@ -10,7 +10,8 @@
 # WS63 ROM 跟踪: 本脚本内联 flash_stat 测量, 按 vendor/hihope/ws63_m/kernel_configs/debug_flash_stat.config
 #               构建 ws63_m 产品(LOSCFG_TEST_KERNEL_FLASH_STAT=y: 测试套不编入, flash_link_ref.c 引用
 #               全部内核对外 API 防链接裁剪, 固件≈纯内核), ROM=链接 map .startup 输出段(.text*/.rodata*
-#               归并入)=.text+.rodata 口径; 历史持久化 testresult/ws63_rom_hist.json 每轮追加,
+#               归并入)=.text+.rodata 口径; 历史持久化 preset/ws63_rom_hist.json(脚本同目录, git 仓内
+#               .gitignore 豁免 nightly clean/手动删 testresult 不伤) 每轮追加,
 #               Excel "WS63 ROM" 页签持续跟踪(首条=基线, 后续每轮记与基线偏差); 失败不阻断主流程
 #               (测量方法随本脚本 git 跟踪常驻, 不依赖外部 flash_stat_ws63.sh —— untracked 工具
 #               会被 nightly 阶段2 git clean 清除, 2026-11-25 "本轮无测量数据" 事故根因)
@@ -35,6 +36,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # .../kernel/liteos_m/testsuites/sample/tools/preset
 ROOT="$(cd "$HERE/../../../../../.." && pwd)"          # preset 上溯 6 级 = 工程根(自定位, 不绑定绝对路径)
 export ROOT                                             # 供内嵌 python heredoc 解析同一 ROOT
+export HERE                                            # 供内嵌 python heredoc 定位本目录(ws63_rom_hist.json 所在)
 RUN=$ROOT/testresult
 TM=$RUN/tier_meas
 GUARD_BAK=$RUN/guard_backup
@@ -347,6 +349,7 @@ import datetime, json, os, re, subprocess, sys
 
 XLSX, MODE = sys.argv[1], sys.argv[2]
 ROOT = os.environ["ROOT"]
+HERE = os.environ.get("HERE")
 TM = f"{ROOT}/testresult/tier_meas"
 KLM = f"{ROOT}/kernel/liteos_m"
 FP = f"{KLM}/tools/footprint/footprint.py"
@@ -414,9 +417,10 @@ workaround = open(WM).read().strip() if os.path.exists(WM) else None
 
 gen_time = datetime.datetime.now().strftime("%F %H:%M")
 
-# ---- WS63 ROM 持续跟踪历史(持久化于 testresult 根: nightly 每轮清 tier_meas, 不清此处) ----
+# ---- WS63 ROM 持续跟踪历史(持久化于脚本同目录 preset/: git 仓内 .gitignore 豁免, nightly clean
+# 不清此处且手动删 testresult 亦不伤基线; 每轮清的是 tier_meas, 本文件跨轮累积) ----
 # 条目: {"time","mtime","head","rom","config"}; 首条=基线; 追加去重键=(rom,mtime,head) 防 reuse 重复记
-HISTF = f"{ROOT}/testresult/ws63_rom_hist.json"
+HISTF = f"{HERE}/ws63_rom_hist.json"
 hist = []
 if os.path.exists(HISTF):
     try:
@@ -604,7 +608,7 @@ notes = [
     ("WS63 ROM 跟踪方法", "flash_stat_ws63.sh(与本脚本同目录): vendor/hihope/ws63_m/kernel_configs/"
      "debug_flash_stat.config 构建 ws63_m 产品(LOSCFG_TEST_KERNEL_FLASH_STAT=y: 测试套不编入, "
      "flash_link_ref.c 引用全部内核对外 API 防链接裁剪, 固件≈纯内核); ROM=链接 map .startup 输出段"
-     "(.text*/.rodata* 归并入, 含对齐填充)=.text+.rodata 口径; 历史持久化 testresult/ws63_rom_hist.json"
+     "(.text*/.rodata* 归并入, 含对齐填充)=.text+.rodata 口径; 历史持久化 preset/ws63_rom_hist.json(脚本同目录)"
      " 每轮追加(按 rom+mtime+head 去重), 'WS63 ROM' 页签持续跟踪, 首条=基线"),
     ("测量口径", "挡位纯净内核镜像: itp002 挡位 config 仅保留平台/架构/挡位行, KERNEL_TEST=n + NET_LWIP=n, "
                "非挡位管理组件交回 Kconfig 默认(含 TINY 下 IPC 全关/MUX=n, 符合挡位说明 §7.3; ws63 printf 走内核"

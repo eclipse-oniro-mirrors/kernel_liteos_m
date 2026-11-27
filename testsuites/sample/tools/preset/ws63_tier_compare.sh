@@ -12,7 +12,7 @@
 #               全部内核对外 API 防链接裁剪, 固件≈纯内核), ROM=链接 map .startup 输出段(.text*/.rodata*
 #               归并入)=.text+.rodata 口径; 历史持久化 preset/ws63_rom_hist.json(脚本同目录, git 仓内
 #               .gitignore 豁免 nightly clean/手动删 testresult 不伤) 每轮追加,
-#               Excel "WS63 ROM" 页签持续跟踪(首条=基线, 后续每轮记与基线偏差); 失败不阻断主流程
+#               Excel "WS63 ROM" 页签持续跟踪(基线=内置 FS_ROM_BASELINE, 后续每轮记与基线偏差); 失败不阻断主流程
 #               (测量方法随本脚本 git 跟踪常驻, 不依赖外部 flash_stat_ws63.sh —— untracked 工具
 #               会被 nightly 阶段2 git clean 清除, 2026-11-25 "本轮无测量数据" 事故根因)
 # 数据源: tier_meas/ws63_{tiny,small,standard}/ 归档齐备 → 自动复用(footprint 现场重测, ROM 取构建期产物);
@@ -119,6 +119,11 @@ FSC=$ROOT/vendor/hihope/ws63_m/kernel_configs/debug_flash_stat.config   # 测量
 FSD=$ROOT/vendor/hihope/ws63_m/kernel_configs/debug.config              # 被临时换装的 vendor 原配置
 FS_LOCK="${BOARD_LOCK_DIR:-$HOME/.cache/board_locks}/resource.lock"     # board-test-runner 全局编译/烧写锁
 FS_TIMEOUT="${FLASH_STAT_TIMEOUT_SEC:-600}"
+FS_ROM_BASELINE=112080   # WS63 ROM 内置基线(B, debug_flash_stat.config/rom=.text+.rodata 口径;
+                         # 2026-11-27 07:38 实测于 head 552de9bf)。权威基线随脚本入库, 换机/首次
+                         # 运行/历史文件缺失均有基线可对比; 基线演进须改此常量并提交(可评审可追溯),
+                         # 不随本地 ws63_rom_hist.json 首条漂移。
+export FS_ROM_BASELINE
 
 do_flash_stat() {   # 0=成功(rom_text_rodata.txt 已产出) 1=失败(跳过 ROM 跟踪, 不阻断)
   [ -f "$FSC" ] || { log "WARNING: 缺少 $FSC, 本轮跳过 WS63 ROM 测量"; return 1; }
@@ -419,7 +424,8 @@ gen_time = datetime.datetime.now().strftime("%F %H:%M")
 
 # ---- WS63 ROM 持续跟踪历史(持久化于脚本同目录 preset/: git 仓内 .gitignore 豁免, nightly clean
 # 不清此处且手动删 testresult 亦不伤基线; 每轮清的是 tier_meas, 本文件跨轮累积) ----
-# 条目: {"time","mtime","head","rom","config"}; 首条=基线; 追加去重键=(rom,mtime,head) 防 reuse 重复记
+# 条目: {"time","mtime","head","rom","config"}; 基线=内置 FS_ROM_BASELINE(脚本常量, 权威);
+# 历史仅跟踪记录; 追加去重键=(rom,mtime,head) 防 reuse 重复记
 HISTF = f"{HERE}/ws63_rom_hist.json"
 hist = []
 if os.path.exists(HISTF):
@@ -446,7 +452,9 @@ if fs_rom is not None:
                      "config": "debug_flash_stat.config"})
         fs_appended = True
         json.dump(hist, open(HISTF, "w"), ensure_ascii=False, indent=2)
-fs_base = hist[0]["rom"] if hist else None
+fs_base = int(os.environ.get("FS_ROM_BASELINE", "0") or 0)
+if fs_base <= 0:                                     # 内置缺失(异常)时回退历史首条
+    fs_base = hist[0]["rom"] if hist else None
 
 data = {"mode": MODE, "generated": gen_time,
         "git_head": head, "workaround": workaround, "nominal": nominal, "helps": helps, "rows": rows,
@@ -569,7 +577,7 @@ for i, row in enumerate(rows, 2):
         font=OK_FONT if ok else WARN_FONT, fill=OK_FILL if ok else WARN_FILL)
 
 # ---- Sheet4 WS63 ROM 持续跟踪(debug_flash_stat.config 构建, rom=.text+.rodata) ----
-# 记录内容: WS63 ROM 基线(首条=基线锚定) / 最新数据 / 和基线偏差; 偏差>0 → 判定列 ⚠ warning
+# 记录内容: WS63 ROM 基线(内置 FS_ROM_BASELINE 锚定) / 最新数据 / 和基线偏差; 偏差>0 → 判定列 ⚠ warning
 ws = put_sheet("WS63 ROM",
                ["测量时间", "代码版本", "WS63 ROM 基线(B)", "WS63 ROM 最新数据(B)", "和基线偏差(B)", "判定"],
                [17, 46, 18, 20, 15, 16])
@@ -609,7 +617,7 @@ notes = [
      "debug_flash_stat.config 构建 ws63_m 产品(LOSCFG_TEST_KERNEL_FLASH_STAT=y: 测试套不编入, "
      "flash_link_ref.c 引用全部内核对外 API 防链接裁剪, 固件≈纯内核); ROM=链接 map .startup 输出段"
      "(.text*/.rodata* 归并入, 含对齐填充)=.text+.rodata 口径; 历史持久化 preset/ws63_rom_hist.json(脚本同目录)"
-     " 每轮追加(按 rom+mtime+head 去重), 'WS63 ROM' 页签持续跟踪, 首条=基线"),
+     " 每轮追加(按 rom+mtime+head 去重), 'WS63 ROM' 页签持续跟踪, 基线=内置 FS_ROM_BASELINE"),
     ("测量口径", "挡位纯净内核镜像: itp002 挡位 config 仅保留平台/架构/挡位行, KERNEL_TEST=n + NET_LWIP=n, "
                "非挡位管理组件交回 Kconfig 默认(含 TINY 下 IPC 全关/MUX=n, 符合挡位说明 §7.3; ws63 printf 走内核"
                " los_printf, 无 musl stdio 依赖, 不需 qemu 线的 MUX 拐杖)"),

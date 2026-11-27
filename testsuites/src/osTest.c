@@ -41,8 +41,12 @@
 /* UTS: shared iCunit phase handshake (COMMON_RAM) + box bring-up */
 #include "uts_phase.h"
 #include "los_box_pri.h"
-#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+#ifdef LOSCFG_TEST_BOX_FAULT
+#include <string.h>
 #include "los_arch_interrupt.h"
+#include "los_task_pri.h"
+#include "uts_box_fault.h"
+#define UTS_SCB_SHCSR 0xE000ED24U
 #endif
 #endif
 #if (LITEOS_CMSIS_TEST == 1)
@@ -311,54 +315,156 @@ void TestCmsis2(void)
 }
 #endif
 
-#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
-/* Single-core coordinator: called before GO, then sleeps between observations. */
+#ifdef LOSCFG_TEST_BOX_FAULT
+/* Whether the fault address the kernel recorded is one the configured
+ * fault legitimately produces. */
+static UINT32 UtsFaultAddrAccepted(UINT32 addr)
+{
+#if (LOSCFG_TEST_BOX_FAULT_KIND <= 2)
+    return (addr == (UINT32)(UINTPTR)g_boxCBArr[UTS_SURVIVOR_BOX].layout[0].boxMemPoolAddr) ? 1U : 0U;
+#elif (LOSCFG_TEST_BOX_FAULT_KIND == 3)
+    /* An instruction access violation: the core may or may not publish the
+     * fetch address in MMFAR (this Cortex-M4 does not), so both records are
+     * right. A Thumb function pointer carries the state bit; MMFAR would not. */
+    const UINT32 target = (UINT32)((((UTS_FAULT_BOX == 1) ? (UINTPTR)boxAEntry : (UINTPTR)boxBEntry)) &
+                                   ~(UINTPTR)1U);
+    return ((addr == OS_EXC_IMPRECISE_ACCESS_ADDR) || (addr == target)) ? 1U : 0U;
+#else
+    /* UsageFaults carry no address. */
+    return (addr == OS_EXC_IMPRECISE_ACCESS_ADDR) ? 1U : 0U;
+#endif
+}
+
+#if (UTS_FAULT_MIDCASE == 1)
+/* Mid-case variant: the failing boxB must preempt the surviving boxA while
+ * boxA is between two of its own cases. boxB's entry is parked on the GO poll
+ * right now (not in a ready queue), so its priority can be changed directly.
+ * Done here and not in the box config so the kernel phase never sees the
+ * higher-priority wake-ups. */
+static VOID UtsRaiseFailingBoxPrio(UINT16 prio)
+{
+    LOS_DL_LIST *node = NULL;
+
+    LOS_DL_LIST_FOR_EACH(node, &g_boxCBArr[UTS_FAULT_BOX].taskCBList) {
+        LosTaskCB *taskCB = LOS_DL_LIST_ENTRY(node, LosTaskCB, boxTaskList);
+        if ((taskCB->taskName != NULL) && (strcmp(taskCB->taskName, "boxBEntryTask") == 0)) {
+            taskCB->priority = prio;
+            dprintf("[UTS] boxB entry raised to prio %u for the mid-case variant\n", prio);
+        }
+    }
+}
+#endif
+
+/* Single-core coordinator: called before GO, then sleeps between observations.
+ * Returns 1 only when the whole chain held: the failing box destroyed by the
+ * requested fault, the survivor's suite complete afterwards, and every
+ * post-fault kernel check passed. */
 static UINT32 UtsCheckIsolation(UINT32 count)
 {
+    const UINT32 failBox = UTS_FAULT_BOX;
+    const UINT32 liveBox = UTS_SURVIVOR_BOX;
+    UINT32 destroyed = 0U;
+    UINT32 survived = 0U;
+    UINT32 failBefore;
+    UINT32 failLiveBefore;
+    UINT32 recordOk;
     UINT32 i;
-    if (count != 2U || g_boxCBArr == NULL || !BOX_IS_INIT(g_boxCBArr[0].boxStatus) ||
-        !BOX_IS_INIT(g_boxCBArr[1].boxStatus)) {
+
+    if (count != 2U || g_boxCBArr == NULL || !BOX_IS_INIT(g_boxCBArr[failBox].boxStatus) ||
+        !BOX_IS_INIT(g_boxCBArr[liveBox].boxStatus)) {
+        dprintf("[UTS] fault matrix: both boxes must be initialized before GO\n");
         return 0U;
     }
+#if (LOSCFG_TEST_BOX_FAULT_KIND == 6)
+    /* Take the UsageFault vector out for this run so the fault escalates to
+     * HardFault, as on kernels that leave it disabled. Put back below. */
+    *(volatile UINT32 *)UTS_SCB_SHCSR &= ~(1U << 18); /* USGFAULTENA */
+#endif
+    /* The survivor's cases that failed before the fault (mid-case variant)
+     * are not the fault's doing; any later one is. */
+    failLiveBefore = ICunitGetWorldFail(liveBox + 1U);
     g_utsPhase = UTS_PHASE_GO;
-    for (i = 0; i < UTS_USR_TIMEOUT_POLLS; ++i) {
+#if (UTS_FAULT_MIDCASE == 1)
+    UtsRaiseFailingBoxPrio(10U);
+#endif
+
+    /* 1. The failing box goes down and nothing else does: the recorded fault
+     *    names the failing box's task, the requested type and address. */
+    for (i = 0U; (i < UTS_USR_TIMEOUT_POLLS) && (destroyed == 0U); ++i) {
         LOS_TaskDelay(UTS_USR_POLL_TICKS);
-        if (g_utsProbeState == UTS_PROBE_RETURNED || g_utsDoneByWorld[2] != 0U ||
-            !BOX_IS_INIT(g_boxCBArr[0].boxStatus)) {
-            return 0U;
+        if (g_utsProbeState == UTS_PROBE_RETURNED) {
+            dprintf("[UTS] fault matrix: the fault instruction returned\n");
+        } else if (g_utsDoneByWorld[failBox + 1U] != 0U) {
+            dprintf("[UTS] fault matrix: the failing box finished without faulting\n");
+        } else if (!BOX_IS_INIT(g_boxCBArr[liveBox].boxStatus)) {
+            dprintf("[UTS] fault matrix: the surviving box went down (status=0x%x)\n",
+                    g_boxCBArr[liveBox].boxStatus);
+        } else if (BOX_IS_UNINIT(g_boxCBArr[failBox].boxStatus)) {
+            /* Seen once: the record does not change afterwards. */
+            recordOk = ((g_utsProbeState == UTS_PROBE_ARMED) && (g_excInfo.phase == OS_EXC_IN_TASK) &&
+                        (OS_BOX_GET_BID(g_excInfo.thrdPid) == failBox) && (g_excInfo.type == UTS_FAULT_TYPE) &&
+                        (UtsFaultAddrAccepted((UINT32)g_excInfo.faultAddr) != 0U)) ? 1U : 0U;
+            if (recordOk == 0U) {
+                dprintf("[UTS] fault matrix: wrong fault record: probe=%u phase=%u task=%u type=%u "
+                        "fault=0x%x, expected type=%u\n",
+                        g_utsProbeState, (UINT32)g_excInfo.phase, (UINT32)g_excInfo.thrdPid,
+                        (UINT32)g_excInfo.type, (UINT32)g_excInfo.faultAddr, (UINT32)UTS_FAULT_TYPE);
+                break;
+            } else {
+                dprintf("[UTS] box%c destroyed by fault kind=%u: task=%u type=%u fault=0x%x\n",
+                        (CHAR)('A' + failBox), (UINT32)LOSCFG_TEST_BOX_FAULT_KIND,
+                        (UINT32)g_excInfo.thrdPid, (UINT32)g_excInfo.type, (UINT32)g_excInfo.faultAddr);
+                dprintf("[UTS] survivor box%c alive (%u case(s) passed so far), suite released\n",
+                        (CHAR)('A' + liveBox), ICunitGetWorldPass(liveBox + 1U));
+                destroyed = 1U;
+            }
         }
-        if (!BOX_IS_UNINIT(g_boxCBArr[1].boxStatus)) {
-            continue;
-        }
-        if (g_utsProbeState != UTS_PROBE_ARMED || g_excInfo.type != OS_EXC_MF_DACCVIOL ||
-            g_excInfo.phase != OS_EXC_IN_TASK || OS_BOX_GET_BID(g_excInfo.thrdPid) != 1U ||
-            g_excInfo.faultAddr != (UINTPTR)g_boxCBArr[0].layout[0].boxMemPoolAddr) {
-            return 0U;
-        }
-        dprintf("[UTS] boxB destroyed: task=%u fault=0x%x; releasing boxA\n",
-                g_excInfo.thrdPid, g_excInfo.faultAddr);
-        g_utsProbeDestroyed = 1U;
-        break;
     }
-    if (g_utsProbeDestroyed == 0U) {
+#if (LOSCFG_TEST_BOX_FAULT_KIND == 6)
+    /* The escalated fault may still be pended (SHCSR bit 12, read-only on
+     * ARMv7-M): enabling its vector now would take that stale fault in
+     * kernel context. Enable it only when nothing is pended. */
+    if ((*(volatile UINT32 *)UTS_SCB_SHCSR & (1U << 12)) == 0U) { /* USGFAULTPENDED */
+        *(volatile UINT32 *)UTS_SCB_SHCSR |= (1U << 18);          /* USGFAULTENA */
+    } else {
+        dprintf("[UTS] UsageFault vector left disabled: the escalated fault is still pended\n");
+    }
+#endif
+    if (destroyed == 0U) {
+        dprintf("[UTS] fault matrix: the failing box was not destroyed by the fault\n");
         return 0U;
     }
-    for (i = 0; i < UTS_USR_TIMEOUT_POLLS; ++i) {
+    g_utsProbeDestroyed = 1U;
+
+    /* 2. The survivor's whole suite runs after the fault. */
+    for (i = 0U; (i < UTS_USR_TIMEOUT_POLLS) && (survived == 0U); ++i) {
         LOS_TaskDelay(UTS_USR_POLL_TICKS);
-        if (!BOX_IS_INIT(g_boxCBArr[0].boxStatus) || !BOX_IS_UNINIT(g_boxCBArr[1].boxStatus)) {
+        if (!BOX_IS_INIT(g_boxCBArr[liveBox].boxStatus) || !BOX_IS_UNINIT(g_boxCBArr[failBox].boxStatus)) {
+            dprintf("[UTS] fault matrix: box states changed while the survivor ran\n");
             return 0U;
         }
-        if (g_utsDoneByWorld[1] != 0U) {
-            return 1U;
-        }
+        survived = g_utsDoneByWorld[liveBox + 1U];
     }
-    return 0U;
+    if (survived == 0U) {
+        dprintf("[UTS] fault matrix: the surviving box did not finish its suite\n");
+        return 0U;
+    }
+    if (ICunitGetWorldFail(liveBox + 1U) != failLiveBefore) {
+        dprintf("[UTS] fault matrix: the surviving box failed %u case(s) after the fault\n",
+                ICunitGetWorldFail(liveBox + 1U) - failLiveBefore);
+        return 0U;
+    }
+
+    /* 3. The kernel services, from kernel mode, after the destruction. */
+    failBefore = ICunitGetWorldFail(0U);
+    UtsPostFaultKernelCheck();
+    return (ICunitGetWorldFail(0U) == failBefore) ? 1U : 0U;
 }
 #endif
 
 VOID TestTaskEntry(VOID)
 {
-#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+#ifdef LOSCFG_TEST_BOX_FAULT
     UINT32 isolationPassed = 0U;
 #endif
 #if defined(LOSCFG_BOX) && (LOS_KERNEL_BOX_USR_TEST == 1)
@@ -462,7 +568,7 @@ VOID TestTaskEntry(VOID)
      * UNIFIED one (kernel + usr). A hung usr phase reports HUNG and the
      * run completes with the kernel results only. */
     if (utsBoxUp != 0) {
-#ifndef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+#ifndef LOSCFG_TEST_BOX_FAULT
         UINT32 utsPoll;
 #endif
         UINT32 boxCount = 0;
@@ -481,7 +587,7 @@ VOID TestTaskEntry(VOID)
             g_utsHasBoxB = (boxCount > 1U) ? 1U : 0U;
         }
         g_utsBoxCount = boxCount;
-#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+#ifdef LOSCFG_TEST_BOX_FAULT
         isolationPassed = UtsCheckIsolation(boxCount);
         if (isolationPassed != 0U) {
             g_utsPhase = UTS_PHASE_DONE;
@@ -549,8 +655,9 @@ VOID TestTaskEntry(VOID)
                     ICunitGetWorldPass(w), ICunitGetWorldFail(w));
         }
     }
-#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
-    dprintf("[UTS] boxB isolation: %s\n", isolationPassed ? "PASS" : "FAIL");
+#ifdef LOSCFG_TEST_BOX_FAULT
+    dprintf("[UTS] box%c fault isolation (kind=%u): %s\n", (CHAR)('A' + UTS_FAULT_BOX),
+            (UINT32)LOSCFG_TEST_BOX_FAULT_KIND, isolationPassed ? "PASS" : "FAIL");
     dprintf("\nfailed count:%d, success count:%d\n", ICunitGetFailTotal() + (1U - isolationPassed),
             ICunitGetPassTotal() + isolationPassed);
 #else

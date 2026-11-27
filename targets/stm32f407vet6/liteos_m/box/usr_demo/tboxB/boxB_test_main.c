@@ -70,6 +70,7 @@
 #endif
 
 #include "uts_phase.h"
+#include "uts_box_fault.h"
 
 extern VOID ItSuiteLosBoxBUsr(VOID);
 
@@ -104,7 +105,7 @@ VOID boxBTestEntry(VOID)
      * boxes never interleave inside the shared iCunit counters. Same unbounded
      * poll as boxA, same rationale: if the kernel phase reports HUNG we stay
      * parked out of the way instead of corrupting its results. */
-#if (UTS_CONCURRENT_MODE == 1) || defined(LOSCFG_TEST_BOXB_READ_BOXA_RAM)
+#if (UTS_CONCURRENT_MODE == 1) || defined(LOSCFG_TEST_BOX_FAULT)
     /* Same broadcast as boxA: the kernel sets GO once and every box starts at
      * the same time. Concurrency is the point of this build. */
     while (g_utsPhase != UTS_PHASE_GO) {
@@ -144,17 +145,32 @@ VOID boxBTestEntry(VOID)
     PRINTK("\n================ UTS usr phase (boxB, user mode) ================\n");
     dprintf("[BOXB] entering boxB suite: heap=0x%x size=%u\n",
             (UINT32)OS_BOXB_POOL_ADDR, (UINT32)BOXB_HEAP_SIZE);
-    ItSuiteLosBoxBUsr();
-#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
-    /* This diagnostic must fault on the load. Never expose the loaded value. */
-    dprintf("[BOXB] MPU probe: reading boxA private RAM at 0x%x\n", (UINT32)OS_BOXA_POOL_ADDR);
-    g_utsProbeState = UTS_PROBE_ARMED;
-    (void)*(volatile const UINT32 *)OS_BOXA_POOL_ADDR;
-    g_utsProbeState = UTS_PROBE_RETURNED;
-    dprintf("[BOXB] FAIL: boxA private RAM read returned\n");
-    for (;;) {
-        LOS_TaskDelay(0xFFFF);
+#ifdef LOSCFG_TEST_BOX_FAULT
+#if (UTS_FAULT_BOX == 0)
+    /* boxA fails first: start only once the kernel has confirmed its
+     * destruction, so every case below runs after the fault. */
+    while (g_utsProbeDestroyed == 0U) {
+        LOS_TaskDelay(1);
     }
+    dprintf("[BOXB] scheduled after boxA destruction\n");
+#endif
+#endif
+    ItSuiteLosBoxBUsr();
+#ifdef LOSCFG_TEST_BOX_FAULT
+#if (UTS_FAULT_BOX == 1)
+    /* Appended after the regular cases on purpose: they must all have run and
+     * been counted before this box is destroyed. */
+#if (UTS_FAULT_MIDCASE == 1)
+    /* Let boxA get well into its own suite, then preempt it. */
+    while (ICunitGetWorldPass(UTS_SURVIVOR_BOX + 1U) < UTS_FAULT_MIDCASE_CASES) {
+        LOS_TaskDelay(1);
+    }
+#endif
+    dprintf("[BOXB] raising fault kind=%u: entry=0x%x data=0x%x\n", (UINT32)LOSCFG_TEST_BOX_FAULT_KIND,
+            (UINT32)(UINTPTR)boxAEntry, (UINT32)OS_BOXA_POOL_ADDR);
+    UtsRaiseBoxFault((UINTPTR)boxAEntry, OS_BOXA_POOL_ADDR, (UINTPTR)LOS_Printf & ~(UINTPTR)1U);
+    dprintf("[BOXB] FAULT RETURNED: the access was not blocked\n");
+#endif
 #endif
     dprintf("[BOXB] boxB suite finished\n");
     PRINTK("================ UTS usr phase (boxB) done ================\n");

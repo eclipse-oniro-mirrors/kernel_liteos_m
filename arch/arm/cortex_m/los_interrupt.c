@@ -324,42 +324,82 @@ _Static_assert((sizeof(EXC_CONTEXT_S) == 72) &&
                "non-FP build needs the short EXC_CONTEXT_S (no S16-S31 prefix)");
 #endif
 
-#if defined(LOSCFG_BOX) && !defined(LOSCFG_KERNEL_SMP)
-STATIC VOID OsContainBoxDataFault(VOID)
+#if defined(LOSCFG_BOX) && !defined(LOSCFG_KERNEL_SMP) && !defined(LOSCFG_ARCH_ARM_V6M)
+#define OS_IPSR_HARDFAULT      3U
+#define OS_IPSR_USAGEFAULT     6U
+
+/* EXC_RETURN of an exception taken from a thread using the PSP, with a basic
+ * or an FPU-extended frame. Kernel code runs on the MSP, and so does every
+ * exception handler. */
+#define OS_EXC_RETURN_THREAD_PSP      0xFFFFFFFDU
+#define OS_EXC_RETURN_THREAD_PSP_FP   0xFFFFFFEDU
+
+/* Why a fault raised by a box task was not contained. Nonzero means the
+ * system is halted on purpose: the kernel could not prove the fault was a
+ * plain user-mode error with the kernel itself between two instructions. */
+#define OS_BOX_FAULT_NOT_CPU_FAULT  1U  /* NMI, an interrupt, a debugger or vector-table HardFault */
+#define OS_BOX_FAULT_FRAME          2U  /* not taken from a thread using the PSP */
+#define OS_BOX_FAULT_NOT_USER       3U  /* the thread was privileged or not in user mode: inside a syscall */
+#define OS_BOX_FAULT_FOREIGN_BOX    4U  /* the task is not a task of a live box, or the box is not its own */
+#define OS_BOX_FAULT_MID_SWITCH     5U  /* the scheduler does not agree that this task is running */
+
+/* Every guard of OsContainBoxFault() has this shape, so that the function
+ * reads as what it is: an ordered list of conditions, where a guard may only
+ * dereference what the guards above it have proved valid. */
+#define OS_BOX_FAULT_REJECT_IF(cond, why) \
+    do {                                  \
+        if (cond) {                       \
+            reason = (why);               \
+            goto OS_BOX_FAULT_REJECTED;   \
+        }                                 \
+    } while (0)
+
+/* Destroy the box whose user-mode task just faulted, and switch to the task
+ * the scheduler picks next, so that the kernel and the other boxes keep
+ * running. Called from HalExcHandleEntry() once the fault has been dumped;
+ * whatever it rejects falls through to the system halt there.
+ *
+ * What matters for kernel integrity is not the fault but WHERE it was
+ * raised: by an unprivileged thread running its own code, with the kernel
+ * between two of its instructions. The kernel state is then exactly what it
+ * was before that instruction, and only the box has to go. */
+STATIC VOID OsContainBoxFault(VOID)
 {
-    const UINT32 faultBits = SCB_CFSR_DACCVIOL_Msk | SCB_CFSR_MMARVALID_Msk;
     LosTaskCB *task = OsCurrTaskGet();
     LosBoxCB *box;
     LosTaskCB *member;
     LOS_DL_LIST *node;
+    UINT32 ipsr = ArchGetIpsr();
     UINT32 id = g_curBoxId;
     UINT32 intSave;
+    UINT32 reason = 0U;
 
-    /* Exact fault class and a first-level, unmasked, unprivileged PSP thread.
-     * Reject escalations, stacking faults, pending switches and syscalls. */
-    if (ArchGetIpsr() != 4U || SCB->CFSR != faultBits || SCB->HFSR != 0U ||
-        (g_boxFaultReturn != 0xFFFFFFEDU && g_boxFaultReturn != 0xFFFFFFFDU) ||
-        ((SCB->CPACR & (0xFU << 20)) == (0xFU << 20)) != (g_boxFaultReturn == 0xFFFFFFEDU) ||
-        (__get_CONTROL() & 1U) == 0U || __get_BASEPRI() != 0U ||
-        g_excInfo.nestCnt != 1U || g_intCount[ArchCurrCpuid()] != 1U ||
-        g_excInfo.context->uwPriMask != 0U || g_excInfo.phase != OS_EXC_IN_TASK ||
-        g_excInfo.type != OS_EXC_MF_DACCVIOL || g_excInfo.faultAddr != SCB->MMFAR ||
-        id >= LOSCFG_BASE_BOX_MAX_LIMIT || g_boxCBArr == NULL || task == NULL ||
-        task != g_oldTask || task != g_runTask || OsPercpuGet()->taskLockCnt != 0U ||
-        OS_BOX_GET_BID(task->taskId) != id || task->curBoxId != id ||
-        (task->taskStatus & (OS_TASK_STATUS_RUNNING | OS_TASK_STATUS_INUSER)) !=
-            (OS_TASK_STATUS_RUNNING | OS_TASK_STATUS_INUSER)) {
-        return;
-    }
-    box = &g_boxCBArr[id];
-    if (task->boxCB != box || box->boxId != id || !BOX_IS_INIT(box->boxStatus)) {
-        return;
-    }
+    /* A CPU fault. A HardFault counts only as the escalation of one: the
+     * others (debugger, vector table) are not the box's doing. */
+    OS_BOX_FAULT_REJECT_IF((ipsr < OS_IPSR_HARDFAULT) || (ipsr > OS_IPSR_USAGEFAULT) ||
+                           ((ipsr == OS_IPSR_HARDFAULT) && (SCB->HFSR != SCB_HFSR_FORCED_Msk)),
+                           OS_BOX_FAULT_NOT_CPU_FAULT);
+    /* Raised by a thread on its own stack: not in a handler, not in kernel code. */
+    OS_BOX_FAULT_REJECT_IF((g_boxFaultReturn != OS_EXC_RETURN_THREAD_PSP) &&
+                           (g_boxFaultReturn != OS_EXC_RETURN_THREAD_PSP_FP), OS_BOX_FAULT_FRAME);
+    /* An unprivileged thread flagged in user mode, so not inside a syscall.
+     * CONTROL.nPRIV keeps the thread's privilege while in Handler mode. */
+    OS_BOX_FAULT_REJECT_IF((task == NULL) || ((__get_CONTROL() & 1U) == 0U) ||
+                           ((task->taskStatus & OS_TASK_STATUS_INUSER) == 0U), OS_BOX_FAULT_NOT_USER);
+    /* A task of a live box, and the box mapped for this thread is its own. */
+    OS_BOX_FAULT_REJECT_IF((id >= LOSCFG_BASE_BOX_MAX_LIMIT) || (g_boxCBArr == NULL) ||
+                           (task->boxCB != &g_boxCBArr[id]) || (task->curBoxId != id) ||
+                           !BOX_IS_INIT(g_boxCBArr[id].boxStatus), OS_BOX_FAULT_FOREIGN_BOX);
+    /* The scheduler agrees this task is the running one: the kernel is not
+     * between two steps of a task switch. */
+    OS_BOX_FAULT_REJECT_IF((task != g_oldTask) || (task != g_runTask), OS_BOX_FAULT_MID_SWITCH);
 
     /* MSP and the exception masks protect the transaction. Remove only the
      * doomed box from eligibility; leave the old stack valid for switch hooks. */
+    box = &g_boxCBArr[id];
     g_sysMode = 0U;
-    PRINT_ERR("BOX_EXC: destroying box %u (fault in its task)\n", id);
+    PRINT_ERR("BOX_EXC: destroying box %u (fault in its task): type=%u addr=0x%x\n",
+              id, (UINT32)g_excInfo.type, (UINT32)g_excInfo.faultAddr);
     SCHEDULER_LOCK(intSave);
     LOS_DL_LIST_FOR_EACH(node, &box->taskCBList) {
         member = LOS_DL_LIST_ENTRY(node, LosTaskCB, boxTaskList);
@@ -367,21 +407,36 @@ STATIC VOID OsContainBoxDataFault(VOID)
     }
     OsSchedResched();
     SCHEDULER_UNLOCK(intSave);
-    if (g_runTask == task || g_runTask->boxCB == box) {
-        ArchTaskExit();
+    if ((g_runTask == task) || (g_runTask->boxCB == box)) {
+        ArchTaskExit();     /* needs a scheduler bug; never resume the doomed box */
     }
     OsBoxDestroy((UINT16)id);
-    SCB->CFSR = faultBits;                 /* W1C only the checked cause */
-    SCB->ICSR = SCB_ICSR_PENDSVCLR_Msk;    /* perform the selected switch here */
+    /* The fault is handled: drop its sticky status bits, so that they neither
+     * fire again once the vector is re-enabled nor blur the next diagnosis. */
+    SCB->CFSR = 0xFFFFFFFFU;
+    if (ipsr == OS_IPSR_HARDFAULT) {
+        SCB->HFSR = SCB_HFSR_FORCED_Msk;
+        SCB->SHCSR &= ~(SCB_SHCSR_USGFAULTPENDED_Msk | SCB_SHCSR_BUSFAULTPENDED_Msk |
+                        SCB_SHCSR_MEMFAULTPENDED_Msk);
+    }
+    SCB->ICSR = SCB_ICSR_PENDSVCLR_Msk;    /* PendSV is superseded by this switch */
     __DSB();
     __ISB();
     g_excInfo.context = NULL;
     g_excInfo.nestCnt--;
     g_intCount[ArchCurrCpuid()]--;
     ArchBoxFaultSwitch();
-}
-#endif
 
+OS_BOX_FAULT_REJECTED:
+    /* A first-level fault: the dump above already ran on this stack. */
+    if ((g_intCount[ArchCurrCpuid()] == 1U) && (g_excInfo.nestCnt == 1U)) {
+        PRINT_ERR("BOX_EXC: box %u fault NOT contained, reason=%u ipsr=%u cfsr=0x%x hfsr=0x%x ctrl=0x%x ret=0x%x\n",
+                  id, reason, ipsr, SCB->CFSR, SCB->HFSR, __get_CONTROL(), g_boxFaultReturn);
+    }
+    return;
+}
+#undef OS_BOX_FAULT_REJECT_IF
+#endif
 LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, UINT32 pid, EXC_CONTEXT_S *excBufAddr)
 {
     UINT16 tmpFlag = (excType >> 16) & OS_NULL_SHORT; /* 16: Get Exception Type */
@@ -433,8 +488,8 @@ LITE_OS_SEC_TEXT_INIT VOID HalExcHandleEntry(UINT32 excType, UINT32 faultAddr, U
 #ifdef LOSCFG_KERNEL_HPL
     OsHplExceptionHandle();
 #endif
-#if defined(LOSCFG_BOX) && !defined(LOSCFG_KERNEL_SMP)
-    OsContainBoxDataFault();
+#if defined(LOSCFG_BOX) && !defined(LOSCFG_KERNEL_SMP) && !defined(LOSCFG_ARCH_ARM_V6M)
+    OsContainBoxFault();
 #endif
     ArchTaskExit();
 }

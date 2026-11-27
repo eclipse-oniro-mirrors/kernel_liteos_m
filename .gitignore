@@ -19,6 +19,3 @@ targets/cortex-m7_nucleo_f767zi_gcc/build
 /config.h
 /.config
 /.config.old
-
-# WS63 ROM tracking history (runtime data, survives nightly clean via ignore)
-/testsuites/sample/tools/preset/ws63_rom_hist.json

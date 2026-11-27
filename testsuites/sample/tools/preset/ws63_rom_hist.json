@@ -1,0 +1,23 @@
+[
+  {
+    "time": "2026-11-27 07:38",
+    "mtime": "2026-11-27 07:38",
+    "head": "552de9bf IssueNo: https://gitcode.com/openharmony/kernel_liteos_m/issues/1124 Feature or Bugfix: Feature Binary Source: No",
+    "rom": 112080,
+    "config": "debug_flash_stat.config"
+  },
+  {
+    "time": "2026-11-27 14:10",
+    "mtime": "2026-11-27 07:38",
+    "head": "8196ee08 IssueNo: https://gitcode.com/openharmony/kernel_liteos_m/issues/1124 Feature or Bugfix: Feature Binary Source: No",
+    "rom": 112080,
+    "config": "debug_flash_stat.config"
+  },
+  {
+    "time": "2026-11-27 14:18",
+    "mtime": "2026-11-27 07:38",
+    "head": "43cceb1a Revert \"IssueNo: https://gitcode.com/openharmony/kernel_liteos_m/issues/1124 Feature or Bugfix: Feature Binary Source: No\"",
+    "rom": 112080,
+    "config": "debug_flash_stat.config"
+  }
+]

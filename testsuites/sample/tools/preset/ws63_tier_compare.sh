@@ -7,11 +7,14 @@
 #               (静态符号 + 栈 + 动态申请 + 节点开销, 堆池不计入)
 #         ROM = 本目录 gen_flash_size.py nm 符号级 text+rodata
 #               (活产物 obj/ 逐 .o 扫描 + map 汇编兜底, ws63 flash 512KB, 不含 .data)
-# WS63 ROM 跟踪: 本目录 flash_stat_ws63.sh 按 vendor/hihope/ws63_m/kernel_configs/debug_flash_stat.config
+# WS63 ROM 跟踪: 本脚本内联 flash_stat 测量, 按 vendor/hihope/ws63_m/kernel_configs/debug_flash_stat.config
 #               构建 ws63_m 产品(LOSCFG_TEST_KERNEL_FLASH_STAT=y: 测试套不编入, flash_link_ref.c 引用
 #               全部内核对外 API 防链接裁剪, 固件≈纯内核), ROM=链接 map .startup 输出段(.text*/.rodata*
-#               归并入)=.text+.rodata 口径; 历史持久化 testresult/ws63_rom_hist.json 每轮追加,
+#               归并入)=.text+.rodata 口径; 历史持久化 preset/ws63_rom_hist.json(脚本同目录, git 仓内
+#               .gitignore 豁免 nightly clean/手动删 testresult 不伤) 每轮追加,
 #               Excel "WS63 ROM" 页签持续跟踪(首条=基线, 后续每轮记与基线偏差); 失败不阻断主流程
+#               (测量方法随本脚本 git 跟踪常驻, 不依赖外部 flash_stat_ws63.sh —— untracked 工具
+#               会被 nightly 阶段2 git clean 清除, 2026-11-25 "本轮无测量数据" 事故根因)
 # 数据源: tier_meas/ws63_{tiny,small,standard}/ 归档齐备 → 自动复用(footprint 现场重测, ROM 取构建期产物);
 #         缺失/--fresh → 现场构建(仅测量守卫 → 挡位纯净 config → 物理清理全量构建 → gen_flash_size → 还原)
 # 规避可见: 守卫2生效(缺陷在位)时写 tier_meas/workaround.marker → Excel 测量说明/夜间摘要/WeLink 推送
@@ -23,7 +26,8 @@
 # 输出:   当前目录/ws63挡位预期对比.xlsx(默认落在脚本执行时的 $PWD, --out 可覆盖; 超出标称 → ⚠ warning 红底标识)
 # 用法:   bash ws63_tier_compare.sh [--out 路径.xlsx] [--fresh]    # --fresh 强制现场构建
 #         SKIP_REBUILD=1 bash ws63_tier_compare.sh                 # 构建后不重建 ws63 基线镜像
-# 前置:   backup/ws63_debug.config.baseline(骨架回退源, nightly 阶段2 刷新);
+# 前置:   backup/ws63_debug.config.baseline(骨架回退源; 缺失时本脚本自动从 vendor 源自举,
+#         不依赖 nightly 阶段2 刷新);
 #         itp002 挡位 config 可选(ItPreset002 产物, 阶段3 未跑时自动回退基线骨架白名单自生成);
 #         ws63 riscv SDK 工具链; backup/ws63_debug.config.baseline; openpyxl
 
@@ -32,6 +36,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # .../kernel/liteos_m/testsuites/sample/tools/preset
 ROOT="$(cd "$HERE/../../../../../.." && pwd)"          # preset 上溯 6 级 = 工程根(自定位, 不绑定绝对路径)
 export ROOT                                             # 供内嵌 python heredoc 解析同一 ROOT
+export HERE                                            # 供内嵌 python heredoc 定位本目录(ws63_rom_hist.json 所在)
 RUN=$ROOT/testresult
 TM=$RUN/tier_meas
 GUARD_BAK=$RUN/guard_backup
@@ -44,8 +49,7 @@ WV=$ROOT/vendor/hihope/ws63_m_testsuits/kernel_configs/debug.config
 WBL=$RUN/backup/ws63_debug.config.baseline
 WOUT=$ROOT/out/ws63_m/ws63_m_testsuits
 WPRE=$ROOT/out/preloader/ws63_m_testsuits
-FSS=$HERE/flash_stat_ws63.sh                        # WS63 ROM 测量工具(debug_flash_stat.config 构建 + map .text+.rodata 解析)
-FS_OUT=$ROOT/out/ws63_m/ws63_m                       # flash_stat 构建产物目录(flash_stat_ws63.sh 口径)
+FS_OUT=$ROOT/out/ws63_m/ws63_m                       # flash_stat 构建产物目录(内联测量口径)
 FS_DIR=$TM/ws63_flash_stat                           # flash_stat 测量归档(map + rom.txt)
 LOG=$RUN/ws63_tier_compare.log
 XLSX=$PWD/ws63挡位预期对比.xlsx   # 默认输出到执行时所在目录(当前目录), --out 可覆盖
@@ -73,9 +77,17 @@ else
   flock -w 7200 9 || die "任务锁等待超时(nightly 仍在运行?)"
 fi
 
-for f in "$FP" "$GFS" "$WV" "$WBL"; do
+for f in "$FP" "$GFS" "$WV"; do
   [ -f "$f" ] || die "缺少前置文件 $f"
 done
+# baseline 自举: backup/ws63_debug.config.baseline 缺失时从 vendor 源现补, 解除对 nightly
+# 阶段2 刷新动作的硬性依赖; 仅缺失时补、不覆盖 —— baseline 是 restore_all 的还原基准,
+# 每次覆盖会把测量态 vendor config 固化污染还原链; 源 $WV 已由上方前置检查把关
+if [ ! -f "$WBL" ]; then
+  log "baseline 缺失, 从 vendor 源自举: $WV → $WBL"
+  mkdir -p "$(dirname "$WBL")"
+  cp "$WV" "$WBL" || die "baseline 自举失败(拷贝 $WV → $WBL)"
+fi
 # itp002 挡位 config 非硬性前置: 缺失(阶段3 未跑)时自动回退 vendor 基线骨架白名单自生成
 [ -d "$RV_BIN" ] || die "缺少 ws63 riscv SDK 工具链 $RV_BIN"
 python3 -c "import openpyxl" 2>/dev/null || die "缺少 openpyxl"
@@ -99,16 +111,64 @@ flash_stat_complete() {
 }
 
 # ---------------- WS63 ROM 测量(debug_flash_stat.config, rom=.text+.rodata)→ 历史跟踪 ----------------
-# 在挡位守卫施加前执行(镜像纯净无守卫); 工具自备 vendor config 换装/还原 trap + board-test-runner
-# resource 全局锁; 产物归档 tier_meas/ws63_flash_stat/ 供 reuse 复用, Excel "WS63 ROM" 页签基线跟踪
-if [ ! -f "$FSS" ]; then
-  log "WARNING: 缺少 $FSS, 本轮跳过 WS63 ROM 跟踪测量"
-elif flash_stat_complete; then
+# 在挡位守卫施加前执行(镜像纯净无守卫); 方法内联于本脚本(见头注释), vendor config 换装/还原经
+# 子 shell trap 保证; board-test-runner resource 全局锁互斥(子 shell fd 8, 独立于任务锁 fd 9);
+# 产物 $FS_OUT/rom_text_rodata.txt(机器可读 ROM 字节数)+OHOS_Image.map, 归档 tier_meas/ws63_flash_stat/
+# 供 reuse 复用, Excel "WS63 ROM" 页签基线跟踪; 任一环节失败仅 WARNING 跳过, 不阻断主流程
+FSC=$ROOT/vendor/hihope/ws63_m/kernel_configs/debug_flash_stat.config   # 测量配置(=debug.config+FLASH_STAT)
+FSD=$ROOT/vendor/hihope/ws63_m/kernel_configs/debug.config              # 被临时换装的 vendor 原配置
+FS_LOCK="${BOARD_LOCK_DIR:-$HOME/.cache/board_locks}/resource.lock"     # board-test-runner 全局编译/烧写锁
+FS_TIMEOUT="${FLASH_STAT_TIMEOUT_SEC:-600}"
+
+do_flash_stat() {   # 0=成功(rom_text_rodata.txt 已产出) 1=失败(跳过 ROM 跟踪, 不阻断)
+  [ -f "$FSC" ] || { log "WARNING: 缺少 $FSC, 本轮跳过 WS63 ROM 测量"; return 1; }
+  [ -f "$FSD" ] || { log "WARNING: 缺少 $FSD, 本轮跳过 WS63 ROM 测量"; return 1; }
+  # 换装 → 构建 → 还原(子 shell trap 兜底: 编译失败/超时被杀也恢复 vendor 原状)
+  (
+    exec 8>"$FS_LOCK"
+    flock -w 300 8 || { echo "[flash_stat] resource 锁等待超时 300s, 放弃本轮 ROM 测量"; exit 3; }
+    cp -f "$FSD" "$FSD.bak_flash_stat"
+    cp -f "$FSC" "$FSD"
+    trap 'mv -f "$FSD.bak_flash_stat" "$FSD" 2>/dev/null' EXIT
+    rm -rf "$FS_OUT" "$ROOT/out/preloader/ws63_m"    # 物理清理防 hb 复用旧解析(假全量)
+    cd "$ROOT" && export PATH="$RV_BIN:$PATH" \
+      && timeout -k 5 "$FS_TIMEOUT" bash -c "hb set -p ws63_m && hb build -p ws63_m -f"
+  ) >>"$LOG" 2>&1 || { log "WARNING: ws63 flash_stat 编译失败 rc=$? (详见 $LOG), 本轮跳过 ROM 跟踪新增"; return 1; }
+  [ -f "$FS_OUT/OHOS_Image.map" ] || { log "WARNING: 编译成功但 map 缺失: $FS_OUT/OHOS_Image.map"; return 1; }
+  # map 解析: ROM = .startup 输出段头 size(WS63 链接脚本将 .text*/.rodata* 只读输入段全归并入
+  # PROGRAM_STARTUP flash 区, 段头即 rom=.text+.rodata); .text/.rodata 输入段累计为分解参考口径
+  # map 输入段行两种格式: 单行" .name 0xaddr 0xsize obj..." / 双行" .name"换行" 0xaddr 0xsize obj..."
+  local STATS ROM FS_TEXT FS_RODATA FS_TOTAL
+  STATS=$(awk '
+    /^\.startup[ \t]/ { in_sec=1; sec_size=strtonum($3); next }
+    /^\./             { in_sec=0 }
+    !in_sec            { next }
+    /^[ \t]+\./ && NF >= 3 && $2 ~ /^0x/ && $3 ~ /^0x/ {
+        sz = strtonum($3); total += sz
+        if ($1 ~ /\.rodata/) rodata += sz; else text += sz
+        pending = ""; next
+    }
+    /^[ \t]+\.[^ \t]*$/ { pending = $1; next }
+    /^[ \t]+0x/ && NF >= 2 && $2 ~ /^0x/ && pending != "" {
+        sz = strtonum($2); total += sz
+        if (pending ~ /\.rodata/) rodata += sz; else text += sz
+        pending = ""; next
+    }
+    /^[ \t]*\*fill\*/ { next }     # 对齐填充不计入分解参考
+    END { printf "%d %d %d %d", total, text, rodata, sec_size }' "$FS_OUT/OHOS_Image.map") \
+    || { log "WARNING: flash_stat map 解析失败"; return 1; }
+  read -r FS_TOTAL FS_TEXT FS_RODATA ROM <<< "$STATS"
+  [ -n "$ROM" ] && [ "$ROM" -gt 0 ] 2>/dev/null || { log "WARNING: map 中未找到 .startup 段, ROM 解析失败"; return 1; }
+  printf '%s\n' "$ROM" > "$FS_OUT/rom_text_rodata.txt"
+  log "[flash_stat] ROM(.text+.rodata)=${ROM}B  分解参考: .text=${FS_TEXT}B .rodata=${FS_RODATA}B 输入段累计=${FS_TOTAL}B"
+  return 0
+}
+
+if flash_stat_complete; then
   log "WS63 ROM 数据源: 复用 $FS_DIR 归档(rom 取构建期 map 解析产物)"
 else
-  log "== 构建 ws63 flash_stat 镜像(debug_flash_stat.config, rom=.text+.rodata) =="
-  if ( cd "$ROOT" && bash "$FSS" ) >>"$LOG" 2>&1 && \
-     [ -s "$FS_OUT/rom_text_rodata.txt" ] && [ -f "$FS_OUT/OHOS_Image.map" ]; then
+  log "== 构建 ws63 flash_stat 镜像(debug_flash_stat.config, rom=.text+.rodata, 内联测量) =="
+  if do_flash_stat && [ -s "$FS_OUT/rom_text_rodata.txt" ] && [ -f "$FS_OUT/OHOS_Image.map" ]; then
     rm -rf "$FS_DIR"; mkdir -p "$FS_DIR"
     cp "$FS_OUT/OHOS_Image.map" "$FS_DIR/"
     cp "$FS_OUT/rom_text_rodata.txt" "$FS_DIR/rom.txt"
@@ -289,6 +349,7 @@ import datetime, json, os, re, subprocess, sys
 
 XLSX, MODE = sys.argv[1], sys.argv[2]
 ROOT = os.environ["ROOT"]
+HERE = os.environ.get("HERE")
 TM = f"{ROOT}/testresult/tier_meas"
 KLM = f"{ROOT}/kernel/liteos_m"
 FP = f"{KLM}/tools/footprint/footprint.py"
@@ -356,9 +417,10 @@ workaround = open(WM).read().strip() if os.path.exists(WM) else None
 
 gen_time = datetime.datetime.now().strftime("%F %H:%M")
 
-# ---- WS63 ROM 持续跟踪历史(持久化于 testresult 根: nightly 每轮清 tier_meas, 不清此处) ----
+# ---- WS63 ROM 持续跟踪历史(持久化于脚本同目录 preset/: git 仓内 .gitignore 豁免, nightly clean
+# 不清此处且手动删 testresult 亦不伤基线; 每轮清的是 tier_meas, 本文件跨轮累积) ----
 # 条目: {"time","mtime","head","rom","config"}; 首条=基线; 追加去重键=(rom,mtime,head) 防 reuse 重复记
-HISTF = f"{ROOT}/testresult/ws63_rom_hist.json"
+HISTF = f"{HERE}/ws63_rom_hist.json"
 hist = []
 if os.path.exists(HISTF):
     try:
@@ -546,7 +608,7 @@ notes = [
     ("WS63 ROM 跟踪方法", "flash_stat_ws63.sh(与本脚本同目录): vendor/hihope/ws63_m/kernel_configs/"
      "debug_flash_stat.config 构建 ws63_m 产品(LOSCFG_TEST_KERNEL_FLASH_STAT=y: 测试套不编入, "
      "flash_link_ref.c 引用全部内核对外 API 防链接裁剪, 固件≈纯内核); ROM=链接 map .startup 输出段"
-     "(.text*/.rodata* 归并入, 含对齐填充)=.text+.rodata 口径; 历史持久化 testresult/ws63_rom_hist.json"
+     "(.text*/.rodata* 归并入, 含对齐填充)=.text+.rodata 口径; 历史持久化 preset/ws63_rom_hist.json(脚本同目录)"
      " 每轮追加(按 rom+mtime+head 去重), 'WS63 ROM' 页签持续跟踪, 首条=基线"),
     ("测量口径", "挡位纯净内核镜像: itp002 挡位 config 仅保留平台/架构/挡位行, KERNEL_TEST=n + NET_LWIP=n, "
                "非挡位管理组件交回 Kconfig 默认(含 TINY 下 IPC 全关/MUX=n, 符合挡位说明 §7.3; ws63 printf 走内核"

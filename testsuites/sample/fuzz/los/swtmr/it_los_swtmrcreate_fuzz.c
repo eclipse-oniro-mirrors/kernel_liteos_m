@@ -38,7 +38,7 @@ static UINT32 TestCase(VOID)
     UINT32 tid = 0; UINT32 ret;
     for (int i = 0; i < CYCLE_TOTAL_TIMES; i++) {
         FuzzWatchdogFeed(); FuzzHeartbeat(i);
-        ret = LOS_SwtmrCreate((*(UINT32 *)DT_SetGetU32(&g_element[0], 3)) % 8 + 1,
+        ret = LOS_SWTMR_CREATE((*(UINT32 *)DT_SetGetU32(&g_element[0], 3)) % 8 + 1,
             (UINT8)((*(UINT32 *)DT_SetGetU32(&g_element[1], 0)) & 1),
             (SWTMR_PROC_FUNC)FzSwtmrCb, &tid, 0);
         if (ret == LOS_OK) { (VOID)LOS_SwtmrDelete(tid); }

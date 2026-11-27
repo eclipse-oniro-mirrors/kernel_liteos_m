@@ -78,7 +78,7 @@ static UINT32 Testcase(void)
     g_testCount = 0;
     g_testPeriod = 10; // period is 10
 
-    ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_usSwTmrID, 0);
+    ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_usSwTmrID, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     currCpuid = (ArchCurrCpuid() + 1) % (LOSCFG_KERNEL_CORE_NUM);

@@ -143,7 +143,7 @@ static UINT32 Testcase(VOID)
      * (SwtmrCountGetTest 与实际 free list 存在差量: 系统占用不可见部分,
      * 实测 count=1 时 A 仍创建失败, 故以探测值为准) */
     for (i = 0; i < LOSCFG_BASE_CORE_SWTMR_LIMIT; i++) {
-        ret = LOS_SwtmrCreate(1000, LOS_SWTMR_MODE_ONCE, Swtmr124NoopHandler, &probeIds[i], 0); /* 1000: 不启动不会到期 */
+        ret = LOS_SWTMR_CREATE(1000, LOS_SWTMR_MODE_ONCE, Swtmr124NoopHandler, &probeIds[i], 0); /* 1000: 不启动不会到期 */
         if (ret != LOS_OK) {
             break;
         }
@@ -170,7 +170,7 @@ static UINT32 Testcase(VOID)
 
     /* B 族: ONCE 型 10 tick 到期, 统一挂一次性忙等回调 */
     for (i = 0; i < cntB; i++) {
-        ret = LOS_SwtmrCreate(SWTMR124_INTERVAL_B, LOS_SWTMR_MODE_ONCE, Swtmr124OnceHandler, &bIds[i], 0);
+        ret = LOS_SWTMR_CREATE(SWTMR124_INTERVAL_B, LOS_SWTMR_MODE_ONCE, Swtmr124OnceHandler, &bIds[i], 0);
         if (ret != LOS_OK) {
             dprintf("[Swtmr124] B[%u] create fail ret=0x%x\n", i, ret);
             goto CLEANUP;
@@ -184,7 +184,7 @@ static UINT32 Testcase(VOID)
     }
     /* C: 周期型 1 tick, 每 tick 补一格, 在 A 到期(T0+16)前必然打满环形队列
      * (忙等期间 tick 扫描正常, C 链持续供给; 打满后 C 溢出丢弃无害-周期型自重排) */
-    ret = LOS_SwtmrCreate(SWTMR124_INTERVAL_C, LOS_SWTMR_MODE_PERIOD, Swtmr124RecordHandler, &cId, 3); /* 3: C 标记 */
+    ret = LOS_SWTMR_CREATE(SWTMR124_INTERVAL_C, LOS_SWTMR_MODE_PERIOD, Swtmr124RecordHandler, &cId, 3); /* 3: C 标记 */
     if (ret != LOS_OK) {
         dprintf("[Swtmr124] C create fail ret=0x%x\n", ret);
         goto CLEANUP;
@@ -195,7 +195,7 @@ static UINT32 Testcase(VOID)
         goto CLEANUP;
     }
     /* A: ONCE 型 16 tick, 到期时环形队列已满(free==0) -> 被丢弃并滞留 DELETING */
-    ret = LOS_SwtmrCreate(SWTMR124_INTERVAL_A, LOS_SWTMR_MODE_ONCE, Swtmr124RecordHandler, &aId, 2); /* 2: A 标记 */
+    ret = LOS_SWTMR_CREATE(SWTMR124_INTERVAL_A, LOS_SWTMR_MODE_ONCE, Swtmr124RecordHandler, &aId, 2); /* 2: A 标记 */
     if (ret != LOS_OK) {
         dprintf("[Swtmr124] A create fail ret=0x%x\n", ret);
         goto CLEANUP;

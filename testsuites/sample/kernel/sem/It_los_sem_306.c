@@ -46,7 +46,7 @@ static UINT32 TestCase(VOID)
 
     g_semCbDone306 = 0;
     g_semCbRet306 = 0xFF;
-    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrFunc306, &swtmrId, 0);
+    ret = LOS_SWTMR_CREATE(10, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrFunc306, &swtmrId, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_SwtmrStart(swtmrId);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);

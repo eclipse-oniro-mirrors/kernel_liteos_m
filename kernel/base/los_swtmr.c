@@ -515,6 +515,89 @@ LITE_OS_SEC_TEXT STATIC UINT32 OsSwtmrTimeGet(const LosSwtmrCB *swtmr)
     return OsSwtmrRollToTick(time);
 }
 
+#if (LOSCFG_OBSOLETE_API == 1) && (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
+LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
+                                             UINT8 mode,
+                                             SWTMR_PROC_FUNC handler,
+                                             UINT32 *swtmrId,
+                                             UINTPTR arg,
+                                             UINT8 rouses,
+                                             UINT8 sensitive)
+{
+    LosSwtmrCB *swtmr = NULL;
+    UINT32 intSave;
+    SortLinkList *sortList = NULL;
+
+    if (interval == 0) {
+        return LOS_ERRNO_SWTMR_INTERVAL_NOT_SUITED;
+    }
+
+    if ((mode != LOS_SWTMR_MODE_ONCE) && (mode != LOS_SWTMR_MODE_PERIOD) &&
+        (mode != LOS_SWTMR_MODE_NO_SELFDELETE)) {
+        return LOS_ERRNO_SWTMR_MODE_INVALID;
+    }
+
+    if (handler == NULL) {
+        return LOS_ERRNO_SWTMR_PTR_NULL;
+    }
+
+    if (swtmrId == NULL) {
+        return LOS_ERRNO_SWTMR_RET_PTR_NULL;
+    }
+
+    if ((rouses != OS_SWTMR_ROUSES_IGNORE) && (rouses != OS_SWTMR_ROUSES_ALLOW)) {
+        return OS_ERRNO_SWTMR_ROUSES_INVALID;
+    }
+
+    if ((sensitive != OS_SWTMR_ALIGN_INSENSITIVE) && (sensitive != OS_SWTMR_ALIGN_SENSITIVE)) {
+        return OS_ERRNO_SWTMR_ALIGN_INVALID;
+    }
+
+    SWTMR_LOCK(intSave);
+    if (LOS_ListEmpty(&g_swtmrFreeList)) {
+        SWTMR_UNLOCK(intSave);
+        return LOS_ERRNO_SWTMR_MAXSIZE;
+    }
+
+    sortList = LOS_DL_LIST_ENTRY(g_swtmrFreeList.pstNext, SortLinkList, sortLinkNode);
+    swtmr = LOS_DL_LIST_ENTRY(sortList, LosSwtmrCB, sortList);
+    LOS_ListDelete(LOS_DL_LIST_FIRST(&g_swtmrFreeList));
+    SWTMR_UNLOCK(intSave);
+
+    swtmr->handler  = handler;
+    swtmr->mode     = mode;
+    swtmr->overrun  = 0;
+    swtmr->interval = interval;
+    swtmr->expiry   = interval;
+    swtmr->arg      = arg;
+    swtmr->state    = OS_SWTMR_STATUS_CREATED;
+    SET_SORTLIST_VALUE(&swtmr->sortList, OS_SORT_LINK_INVALID_TIME);
+
+    (VOID)rouses;
+    if ((sensitive == OS_SWTMR_ALIGN_INSENSITIVE) && (mode == LOS_SWTMR_MODE_PERIOD)) {
+        swtmr->alignEnable = TRUE;
+    } else {
+        swtmr->alignEnable = FALSE;
+    }
+    swtmr->isAligned = FALSE;
+
+    *swtmrId = swtmr->timerId;
+
+#ifdef LOSCFG_DEBUG_RESOURCE_INFO
+    SWTMR_LOCK(intSave);
+    g_swtmrUsed += 1;
+    if (g_swtmrUsed > g_swtmrPeak) {
+        g_swtmrPeak = g_swtmrUsed;
+    }
+    SWTMR_UNLOCK(intSave);
+#endif
+
+    OsHookCall(LOS_HOOK_TYPE_SWTMR_CREATE, swtmr);
+    LOS_TRACE(SWTMR_CREATE, swtmr->timerId);
+
+    return LOS_OK;
+}
+#else
 LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
                                              UINT8 mode,
                                              SWTMR_PROC_FUNC handler,
@@ -591,6 +674,7 @@ LITE_OS_SEC_TEXT_INIT UINT32 LOS_SwtmrCreate(UINT32 interval,
 
     return LOS_OK;
 }
+#endif
 
 #ifdef LOSCFG_BASE_CORE_SYS_RES_CHECK
 LosSwtmrCB *OsSwtmrIdVerify(UINT32 swtmrId)

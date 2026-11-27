@@ -815,7 +815,7 @@ UINT32 LOS_PmTimeLockRequest(const CHAR *name, UINT64 millisecond)
     }
 
     ticks = (UINT32)((millisecond + OS_MS_PER_TICK - 1) / OS_MS_PER_TICK);
-    ret = LOS_SwtmrCreate(ticks, LOS_SWTMR_MODE_ONCE, OsPmSwtmrHandler, &swtmrID, (UINT32)(UINTPTR)name);
+    ret = LOS_SWTMR_CREATE(ticks, LOS_SWTMR_MODE_ONCE, OsPmSwtmrHandler, &swtmrID, (UINT32)(UINTPTR)name);
     if (ret != LOS_OK) {
         return ret;
     }

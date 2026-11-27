@@ -101,7 +101,7 @@ static UINT32 Testcase(void)
     for (i = 0; i < LOOP; i++) {
         g_testCount = 0;
 
-        ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_usSwTmrID, 0);
+        ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_usSwTmrID, 0);
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
         TEST_TASK_PARAM_INIT_AFFI(testTask, "it_swtmr_033_task1", TaskF01, TASK_PRIO_TEST_SWTMR - 1,

@@ -86,7 +86,7 @@ static UINT32 Testcase(void)
     for (j = 0; j < LOOP; j++) {
         g_testCount = 0;
         g_ret = 0xff;
-        ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_usSwTmrID, 0);
+        ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_usSwTmrID, 0);
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
         ret = LOS_SwtmrStart(g_usSwTmrID);

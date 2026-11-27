@@ -73,15 +73,15 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     // 7, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(7, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &swtmrId1, 0xffff);
+    ret = LOS_SWTMR_CREATE(7, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     // 8, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(8, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case2, &swtmrId2, 0xffff);
+    ret = LOS_SWTMR_CREATE(8, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case2, &swtmrId2, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     // 9, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(9, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case3, &swtmrId3, 0xffff);
+    ret = LOS_SWTMR_CREATE(9, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case3, &swtmrId3, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(swtmrId1);

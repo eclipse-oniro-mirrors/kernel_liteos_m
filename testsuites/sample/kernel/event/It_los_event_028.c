@@ -123,7 +123,7 @@ static UINT32 Testcase(VOID)
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
     /* 4, Timeout interval of a periodic software timer. */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT2);
 
     LOS_SwtmrStart(swTmrID);

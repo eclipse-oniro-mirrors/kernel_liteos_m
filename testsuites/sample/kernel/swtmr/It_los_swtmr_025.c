@@ -53,7 +53,7 @@ static UINT32 Testcase(VOID)
 
     for (i = 1; i < SWTMR_LOOP_NUM; i++) {
         // 2, Timeout interval of a periodic software timer.
-        ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xffff);
+        ret = LOS_SWTMR_CREATE(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xffff);
         ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
         ret = LOS_SwtmrStart(swTmrID);

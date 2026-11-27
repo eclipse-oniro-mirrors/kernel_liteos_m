@@ -127,7 +127,7 @@ static VOID CanRxDemoTask(UINT32 arg)
     {
         UINT32 swtmrId = 0;
 
-        ret = (int)LOS_SwtmrCreate(100, LOS_SWTMR_MODE_PERIOD,
+        ret = (int)LOS_SWTMR_CREATE(100, LOS_SWTMR_MODE_PERIOD,
                                    CanRxDemoSwtmrCb, &swtmrId, 0);
         blk->swtmr_err = (uint32_t)ret;
         if (ret == LOS_OK) {

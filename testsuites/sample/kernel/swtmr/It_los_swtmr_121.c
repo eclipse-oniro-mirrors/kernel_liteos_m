@@ -14,7 +14,7 @@ static UINT32 Testcase(void)
 
     g_swtmr121Fired = 0;
 
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrHandler121, &swtmrId, 0xffff);
+    ret = LOS_SWTMR_CREATE(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrHandler121, &swtmrId, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrDelete(swtmrId);

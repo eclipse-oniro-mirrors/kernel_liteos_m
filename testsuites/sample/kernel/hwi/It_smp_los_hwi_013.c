@@ -80,7 +80,7 @@ static UINT32 Testcase(void)
     (VOID)LOS_HwiSetAffinity(HWI_NUM_TEST, CPUID_TO_AFFI_MASK((ArchCurrCpuid() + 1) % LOSCFG_KERNEL_CORE_NUM)); // other cpu
 
     for (i = 0; i < LOOP; i++) {
-        ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0);
+        ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0);
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
         TestHwiTrigger(HWI_NUM_TEST); // delete swtmr in hwi on other cpu

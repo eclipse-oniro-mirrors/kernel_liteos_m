@@ -45,7 +45,7 @@ static UINT32 Testcase(VOID)
 
     g_testCount = 0;
 
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi001Func, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi001Func, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(swTmrID);

@@ -67,7 +67,7 @@ static UINT32 Calsum(UINT32 begin, UINT32 end)
 static VOID TaskF01(UINT32 index)
 {
     UINT32 ret, i, j;
-    ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD,
+    ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD,
                           (SWTMR_PROC_FUNC)SwtmrF01, &g_sztmrId[index], 0);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
     (VOID)LOS_AtomicAdd((Atomic *)&g_flag, index);

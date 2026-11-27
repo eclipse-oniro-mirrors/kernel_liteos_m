@@ -71,7 +71,7 @@ static UINT32 Testcase(void)
     UINT32 swTmrID;
 
     // 2, swtmr interval
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE, SwtmrF01, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(2, LOS_SWTMR_MODE_ONCE, SwtmrF01, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(swTmrID);

@@ -65,7 +65,7 @@ static UINT32 TestCase(VOID)
     ICUNIT_ASSERT_NOT_EQUAL(sleepTicks, 0, sleepTicks);
 
     /* 2 swtmr 链: 100 tick 周期定时器启动后采样 <= 100 */
-    ret = LOS_SwtmrCreate(100, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrFuncTC015, &swtmrId, 0);
+    ret = LOS_SWTMR_CREATE(100, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrFuncTC015, &swtmrId, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_SwtmrStart(swtmrId);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
@@ -114,7 +114,7 @@ static UINT32 TestCase(VOID)
     ret = LOS_SwtmrDelete(swtmrId);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_SwtmrCreate(50, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrFuncTC015, &swtmrId, 0);
+    ret = LOS_SWTMR_CREATE(50, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrFuncTC015, &swtmrId, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_SwtmrStart(swtmrId);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);

@@ -57,7 +57,7 @@ static void TaskF01(void)
     UINT32 ret, currCpuid;
     (VOID)currCpuid;
 
-    ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrF01, &g_usSwTmrID, 0);
+    ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrF01, &g_usSwTmrID, 0);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
     ret = LOS_SwtmrStart(g_usSwTmrID);

@@ -62,7 +62,7 @@ static VOID TaskF01(UINT32 index)
         for (j = 0; j < TRandom() % 100; j++) { // 100, Gets a random number between 0 and 100
         }
 
-        ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD,
+        ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD,
                               (SWTMR_PROC_FUNC)SwtmrF01, &g_sztmrId[index], 0);
         ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 

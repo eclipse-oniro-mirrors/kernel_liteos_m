@@ -51,7 +51,7 @@ static VOID TaskF01(VOID)
     UINT32 swTmrID;
 
     // 2, Create a timer for 2s.
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrF01, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrF01, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
     ret = LOS_SwtmrStart(swTmrID);

@@ -75,7 +75,7 @@ static UINT32 Testcase(void)
     g_testCount = 0;
     g_testPeriod = 10; // period is 10
 
-    ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrF01, &g_usSwTmrID, 0);
+    ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrF01, &g_usSwTmrID, 0);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     TEST_TASK_PARAM_INIT_AFFI(testTask, "it_swtmr_003_task", TaskF01, TASK_PRIO_TEST_SWTMR - 1,

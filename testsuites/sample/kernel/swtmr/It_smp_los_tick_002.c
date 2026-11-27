@@ -29,7 +29,7 @@ static void TickF02(void)
 {
     UINT32 swTmrId;
     UINT32 ret;
-    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrF02, &swTmrId, 0);
+    ret = LOS_SWTMR_CREATE(10, LOS_SWTMR_MODE_ONCE, (SWTMR_PROC_FUNC)SwtmrF02, &swTmrId, 0);
     if (ret != LOS_OK) { return; }
     ret = LOS_SwtmrStart(swTmrId);
     if (ret != LOS_OK) { return; }

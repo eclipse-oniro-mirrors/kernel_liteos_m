@@ -378,11 +378,42 @@ extern UINT32 LOS_SwtmrTimeGet(UINT32 swtmrID, UINT32 *tick);
  * <ul><li>los_swtmr.h: the header file that contains the API declaration.</li></ul>
  * @see LOS_SwtmrDelete
  */
+#if !defined(LOSCFG_OBSOLETE_API) || (defined(LOSCFG_OBSOLETE_API) && LOSCFG_BASE_CORE_SWTMR_ALIGN !=1)
 extern UINT32 LOS_SwtmrCreate(UINT32 interval,
                               UINT8 mode,
                               SWTMR_PROC_FUNC handler,
                               UINT32 *swtmrID,
                               UINTPTR arg);
+#else /* (defined LOSCFG_OBSOLETE_API) && (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1) */
+extern UINT32 LOS_SwtmrCreate(UINT32 interval,
+                              UINT8 mode,
+                              SWTMR_PROC_FUNC handler,
+                              UINT32 *swtmrID,
+                              UINTPTR arg,
+                              UINT8 rouses,
+                              UINT8 sensitive);
+#endif
+
+/*
+ * Adapter macro: callers write the unified 5-parameter form (mode may be OR'd
+ * with LOS_SWTMR_ALIGN_FLAG); it expands to the active LOS_SwtmrCreate form.
+ * Note: 'mode' must not have side effects (evaluated more than once in the
+ * 7-parameter branch).
+ */
+#if (LOSCFG_OBSOLETE_API == 1) && (LOSCFG_BASE_CORE_SWTMR_ALIGN == 1)
+#define LOS_SWTMR_CREATE(interval, mode, handler, swtmrID, arg)              \
+    LOS_SwtmrCreate((interval),                                              \
+                    (mode) & ~(UINT8)LOS_SWTMR_ALIGN_FLAG,                   \
+                    (handler),                                               \
+                    (swtmrID),                                               \
+                    (arg),                                                   \
+                    OS_SWTMR_ROUSES_ALLOW,                                   \
+                    ((mode) & LOS_SWTMR_ALIGN_FLAG) ?                        \
+                        OS_SWTMR_ALIGN_INSENSITIVE : OS_SWTMR_ALIGN_SENSITIVE)
+#else
+#define LOS_SWTMR_CREATE(interval, mode, handler, swtmrID, arg)              \
+    LOS_SwtmrCreate((interval), (mode), (handler), (swtmrID), (arg))
+#endif
 
 /**
  * @ingroup los_swtmr

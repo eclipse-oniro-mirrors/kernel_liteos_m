@@ -42,7 +42,8 @@
 #include "los_timer.h"
 #include "los_debug.h"
 
-STATIC UINT32 g_sysNeedSched = FALSE;
+LITE_OS_SEC_BSS LosTaskCB *g_runTask = NULL;
+LITE_OS_SEC_BSS LosTaskCB *g_oldTask = NULL;
 
 UINT32 g_stackDefault[] = {
     0x00000000,     /* REG_OFF_PC */
@@ -128,34 +129,25 @@ LITE_OS_SEC_TEXT_INIT VOID *ArchTaskStackInit(UINT32 taskId, UINT32 stackSize, V
     return (VOID *)context;
 }
 
-VOID HalStartToRun(VOID)
+VOID ArchStartToRun(LosTaskCB *newTask)
 {
+    g_runTask = newTask;
     __asm__ volatile ("call0 OsStartToRun");
 }
 
-LITE_OS_SEC_TEXT_INIT UINT32 ArchStartSchedule(VOID)
-{
-    (VOID)LOS_IntLock();
-    OsSchedStart();
-    HalStartToRun();
-    return LOS_OK;
-}
-
-VOID ArchTaskSchedule(VOID)
+VOID ArchTaskSchedule(LosTaskCB *newTask, LosTaskCB *runTask)
 {
     UINT32 intSave;
 
     if (OS_INT_ACTIVE) {
-        g_sysNeedSched = TRUE;
+        OsSetSchedFlag(INT_PEND_RESCH);
         return;
     }
 
     intSave = LOS_IntLock();
-    g_sysNeedSched = FALSE;
-    BOOL isSwitch = OsSchedTaskSwitch();
-    if (isSwitch) {
-        HalTaskContextSwitch();
-    }
+    g_runTask = newTask;
+    g_oldTask = runTask;
+    HalTaskContextSwitch();
 
     LOS_IntRestore(intSave);
     return;
@@ -163,7 +155,7 @@ VOID ArchTaskSchedule(VOID)
 
 VOID HalIrqEndCheckNeedSched(VOID)
 {
-    if (g_sysNeedSched && g_taskScheduled && LOS_CHECK_SCHEDULE) {
-        ArchTaskSchedule();
+    if (g_taskScheduled && LOS_CHECK_SCHEDULE) {
+        OsSchedProcSchedFlag();
     }
 }

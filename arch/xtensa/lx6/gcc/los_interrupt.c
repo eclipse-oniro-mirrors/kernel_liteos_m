@@ -81,7 +81,7 @@ UINT32 ArchIntUnLock(VOID)
  * @ingroup los_hwi
  * Determine if the interrupt is locked
  */
-STATIC INLINE UINT32 ArchIntLocked(VOID)
+UINT32 ArchIntLocked(VOID)
 {
     UINT32 intSave;
 
@@ -182,6 +182,9 @@ VOID HalInterrupt(VOID)
     UINT32 hwiIndex;
 
     hwiIndex = HwiNumGet();
+    if (hwiIndex >= OS_HWI_MAX_NUM) {
+        return;
+    }
     HwiClear(hwiIndex);
     OsIntHandle(hwiIndex, &g_hwiHandleForm[hwiIndex]);
     HalIrqEndCheckNeedSched();
@@ -316,7 +319,7 @@ VOID HalExcHandleEntry(UINTPTR faultAddr, EXC_CONTEXT_S *excBufAddr, UINT32 type
     g_excInfo.faultAddr = faultAddr;
     g_excInfo.type = type;
 
-    LosTaskCB *taskCB = g_losTask.runTask;
+    LosTaskCB *taskCB = OsCurrTaskGet();
 
     if ((taskCB == NULL) || (taskCB == OS_TCB_FROM_TID(g_taskMaxNum))) {
         g_excInfo.phase = OS_EXC_IN_INIT;
@@ -326,7 +329,7 @@ VOID HalExcHandleEntry(UINTPTR faultAddr, EXC_CONTEXT_S *excBufAddr, UINT32 type
         g_excInfo.thrdPid = HwiNumGet();
     } else {
         g_excInfo.phase = OS_EXC_IN_TASK;
-        g_excInfo.thrdPid = g_losTask.runTask->taskId;
+        g_excInfo.thrdPid = taskCB->taskId;
     }
 
     g_excInfo.context = excBufAddr;
@@ -358,7 +361,7 @@ VOID HalHwiInit(VOID)
     EnableExceptionInterface();
     HWI_PROC_FUNC *hwiForm = (HWI_PROC_FUNC *)ArchGetHwiFrom();
     for (UINT32 i = 0; i < OS_HWI_MAX_NUM; i++) {
-        hwiForm[i + OS_SYS_VECTOR_CNT] = HalHwiDefaultHandler;
+        hwiForm[i + OS_SYS_VECTOR_CNT] = (HWI_PROC_FUNC)HalHwiDefaultHandler;
         HwiMask(i);
     }
     asm volatile ("wsr %0, vecbase" : : "r"(INIT_VECTOR_START));

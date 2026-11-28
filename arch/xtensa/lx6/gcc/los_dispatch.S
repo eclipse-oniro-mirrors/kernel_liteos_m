@@ -32,6 +32,9 @@
 #include "los_arch_regs.h"
 #include "los_arch_macro.h"
 
+.extern g_runTask
+.extern g_oldTask
+
 .section .text
 .literal_position
 .align      4
@@ -44,11 +47,11 @@ HalTaskContextSwitch:
     PUSH_ALL_REG a2
     call0   SaveRetAddr
     beqi    a3, 1, .switchdone
-    movi    a4, g_losTask
-    l32i    a5, a4, 0   /* get run task */
+    movi    a4, g_oldTask
+    l32i    a5, a4, 0   /* get old task */
     s32i    a2, a5, 0   /* store sp */
-    l32i    a5, a4, 4   /* get new task */
-    s32i    a5, a4, 0   /* run task = new task */
+    movi    a4, g_runTask
+    l32i    a5, a4, 0   /* get new task */
     l32i    a4, a5, 0   /* get new sp */
     rsr     a5, PS
     movi    a3, ~(WOE_ENABLE | LEVEL_MASK)
@@ -95,8 +98,8 @@ HakSpillWindow:
 .global OsStartToRun
 OsStartToRun:
 
-    movi    a2, g_losTask
-    l32i    a3, a2, 4   /* get new task */
+    movi    a2, g_runTask
+    l32i    a3, a2, 0   /* get new task */
     l32i    sp, a3, 0   /* get sp */
 
     rsr     a4, PS

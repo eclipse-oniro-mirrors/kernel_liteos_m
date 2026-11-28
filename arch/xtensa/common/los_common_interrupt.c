@@ -58,11 +58,6 @@ VOID HalHwiDefaultHandler(VOID)
     while (1) {}
 }
 
-STATIC UINT32 HwiNumValid(UINT32 num)
-{
-    return (num >= OS_SYS_VECTOR_CNT) && (num <= OS_VECTOR_CNT);
-}
-
 #if (LOSCFG_HWI_WITH_ARG == 1)
 
 /* *

@@ -101,7 +101,7 @@ LITE_OS_SEC_TEXT_INIT_LEVEL_ONE UINT32 OsMpInit(VOID)
     UINT32 swtmrId;
     UINT32 ret;
 
-    ret = LOS_SwtmrCreate(OS_MP_GC_PERIOD, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG,
+    ret = LOS_SWTMR_CREATE(OS_MP_GC_PERIOD, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG,
                           (SWTMR_PROC_FUNC)OsMpCollectTasks, &swtmrId, 0);
     if (ret != LOS_OK) {
         PRINT_ERR("Swtmr Create failed err:0x%x\n", ret);

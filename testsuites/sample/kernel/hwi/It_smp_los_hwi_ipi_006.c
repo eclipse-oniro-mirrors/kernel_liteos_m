@@ -60,7 +60,7 @@ static VOID HwiF01(void)
 {
     UINT32 ret, index;
     index = ArchCurrCpuid();
-    ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_szId[index], 0);
+    ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_szId[index], 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     (VOID)LOS_AtomicInc((Atomic *)&g_testCount);

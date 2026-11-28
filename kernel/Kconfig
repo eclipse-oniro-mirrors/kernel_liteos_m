@@ -282,8 +282,8 @@ config KERNEL_PM_FORCED_SLEEP_NO_TIMER
     default n
     depends on KERNEL_PM
     help
-      Enter the configured sleep mode without a timer to reduce power and overhead. 
-      Use only when timekeeping is not required: the tick count stops during sleep, 
+      Enter the configured sleep mode without a timer to reduce power and overhead.
+      Use only when timekeeping is not required: the tick count stops during sleep,
       so tick-based counting and delays do not work across sleep.
 
 config KERNEL_PM_DEBUG
@@ -920,5 +920,11 @@ config BASE_CORE_SWTMR
     default y
     help
       Answer Y to enable the software timer (swtmr) module.
+
+config OBSOLETE_API
+    bool "Enable Obsolete API"
+    default n
+    help
+      Task processing function parameters use the old way.
 
 endmenu

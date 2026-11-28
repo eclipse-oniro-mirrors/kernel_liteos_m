@@ -50,10 +50,10 @@ static UINT32 Testcase(VOID)
     UINT32 swtmrId2;
     g_testCount = 0;
 
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swtmrId1, 0xffff);
+    ret = LOS_SWTMR_CREATE(1, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &swtmrId2, 0xffff);
+    ret = LOS_SWTMR_CREATE(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &swtmrId2, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrDelete(swtmrId1);

@@ -52,7 +52,7 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     // 20, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(20, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(20, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT1);
 
     ret = LOS_QueueCreate("Q1", 10, &g_testQueueID01, 0, QUEUE_BASE_MSGSIZE); // 10, Create a queue with 10 nodes for test

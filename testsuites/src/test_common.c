@@ -65,7 +65,7 @@ VOID OsTestCalibrateBusyDelay(VOID)
     g_calibCount = 0;
     g_itersPerTick = 0;
 
-    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG,
+    ret = LOS_SWTMR_CREATE(10, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG,
                           (SWTMR_PROC_FUNC)OsTestCalibSwtmrHandler,
                           &swTmrID, 0);
     if (ret != LOS_OK) {

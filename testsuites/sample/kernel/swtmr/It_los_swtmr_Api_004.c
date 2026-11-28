@@ -46,31 +46,31 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     /* create with ALIGN_FLAG, ONCE mode (align ignored for non-PERIOD) */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi004Func, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi004Func, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_SwtmrDelete(swTmrID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     /* create with ALIGN_FLAG, ONCE mode */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi004Func, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi004Func, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_SwtmrDelete(swTmrID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     /* create without ALIGN_FLAG, ONCE mode */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_SwtmrDelete(swTmrID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     /* create without ALIGN_FLAG, ONCE mode */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_ONCE, SwtmrApi004Func, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_SwtmrDelete(swTmrID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     /* valid creation with ALIGN_FLAG */
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi004Func, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, SwtmrApi004Func, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     ret = LOS_SwtmrDelete(swTmrID);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);

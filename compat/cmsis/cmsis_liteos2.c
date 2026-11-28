@@ -763,7 +763,7 @@ osTimerId_t osTimerNew(osTimerFunc_t func, osTimerType_t type, void *argument, c
         return NULL;
     }
 
-    if (LOS_SwtmrCreate(1, mode, (SWTMR_PROC_FUNC)func, &swtmrId, (UINTPTR)argument) != LOS_OK) {
+    if (LOS_SWTMR_CREATE(1, mode, (SWTMR_PROC_FUNC)func, &swtmrId, (UINTPTR)argument) != LOS_OK) {
         return (osTimerId_t)NULL;
     }
     return (osTimerId_t)OS_SWT_FROM_SWTID(swtmrId);
@@ -790,7 +790,7 @@ osTimerId_t osTimerExtNew(osTimerFunc_t func, osTimerType_t type, void *argument
     if (sensitive == osTimerAlignAllow) {
         mode |= LOS_SWTMR_ALIGN_FLAG;
     }
-    if (LOS_OK != LOS_SwtmrCreate(1, mode, (SWTMR_PROC_FUNC)func, &usSwTmrID, (UINTPTR)argument)) {
+    if (LOS_OK != LOS_SWTMR_CREATE(1, mode, (SWTMR_PROC_FUNC)func, &usSwTmrID, (UINTPTR)argument)) {
         return (osTimerId_t)NULL;
     }
 

@@ -51,21 +51,21 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, NULL, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, NULL, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_SWTMR_RET_PTR_NULL, ret, EXIT);
 
-    ret = LOS_SwtmrCreate(0, 0, NULL, &swTmrID, 0);
+    ret = LOS_SWTMR_CREATE(0, 0, NULL, &swTmrID, 0);
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_SWTMR_INTERVAL_NOT_SUITED, ret, EXIT);
 
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, NULL, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, NULL, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_SWTMR_PTR_NULL, ret, EXIT);
 
-    ret = LOS_SwtmrCreate(0, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(0, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_SWTMR_INTERVAL_NOT_SUITED, ret, EXIT);
 
     // 4, Timeout interval of a periodic software timer. 3, mode of swtmr.
-    ret = LOS_SwtmrCreate(4, 3, Case1, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, 3, Case1, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_SWTMR_MODE_INVALID, ret, EXIT);
 
     return LOS_OK;

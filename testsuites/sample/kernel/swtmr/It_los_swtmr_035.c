@@ -129,13 +129,13 @@ static UINT32 Testcase(VOID)
     ret = LOS_EventInit(&g_eventCB3);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     // 1, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case6, &g_swtmrId1, 0xffff);
+    ret = LOS_SWTMR_CREATE(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case6, &g_swtmrId1, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     // 2, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case5, &g_swtmrId2, 0xffff);
+    ret = LOS_SWTMR_CREATE(2, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case5, &g_swtmrId2, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
     // 3, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(3, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case4, &g_swtmrId3, 0xffff);
+    ret = LOS_SWTMR_CREATE(3, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, (SWTMR_PROC_FUNC)Case4, &g_swtmrId3, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     LOS_TaskLock();

@@ -46,10 +46,10 @@ static UINT32 Testcase(VOID)
     UINT32 swtmrId1;
     UINT32 swtmrId2;
     // 4, Timeout interval of a periodic software timer. 10, invalid mode.
-    ret = LOS_SwtmrCreate(4, 10, Case1, &swtmrId1, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, 10, Case1, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_SWTMR_MODE_INVALID, ret);
     // 4, Timeout interval of a periodic software timer. 0xFF, invalid mode.
-    ret = LOS_SwtmrCreate(4, 0xFF, Case1, &swtmrId2, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, 0xFF, Case1, &swtmrId2, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_ERRNO_SWTMR_MODE_INVALID, ret);
 
     return LOS_OK;

@@ -63,7 +63,7 @@ VOID LosFlashLinkRef(VOID)
     (VOID)LOS_SemPend(0, 0);
     (VOID)LOS_SemPost(0);
 
-    (VOID)LOS_SwtmrCreate(0, 0, NULL, NULL, 0);
+    (VOID)LOS_SWTMR_CREATE(0, 0, NULL, NULL, 0);
     (VOID)LOS_SwtmrStart(0);
     (VOID)LOS_SwtmrStop(0);
     (VOID)LOS_SwtmrDelete(0);

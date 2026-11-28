@@ -46,7 +46,7 @@ static UINT32 Testcase(VOID)
     g_testCount = 0;
 
     // 1, Timeout interval of a periodic software timer. 10, mode of swtmr.
-    ret = LOS_SwtmrCreate(1, 10, Case1, &swtmrId1, 0xffff);
+    ret = LOS_SWTMR_CREATE(1, 10, Case1, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_NOT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_SwtmrDelete(swtmrId1);

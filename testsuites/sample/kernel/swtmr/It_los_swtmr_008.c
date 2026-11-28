@@ -49,7 +49,7 @@ static UINT32 Testcase(VOID)
     UINT32 swTmrID;
 
     // 1, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(1, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrDelete(swTmrID);

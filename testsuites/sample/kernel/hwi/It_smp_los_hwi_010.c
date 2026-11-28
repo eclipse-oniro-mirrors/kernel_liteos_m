@@ -56,7 +56,7 @@ static VOID SwtmrF01(void)
 static VOID HwiF01(void)
 {
     UINT32 ret;
-    ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_szId[0], 0);
+    ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_szId[0], 0);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
     TestDumpCpuid();
     return;
@@ -65,7 +65,7 @@ static VOID HwiF02(void)
 {
     UINT32 ret;
 
-    ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_szId[1], 0);
+    ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &g_szId[1], 0);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
     TestDumpCpuid();
     return;

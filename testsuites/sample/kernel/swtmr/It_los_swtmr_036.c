@@ -47,7 +47,7 @@ static UINT32 Testcase(VOID)
     UINT32 ret;
     UINT32 swTmrID;
 
-    ret = LOS_SwtmrCreate(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(2, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_SwtmrStart(swTmrID);

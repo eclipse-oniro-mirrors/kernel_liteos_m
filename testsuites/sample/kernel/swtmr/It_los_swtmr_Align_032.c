@@ -50,7 +50,7 @@ static UINT32 Testcase(VOID)
     UINT32 idAlign;
 
     /* 非对齐定时器：SENSITIVE 语义为"不需对齐"（alignEnable=FALSE）。 */
-    ret = LOS_SwtmrCreate(5, LOS_SWTMR_MODE_PERIOD, CaseFunc032, &idNonAlign, 0xffff);
+    ret = LOS_SWTMR_CREATE(5, LOS_SWTMR_MODE_PERIOD, CaseFunc032, &idNonAlign, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
     ret = LOS_SwtmrStart(idNonAlign);
@@ -58,7 +58,7 @@ static UINT32 Testcase(VOID)
 
     /* 需对齐定时器：INSENSITIVE 语义为"需对齐"（alignEnable=TRUE），
      * 启动时触发 FindAlignTime 遍历，跳过运行中的非对齐节点。 */
-    ret = LOS_SwtmrCreate(10, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, CaseFunc032, &idAlign, 0xffff);
+    ret = LOS_SWTMR_CREATE(10, LOS_SWTMR_MODE_PERIOD | LOS_SWTMR_ALIGN_FLAG, CaseFunc032, &idAlign, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(idAlign);

@@ -60,10 +60,10 @@ static UINT32 Testcase(VOID)
 
     g_testCount = 0;
     // 8, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(8, LOS_SWTMR_MODE_PERIOD, Case1, &swtmrId1, 0xffff);
+    ret = LOS_SWTMR_CREATE(8, LOS_SWTMR_MODE_PERIOD, Case1, &swtmrId1, 0xffff);
     ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
     // 8, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(8, LOS_SWTMR_MODE_PERIOD, Case2, &swtmrId2, 0xffff);
+    ret = LOS_SWTMR_CREATE(8, LOS_SWTMR_MODE_PERIOD, Case2, &swtmrId2, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     ret = LOS_SwtmrStart(swtmrId1);

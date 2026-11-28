@@ -59,7 +59,7 @@ static void TaskF01(void)
     UINT32 ret;
     UINT32 testSwtmrHandle;
 
-    ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &testSwtmrHandle, 0);
+    ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &testSwtmrHandle, 0);
     ICUNIT_ASSERT_EQUAL_VOID(ret, LOS_OK, ret);
 
     ret = LOS_SwtmrStart(testSwtmrHandle);

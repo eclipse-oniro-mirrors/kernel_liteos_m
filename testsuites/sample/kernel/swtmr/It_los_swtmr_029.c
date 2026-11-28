@@ -50,12 +50,12 @@ static UINT32 Testcase(VOID)
     UINT32 swtmrId1;
     g_testCount = 0;
     // 4, Timeout interval of a periodic software timer.
-    ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xffff);
+    ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swTmrID, 0xffff);
     ICUNIT_GOTO_EQUAL(ret, LOS_OK, ret, EXIT);
 
     if (LOSCFG_BASE_CORE_SWTMR_LIMIT == 1) {
         // 4, Timeout interval of a periodic software timer.
-        ret = LOS_SwtmrCreate(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swtmrId1, 0xffff);
+        ret = LOS_SWTMR_CREATE(4, LOS_SWTMR_MODE_ONCE | LOS_SWTMR_ALIGN_FLAG, Case1, &swtmrId1, 0xffff);
         ICUNIT_GOTO_EQUAL(ret, LOS_ERRNO_SWTMR_MAXSIZE, ret, EXIT);
     }
 

@@ -112,7 +112,7 @@ static UINT32 Testcase(void)
 
     LOS_TaskDelay(1);
     for (i = 0; i < LOOP; i++) {
-        ret = LOS_SwtmrCreate(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0);
+        ret = LOS_SWTMR_CREATE(g_testPeriod, LOS_SWTMR_MODE_PERIOD, (SWTMR_PROC_FUNC)SwtmrF01, &swTmrID, 0);
         ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
 
         (VOID)LOS_HwiSendIpi(HWI_NUM_INT11, g_targetCpuid);

@@ -240,6 +240,9 @@ irq_entry:
     /* Restore the caller saving registers (context) */
     RESTORE_CONTEXT
 
+    li t0, 0
+    csrw CSR_MINTSTATUS, t0
+
     /* Return to regular code */
     mret
 

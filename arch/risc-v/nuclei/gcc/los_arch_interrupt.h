@@ -34,6 +34,7 @@
 #define _LOS_ARCH_INTERRUPT_H
 
 #include "los_common_interrupt.h"
+#include "los_arch_context.h"
 #include "nuclei_sdk_soc.h"
 
 #ifdef __cplusplus
@@ -64,7 +65,51 @@ extern "C" {
  */
 #define OS_HWI_MAX_NUM        (OS_RISCV_VECTOR_CNT-1)
 
-extern VOID HalHwiDefaultHandler(VOID);
+/**
+ * @ingroup los_arch_interrupt
+ * Highest priority of a hardware interrupt. A smaller value means a higher
+ * priority; ECLIC counts upwards, so the setIrqPriority handler must invert
+ * the value before writing registers.
+ */
+#define OS_HWI_PRIO_HIGHEST        0
+
+/**
+ * @ingroup los_arch_interrupt
+ * Lowest priority of a hardware interrupt. Hardware level 0 never triggers,
+ * so the ECLIC level range maps to the logical domain [0, OS_HWI_PRIO_LOWEST].
+ */
+#define OS_HWI_PRIO_LOWEST         6
+
+/**
+ * @ingroup los_arch_interrupt
+ * Invalid argument of a hardware interrupt.
+ */
+#define OS_HWI_PRIO_INVALID        0xFFFFFFFF
+
+extern VOID HalHwiDefaultHandler(VOID *arg);
+
+typedef struct {
+    UINT32      mcause;
+    UINT32      mtval;
+    UINT32      medeleg;
+    UINT32      gp;
+    TaskContext taskContext;
+} LosExcContext;
+
+typedef struct {
+    UINT16 nestCnt;
+    UINT16 type;
+    UINT32 thrID;
+    LosExcContext *context;
+} LosExcInfo;
+
+extern LosExcInfo g_excInfo;
+
+typedef VOID (*EXC_PROC_FUNC)(UINT32, LosExcContext *);
+
+extern EXC_PROC_FUNC g_excRegHook;
+
+extern UINT32 ArchSetExcHook(EXC_PROC_FUNC excHook);
 
 extern UINT32 HalUnalignedAccessFix(UINTPTR mcause, UINTPTR mepc, UINTPTR mtval, VOID *sp);
 

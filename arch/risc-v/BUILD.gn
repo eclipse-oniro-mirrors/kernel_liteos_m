@@ -30,8 +30,13 @@
 import("//kernel/liteos_m/liteos.gni")
 
 module_group("risc-v") {
-  modules = [
-    "common",
-    "src",
-  ]
+  modules = [ "common" ]
+  if (defined(LOSCFG_ARCH_RISCV_NUCLEI_DEMOSOC)) {
+    # Nuclei ECLIC/SysTimer port replaces the generic risc-v src module
+    # (context/dispatch/exc/interrupt/timer are all self-contained and use
+    # the NMSIS ECLIC APIs provided by the board's SoC SDK headers).
+    modules += [ "nuclei/gcc" ]
+  } else {
+    modules += [ "src" ]
+  }
 }

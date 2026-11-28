@@ -64,14 +64,12 @@ ArchIntRestore:
     ret
 
 
-/* Start the first task.  This also clears the bit that indicates the FPU is
-    in use in case the FPU was used before the scheduler was started - which
-    would otherwise result in the unnecessary leaving of space in the stack
-    for lazy saving of FPU registers. */
-    .type HalStartToRun, %function
-    .global HalStartToRun
+/* Start the first task. a0 = newTask (LosTaskCB *), called by OsSchedStart()
+   with interrupts still disabled; never returns to the caller. */
+    .type ArchStartToRun, %function
+    .global ArchStartToRun
     .align 3
-HalStartToRun:
+ArchStartToRun:
     /* Setup Interrupt Stack using
        The stack that was used by main()
        before the scheduler is started is
@@ -79,11 +77,16 @@ HalStartToRun:
        Interrupt stack pointer is stored in CSR_MSCRATCH */
     la t0, _sp
     csrw CSR_MSCRATCH, t0
-    /* get stack pointer */
-    la t0, g_losTask
-    LOAD t1, 0x0(t0)
-    LOAD      sp, 0(t1)
-    //LOAD sp, 0x0(sp)                /* Read sp from first TCB member */
+    csrw CSR_MSCRATCHCSWL, t0
+
+    /* Publish the first task as both scheduler view (g_runTask) and
+       context owner (g_oldTask); then load its stack pointer from the
+       first TCB member. a0/t0 are safe here (dead at this call site). */
+    la t1, g_runTask
+    STORE a0, 0x0(t1)
+    la t1, g_oldTask
+    STORE a0, 0x0(t1)
+    LOAD  sp, 0x0(a0)
 
     /* Pop PC from stack and set MEPC */
     LOAD t0,  0  * REGBYTES(sp)
@@ -128,10 +131,7 @@ HalStartToRun:
 
     mret
 
-.extern HalTaskSwitch
-.align 2
-.global eclic_msip_handler
-eclic_msip_handler:
+.macro SAVE_FULL_FRAME
     addi sp, sp, -portCONTEXT_SIZE
     STORE x1,  1  * REGBYTES(sp)    /* RA */
     STORE x5,  2  * REGBYTES(sp)
@@ -163,37 +163,17 @@ eclic_msip_handler:
     STORE x30, 27 * REGBYTES(sp)
     STORE x31, 28 * REGBYTES(sp)
 #endif
-    /* Push mstatus to stack */
     csrr t0, CSR_MSTATUS
-    STORE t0,  (portRegNum - 1)  * REGBYTES(sp)
-
-    /* Push additional registers */
-
-    /* Store sp to task stack */
-    la t0, g_losTask
-    LOAD t0, 0(t0)
-    STORE sp, 0(t0)
-
+    STORE t0,  (portRegNum - 1) * REGBYTES(sp)
     csrr t0, CSR_MEPC
-    STORE t0, 0(sp)
+    STORE t0,  0 * REGBYTES(sp)
+.endm
 
-    /* Switch task context */
-    jal HalTaskSwitch
-    /* Load new task */
-    la t0, g_losTask
-    LOAD t0, 0(t0)
-    LOAD sp, 0x0(t0)                /* Read sp from first TCB member */
-
-    /* Pop PC from stack and set MEPC */
-    LOAD t0,  0  * REGBYTES(sp)
+.macro LOAD_FULL_FRAME
+    LOAD t0,  0 * REGBYTES(sp)
     csrw CSR_MEPC, t0
-    /* Pop additional registers */
-
-    /* Pop mstatus from stack and set it */
-    LOAD t0,  (portRegNum - 1)  * REGBYTES(sp)
+    LOAD t0,  (portRegNum - 1) * REGBYTES(sp)
     csrw CSR_MSTATUS, t0
-    /* Interrupt still disable here */
-    /* Restore Registers from Stack */
     LOAD x1,  1  * REGBYTES(sp)    /* RA */
     LOAD x5,  2  * REGBYTES(sp)
     LOAD x6,  3  * REGBYTES(sp)
@@ -224,6 +204,60 @@ eclic_msip_handler:
     LOAD x30, 27 * REGBYTES(sp)
     LOAD x31, 28 * REGBYTES(sp)
 #endif
-
     addi sp, sp, portCONTEXT_SIZE
+.endm
+
+    .type ArchTaskSchedule, %function
+    .global ArchTaskSchedule
+    .align 2
+ArchTaskSchedule:
+    SAVE_FULL_FRAME
+
+    csrr t0, CSR_MSTATUS
+    li   t1, (MSTATUS_MIE | MSTATUS_MPIE | MSTATUS_MPP)
+    not  t1, t1
+    and  t0, t0, t1
+    li   t1, MSTATUS_MPP
+    or   t0, t0, t1
+    STORE t0, (portRegNum - 1) * REGBYTES(sp)
+    STORE ra, 0 * REGBYTES(sp)
+
+    /* runTask->stackPointer = sp (a1 = runTask, still live) */
+    STORE sp, 0(a1)
+    /* g_oldTask = newTask: the CPU is about to load newTask's frame, the
+       scheduler already published it as g_runTask via ArchCurrTaskSet. */
+    la t0, g_oldTask
+    STORE a0, 0(t0)
+
+    /* newTask->stackPointer -> sp, resume its context */
+    LOAD sp, 0(a0)
+    LOAD_FULL_FRAME
+
+    mret
+
+    .align 2
+    .global eclic_mtip_handler
+eclic_mtip_handler:
+    SAVE_FULL_FRAME
+
+    /* OS_INT_ACTIVE bookkeeping for the ISR body */
+    la t0, g_intCount
+    lw t1, 0(t0)
+    addi t1, t1, 1
+    sw t1, 0(t0)
+
+    jal ArchTickIsr
+
+    la t0, g_intCount
+    lw t1, 0(t0)
+    addi t1, t1, -1
+    sw t1, 0(t0)
+
+    jal OsSchedProcSchedFlag
+
+    li t0, 0
+    csrw CSR_MINTSTATUS, t0
+
+    LOAD_FULL_FRAME
+
     mret

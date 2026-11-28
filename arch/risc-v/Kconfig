@@ -1,5 +1,6 @@
 # RISC-V Architecture
-# Only LinxCore131 and LinxCore170 cores are adapted here.
+# LinxCore131/LinxCore170, the QEMU virt board and the Nuclei demosoc
+# (nuclei_n) core are adapted here.
 # Note: config names omit the LOSCFG_ prefix; genconfig adds it automatically,
 # so GN checks use defined(LOSCFG_ARCH_LINXCORE_131) etc.
 
@@ -93,6 +94,19 @@ config ARCH_QEMU_RISCV32_VIRT
     help
       QEMU virt platform RISC-V 32-bit (rv32imac). Uses the standard
       RISC-V CLINT timer and memory-mapped PLIC. No custom instructions.
+
+config ARCH_RISCV_NUCLEI_DEMOSOC
+    bool
+    select ARCH_RISCV_RV32IMC
+    select ARCH_RISCV_ISA_A
+    select ARCH_RISCV32
+    select ARCH_INTERRUPT_VENDOR
+    help
+      Nuclei N300-class core on the Nuclei demosoc machine (Nuclei QEMU
+      nuclei_n, rv32imac). ECLIC interrupt controller and Nuclei SysTimer
+      are driven by the arch-level nuclei/gcc port, which replaces the
+      generic risc-v src module (module dispatch in arch/risc-v/BUILD.gn).
+      Board supplies the NMSIS headers + demosoc SoC SDK.
 
 config ARCH_LINXCORE_131
     bool

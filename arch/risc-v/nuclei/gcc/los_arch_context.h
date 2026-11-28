@@ -36,6 +36,9 @@
 #include "los_compiler.h"
 #include "los_context.h"
 
+struct LosTaskCB;
+typedef struct LosTaskCB LosTaskCB;
+
 #ifdef __cplusplus
 #if __cplusplus
 extern "C" {
@@ -82,7 +85,23 @@ typedef struct {
     STACK_TYPE mstatus;    /*              - machine status register             */
 } TaskContext;
 
-extern VOID HalStartToRun(VOID);
+extern LosTaskCB *g_runTask;
+extern LosTaskCB *g_oldTask;
+
+STATIC INLINE VOID *ArchCurrTaskGet(VOID)
+{
+    return (VOID *)g_runTask;
+}
+
+STATIC INLINE VOID ArchCurrTaskSet(VOID *val)
+{
+    g_runTask = (LosTaskCB *)val;
+}
+
+STATIC INLINE UINT32 ArchCurrCpuid(VOID)
+{
+    return 0;
+}
 
 #ifdef __cplusplus
 #if __cplusplus

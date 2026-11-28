@@ -34,17 +34,14 @@
 #include "los_config.h"
 #include "los_tick.h"
 #include "los_reg.h"
+#include "los_hwi_pri.h"
 #include "los_arch_interrupt.h"
 #include "los_arch_timer.h"
 #include "nuclei_sdk_hal.h"
 
-#define configKERNEL_INTERRUPT_PRIORITY         0
-
 #define SYSTICK_TICK_CONST  (SOC_TIMER_FREQ / LOSCFG_BASE_CORE_TICK_PER_SECOND)
 
 STATIC HWI_PROC_FUNC g_sysTickHandler = (HWI_PROC_FUNC)NULL;
-
-extern UINT32 g_intCount;
 
 STATIC UINT32 SysTickStart(HWI_PROC_FUNC handler);
 STATIC UINT64 SysTickReload(UINT64 nextResponseTime);
@@ -71,34 +68,34 @@ STATIC UINT32 SysTickStart(HWI_PROC_FUNC handler)
 
     SysTick_Config(SYSTICK_TICK_CONST);
     ECLIC_DisableIRQ(SysTimer_IRQn);
-    ECLIC_SetLevelIRQ(SysTimer_IRQn, configKERNEL_INTERRUPT_PRIORITY);
-    ECLIC_SetShvIRQ(SysTimer_IRQn, ECLIC_NON_VECTOR_INTERRUPT);
+    ECLIC_SetLevelIRQ(SysTimer_IRQn, 1);
+    ECLIC_SetShvIRQ(SysTimer_IRQn, ECLIC_VECTOR_INTERRUPT);
     ECLIC_EnableIRQ(SysTimer_IRQn);
-
-    /* Set SWI interrupt level to lowest level/priority, SysTimerSW as Vector Interrupt */
-    ECLIC_SetShvIRQ(SysTimerSW_IRQn, ECLIC_VECTOR_INTERRUPT);
-    ECLIC_SetLevelIRQ(SysTimerSW_IRQn, configKERNEL_INTERRUPT_PRIORITY);
-    ECLIC_EnableIRQ(SysTimerSW_IRQn);
-    g_intCount = 0;
+    g_intCount[ArchCurrCpuid()] = 0;
 
     g_sysTickHandler = handler;
 
     return LOS_OK; /* never return */
 }
 
-#define ArchTickSysTickHandler eclic_mtip_handler
-
-void ArchTickSysTickHandler(void)
+void ArchTickIsr(void)
 {
     /* Do systick handler registered in HalTickStart. */
     if ((void *)g_sysTickHandler != NULL) {
-        g_sysTickHandler();
+        g_sysTickHandler(NULL);
     }
 }
 
 STATIC UINT64 SysTickReload(UINT64 nextResponseTime)
 {
-    SysTick_Reload(nextResponseTime);
+    UINT64 currTime = SysTimer_GetLoadValue();
+    UINT64 reloadTime = currTime + nextResponseTime;
+    if (reloadTime > currTime) {
+        SysTimer_SetCompareValue(reloadTime);
+    } else {
+        SysTimer_SetLoadValue(0);
+        SysTimer_SetCompareValue(nextResponseTime);
+    }
     return nextResponseTime;
 }
 
@@ -107,7 +104,9 @@ STATIC UINT64 SysTickCycleGet(UINT32 *period)
     UINT64 ticks;
     UINT32 intSave = LOS_IntLock();
     ticks = SysTimer_GetLoadValue();
-    *period = (UINT32)ticks;
+    if (period != NULL) {
+        *period = (UINT32)ticks;
+    }
     LOS_IntRestore(intSave);
     return ticks;
 }

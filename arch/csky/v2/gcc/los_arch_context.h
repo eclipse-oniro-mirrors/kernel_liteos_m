@@ -34,6 +34,24 @@
 
 #include "los_config.h"
 #include "los_compiler.h"
+#include "los_context.h"
+
+extern LosTaskCB *g_newTask;
+
+STATIC INLINE VOID *ArchCurrTaskGet(VOID)
+{
+    return (VOID *)g_newTask;
+}
+
+STATIC INLINE VOID ArchCurrTaskSet(VOID *val)
+{
+    g_newTask = (LosTaskCB *)val;
+}
+
+STATIC INLINE UINT32 ArchCurrCpuid(VOID)
+{
+    return 0;
+}
 
 #ifdef __cplusplus
 #if __cplusplus
@@ -80,12 +98,6 @@ typedef struct TagTskContext {
     UINT32 EPSR;
     UINT32 EPC;
 } TaskContext;
-
-VOID HalStartToRun(VOID);
-VOID HalTaskContextSwitch(VOID);
-#ifndef CPU_CK804
-VOID HalIrqEndCheckNeedSched(VOID);
-#endif
 
 #ifdef __cplusplus
 #if __cplusplus

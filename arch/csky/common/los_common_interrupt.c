@@ -58,11 +58,6 @@ LITE_OS_SEC_TEXT_MINOR VOID HalHwiDefaultHandler(VOID)
     while (1) {}
 }
 
-STATIC UINT32 HwiNumValid(UINT32 num)
-{
-    return ((num) >= OS_USER_HWI_MIN) && ((num) <= OS_USER_HWI_MAX);
-}
-
 #if (LOSCFG_HWI_WITH_ARG == 1)
 
 /* *

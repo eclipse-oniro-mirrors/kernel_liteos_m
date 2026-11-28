@@ -27,7 +27,7 @@
 #include "los_debug.h"
 #include "nuclei_sdk_soc.h"
 
-#define INITIAL_MSTATUS                 ( MSTATUS_MPP | MSTATUS_MPIE | MSTATUS_FS_INITIAL)
+#define INITIAL_MSTATUS                 ( MSTATUS_MPP | MSTATUS_MPIE )
 #define ALIGN_DOWN(size, align)         ((size) & ~((align) - 1))
 
 LITE_OS_SEC_TEXT_INIT VOID ArchInit(VOID)
@@ -64,25 +64,5 @@ LITE_OS_SEC_TEXT_INIT VOID *ArchTaskStackInit(UINT32 taskId, UINT32 stackSize, V
     return (VOID *)context;
 }
 
-extern LosTask g_losTask;
-LITE_OS_SEC_TEXT_INIT UINT32 ArchStartSchedule(VOID)
-{
-    (VOID)LOS_IntLock();
-    OsSchedStart();
-    HalStartToRun();
-    return LOS_OK; /* never return */
-}
-
-VOID ArchTaskSchedule(VOID)
-{
-    SysTimer_SetSWIRQ();
-}
-
-VOID HalTaskSwitch(VOID)
-{
-    SysTimer_ClearSWIRQ();
-    OsSchedTaskSwitch();
-    /* Set newTask to runTask */
-    g_losTask.runTask = g_losTask.newTask;
-}
-
+LITE_OS_SEC_BSS LosTaskCB *g_runTask = NULL;
+LITE_OS_SEC_BSS LosTaskCB *g_oldTask = NULL;

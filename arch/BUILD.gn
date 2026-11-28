@@ -49,7 +49,9 @@ module_group("arch") {
     # (los_common_interrupt.c) inside the arm64 module.
     modules += [ "arm64" ]
   } else if ("$board_cpu" == "") {
-    if ("$board_arch" != string_replace("$board_arch", "rv32i", "")) {
+    # Match any rv32 base ISA (rv32i* full-ISA and rv32e* reduced-register).
+    if ("$board_arch" != string_replace("$board_arch", "rv32i", "") ||
+        "$board_arch" != string_replace("$board_arch", "rv32e", "")) {
       modules += [ "risc-v" ]
     } else if ("$board" == "esp32") {
       modules += [ "xtensa" ]

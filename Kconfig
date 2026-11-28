@@ -84,11 +84,11 @@ menu "Platform"
 ######################### config options of bsp #####################
 config PLATFORM
     string
-    default "virt"            if PLATFORM_QEMU_ARM_VIRT_CM7 || PLATFORM_QEMU_ARM_VIRT_CM4 || PLATFORM_QEMU_ARM_VIRT_CM55 || PRODUCT_QEMU_RISCV32_VIRT || PLATFORM_QEMU_CSKY_SMARTL || PLATFORM_QEMU_XTENSA_ESP32
+    default "virt"            if PLATFORM_QEMU_ARM_VIRT_CM7 || PLATFORM_QEMU_ARM_VIRT_CM4 || PLATFORM_QEMU_ARM_VIRT_CM55 || PRODUCT_QEMU_RISCV32_VIRT || PLATFORM_QEMU_CSKY_SMARTL || PLATFORM_QEMU_XTENSA_ESP32 || PLATFORM_QEMU_RISCV32_NUCLEI
 
 config DEVICE_COMPANY
     string
-    default "qemu" if PLATFORM_QEMU_ARM_VIRT_CM7 || PLATFORM_QEMU_ARM_VIRT_CM4 || PLATFORM_QEMU_ARM_VIRT_CM55 || PRODUCT_QEMU_RISCV32_VIRT || PLATFORM_QEMU_CSKY_SMARTL || PLATFORM_QEMU_XTENSA_ESP32
+    default "qemu" if PLATFORM_QEMU_ARM_VIRT_CM7 || PLATFORM_QEMU_ARM_VIRT_CM4 || PLATFORM_QEMU_ARM_VIRT_CM55 || PRODUCT_QEMU_RISCV32_VIRT || PLATFORM_QEMU_CSKY_SMARTL || PLATFORM_QEMU_XTENSA_ESP32 || PLATFORM_QEMU_RISCV32_NUCLEI
 
 choice
     prompt "Chip"
@@ -124,6 +124,14 @@ config PLATFORM_QEMU_RISCV32_VIRT
     select ARCH_QEMU_RISCV32_VIRT
     help
         QEMU RISCV Virtual Platform using riscv32 CPU.
+
+config PLATFORM_QEMU_RISCV32_NUCLEI
+    bool "qemu_riscv32_nuclei"
+    select ARCH_RISCV_NUCLEI_DEMOSOC
+    help
+        Nuclei QEMU demosoc machine (nuclei_n) with a Nuclei N300 rv32imac
+        CPU, ECLIC interrupt controller and Nuclei SysTimer. Runs with the
+        prebuilt Nuclei QEMU: qemu-system-riscv32 -M nuclei_n,download=ilm.
 
 config PLATFORM_QEMU_CSKY_SMARTL
     bool "qemu_csky_smartl"

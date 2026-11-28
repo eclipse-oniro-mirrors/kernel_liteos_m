@@ -125,22 +125,25 @@ WEAK UINT32 HalUnalignedAccessFix(UINTPTR mcause, UINTPTR mepc, UINTPTR mtval, V
 
 __attribute__((always_inline)) inline VOID HalIntEnter(VOID)
 {
-    g_intCount += 1;
+    g_intCount[ArchCurrCpuid()] += 1;
 }
 
 __attribute__((always_inline)) inline VOID HalIntExit(VOID)
 {
-    g_intCount -= 1;
+    g_intCount[ArchCurrCpuid()] -= 1;
 }
 
-/* Un-migrated arch variant: this file still owns g_hwiControllerOps + HwiControllerOpsGet
- * (pre-driver-layer model). Migrated pattern: driver-owned static ops table
- * under drivers/interrupt/ (see arm_nvic.c), selected via Kconfig. Migrate
- * this variant when it is next touched. */
+STATIC UINT32 HwiGetCurIrqNum(VOID)
+{
+    return (UINT32)(__RV_CSR_READ(CSR_MCAUSE) & 0xFFF);
+}
+
 STATIC HwiControllerOps g_hwiControllerOps = {
     .enableIrq      = HwiUnmask,
     .disableIrq     = HwiMask,
     .setIrqPriority = HwiSetPriority,
+    .getHandleForm  = HalGetHandleForm,
+    .getCurIrqNum   = HwiGetCurIrqNum,
 };
 
 HwiControllerOps *HwiControllerOpsGet(VOID)

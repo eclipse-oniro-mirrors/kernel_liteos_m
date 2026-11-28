@@ -1,0 +1,96 @@
+# Copyright (c) 2026-2026 Huawei Device Co., Ltd. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without modification,
+# are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this list of
+#    conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list of
+#    conditions and the following disclaimer in the documentation and/or other materials
+#    provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor that of its contributors may be used
+#    to endorse or promote products derived from this software without specific prior written
+#    permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS
+# OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+# AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER
+# OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+# ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+# OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
+import("../../../../liteos.gni")
+
+# Kernel -march/-mabi are composed from the Kconfig ISA symbols, same as the
+# generic risc-v src module. For the demosoc board (Nuclei N300, no FPU used
+# by the kernel) this resolves to rv32imac/ilp32. The flags land in :public,
+# which is appended after the toolchain-level baseline (last one wins).
+# The RV32E base (board_use_rv32e in the board config.gni) switches the base
+# ISA/ABI here as well: rv32emac/ilp32e -- the compiler then defines
+# __riscv_32e and the hand-written asm frame layouts shrink to 14 slots.
+
+RISCV_MARCH = "rv32im"
+RISCV_MABI = "ilp32"
+if (board_use_rv32e) {
+  RISCV_MARCH = "rv32em"
+  RISCV_MABI = "ilp32e"
+}
+if (defined(LOSCFG_ARCH_RISCV_ISA_A)) {
+  RISCV_MARCH += "a"
+}
+if (defined(LOSCFG_ARCH_RISCV_ISA_F)) {
+  RISCV_MARCH += "f"
+  RISCV_MABI = "ilp32f"
+}
+if (defined(LOSCFG_ARCH_RISCV_ISA_D)) {
+  RISCV_MARCH += "d"
+  RISCV_MABI = "ilp32d"
+}
+if (defined(LOSCFG_ARCH_RISCV_RV32IMC)) {
+  RISCV_MARCH += "c"
+}
+
+kernel_module("arch") {
+  sources = [
+    "los_context.c",
+    "los_dispatch.S",
+    "los_exc.S",
+    "los_interrupt.c",
+    "los_timer.c",
+  ]
+
+  # NMSIS headers (nmsis_core.h -> core_feature_*.h) and the SoC SDK headers
+  # (nuclei_sdk_hal.h / nuclei_sdk_soc.h -> demosoc.h) are provided by the
+  # board include dirs (config.gni board_include_dirs). Do NOT add the
+  # in-tree nmsis/ copy here: it is an older NMSIS revision that no longer
+  # matches the SoC SDK sources shipped with the board.
+}
+
+config("public") {
+  include_dirs = [
+    # The nuclei port keeps its own los_arch_*.h set: los_arch_context.h,
+    # los_arch_interrupt.h, # los_arch_timer.h and los_arch_atomic.h shadow
+    # the generic risc-v headers while this module is selected.
+    ".",
+  ]
+
+  # The board supplies the NMSIS/SoC include dirs globally via config.gni
+  # board_include_dirs; the kernel private headers come from kernel:public.
+  if (RISCV_MARCH != "") {
+    cflags = [
+      "-march=$RISCV_MARCH",
+      "-mabi=$RISCV_MABI",
+    ]
+    cflags_cc = cflags
+    asmflags = cflags
+    ldflags = [
+      "-march=$RISCV_MARCH",
+      "-mabi=$RISCV_MABI",
+    ]
+  }
+}

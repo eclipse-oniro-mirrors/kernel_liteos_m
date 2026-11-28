@@ -66,12 +66,40 @@ config KERNEL_TEST_FULL
     default n
     depends on KERNEL_TEST
 
-config TEST_BOXB_READ_BOXA_RAM
-    bool "Probe boxA private RAM from boxB (expected MPU fault)"
+config TEST_BOX_FAULT
+    bool "BOX fault isolation matrix (destructive: one box is destroyed)"
     depends on TEST_BOX_USR && BOX
     default n
     help
-      Destructive diagnostic. Do not enable in normal regression runs.
+      After its regular suite the failing box raises one CPU fault from its
+      own user-mode code. The kernel must destroy exactly that box, let the
+      other box and the kernel keep running, and pass a round of kernel
+      service checks afterwards. Counted as one extra item in the final
+      summary. Do not enable in normal regression runs.
+
+config TEST_BOX_FAULT_KIND
+    int "Fault kind raised by the failing box (1-8)"
+    depends on TEST_BOX_FAULT
+    range 1 8
+    default 1
+    help
+      1 read the other box RAM, 2 write the other box RAM,
+      3 execute the other box code, 4 undefined instruction,
+      5 branch to ARM state, 6 undefined instruction with the UsageFault
+      vector disabled (escalates to HardFault), 7 unaligned word load,
+      8 a syscall dereferencing a wild pointer: the fault happens in kernel
+      context and must stay fatal (the system halts, no summary is printed).
+
+config TEST_BOX_FAULT_BOX
+    int "Box that fails (0 = boxA, 1 = boxB)"
+    depends on TEST_BOX_FAULT
+    range 0 1
+    default 1
+
+config TEST_BOX_FAULT_SURVIVOR_EARLY
+    bool "Fail while the surviving boxA is mid-suite (boxB fails only)"
+    depends on TEST_BOX_FAULT
+    default n
 
 config KERNEL_TEST_MANUAL
     bool "Manual Kernel Test"

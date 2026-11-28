@@ -177,6 +177,22 @@ ArchTaskSchedule:
     ldr     r0, =OS_NVIC_INT_CTRL
     ldr     r1, =OS_NVIC_PENDSVSET
     str     r1, [r0]
+    /*
+     * The pending write must be visible to the exception logic BEFORE this
+     * function returns: its two callers both hand control back to the
+     * processor right here - an interrupt handler returns to the interrupted
+     * thread, and a thread-mode caller re-enables interrupts. ARMv7-M does
+     * not guarantee that a write to the System Control Space has taken
+     * effect until a DSB; without it the processor can return to the thread
+     * with PendSys still not seen as pending. Measured on Cortex-M4: the
+     * thread then executes its next SVC first (SVCall outranks PendSV),
+     * the SVC entry does its TCB bookkeeping on g_runTask - which the
+     * reschedule has already moved to another task - and two task contexts
+     * end up cross-linked. The ISB is for the thread-mode path, where the
+     * following cpsie must see the synchronized state.
+     */
+    dsb     sy
+    isb     sy
     mrs     r1, ipsr
     cmp     r1, #0
     bne     ArchTaskScheduleExit

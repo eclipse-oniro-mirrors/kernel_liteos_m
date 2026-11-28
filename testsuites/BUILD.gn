@@ -232,6 +232,11 @@ kernel_module("test_init") {
     ]
   }
 
+  if (defined(LOSCFG_TEST_BOX_FAULT)) {
+    # Post-fault kernel checks of the BOX fault isolation matrix.
+    sources += [ "src/uts_post_fault.c" ]
+  }
+
   include_dirs = [
     "unittest/posix/src",
     "unittest/xts",

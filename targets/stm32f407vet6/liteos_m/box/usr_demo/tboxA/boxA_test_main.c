@@ -22,6 +22,7 @@
 #include "los_task.h"
 #include "syscalls.h"
 #include "uts_phase.h"
+#include "uts_box_fault.h"
 #include "osTest.h"
 #if defined(LOSCFG_BOX) && defined(LOSCFG_BASE_CORE_SWTMR)
 #include "los_swtmr_usr_pri.h"   /* BoxSwtmrInit */
@@ -81,14 +82,28 @@ VOID boxTestEntry(VOID)
 #endif
 
     PRINTK("\t\n --- UTS usr phase (boxA, user mode) --- \n\n");
-#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+#ifdef LOSCFG_TEST_BOX_FAULT
+#if (UTS_FAULT_BOX == 1) && (UTS_FAULT_MIDCASE == 0)
+    /* boxB fails first: start only once the kernel has confirmed its
+     * destruction, so every case below runs after the fault. */
     while (g_utsProbeDestroyed == 0U) {
         LOS_TaskDelay(1);
     }
     dprintf("[BOXA] scheduled after boxB destruction\n");
 #endif
+#endif
     ItSuiteLosBoxUsr();
     PRINTK("--- UTS usr phase done ---\n");
+#ifdef LOSCFG_TEST_BOX_FAULT
+#if (UTS_FAULT_BOX == 0)
+    /* Appended after the regular cases on purpose: they must all have run and
+     * been counted before this box is destroyed. */
+    dprintf("[BOXA] raising fault kind=%u: entry=0x%x data=0x%x\n", (UINT32)LOSCFG_TEST_BOX_FAULT_KIND,
+            (UINT32)(UINTPTR)boxBEntry, (UINT32)OS_BOXB_POOL_ADDR);
+    UtsRaiseBoxFault((UINTPTR)boxBEntry, OS_BOXB_POOL_ADDR, (UINTPTR)LOS_Printf & ~(UINTPTR)1U);
+    dprintf("[BOXA] FAULT RETURNED: the access was not blocked\n");
+#endif
+#endif
 
     /* Report completion. Both boxes run CONCURRENTLY in this build, so the
      * coordinator needs a count, not a baton: it waits until as many suites have

@@ -50,9 +50,10 @@ volatile UINT32 g_utsDoneByWorld[UTS_DONE_WORLD_NUM] = {0};
 /* Sequential-mode baton (see UTS_CONCURRENT_MODE in uts_phase.h).
  * Only boxA writes it; only boxB reads it. */
 volatile UINT32 g_utsTurnB = 0;
-#ifdef LOSCFG_TEST_BOXB_READ_BOXA_RAM
+#ifdef LOSCFG_TEST_BOX_FAULT
 volatile UINT32 g_utsProbeState;
 volatile UINT32 g_utsProbeDestroyed;
+volatile UINT32 g_utsProbeScratch;
 #endif
 
 /* Coordinator helper: TRUE when every released suite has set its flag.

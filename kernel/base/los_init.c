@@ -117,6 +117,7 @@ LITE_OS_SEC_BSS STATIC UINTPTR g_swtmrExpiryBuf[LOSCFG_KERNEL_CORE_NUM][LOSCFG_B
 #endif
 
 __attribute__((section(".data.init"))) UINTPTR g_sys_mem_addr_end;
+
 /* temp task blocks for booting procedure */
 LITE_OS_SEC_BSS LosTaskCB                g_mainTask[LOSCFG_KERNEL_CORE_NUM];
 

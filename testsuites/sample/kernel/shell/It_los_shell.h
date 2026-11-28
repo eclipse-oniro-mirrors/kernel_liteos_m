@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
- * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -9,7 +9,7 @@
  *    conditions and the following disclaimer.
  *
  * 2. Redistributions in binary form must reproduce the above copyright notice, this list
- *    of the conditions and the following disclaimer in the documentation and/or other materials
+ *    of conditions and the following disclaimer in the documentation and/or other materials
  *    provided with the distribution.
  *
  * 3. Neither the name of the copyright holder nor the names of its contributors may be used
@@ -73,6 +73,17 @@ VOID ItLosShell018(VOID);
 VOID ItLosShell019(VOID);
 VOID ItLosShell020(VOID);
 VOID ItLosShell021(VOID);
+VOID ItLosShell022(VOID);
+VOID ItLosShell023(VOID);
+VOID ItLosShell024(VOID);
+VOID ItLosShell025(VOID);
+VOID ItLosShell026(VOID);
+VOID ItLosShell027(VOID);
+VOID ItLosShell028(VOID);
+VOID ItLosShell029(VOID);
+VOID ItLosShell030(VOID);
+VOID ItLosShell031(VOID);
+VOID ItLosShell032(VOID);
 
 #ifdef __cplusplus
 #if __cplusplus

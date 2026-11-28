@@ -25,6 +25,7 @@
 #include "los_debug.h"
 #include "soc.h"
 #include "board.h"
+#include "uart.h"
 #include <stdarg.h>
 
 void sram_put_byte(void *addr, uint8_t c)
@@ -45,6 +46,15 @@ VOID UartPuts(const CHAR *s, UINT32 len, BOOL isLock)
         while (UART0_FIFO_STATUS & UART_TX_FIFO_FULL) {}
         UART0_DATA = (uint32_t)sram_get_byte(&s[i]);
     }
+}
+
+/* Non-blocking: returns one byte, or -1 when the RX FIFO is empty. */
+INT32 UartGetc(VOID)
+{
+    if (UART0_FIFO_STATUS & UART_RX_FIFO_EMPTY) {
+        return -1;
+    }
+    return (INT32)(UART0_DATA & 0xFF);
 }
 
 void hi3322_board_init(void)

@@ -26,6 +26,15 @@ config SHELL_STACK_SIZE
     int "Shell Task Stack Size"
     default 4096
     depends on SHELL
+    help
+      Set a proper shell stack size.
+
+config SHELL_ENTRY_STACK_SIZE
+    int "Shell Entry Task Stack Size"
+    default 4096
+    depends on SHELL
+    help
+      Set a proper shell entry task stack size.
 
 config SHELL_LK
     bool "Enable Shell LK (Logger)"
@@ -47,5 +56,24 @@ config SHELL_DMESG
       becomes available. The kernel printf path (los_printf.c UartOutput)
       automatically records into the dmesg buffer via OsLogMemcpyRecord.
       See dmesg.h for the public API.
+
+config ENABLE_MAGICKEY
+    bool "Enable Magic Key"
+    default n
+    depends on SHELL
+    help
+      Answer Y to enable LiteOS shell magic key.
+        ctrl+r Magic key check switch;
+        ctrl+z Show all magic op key;
+        ctrl+t Show task information;
+        ctrl+p System panic;
+        ctrl+e Check system memory pool.
+
+config CMD_UNLOAD
+    bool "Enable Command Unload Function"
+    default n
+    depends on SHELL
+    help
+      Enable the command unload function.
 
 endmenu

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
- * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -35,6 +35,7 @@
 #include "pthread.h"
 #include "limits.h"
 #include "los_compiler.h"
+#include "los_event.h"
 
 #ifdef __cplusplus
 #if __cplusplus
@@ -52,6 +53,7 @@ extern "C" {
 #define OS_ERRNO_SHELL_SHOW_HOOK_TOO_MUCH       LOS_ERRNO_OS_ERROR(LOS_MOD_SHELL, 0x07)
 #define OS_ERRNO_SHELL_NOT_INIT                 LOS_ERRNO_OS_ERROR(LOS_MOD_SHELL, 0x08)
 #define OS_ERRNO_SHELL_CMD_HOOK_NULL            LOS_ERRNO_OS_ERROR(LOS_MOD_SHELL, 0x09)
+#define OS_ERRNO_SHELL_CMDREG_CMD_NOT_EXIST     LOS_ERRNO_OS_ERROR(LOS_MOD_SHELL, 0x0A)
 #define OS_ERRNO_SHELL_FIFO_ERROR               LOS_ERRNO_OS_ERROR(LOS_MOD_SHELL, 0x10)
 
 /* Max len of show str */
@@ -91,8 +93,9 @@ typedef struct {
     VOID     *cmdMaskKeyLink;
     UINT32   shellBufOffset;
     UINT32   shellKeyType;
-    pthread_mutex_t keyMutex;
-    pthread_mutex_t historyMutex;
+    EVENT_CB_S shellEvent;
+    UINT32   keyMutex;
+    UINT32   historyMutex;
     CHAR     shellBuf[SHOW_MAX_LEN];
     CHAR     shellWorkingDirectory[PATH_MAX];
 } ShellCB;
@@ -124,6 +127,9 @@ typedef CmdCallBackFunc CMD_CBK_FUNC;
 typedef CmdType CMD_TYPE_E;
 
 extern UINT32 osCmdReg(CmdType cmdType, const CHAR *cmdKey, UINT32 paraNum, CmdCallBackFunc cmdProc);
+#ifdef LOSCFG_CMD_UNLOAD
+extern UINT32 OsShellCmdDelete(CHAR *cmdKey);
+#endif
 
 #ifdef __cplusplus
 #if __cplusplus

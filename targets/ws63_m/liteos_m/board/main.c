@@ -20,6 +20,8 @@
 #include "soc.h"
 #include "pmp_init.h"
 #include "riscv_hal.h"
+#include "los_init_pri.h"
+#include "los_task_pri.h"
 #ifdef LOSCFG_ARCH_CACHE
 #include "arch/cache.h"
 #endif
@@ -85,6 +87,9 @@ LITE_OS_SEC_TEXT_INIT INT32 main(VOID)
 
     ws63_board_init();
     dprintf("\nWS63 ENTER MAIN\n");
+
+    OsSetMainTask();
+    OsCurrTaskSet((LosTaskCB *)OsGetMainTask());
 
     ret = osKernelInitialize();
     if (ret != LOS_OK) {

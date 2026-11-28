@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
- * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -34,6 +34,7 @@
 
 #include "shell.h"
 #include "shcmdparse.h"
+#include "los_printf.h"
 
 #ifdef __cplusplus
 #if __cplusplus
@@ -41,14 +42,23 @@ extern "C" {
 #endif /* __cplusplus */
 #endif /* __cplusplus */
 
+extern UINT32 ShellMsgParse(const CHAR *msg);
 extern UINT32 ShellMsgTypeGet(CmdParsed *cmdParsed, const CHAR *cmdType);
 extern VOID ExecCmdline(const CHAR *cmdline);
 extern UINT32 LosShellInit(VOID);
+extern UINT32 ShellTaskInit(ShellCB *shellCB);
+extern VOID ShellTaskDeinit(ShellCB *shellCB);
+extern UINT32 ShellEntryInit(ShellCB *shellCB);
+extern VOID ShellCmdLineParse(CHAR c, pf_OUTPUT outputFunc, ShellCB *shellCB);
+extern CHAR *ShellGetInputBuf(ShellCB *shellCB);
 
 #define SHELL_CMD_PARSE_EVENT   0x111
+#define SHELL_CMD_EXIT_EVENT    0x112
+#define SHELL_CMD_EVENT_MASK    0xFFF
 
 #define SH_OK  0
 #define SH_NOK 1
+
 #ifdef __cplusplus
 #if __cplusplus
 }

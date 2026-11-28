@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
- * Copyright (c) 2020-2022 Huawei Device Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -94,6 +94,7 @@ SECTIONS
   .data : {
     __data_start = . ;
     *(.data .data.* .gnu.linkonce.d.*)
+    KEEP(*( SORT (.liteos.table.*)));
   } > ram
 
   .sysinitcall : ALIGN(0x4) {

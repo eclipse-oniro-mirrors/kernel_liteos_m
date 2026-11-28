@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
- * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
  * are permitted provided that the following conditions are met:
@@ -45,6 +45,7 @@ extern "C" {
 extern CHAR *OsShellGetWorkingDirtectory(VOID);
 extern UINT32 OsShellInit(VOID);
 extern INT32 OsShellDeinit(INT32 consoleId);
+extern ShellCB *OsGetShellCb(VOID);
 
 STATIC INLINE VOID SetErrno(INT32 errcode)
 {

@@ -1,32 +1,33 @@
 /*
  * Copyright (c) 2013-2019 Huawei Technologies Co., Ltd. All rights reserved.
- * Copyright (c) 2020-2021 Huawei Device Co., Ltd. All rights reserved.
+ * Copyright (c) 2020-2026 Huawei Device Co., Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without modification,
- * are permitted provided under the following conditions:
+ * are permitted provided that the following conditions are met:
  *
  * 1. Redistributions of source code must retain the above copyright notice, this list of
- * conditions and the following disclaimer.
+ *    conditions and the following disclaimer.
  *
- * 2. Redistributions in binary form must reproduce the above copyright notice, this list of
- * conditions and the following disclaimer in the documentation and/or other materials
- * provided with the distribution.
+ * 2. Redistributions in binary form must reproduce the above copyright notice, this list
+ *    of conditions and the following disclaimer in the documentation and/or other materials
+ *    provided with the distribution.
  *
  * 3. Neither the name of the copyright holder nor the names of its contributors may be used
- * to endorse or promote products derived from this software without specific prior written
- * permission.
+ *    to endorse or promote products derived from this software without specific prior written
+ *    permission.
  *
- * THIS SOFTWARE IS PROVIDED BY COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
- * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF THE POSSIBILITY OF SUCH
- * DAMAGE IS ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 
 #include "It_los_shell.h"
 #include "shcmd.h"
@@ -37,8 +38,8 @@
 /* 回调返回特征值基址,用于断言 OsCmdExec 对自定义命令回调返回值的透传 */
 #define SHELL_REG_TEST_RET_BASE 0x5A00
 
-/* 测试副作用声明: osCmdReg 无卸载接口,本用例注册的 "tc_reg006" 命令将永久保留在
- * 命令表中;命令名使用 "tc_" 前缀,不会与 g_shellcmdAll 中的真实命令冲突,无碍后续用例 */
+/* 本用例注册的 "tc_reg006" 在用例尾部经 CMD_UNLOAD 卸载,无永久副作用;
+ * 未开 CMD_UNLOAD 的配置下命令会保留在表中, "tc_" 前缀不与现有命令冲突 */
 static volatile UINT32 g_regCalls;
 static UINT32 g_lastArgc;
 static CHAR g_lastArg0[CMD_KEY_LEN];
@@ -129,7 +130,7 @@ static UINT32 Testcase(VOID)
     cmdParsed.cmdType = CMD_TYPE_EX;
     ShellTestKeyCpy(cmdParsed.cmdKeyword, "tc_reg006", sizeof(cmdParsed.cmdKeyword));
     cmdParsed.paramCnt = 0;
-    ret = OsCmdExec(&cmdParsed);
+    ret = OsCmdExec(&cmdParsed, NULL);
     ICUNIT_ASSERT_EQUAL(ret, SHELL_REG_TEST_RET_BASE, ret);
     ICUNIT_ASSERT_EQUAL(g_regCalls, 1, g_regCalls);
     ICUNIT_ASSERT_EQUAL(g_lastArgc, 0, g_lastArgc);
@@ -145,7 +146,7 @@ static UINT32 Testcase(VOID)
     ShellTestKeyCpy(cmdParsed.paramArray[0], "hello", 8);
     cmdParsed.paramCnt = 1;
     g_lastArgc = 0xFFFFFFFFU;
-    ret = OsCmdExec(&cmdParsed);
+    ret = OsCmdExec(&cmdParsed, NULL);
     ICUNIT_ASSERT_EQUAL(ret, SHELL_REG_TEST_RET_BASE + 1, ret);
     ICUNIT_ASSERT_EQUAL(g_lastArgc, 1, g_lastArgc);
     ICUNIT_ASSERT_STRING_EQUAL(g_lastArg0, "hello", 0);
@@ -155,11 +156,11 @@ static UINT32 Testcase(VOID)
     cmdParsed.cmdType = CMD_TYPE_EX;
     ShellTestKeyCpy(cmdParsed.cmdKeyword, "tc_nosuch006", sizeof(cmdParsed.cmdKeyword));
     cmdParsed.paramCnt = 0;
-    ret = OsCmdExec(&cmdParsed);
+    ret = OsCmdExec(&cmdParsed, NULL);
     ICUNIT_ASSERT_EQUAL(ret, (UINT32)OS_ERROR, ret);
 
     /* F-Inv: OsCmdExec NULL 入参防御,返回 OS_ERROR */
-    ret = OsCmdExec(NULL);
+    ret = OsCmdExec(NULL, NULL);
     ICUNIT_ASSERT_EQUAL(ret, (UINT32)OS_ERROR, ret);
 
     /* F-Pos: OsShellCmdHelp 直调(argc=0),经注册表遍历打印全部命令,返回 0 */
@@ -172,6 +173,12 @@ static UINT32 Testcase(VOID)
 
     /* 负路径均未误触自定义回调 */
     ICUNIT_ASSERT_EQUAL(g_regCalls, 2, g_regCalls);
+
+#ifdef LOSCFG_CMD_UNLOAD
+    /* 清理: 卸载本用例注册的命令,重注册路径已被 031 覆盖 */
+    ret = OsShellCmdDelete("tc_reg006");
+    ICUNIT_ASSERT_EQUAL(ret, LOS_OK, ret);
+#endif
 
     return LOS_OK;
 }
